@@ -1,0 +1,528 @@
+INTComp	equ	$0
+
+	dc.l	$01000000,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0
+	dc.l	$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0
+	dc.l	$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0
+	dc.l	$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0
+	dc.l	$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0
+	dc.l	$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0
+	dc.l	$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0
+	dc.l	$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0,$3F0
+	dc.b	'SEGA GENESIS    '
+	dc.b	'(C)SEGA 2000.DEC'
+	dc.b	'32X GAME        '
+	dc.b	'                '
+	dc.b	'                '
+	dc.b	'32X GAME        '
+	dc.b	'                '
+	dc.b	'                '
+	dc.b	'GM MK-0000 -00'
+	dc.w	$0000
+	dc.b	'J6              '
+	dc.l	$00000000,$003FFFFF
+	dc.l	$00E00000,$00FFFFFF
+	dc.b	'                '
+	dc.b	'                '
+	dc.b	'                '
+	dc.b	'                '
+	dc.b	'JUE             '
+
+ResetCode:
+	jmp	start
+;	ds.b	6-(@-($200+6*0))	; Do Not Change This Line!!!
+	dc.l	INTComp
+
+BusError:
+	rte
+	dc.l	INTComp
+
+AddressError:
+	rte
+	dc.l	INTComp
+
+IllegalInstruction:
+	rte
+	dc.l	INTComp
+
+DivideByZERO:
+	rte
+	dc.l	INTComp
+
+CHKInstruction:
+	rte
+	dc.l	INTComp
+
+TRAPVInstruction:
+	rte
+	dc.l	INTComp
+
+PrivilegeViolation:
+	rte
+	dc.l	INTComp
+
+Trace:
+	rte
+	dc.l	INTComp
+
+Line1010Emulator:
+	rte
+	dc.l	INTComp
+
+Line1111Emulator:
+	rte
+	dc.l	INTComp
+
+SpuriousInterrupt:
+	rte
+	dc.l	INTComp
+
+Level1Interrupt:
+	rte
+	dc.l	INTComp
+
+Level2Interrupt:
+	rte			; TH
+	dc.l	INTComp
+
+Level3Interrupt:
+	rte
+	dc.l	INTComp
+
+Level4Interrupt:
+	rte			; HBL
+	dc.l	INTComp
+
+Level5Interrupt:
+	rte
+	dc.l	INTComp
+
+Level6Interrupt:
+	rte			; VBL
+	dc.l	INTComp
+
+Level7Interrupt:
+	rte
+	dc.l	INTComp
+
+Trap0Instruction:
+	rte
+	dc.l	INTComp
+
+Trap1Instruction:
+	rte
+	dc.l	INTComp
+
+Trap2Instruction:
+	rte
+	dc.l	INTComp
+
+Trap3Instruction:
+	rte
+	dc.l	INTComp
+
+Trap4Instruction:
+	rte
+	dc.l	INTComp
+
+Trap5Instruction:
+	rte
+	dc.l	INTComp
+
+Trap6Instruction:
+	rte
+	dc.l	INTComp
+
+Trap7Instruction:
+	rte
+	dc.l	INTComp
+
+Trap8Instruction:
+	rte
+	dc.l	INTComp
+
+Trap9Instruction:
+	rte
+	dc.l	INTComp
+
+Trap10Instruction:
+	rte
+	dc.l	INTComp
+
+Trap11Instruction:
+	rte
+	dc.l	INTComp
+
+Trap12Instruction:
+	rte
+	dc.l	INTComp
+
+Trap13Instruction:
+	rte
+	dc.l	INTComp
+
+Trap14Instruction:
+	rte
+	dc.l	INTComp
+
+Trap15Instruction:
+	rte
+	dc.l	INTComp
+
+* Hardware Manual 5.1 Boot ROM
+* TYPO : The HWManual, section 5.1 Boot ROM states the user header is from $3C0 to $3ED. The user header must be from $3C0 to $3EF.
+* TYPO : The HWManual, section 5.1 Boot ROM states the module name is 'MARS CHECK MODE'. The module name must be 'MARS CHECK MODE ' (watch the space at the end), 16 bytes long.
+* The Master SH2 BIOS loads source ($3D4), destination and size from here.
+	org	$3C0
+MARSInitHeader:
+	dc.b	'MARS CHECK MODE '	; Module Name, 16 (error) bytes
+	dc.l	$0			; Version
+	dc.l	$0000C000		; Source
+	dc.l	$0			; Destination
+	dc.l	$00004000		; Size
+	dc.l	$06000120		; Master SH2 Start Address
+	dc.l	$06002000		; Slave SH2 Start Address
+	dc.l	$06000000		; Master SH2 VBR
+	dc.l	$06002000		; Slave SH2 VBR
+
+* DevSter EZ Header
+*__32xcode:
+*	align	4
+*__32x_source:
+*	dc.b	$AF,$FE,$00,$09		; 32x forever loop code
+*__slave_sh2_start:
+*	dc.b	$AF,$FE,$00,$09		; 32x forever loop code
+*__32x_source_end:
+*__32xcode_end:
+*
+*	ds.b	186-(__32xcode_end-__32xcode)
+*	dc.l	__32x_source			; Source
+*	dc.l	$00000000			; Destination
+*	dc.l	__32x_source_end-__32x_source	; Size
+*	dc.l	$06000000			; Master SH2 Jump
+*	dc.l	(__slave_sh2_start-__32x_source)+$06000000	; Slave SH2 Jump
+*	dc.l	$00000000			; Master SH2 VBR
+*	dc.l	$00000000			; Slave SH2 VBR
+
+	org	$3F0
+000003F0 287C FFFFFFC0            MOVE.L    #$FFFFFFC0,A4
+000003F6 23FC 00000000 00A15128   MOVE.L    #$00000000,$00A15128
+00000400 46FC 2700                MOVE      #$2700,SR
+00000404 4BF9 00A10000            LEA       $00A10000,A5
+0000040A 7001                     MOVEQ     #$01,D0
+0000040C 0CAD 4D415253 30EC       CMP.L     #$4D415253,$30EC(A5)	; if !"MARS" set Carry bit	Who writes "MARS" ? @37A in Master SH2 BIOS ?
+00000414 6600 03E6                BNE       $000007FC(pc)		; then Crash
+00000418 082D 0007 5101           BTST      #$07,$5101(A5)		; while (SH Reset not enabled) ;
+0000041E 67F8                     BEQ       $00000418
+00000420 4AAD 0008                TST.L     $0008(A5)			; Test CTRL 1
+00000424 6710                     BEQ       $00000436
+00000426 4A6D 000C                TST.W     $000C(A5)			; Test CTRL 2
+0000042A 670A                     BEQ       $00000436
+0000042C 082D 0000 5101           BTST      #$00,$5101(A5)		; Test ADEN (Adapter Enable 32x allowed)
+00000432 6600 03B8                BNE       $000007EC(pc)		; OK, no Adapter Enable, so I will run in 68k only
+00000436 102D 0001                MOVE.B    $0001(A5),D0		; SEGA Genesis Security Code
+0000043A 0200 000F                AND.B     #$0F,D0
+0000043E 6706                     BEQ       $00000446
+00000440 2B78 055A 4000           MOVE.L    $055A,$4000(A5)		Put "SEGA", $55A within security code
+00000446 7200                     MOVEQ     #$00,D1
+00000448 2C41                     MOVE.L    D1,A6
+0000044A 4E66                     MOVE      A6,USP
+0000044C 41F9 000004D4            LEA       $000004D4,A0
+00000452 6100 0152                BSR       $000005A6(pc)		Call VDPInit
+00000456 6100 0176                BSR       $000005CE(pc)		Call clearVDP
+0000045A 47F9 000004E8            LEA       $000004E8,A3		\
+00000460 43F9 00A00000            LEA       $00A00000,A1		|
+00000466 45F9 00C00011            LEA       $00C00011,A2		|
+0000046C 3E3C 0100                MOVE.W    #$0100,D7			|
+00000470 7000                     MOVEQ     #$00,D0			|
+00000472 3B47 1100                MOVE.W    D7,$1100(A5)		|
+00000476 3B47 1200                MOVE.W    D7,$1200(A5)		|
+0000047A 012D 1100                BTST      D0,$1100(A5)		|
+0000047E 66FA                     BNE       $0000047A			|
+00000480 7425                     MOVEQ     #$25,D2			|
+00000482 12DB                     MOVE.B    (A3)+,(A1)+			| Load program into Z80 RAM
+00000484 51CA FFFC                DBRA      D2,$00000482		|
+00000488 3B40 1200                MOVE.W    D0,$1200(A5)		|
+0000048C 3B40 1100                MOVE.W    D0,$1100(A5)		|
+00000490 3B47 1200                MOVE.W    D7,$1200(A5)		/
+00000494 149B                     MOVE.B    (A3)+,(A2)			Load PSG
+00000496 149B                     MOVE.B    (A3)+,(A2)
+00000498 149B                     MOVE.B    (A3)+,(A2)
+0000049A 149B                     MOVE.B    (A3)+,(A2)
+0000049C 41F9 000004C0            LEA       $000004C0,A0		Copy Program in 68k RAM
+000004A2 43F9 00FF0000            LEA       $00FF0000,A1
+000004A8 22D8                     MOVE.L    (A0)+,(A1)+
+000004AA 22D8                     MOVE.L    (A0)+,(A1)+
+000004AC 22D8                     MOVE.L    (A0)+,(A1)+
+000004AE 22D8                     MOVE.L    (A0)+,(A1)+
+000004B0 22D8                     MOVE.L    (A0)+,(A1)+
+000004B2 22D8                     MOVE.L    (A0)+,(A1)+			useless ???
+000004B4 22D8                     MOVE.L    (A0)+,(A1)+			useless ???
+000004B6 22D8                     MOVE.L    (A0)+,(A1)+			useless ???
+000004B8 41F9 00FF0000            LEA       $00FF0000,A0
+000004BE 4ED0                     JMP       (A0)			Start the 32x from the Genesis RAM
+000004C0 1B7C 0001 5101           MOVE.B    #$01,$5101(A5)		Set ADEN, ie enable 32x, the 68k memory map changes
+000004C6 41F9 000006BC            LEA       $000006BC,A0
+000004CC D1FC 00880000            ADD.L     #$00880000,A0		(Cart ROM resides now at 0088 0000h for the 68k)
+000004D2 4ED0                     JMP       (A0)			then jump to 0088 06BC (actually 0000 06BCh)
+
+	org	$4D4
+InitVDPData:
+	dc.b	$04	; Reg. 0, no HInt, no HV counter
+	dc.b	$04	; Reg. 1, no DISP, no VInt, no DMA, V28
+	dc.b	$30	; Reg. 2, A plane = 0xC000
+	dc.b	$3C	; Reg. 3, W plane = 0xF000
+	dc.b	$07	; Reg. 4, B plane = 0xE000
+	dc.b	$6C	; Reg. 5, Sprites = 0xD800
+	dc.b	$00
+	dc.b	$00	; Reg. 7, Background color = #0
+	dc.b	$00
+	dc.b	$00
+	dc.b	$FF	; Reg. 10, HInt mask
+	dc.b	$00	; Reg. 11, no ExtInt, Full Screen VScroll, Full Screen HScroll
+	dc.b	$81	; Reg. 12, H40
+	dc.b	$37	; Reg. 13, H scroll = 0xDC00
+	dc.b	$00
+	dc.b	$02	; Reg. 15, Increment n° = 2
+	dc.b	$01	; Reg. 16, 64 x 32 scroll pane
+	dc.b	$00	; W VPos = 0
+	dc.b	$00	; W VPos = 0
+	dc.b	$00	; Padder
+
+	org	$4E8
+Z80RAM:
+000004E8 AF01                     OR.B      #$01,D0
+000004EA D91F                     ADDX.B    (A7)+,D4
+000004EC 1127                     MOVE.B    -(A7),-(A0)
+000004EE 0021 2600                OR.B      #$00,-(A1)
+000004F2 F977                     Invalid
+000004F4 EDB0                     ROXL.L    D6,D0
+000004F6 DDE1                     ADD.L     -(A1),A6
+000004F8 FDE1                     Invalid
+000004FA ED47                     ASL.W     #6,D7
+000004FC ED4F                     LSL.W     #6,D7
+000004FE D1E1                     ADD.L     -(A1),A0
+00000500 F108                     Invalid
+00000502 D9C1                     ADD.L     D1,A4
+00000504 D1E1                     ADD.L     -(A1),A0
+00000506 F1F9                     Invalid
+00000508 F3ED                     Invalid
+0000050A 5636 E9E9                ADDQ.B    #$3,$E9(A6,A4.W)
+
+	org	$50E
+PSGData:
+0000050E 9FBF                     8i       #$7,
+00000510 DFFF                     ADD.L     ,A7
+
+	org	$512
+SecurityCode:
+	dc.b	  'MARS Initial &'
+	dc.b	' Security Progra'
+	dc.b	'm          Cartr'
+	dc.b	'idge Version    '
+	dc.b	'Copyright SEGA E'
+	dc.b	'NTERPRISES,LTD. '
+	dc.b	'1994            '
+	dc.b	'                '
+	dc.b	'      ROM Versio'
+	dc.b	'n 1.0',$0
+
+	org	$5A6
+VDPInit:
+000005A6 48E7 C040                MOVEM.L   D0-D1/A1,-(A7)
+000005AA 43F9 00C00004            LEA       $00C00004,A1
+000005B0 3011                     MOVE.W    (A1),D0
+000005B2 303C 8000                MOVE.W    #$8000,D0
+000005B6 323C 0100                MOVE.W    #$0100,D1
+000005BA 3E3C 0012                MOVE.W    #$0012,D7
+000005BE 1018                     MOVE.B    (A0)+,D0
+000005C0 3280                     MOVE.W    D0,(A1)
+000005C2 D041                     ADD.W     D1,D0
+000005C4 51CF FFF8                DBRA      D7,$000005BE
+000005C8 4CDF 0203                MOVEM.L   (A7)+,D0-D1/A1
+000005CC 4E75                     RTS
+
+	org	$5CE
+ClearVDP:
+000005CE 48E7 81C0                MOVEM.L   D0/D7/A0-A1,-(A7)
+000005D2 41F9 0000063E            LEA       $0000063E,A0	; Clear Genesis VRAM
+000005D8 43F9 00C00004            LEA       $00C00004,A1
+000005DE 3298                     MOVE.W    (A0)+,(A1)
+000005E0 3298                     MOVE.W    (A0)+,(A1)
+000005E2 3298                     MOVE.W    (A0)+,(A1)
+000005E4 3298                     MOVE.W    (A0)+,(A1)
+000005E6 3298                     MOVE.W    (A0)+,(A1)
+000005E8 3298                     MOVE.W    (A0)+,(A1)
+000005EA 3298                     MOVE.W    (A0)+,(A1)
+000005EC 2298                     MOVE.L    (A0)+,(A1)
+000005EE 3341 FFFC                MOVE.W    D1,-$0004(A1)
+000005F2 3011                     MOVE.W    (A1),D0
+000005F4 0800 0001                BTST      #$01,D0
+000005F8 66F8                     BNE       $000005F2
+000005FA 3298                     MOVE.W    (A0)+,(A1)
+000005FC 3298                     MOVE.W    (A0)+,(A1)
+000005FE 7000                     MOVEQ     #$00,D0		; Clear Genesis Palette
+00000600 22BC C0000000            MOVE.L    #$C0000000,(A1)
+00000606 7E0F                     MOVEQ     #$0F,D7
+00000608 3340 FFFC                MOVE.W    D0,-$0004(A1)
+0000060C 3340 FFFC                MOVE.W    D0,-$0004(A1)
+00000610 3340 FFFC                MOVE.W    D0,-$0004(A1)
+00000614 3340 FFFC                MOVE.W    D0,-$0004(A1)
+00000618 51CF FFEE                DBRA      D7,$00000608
+0000061C 22BC 40000010            MOVE.L    #$40000010,(A1)	; Clear Genesis VSRAM
+00000622 7E09                     MOVEQ     #$09,D7
+00000624 3340 FFFC                MOVE.W    D0,-$0004(A1)
+00000628 3340 FFFC                MOVE.W    D0,-$0004(A1)
+0000062C 3340 FFFC                MOVE.W    D0,-$0004(A1)
+00000630 3340 FFFC                MOVE.W    D0,-$0004(A1)
+00000634 51CF FFEE                DBRA      D7,$00000624
+00000638 4CDF 0381                MOVEM.L   (A7)+,D0/D7/A0-A1
+0000063C 4E75                     RTS
+
+	org	$63E
+ClearVRAMData:
+	dc.w	$8114		; Register values to perform a DMA fill
+	dc.w	$8F01
+	dc.w	$93FF
+	dc.w	$94FF		; DMA size = 0xFFFF
+	dc.w	$9500
+	dc.w	$9600
+	dc.w	$9780
+	dc.l	$40000080	; DMA dest = 0x0000 (VRAM)
+	dc.w	$8104
+	dc.w	$8F02
+
+	org	$654
+clearDRAM:
+00000654 48E7 C140                MOVEM.L   D0-D1/D7/A1,-(A7)	; Clear 32x DRAM (Frame Buffer)
+00000658 43F9 00A15180            LEA       $00A15180,A1
+0000065E 08A9 0007 FF80           BCLR      #$07,-$0080(A1)
+00000664 66F8                     BNE       $0000065E
+00000666 3E3C 00FF                MOVE.W    #$00FF,D7
+0000066A 7000                     MOVEQ     #$00,D0
+0000066C 7200                     MOVEQ     #$00,D1
+0000066E 337C 00FF 0004           MOVE.W    #$00FF,$0004(A1)
+00000674 3341 0006                MOVE.W    D1,$0006(A1)
+00000678 3340 0008                MOVE.W    D0,$0008(A1)
+0000067C 4E71                     NOP
+0000067E 0829 0001 000B           BTST      #$01,$000B(A1)
+00000684 66F8                     BNE       $0000067E
+00000686 0641 0100                ADD.W     #$0100,D1
+0000068A 51CF FFE8                DBRA      D7,$00000674
+0000068E 4CDF 0283                MOVEM.L   (A7)+,D0-D1/D7/A1
+00000692 4E75                     RTS
+
+	org	$694
+clearPalette:
+00000694 48E7 8180                MOVEM.L   D0/D7/A0,-(A7)	; Clear 32x Palette
+00000698 41F9 00A15200            LEA       $00A15200,A0
+0000069E 08A8 0007 FF00           BCLR      #$07,-$0100(A0)
+000006A4 66F8                     BNE       $0000069E
+000006A6 3E3C 001F                MOVE.W    #$001F,D7
+000006AA 20C0                     MOVE.L    D0,(A0)+
+000006AC 20C0                     MOVE.L    D0,(A0)+
+000006AE 20C0                     MOVE.L    D0,(A0)+
+000006B0 20C0                     MOVE.L    D0,(A0)+
+000006B2 51CF FFF6                DBRA      D7,$000006AA
+000006B6 4CDF 0181                MOVEM.L   (A7)+,D0/D7/A0
+000006BA 4E75                     RTS
+
+	org	$6BC
+init32x:
+000006BC 41F9 00FF0000            LEA       $00FF0000,A0
+000006C2 3E3C 07FF                MOVE.W    #$07FF,D7
+000006C6 7000                     MOVEQ     #$00,D0
+000006C8 20C0                     MOVE.L    D0,(A0)+		; Clear Genesis RAM
+000006CA 20C0                     MOVE.L    D0,(A0)+
+000006CC 20C0                     MOVE.L    D0,(A0)+
+000006CE 20C0                     MOVE.L    D0,(A0)+
+000006D0 20C0                     MOVE.L    D0,(A0)+
+000006D2 20C0                     MOVE.L    D0,(A0)+
+000006D4 20C0                     MOVE.L    D0,(A0)+
+000006D6 20C0                     MOVE.L    D0,(A0)+
+000006D8 51CF FFEE                DBRA      D7,$000006C8
+000006DC 3B7C 0000 1200           MOVE.W    #$0000,$1200(A5)
+000006E2 7E0A                     MOVEQ     #$0A,D7
+000006E4 51CF FFFE                DBRA      D7,$000006E4
+000006E8 43F9 00A15100            LEA       $00A15100,A1	; Clear 32x registers
+000006EE 7000                     MOVEQ     #$00,D0
+000006F0 2340 0020                MOVE.L    D0,$0020(A1)
+000006F4 2340 0024                MOVE.L    D0,$0024(A1)
+000006F8 1B7C 0003 5101           MOVE.B    #$03,$5101(A5)
+000006FE 2E79 00880000            MOVE.L    $00880000,A7
+00000704 0891 0007                BCLR      #$07,(A1)
+00000708 66FA                     BNE       $00000704
+0000070A 7000                     MOVEQ     #$00,D0
+0000070C 3340 0002                MOVE.W    D0,$0002(A1)
+00000710 3340 0004                MOVE.W    D0,$0004(A1)
+00000714 3340 0006                MOVE.W    D0,$0006(A1)
+00000718 2340 0008                MOVE.L    D0,$0008(A1)
+0000071C 2340 000C                MOVE.L    D0,$000C(A1)
+00000720 3340 0010                MOVE.W    D0,$0010(A1)
+00000724 3340 0030                MOVE.W    D0,$0030(A1)
+00000728 3340 0032                MOVE.W    D0,$0032(A1)
+0000072C 3340 0038                MOVE.W    D0,$0038(A1)
+00000730 3340 0080                MOVE.W    D0,$0080(A1)
+00000734 3340 0082                MOVE.W    D0,$0082(A1)
+00000738 08A9 0000 008B           BCLR      #$00,$008B(A1)
+0000073E 66F8                     BNE       $00000738
+00000740 6100 FF12                BSR       $00000654(pc)	; Clear 32x Frame Buffer 0
+00000744 08E9 0000 008B           BSET      #$00,$008B(A1)
+0000074A 67F8                     BEQ       $00000744
+0000074C 6100 FF06                BSR       $00000654(pc)	; Clear 32x Frame Buffer 1
+00000750 08A9 0000 008B           BCLR      #$00,$008B(A1)
+00000756 6100 FF3C                BSR       $00000694(pc)	; Clear 32x Palette
+
+0000075A 303C 0040                MOVE.W    #$0040,D0
+0000075E 2229 0020                MOVE.L    $0020(A1),D1
+00000762 0C81 53514552            CMP.L     #$53514552,D1	; if SQER (Security Code Mismatch)
+00000768 6700 0092                BEQ       $000007FC(pc)
+0000076C 303C 0080                MOVE.W    #$0080,D0
+00000770 2229 0020                MOVE.L    $0020(A1),D1
+00000774 0C81 53444552            CMP.L     #$53444552,D1	; if SDER (SDRAM Check Error)
+0000077A 6700 0080                BEQ       $000007FC(pc)
+0000077E 21FC 008802A2 0070       MOVE.L    #$008802A2,$0070	;0x70 = TRAP7IntComp ???
+00000786 303C 0002                MOVE.W    #$0002,D0
+0000078A 7200                     MOVEQ     #$00,D1
+* VMOD has to be set
+0000078C 122D 0001                MOVE.B    $0001(A5),D1	; D1 = Genesis Version N°
+00000790 1429 0080                MOVE.B    $0080(A1),D2	; D2 = 0xA15180 32x VDP Reg
+00000794 E14A                     LSL.W     #8,D2
+00000796 8242                     OR.W      D2,D1		; D1 = PRI 240 - - - - M1 M0 MODE VMOD DISK RSV VER3 VER2 VER1 VER0
+00000798 0801 000F                BTST      #$0F,D1		; if PRI (32x has priority)
+0000079C 660A                     BNE       $000007A8
+0000079E 0801 0006                BTST      #$06,D1		;	IF !VMOD (VMOD set when PAL)
+000007A2 6700 0058                BEQ       $000007FC(pc)	;		goto Crash
+000007A6 6008                     BRA       $000007B0		;
+000007A8 0801 0006                BTST      #$06,D1		; else if VMOD
+000007AC 6600 004E                BNE       $000007FC(pc)	;	goto Crash
+
+000007B0 7020                     MOVEQ     #$20,D0
+000007B2 41F9 00880000            LEA       $00880000,A0
+000007B8 3C28 018E                MOVE.W    $018E(A0),D6	;
+000007BC 4A46                     TST.W     D6			; if Checksum != 0
+000007BE 6700 0010                BEQ       $000007D0(pc)
+000007C2 3429 0028                MOVE.W    $0028(A1),D2
+000007C6 0C42 0000                CMP.W     #$0000,D2
+000007CA 67F6                     BEQ       $000007C2		;	while (!CommPort(8)) ;
+000007CC B446                     CMP.W     D6,D2		;	if (CommPort(8)!=20)
+000007CE 662C                     BNE       $000007FC		;		goto Crash
+000007D0 7000                     MOVEQ     #$00,D0		; 	else {
+000007D2 2340 0028                MOVE.L    D0,$0028(A1)	;		CommPort(8) = 0;
+000007D6 2340 002C                MOVE.L    D0,$002C(A1)	;		CommPort(0xC) = 0;}
+000007DA 3E14                     MOVE.W    (A4),D7		; Remember @3F0, A4 = $FFFFFFC0 ?
+000007DC 2C7C FFFFFFC0            MOVE.L    #$FFFFFFC0,A6
+000007E2 4CD6 7FF9                MOVEM.L   (A6),D0/D3-D7/A0-A6
+000007E6 44FC 0000                MOVE      #$00,CCR
+000007EA 6014                     BRA       $00000800
+
+000007EC 43F9 00A15100            LEA       $00A15100,A1	; Hello, I come from @432 and D0 = 1
+000007F2 3340 0006                MOVE.W    D0,$0006(A1)	; Could you please start DMA (0xA15106, DREQ CR) and thus,
+000007F6 303C 8000                MOVE.W    #$8000,D0		; prevent 32x from accessing ROM ?
+000007FA 6004                     BRA       $00000800
+
+	org	$7FC
+Crash:
+	move	#1,CCR		; Crash doorway
+	bcs	$800		; I assume there should be an endless loop here, to prevent SQER or SDER
+
+start:

@@ -1,0 +1,32 @@
+plugins {
+    id 'java'
+}
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    //START helios
+    compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.14.1'
+    compile group: 'com.google.guava', name: 'guava', version: '31.0.1-jre'
+    compile group: 'org.jctools', name: 'jctools-core', version: '3.3.0'
+    compile group: 'org.jaudiolibs', name: 'audioservers-javasound', version: '2.0.0'
+    compile group: 'org.digitalmediaserver', name: 'cuelib-core', version: '2.0.0'
+    compile group: 'com.github.trilarion', name: 'java-vorbis-support', version: '1.2.1'
+    compile group: 'net.java.jinput', name: 'jinput', version: '2.0.9'
+
+    //include local jars
+    compile fileTree(dir: 'lib', include: ['*.jar'])
+    //END helios
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+}
+
+test {
+    useJUnitPlatform()
+}

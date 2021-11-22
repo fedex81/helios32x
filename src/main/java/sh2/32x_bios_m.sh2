@@ -1,0 +1,352 @@
+	DC.L	resetPC		; Power-on reset PC
+	DC.L	$06040000	;Power-on reset SP
+	DC.L	resetPC		; Manual reset PC
+	DC.L	$06040000	;Manual reset SP
+	DC.L	ERR		;General illegal instruction
+	DC.L	0		;Reserved
+	DC.L	ERR		;Slot illegal instruction
+	DC.L	$20100400	;Reserved
+	DC.L	$20100420	;Reserved
+	DC.L	ERR		;CPU address error
+	DC.L	ERR		;DMA address error
+	DC.L	ERR		;Interrupt NMI
+	DC.L	ERR		;Interrupt
+
+	DS.B	$80-*
+
+	DC.L	ERR,ERR,ERR,ERR
+	DC.L	ERR,ERR,ERR,ERR
+	DC.L	ERR,ERR,ERR,ERR
+	DC.L	ERR,ERR,ERR,ERR
+	DC.L	ERR,ERR,ERR,ERR
+	DC.L	ERR,ERR,ERR,ERR
+	DC.L	ERR,ERR,ERR,ERR
+	DC.L	ERR,ERR,ERR,ERR
+	DC.L	ERR,ERR,ERR,ERR
+	DC.L	ERR,ERR,ERR,ERR
+	DC.L	ERR,ERR,ERR,ERR
+	DC.L	ERR,ERR,ERR
+
+ERR:
+	BRA	ERR
+	NOP
+
+resetPC:
+	MOV.L	MASK_ALL_INT,R0
+	LDC	R0,SR
+
+	MOV	#0,R0
+	MOV	#0,R1
+	MOV	#0,R2
+	MOV	#0, R3
+	MOV	#0,R4
+	MOV	#0,R5
+	MOV	#0,R6
+	MOV	#0,R7
+	MOV	#0,R8
+	MOV	#0,R9
+	MOV	#0,R10
+	MOV	#0,R11
+	MOV	#0,R12
+	MOV	#0,R13
+	MOV	#0,R14
+
+	MOV.L	HW_REGISTERS,R8
+	MOV.L	BCR1,R9
+	MOV.L	@R8+,R0
+	MOV.L	R0,@(0,R9)
+	MOV.L	@R8+,R0
+	MOV.L	R0,@(4,R9)
+	MOV.L	@R8+,R0
+	MOV.L	R0,@(8,R9)
+	MOV.L	@R8+,R0
+	MOV.L	R0,@($C,R9)
+	MOV.L	@R8+,R0
+	MOV.L	R0,@($10,R9)
+	MOV.L	@R8+,R0
+	MOV.L	R0,@($14,R9)
+	MOV.L	@R8+,R0
+	MOV.L	R0,@($18,R9)
+
+	MOV.L	GBR_VALUE,R14
+	LDC	R14,GBR		; GBR = $20004000
+
+	MOV.L	CAS_LATENCY2,R8
+	MOV	#0,R0
+	MOV.W	R0,@R8
+
+	MOV.B	@(0,GBR),R0
+	TST	#2,R0		; if (R0 & #2 == 0), 1 -> T <=>
+	BF	adenIsSet
+
+	MOV.L	SLEEPER,R0
+	MOV	#1, R1
+!wait:
+	SUB	R1,R0
+	CMP/EQ	#0,R0
+	BF	!wait
+
+	MOV.W	R0,@(2,GBR)	; Standby Changer Register
+	MOV.L	SBYCR,R8
+	MOV	#$9F,R0
+	MOV.B	R0, @R8
+	SLEEP
+!infLoop:
+	BRA	!infLoop
+	NOP
+
+	.align	4
+MASK_ALL_INT:	DC.L	$000000F0
+SLEEPER:	DC.L	$00010000
+
+
+
+adenIsSet:
+	MOV.L	SBYCR,R8
+	MOV	#0,R0
+	MOV.B	R0, @R8
+
+	MOV.L	CCR,R9
+	MOV	#$11,R0
+	MOV.B	R0, @R9		; Four-way mode cache
+
+
+; =============================================================================
+; Check SDRAM
+; =============================================================================
+	MOV.L	SDRAM_END,R8
+	MOV.L	SDRAM_START,R9
+	MOV	#0,R0
+!sdramWrite:
+	MOV.W	R0,@-R8
+	ADD	#1,R0
+	MOV.W	R0,@-R8
+	ADD	#1,R0
+	MOV.W	R0,@-R8
+	ADD	#1,R0
+	MOV.W	R0,@-R8
+	ADD	#1,R0
+	CMP/EQ	R8,R9
+	BF	!sdramWrite
+
+	MOV.L	SDRAM_END,R8
+	MOV.L	SDRAM_START,R9
+	MOV	#0,R0
+	MOV	#2,R1
+	MOV	#1,R2
+	MOV.L	MASK_HI_WORD,R3
+!sdramCheck:
+	SUB	R1,R8
+	MOV.W	@R8,R4
+	AND	R3,R4
+	AND	R3,R0
+	CMP/EQ	R0,R4
+	BF	sdramFailed
+	ADD	#1,R0
+	CMP/EQ	R8,R9
+	BF	!sdramCheck
+	BRA	sdramSuccess
+	NOP
+
+MASK_HI_WORD:	DC.L	$0000FFFF
+
+sdramFailed:
+	MOV.L	SDER,R0
+	MOV.L	R0,@($20,GBR)
+	BRA	sdramFailed
+	NOP
+
+SDER:		DC.B	'SDER'
+
+sdramSuccess:
+	MOV.L	SDRAM_END,R8
+	MOV.L	SDRAM_START,R9
+	MOV	#0,R0
+!sdramClear:
+	MOV.L	R0,@-R8
+	MOV.L	R0,@-R8
+	MOV.L	R0,@-R8
+	MOV.L	R0,@-R8
+	CMP/EQ	R8,R9
+	BF	!sdramClear
+
+
+
+
+
+	MOV.B	@(0,GBR),R0
+	TST	#1,R0
+	BF	cartNotInserted
+
+	MOV.L	ICD_CART_START,R13
+	MOV.L	ICD_ROM_START,R12
+	MOV.L	ICD_ROM_END,R11
+!checkIcd:
+	MOV.W	@R12+,R7
+	EXTU.W	R7,R0
+	MOV.W	@R13+,R6
+	EXTU.W	R6,R1
+	CMP/EQ	R0,R1
+	BF	icdFailed
+	CMP/EQ	R12,R11
+	BF	!checkIcd
+	BRA	icdSuccess
+	NOP
+
+	.align	4
+ICD_ROM_START:	DC.L	IcdAllStart
+ICD_ROM_END:	DC.L	IcdAllEnd
+
+icdFailed:
+	MOV.L	SQER,R0
+	MOV.L	R0,@($20,GBR)
+	MOV	#$80,R0
+	MOV.B	R0,@(0,GBR)	; Set FM
+	BRA	icdFailed
+	NOP
+
+SQER:		DC.B	'SQER'
+
+icdSuccess:
+	MOV.L	TABLE_INT,R8
+	MOV.L	CK_CART,R9
+	MOV.W	@R9,R1
+	EXTU.W	R1,R0
+	CMP/EQ	#0,R0
+	BT	noChecksum
+	MOV.L	CART_ROM_END,R9
+	MOV.L	@R9,R7
+	MOV.L	_0x200,R0
+	SUB	R0,R7
+	SHLR	R7
+	MOV.L	BIGGEST_CART,R1
+	AND	R1,R7
+	ADD	#1,R7
+	MOV	#0,R0
+	MOV.L	MASK_HI_WORD2,R3
+!checksum:
+	MOV.W	@R8+,R2
+	AND	R3,R2
+	ADD	R2,R0
+	AND	R3,R0
+	DT	R7
+	BF	!checksum
+
+noChecksum:
+	MOV.W	R0,@($28,GBR)
+	MOV.L	SH2_CODE_START,R13
+	MOV.L	@R13+,R8	; R8 = SH2 code start in Cart
+	MOV.L	@R13+,R9	; R9 = SH2 code destination in SDRAM
+	MOV.L	@R13+,R0	; R0 = SH2 code size
+	MOV.L	CART_ADDR,R1
+	ADD	R1,R8
+	MOV.L	SDRAM_ADDR,R1
+	ADD	R1,R9
+	MOV	#4, R2
+!copyCodeIntoSdram:
+	MOV.L	@R8+,R1
+0x29a	MOV.L	R1,@R9
+0x29c	ADD	#4,R9
+0x29e	SUB	R2,R0
+0x2a0	CMP/EQ	#0,R0
+	BF	!copyCodeIntoSdram
+	MOV.L	@(8,R13),R0
+	LDC	R0,VBR
+	MOV.L	@R13,R8
+	MOV.L	M_OK,R0
+	MOV.L	R0,@($20,GBR)
+	JMP	@R8
+	NOP
+
+	.align	4
+TABLE_INT:	DC.L	$22000200
+CK_CART:	DC.L	$2200018E
+CART_ROM_END:	DC.L	$220001A4
+_0x200:		DC.L	$00000200
+BIGGEST_CART:	DC.L	$003FFFFF
+MASK_HI_WORD2:	DC.L	$0000FFFF
+CART_ADDR:	DC.L	$22000000
+SDRAM_ADDR:	DC.L	$06000000
+M_OK:		DC.B	'M_OK'
+
+cartNotInserted:
+	MOV.L	_CD_,R1
+!waitForCD:
+	MOV.L	@($20,GBR),R0
+	CMP/EQ	R0,R1
+	BF	!waitForCD
+
+	MOV	#$80,R0
+	MOV.B	R0,@(0,GBR)	; Set FM
+!waitForFM:
+	MOV.B	@(0,GBR), R0
+	TST	#$80,R0
+	BT	!waitForFM
+
+	MOV.L	FRAME_BUFFER,R8
+	MOV.L	@(0,R8),R9
+	MOV.L	@(4,R8),R0
+	MOV.L	@(8,R8),R10
+	MOV.L	@($10,R8),R11
+
+	ADD	#$20,R8
+	MOV.L	_128k,R3
+	MOV	#0,R4
+	MOV	#4,R2
+!copyFrameBuffer:
+	MOV.L	@R8+,R1
+	MOV.L	R1,@R9
+	ADD	#4,R9
+	SUB	R2,R0
+	SUB	R2,R3
+	CMP/EQ	R4,R3
+	BT	success
+	CMP/EQ	#0,R0
+	BF	!copyFrameBuffer
+
+success:
+	MOV.L	!M_OK,R0
+	MOV.L	R0,@($20,GBR)
+	LDC	R11,VBR
+	JMP	@R10
+	NOP
+
+!M_OK:		DC.B	'M_OK'
+
+GBR_VALUE:	DC.L	$20004000
+HW_REGISTERS:	DC.L	REG_VALUES
+BCR1:		DC.L	$FFFFFFE0
+CCR:		DC.L	$FFFFFE92
+SBYCR:		DC.L	$FFFFFE91
+SH2_CODE_START:	DC.L	$220003D4
+ICD_CART_START:	DC.L	$22000400
+FRAME_BUFFER:	DC.L	$24000018
+_128k:		DC.L	$0001FFE0
+SDRAM_START:	DC.L	$26000000
+SDRAM_END:	DC.L	$26040000
+
+REG_VALUES:
+	DC.L	$A55A0001	; BCR1	Bus Control Register 1
+	DC.L	$A55A00A8	; BCR2	Bus Control Register 2
+	DC.L	$A55A0055	; WCR	Wait Control Register
+	DC.L	$A55A0AB8	; MCR
+	DC.L	$A55A0008	; RTCSR	Refresh Timer Control/Status Register
+	DC.L	$A55A0000	; RTCNT	Refresh Timer Counter
+	DC.L	$A55A0059	; RTCOR	Refresh Time Constant Register
+CAS_LATENCY2:	DC.L	$FFFF8446
+_CD_:		DC.B	'_CD_'
+
+IcdAllStart:
+	incbin	"icd_mars_without2FirstInstructions.bin"
+IcdAllEnd:
+
+	DC.L	$FFFFFFFF
+	DC.L	$FFFFFFFF,$FFFFFFFF,$FFFFFFFF,$FFFFFFFF
+	DC.L	$FFFFFFFF,$FFFFFFFF,$FFFFFFFF,$FFFFFFFF
+	DC.L	$FFFFFFFF,$FFFFFFFF,$FFFFFFFF,$FFFFFFFF
+	DC.L	$FFFFFFFF,$FFFFFFFF,$FFFFFFFF,$FFFFFFFF
+	DC.L	$FFFFFFFF,$FFFFFFFF,$FFFFFFFF,$FFFFFFFF
+	DC.L	$FFFFFFFF,$FFFFFFFF,$FFFFFFFF,$FFFFFFFF
+	DC.L	$FFFFFFFF,$FFFFFFFF,$FFFFFFFF,$FFFFFFFF
+	DC.L	$FFFFFFFF,$FFFFFFFF,$FFFFFFFF,$FFFFFFFF
+	DC.L	$FFFFFFFF,$FFFFFFFF,$FFFFFFFF,$FFFFFFFF

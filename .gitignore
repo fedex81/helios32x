@@ -1,0 +1,8 @@
+res
+out
+.gradle
+.idea
+omegadrive
+
+# Project exclude paths
+/build/
