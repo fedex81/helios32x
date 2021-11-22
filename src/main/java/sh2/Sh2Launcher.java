@@ -1,18 +1,14 @@
 package sh2;
 
-import memory.IMemory;
 import omegadrive.SystemLoader;
 import omegadrive.util.FileLoader;
-import sh4.Sh4Context;
-import sh4.Sh4Disassembler;
+import omegadrive.util.Util;
 
-import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static sh2.Sh2Emu.Sh2Access.MASTER;
-import static sh2.Sh2Emu.Sh2Access.SLAVE;
+import static sh2.Sh2Emu.Sh2Access.*;
 
 /**
  * Federico Berti
@@ -21,8 +17,6 @@ import static sh2.Sh2Emu.Sh2Access.SLAVE;
  */
 public class Sh2Launcher {
 
-    static final long sh2_clock_speed = 26_000_000; //26Mhz
-    static final long clocksPerFrame = sh2_clock_speed / 60; //assuming 60fps
     static final int burstCycles = 1;
 
     static String biosBasePath = "res/bios/";
@@ -34,56 +28,62 @@ public class Sh2Launcher {
 //    static String slaveBiosName = "32x_hbrew_bios_s.bin";
 //    static String mdBiosName = "32x_hbrew_bios_g.bin";
 
-    static String romName = "res/roms/test13.bin";
+    /**
+     * test2 - master: waiting for INT
+     * slave: looping on BF
+     */
+    static String romName = "res/roms/test.bin";
 
-    private static IMemory memory;
-
-    static {
+    private static void initProps() {
         System.setProperty("helios.headless", "true");
         System.setProperty("helios.fullSpeed", "false");
         System.setProperty("helios.enable.sound", "false");
         System.setProperty("68k.debug", "false");
+        System.setProperty("32x.show.vdp.debug.viewer", "true");
     }
 
     public static void main(String[] args) {
+        initProps();
         launch32x();
     }
 
     private static void launch32x() {
-        Path biosMasterPath = Paths.get(biosBasePath,  masterBiosName);
+        Path romPath = Paths.get(romName);
+        Sh2LaunchContext ctx = setupRom(romPath);
+        Md32x sp = (Md32x) SystemLoader.getInstance().handleNewRomFile(romPath);
+        Util.waitForever();
+    }
+
+    public static BiosHolder initBios() {
+        Path biosMasterPath = Paths.get(biosBasePath, masterBiosName);
         Path biosSlavePath = Paths.get(biosBasePath, slaveBiosName);
         Path biosM68kPath = Paths.get(biosBasePath, mdBiosName);
-        Path romPath = Paths.get(romName);
+        BiosHolder biosHolder = new BiosHolder(biosMasterPath, biosSlavePath, biosM68kPath);
+        return biosHolder;
+    }
 
-        ByteBuffer bm = ByteBuffer.wrap(FileLoader.readFileSafe(biosMasterPath));
-        ByteBuffer bs = ByteBuffer.wrap(FileLoader.readFileSafe(biosSlavePath));
-        ByteBuffer mb = ByteBuffer.wrap(FileLoader.readFileSafe(biosM68kPath));
-
-
-        ByteBuffer rom = ByteBuffer.wrap(FileLoader.readFileSafe(romPath));
-        memory = new Sh2Memory(rom);
+    public static Sh2LaunchContext setupRom(Path romFile) {
+        Sh2LaunchContext ctx = new Sh2LaunchContext();
+        ctx.biosHolder = initBios();
+        ByteBuffer rom = ByteBuffer.wrap(FileLoader.readFileSafe(romFile));
+        ctx.memory = new Sh2Memory(rom);
 
         MdBus.setRom(rom);
-        ((Sh2Memory) memory).bios[MASTER.ordinal()] = bm;
-        ((Sh2Memory) memory).bios[SLAVE.ordinal()] = bs;
-        MdBus.bios = mb;
-        run();
+        ctx.memory.bios[MASTER.ordinal()] = ctx.biosHolder.getBiosData(MASTER);
+        ctx.memory.bios[SLAVE.ordinal()] = ctx.biosHolder.getBiosData(SLAVE);
+        MdBus.bios = ctx.biosHolder.getBiosData(M68K);
+
+        ctx.master = new Sh2Emu(MASTER, ctx.memory);
+        ctx.slave = new Sh2Emu(SLAVE, ctx.memory);
+
+        return ctx;
     }
 
-    static void run() {
-        Sh4Context.burstCycles = burstCycles;
-
-        long secondsElapsed = 0;
-        Sh2Emu master = new Sh2Emu(MASTER, memory);
-        Sh2Emu slave = new Sh2Emu(SLAVE, memory);
-        launchMdNew(master, slave);
-    }
-
-    static void launchMdNew(Sh2Emu master, Sh2Emu slave) {
-        Path p = Paths.get(romName);
-        Md32x sp = (Md32x) SystemLoader.getInstance().handleNewRomFile(p);
-        sp.master = master;
-        sp.slave = slave;
+    static class Sh2LaunchContext {
+        public BiosHolder biosHolder;
+        public Sh2Memory memory;
+        public Sh2Emu master;
+        public Sh2Emu slave;
     }
 
     static void sleep(long ms) {

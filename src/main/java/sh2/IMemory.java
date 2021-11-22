@@ -1,6 +1,4 @@
-package memory;
-
-import sh2.Sh2Emu;
+package sh2;
 
 import java.nio.IntBuffer;
 

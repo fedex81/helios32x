@@ -2,8 +2,12 @@ plugins {
     id 'java'
 }
 
-group 'org.example'
-version '1.0-SNAPSHOT'
+def dateString = getDate()
+group 'com.fbdev.helios'
+
+//version dateString
+version dateString + '-SNAPSHOT'
+def jarNameHead = rootProject.name + "-" + version
 
 repositories {
     mavenCentral()
@@ -29,4 +33,118 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+def static getDate() {
+    String date = new Date().format('yyMMdd')
+    date.substring(0,2) + "." + date.substring(2)
+}
+
+//create a single Jar with all dependencies
+task fatJar(type: Jar) {
+    manifest {
+        attributes 'Implementation-Title': 'Helios',
+                'Implementation-Version': archiveVersion,
+                'Main-Class': 'omegadrive.SystemLoader'
+    }
+    getArchiveBaseName().set(project.name + "-all")//+ version
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    from {
+        ["CREDITS.md", "README.md", "HISTORY.md", "LICENSE.md", "helios.properties"]
+    }
+    from("bios"){
+        include "*.rom"
+    }
+    with jar
+    doLast {
+        println("Creating fatJar in folder: " + destinationDirectory)
+    }
+}
+
+task copyRes {
+    copy {
+        from {
+            ["CREDITS.md", "README.md", "HISTORY.md",
+             "LICENSE.md", "helios.properties"]
+        }
+        into "$buildDir/packageDir"
+    }
+    copy {
+        from (".") {
+            include "lib/**"
+        }
+        into "$buildDir/packageDir"
+    }
+    copy {
+        from configurations.runtime
+        into "$buildDir/packageDir/lib"
+    }
+    copy {
+        from ("res")
+        include "*.properties"
+        into "$buildDir/packageDir"
+    }
+}
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'Helios',
+                'Implementation-Version': archiveVersion,
+                'Main-Class': 'omegadrive.SystemLoader',
+                'Class-Path': configurations.compile.collect { "lib/" + it.getName() }.join(' ')
+    }
+    archivesBaseName = rootProject.name
+    destinationDirectory = file("$buildDir/packageDir")
+    doLast {
+        println("Creating jar in folder: " + destinationDirectory)
+    }
+}
+
+
+task packageDistribution(type: Zip) {
+    dependsOn "test", "jar", "copyRes", "writeToFile"
+    archiveFileName = jarNameHead + ".zip"
+    destinationDirectory = file("$buildDir/dist")
+
+    from "$buildDir/packageDir"
+    doLast {
+        println("Creating package: " + archiveFileName +
+                ", folder: " + destinationDirectory)
+    }
+}
+
+task writeToFile {
+    String jarName = jarNameHead + ".jar"
+    List<String> javaAdvOpts =
+            ["-XX:AutoBoxCacheMax=65536", "-XX:-DontCompileHugeMethods", "-XX:+AlwaysCompileLoopMethods"]
+    //win: default to busy wait
+    List<String> winOpts = ["-Dhelios.busy.wait=true"]
+    List<String> sampleBase = [ "java",
+                                "-Dlog4j.configurationFile=./log4j2.properties",
+                                "-Djinput.enable=true -Djinput.native.location=lib",
+                                "-jar", "$jarName"] as String[]
+    sampleBase.addAll(1, javaAdvOpts)
+    List<String> sampleUx = sampleBase.clone()
+    sampleUx.add("\"\$@\"" + "\n")
+    List<String> sampleWin = sampleBase.clone()
+    sampleWin.addAll(1, winOpts)
+    sampleWin.add("\"%1\"" + "\n")
+    // create the folders if it does not exist.(otherwise it will throw exception)
+    File extraFolder = new File( "${buildDir}/packageDir")
+    if( !extraFolder.exists() ) {
+        extraFolder.mkdirs()
+    }
+    // create the file and write text to it.
+    new File("${buildDir}/packageDir/launcher.sh").text = sampleUx.join (" ")
+    new File("${buildDir}/packageDir/launcher.bat").text = sampleWin.join (" ")
+}
+
+test {
+    testLogging {
+        afterSuite { desc, result ->
+            if (!desc.parent) { // will match the outermost suite
+                println "Results: ${result.resultType} (${result.testCount} tests, ${result.successfulTestCount} successes, ${result.failedTestCount} failures, ${result.skippedTestCount} skipped)"
+            }
+        }
+    }
 }

@@ -1,6 +1,5 @@
 package sh2;
 
-import memory.IMemory;
 import omegadrive.util.Size;
 import omegadrive.util.Util;
 

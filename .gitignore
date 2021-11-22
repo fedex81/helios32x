@@ -3,6 +3,7 @@ out
 .gradle
 .idea
 omegadrive
+sh4_code
 
 # Project exclude paths
 /build/

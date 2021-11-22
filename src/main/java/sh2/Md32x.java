@@ -1,6 +1,5 @@
 package sh2;
 
-import omegadrive.cpu.m68k.MC68000WrapperDebug;
 import omegadrive.system.Genesis;
 import omegadrive.ui.DisplayWindow;
 import org.apache.logging.log4j.LogManager;
@@ -19,16 +18,20 @@ public class Md32x extends Genesis {
 
     private int nextSh2Cycle = SH2_DIVIDER;
 
-    public Sh2Emu master, slave;
+    private Sh2Launcher.Sh2LaunchContext ctx;
+    private Sh2Emu master, slave;
 
     public Md32x(DisplayWindow emuFrame) {
         super(emuFrame);
     }
 
-    public Md32x(Sh2Emu master, Sh2Emu slave) {
-        super(DisplayWindow.HEADLESS_INSTANCE);
-        this.master = master;
-        this.slave = slave;
+    @Override
+    protected void initAfterRomLoad() {
+        super.initAfterRomLoad();
+        BiosHolder biosHolder = Sh2Launcher.initBios();
+        ctx = Sh2Launcher.setupRom(this.romFile);
+        master = ctx.master;
+        slave = ctx.slave;
     }
 
     @Override
@@ -42,7 +45,7 @@ public class Md32x extends Genesis {
                 cnt = counter;
 //                slave.sh2cpu.debugging = true;
 //                master.sh2cpu.debugging = true;
-                MC68000WrapperDebug.verboseInst = false;
+//                MC68000WrapperDebug.verboseInst = false;
                 run68k(cnt);
                 runZ80(cnt);
                 runFM(cnt);

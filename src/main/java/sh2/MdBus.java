@@ -43,9 +43,6 @@ public class MdBus extends GenesisBus {
     private static int bankSetValue = 0;
     private static int bankSetShift = bankSetValue << 20;
 
-    //TODO 68k vs sh2 endian-ess
-
-
     public static void setRom(ByteBuffer b) {
         rom = b;
         romSize = rom.capacity();

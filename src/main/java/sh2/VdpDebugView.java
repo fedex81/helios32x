@@ -39,9 +39,9 @@ public interface VdpDebugView {
 
         static {
             DEBUG_VIEWER_ENABLED =
-                    Boolean.parseBoolean(System.getProperty("32x.show.vdp.debug.viewer", "true"));
+                    Boolean.parseBoolean(System.getProperty("32x.show.vdp.debug.viewer", "false"));
             if (DEBUG_VIEWER_ENABLED) {
-//            LOG.info("Debug viewer enabled");
+//                LOG.info("Debug viewer enabled");
             }
         }
 
@@ -96,7 +96,7 @@ public interface VdpDebugView {
                 panel.setSize(new Dimension(PANEL_WIDTH * 2, (int) (PANEL_HEIGHT * 1.5)));
                 frame.add(panel);
                 frame.setMinimumSize(panel.getSize());
-                frame.setTitle("Vdp Debug Viewer");
+                frame.setTitle("32x Vdp Debug Viewer");
                 frame.pack();
                 frame.setVisible(true);
             });
