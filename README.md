@@ -1,4 +1,4 @@
-# pacman-fb
+# helios32x
 
 An EXPERIMENTAL Sega 32x emulator, written in Java.
 
@@ -22,4 +22,7 @@ Open a terminal and run:
 
 ## Code
 
-Hitachi SH2 cpu emulator adapter from [esoteric-emu](https://github.com/fedex81/esoteric-emu)'s SH4 implementation
+Hitachi SH2 cpu emulator adapted from [esoteric_emu](https://github.com/fedex81/esoteric_emu)'s
+SH4 implementation
+
+For additional credits, see the [helios](https://github.com/fedex81/helios/blob/master/CREDITS.md) project.
