@@ -38,7 +38,7 @@ public interface IMemory {
 
     IntBuffer getSQ1();
 
-    default void setSh2Access(Sh2Emu.Sh2Access sh2Access) {
+    default void setSh2Access(Sh2Util.Sh2Access sh2Access) {
         //DO NOTHING
     }
 

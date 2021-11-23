@@ -4,8 +4,8 @@ import omegadrive.util.Size;
 
 import java.nio.ByteBuffer;
 
-import static sh2.Sh2Emu.Sh2Access.M68K;
-import static sh2.Sh2Emu.Sh2Access.MASTER;
+import static sh2.Sh2Util.Sh2Access.M68K;
+import static sh2.Sh2Util.Sh2Access.MASTER;
 
 /**
  * Federico Berti
@@ -109,11 +109,6 @@ public class Sh2Util {
         s32xRegNames[M68K.ordinal()][PWM_CTRL] = "PWM_CTRL";
         s32xRegNames[M68K.ordinal()][PWM_FS] = "PWM_FS";
         s32xRegNames[M68K.ordinal()][PWM_MONO] = "PWM_MONO";
-        s32xRegNames[M68K.ordinal()][VRES_INT_CLEAR] = "VRES_INT_CLEAR";
-        s32xRegNames[M68K.ordinal()][VINT_CLEAR] = "VINT_CLEAR";
-        s32xRegNames[M68K.ordinal()][HINT_CLEAR] = "HINT_CLEAR";
-        s32xRegNames[M68K.ordinal()][CMD_INT_CLEAR] = "CMD_INT_CLEAR";
-        s32xRegNames[M68K.ordinal()][PWM_INT_CLEAR] = "PWM_INT_CLEAR";
         //TODO supposed to be byte/word but bios reads/writes longs from comm0
         s32xRegNames[M68K.ordinal()][COMM0] = "COMM0";
         s32xRegNames[M68K.ordinal()][COMM1] = "COMM1";
@@ -225,5 +220,11 @@ public class Sh2Util {
                 System.err.println("Unsupported size: " + size);
                 return 0xFF;
         }
+    }
+
+    public enum Sh2Access {
+        MASTER, SLAVE, M68K;
+
+        public static final Sh2Access[] vals = Sh2Access.values();
     }
 }

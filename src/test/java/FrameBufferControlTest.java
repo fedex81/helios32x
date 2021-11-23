@@ -2,7 +2,6 @@ import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import sh2.S32XMMREG;
-import sh2.Sh2Emu;
 import sh2.Sh2Util;
 
 /**
@@ -22,7 +21,7 @@ public class FrameBufferControlTest {
 
     @Test
     public void testFrameBufferSelect_BlankMode() {
-        S32XMMREG.sh2Access = Sh2Emu.Sh2Access.MASTER;
+        S32XMMREG.sh2Access = Sh2Util.Sh2Access.MASTER;
         S32XMMREG.write(BITMAP_MODE_OFFSET, 0, Size.WORD); //blank
 
         S32XMMREG.setVBlankOn(false);
@@ -49,7 +48,7 @@ public class FrameBufferControlTest {
 
     @Test
     public void testFrameBufferSelect() {
-        S32XMMREG.sh2Access = Sh2Emu.Sh2Access.MASTER;
+        S32XMMREG.sh2Access = Sh2Util.Sh2Access.MASTER;
         S32XMMREG.write(BITMAP_MODE_OFFSET, 1, Size.WORD); //packed pixel
         int res = S32XMMREG.read(FBCR_OFFSET, Size.WORD);
 

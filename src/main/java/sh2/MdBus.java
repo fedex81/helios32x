@@ -52,7 +52,7 @@ public class MdBus extends GenesisBus {
 
     @Override
     public long read(long address, Size size) {
-        S32XMMREG.sh2Access = Sh2Emu.Sh2Access.M68K;
+        S32XMMREG.sh2Access = Sh2Util.Sh2Access.M68K;
         address &= 0xFF_FFFFF;
         if (S32XMMREG.aden > 0) {
             return readAdapterEnOn((int) address, size);
@@ -63,9 +63,9 @@ public class MdBus extends GenesisBus {
 
     @Override
     public void write(long address, long data, Size size) {
-        S32XMMREG.sh2Access = Sh2Emu.Sh2Access.M68K;
+        S32XMMREG.sh2Access = Sh2Util.Sh2Access.M68K;
         address &= 0xFF_FFFFF;
-        S32XMMREG.sh2Access = Sh2Emu.Sh2Access.M68K;
+        S32XMMREG.sh2Access = Sh2Util.Sh2Access.M68K;
         logInfo("Write address: {}, data: {}, size: {}", Long.toHexString(address),
                 Long.toHexString(data), size);
         if (S32XMMREG.aden > 0) {
@@ -77,7 +77,7 @@ public class MdBus extends GenesisBus {
 
     private long readAdapterEnOn(int address, Size size) {
         long res = 0;
-        S32XMMREG.sh2Access = Sh2Emu.Sh2Access.M68K;
+        S32XMMREG.sh2Access = Sh2Util.Sh2Access.M68K;
         if (address < 0x100) {
             if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {
                 res = writeableHintRom.getInt(0);

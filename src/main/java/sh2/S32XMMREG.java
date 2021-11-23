@@ -5,9 +5,10 @@ import omegadrive.util.VideoMode;
 
 import java.nio.ByteBuffer;
 
-import static sh2.Sh2Emu.Sh2Access.*;
+import static sh2.IntC.Sh2Interrupt.*;
 import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
 import static sh2.Sh2Util.*;
+import static sh2.Sh2Util.Sh2Access.*;
 
 /**
  * Federico Berti
@@ -48,7 +49,7 @@ public class S32XMMREG {
     public static final int START_OVER_IMAGE = START_OVER_IMAGE_CACHE + CACHE_THROUGH_OFFSET;
     public static final int END_OVER_IMAGE = END_OVER_IMAGE_CACHE + CACHE_THROUGH_OFFSET;
 
-    public static Sh2Emu.Sh2Access sh2Access = MASTER;
+    public static Sh2Access sh2Access = MASTER;
 
     public static ByteBuffer sysRegsSh2 = ByteBuffer.allocate(SIZE_32X_SYSREG);
     public static ByteBuffer sysRegsMd = ByteBuffer.allocate(SIZE_32X_SYSREG);
@@ -63,9 +64,6 @@ public class S32XMMREG {
     //0 = no cart, 1 = otherwise
     private static volatile int cart = 0;
 
-    //V, H, CMD and PWM each possesses exclusive address on the master side and the slave side.
-    static ByteBuffer sh2_int_mask = ByteBuffer.allocateDirect(4);
-
     static int frameBufferDisplay = 0;
     static int frameBufferWritable = 1;
     static int fsLatch = 0;
@@ -75,6 +73,8 @@ public class S32XMMREG {
 
     private static final int REN_MASK = 0x80;
     private static final int NTSC_MASK = 0x8000;
+
+    public static IntC interruptControl = new IntC();
 
     static {
         //TODO check bios require REN = 1
@@ -96,6 +96,13 @@ public class S32XMMREG {
         int val = Sh2Util.readBuffer(vdpRegs, FBCR, Size.WORD);
         val = (hBlankOn ? 1 : 0) << 14 | (val & 0xBFFF);
         Sh2Util.writeBuffer(vdpRegs, FBCR, val, Size.WORD);
+        if (hBlankOn) {
+            int hCnt = Sh2Util.readBuffer(sysRegsSh2, HCOUNT_REG, Size.WORD);
+            if (--hCnt < 0) {
+                interruptControl.setIntPending(MASTER, HINT_10, true);
+                interruptControl.setIntPending(SLAVE, HINT_10, true);
+            }
+        }
 //        System.out.println("HBlank: " + hBlankOn);
     }
 
@@ -114,6 +121,8 @@ public class S32XMMREG {
                 updateFrameBuffer(newVal);
 //                System.out.println("##### VBLANK, D" + frameBufferDisplay + "W" + frameBufferWritable + ", fsLatch: " + fsLatch + ", VB: " + vBlankOn);
             }
+            interruptControl.setIntPending(MASTER, VINT_12, true);
+            interruptControl.setIntPending(SLAVE, VINT_12, true);
         }
 //        System.out.println("VBlank: " + vBlankOn);
     }
@@ -171,8 +180,7 @@ public class S32XMMREG {
 //        detectRegAccess(isSys, address, size);
         int res = Sh2Util.readBuffer(regArea, reg, size);
         if (sh2Access != M68K && reg < INT_CTRL_REG) {
-            int pos = (sh2Access.ordinal() << 1) + reg;
-            res = Sh2Util.readBuffer(sh2_int_mask, pos, size);
+            res = interruptControl.readSh2IntMaskReg(sh2Access, reg, size);
         }
         return res;
     }
@@ -209,6 +217,22 @@ public class S32XMMREG {
                     regChanged = handleIntMaskRegWrite(sh2Access, reg, value, size);
                     skipWrite = true;
                     break;
+                case INT_CTRL_REG:
+                    regChanged = handleReg2Write(sh2Access, reg, value, size);
+                    skipWrite = true;
+                    break;
+                case HCOUNT_REG:
+                    regChanged = handleReg4Write(sh2Access, reg, value, size);
+                    skipWrite = true;
+                    break;
+                case VINT_CLEAR:
+                case HINT_CLEAR:
+                case PWM_INT_CLEAR:
+                case CMD_INT_CLEAR:
+                    int intIdx = VRES_14.ordinal() - (regEven - 0x14);
+                    IntC.Sh2Interrupt intType = IntC.intVals[intIdx];
+                    interruptControl.clearInterrupt(sh2Access, intType);
+                    break;
             }
         }
         if (!skipWrite) {
@@ -230,7 +254,51 @@ public class S32XMMREG {
         return regChanged;
     }
 
-    private static boolean handleIntMaskRegWrite(Sh2Emu.Sh2Access sh2Access, int reg, int value, Size size) {
+    private static boolean handleReg4Write(Sh2Access sh2Access, int reg, int value, Size size) {
+        boolean res = false;
+        int baseReg = reg & ~1;
+        ByteBuffer b = sh2Access == M68K ? sysRegsMd : sysRegsSh2;
+        int val = Sh2Util.readBuffer(b, baseReg, Size.WORD);
+        if (val != value) {
+            Sh2Util.writeBuffer(b, reg, value, size);
+            int newVal = Sh2Util.readBuffer(b, baseReg, Size.WORD);
+            res = val != newVal;
+            if (res && sh2Access != M68K) {
+                System.out.println(sh2Access + "HCount reg: " + newVal);
+            } else if (res) {
+                System.out.println(sh2Access + " BankSet reg: " + newVal);
+            }
+        }
+        return res;
+    }
+
+    private static boolean handleReg2Write(Sh2Access sh2Access, int reg, int value, Size size) {
+        boolean res = false;
+        int baseReg = reg & ~1;
+        ByteBuffer b = sh2Access == M68K ? sysRegsMd : sysRegsSh2;
+        int val = Sh2Util.readBuffer(b, baseReg, Size.WORD);
+        if (val != value) {
+            Sh2Util.writeBuffer(b, reg, value, size);
+            int newVal = Sh2Util.readBuffer(b, baseReg, Size.WORD);
+            res = val != newVal;
+            if (res && sh2Access != M68K) {
+                //Both are automatically cleared if SH2 does not interrupt clear.
+                int intm = newVal & 1;
+                int ints = (newVal >> 1) & 1;
+                if (intm > 0) {
+                    interruptControl.setIntPending(MASTER, CMD_8, true);
+                }
+                if (ints > 0) {
+                    interruptControl.setIntPending(SLAVE, CMD_8, true);
+                }
+            } else if (res) {
+                System.out.println(sh2Access + " StandByChange reg: " + newVal);
+            }
+        }
+        return res;
+    }
+
+    private static boolean handleIntMaskRegWrite(Sh2Access sh2Access, int reg, int value, Size size) {
         boolean res = false;
         switch (sh2Access) {
             case M68K:
@@ -260,14 +328,14 @@ public class S32XMMREG {
         return false;
     }
 
-    private static boolean handleIntMaskRegWriteSh2(Sh2Emu.Sh2Access sh2Access, int reg, int value, Size size) {
-        int posW = sh2Access.ordinal() << 1;
-        int pos = reg + posW;
-        int val = Sh2Util.readBuffer(sh2_int_mask, posW, Size.WORD);
+    private static boolean handleIntMaskRegWriteSh2(Sh2Access sh2Access, int reg, int value, Size size) {
+        int baseReg = reg & ~1;
+        int val = interruptControl.readSh2IntMaskReg(sh2Access, reg, size);
         if (val != value) {
-            Sh2Util.writeBuffer(sh2_int_mask, pos, value, size);
-            int newVal = Sh2Util.readBuffer(sh2_int_mask, posW, Size.WORD) | (cart << 8) | (aden << 9);
-            Sh2Util.writeBuffer(sh2_int_mask, posW, newVal, Size.WORD);
+            //TODO hack
+            interruptControl.writeSh2IntMaskReg(sh2Access, reg, value, size);
+            int newVal = interruptControl.readSh2IntMaskReg(sh2Access, baseReg, Size.WORD) | (cart << 8) | (aden << 9);
+            interruptControl.writeSh2IntMaskReg(sh2Access, baseReg, newVal, Size.WORD);
             return newVal != val;
         }
         return false;
@@ -308,10 +376,10 @@ public class S32XMMREG {
 
     public static void setCart(int cart) {
         S32XMMREG.cart = cart;
-        int valM = Sh2Util.readBuffer(sh2_int_mask, INT_MASK + (MASTER.ordinal() << 1), Size.BYTE);
-        int valS = Sh2Util.readBuffer(sh2_int_mask, INT_MASK + (SLAVE.ordinal() << 1), Size.BYTE);
-        Sh2Util.writeBuffer(sh2_int_mask, INT_MASK + (MASTER.ordinal() << 1), valM | cart, Size.BYTE);
-        Sh2Util.writeBuffer(sh2_int_mask, INT_MASK + (SLAVE.ordinal() << 1), valS | cart, Size.BYTE);
+        int valM = interruptControl.readSh2IntMaskReg(MASTER, 0, Size.BYTE);
+        int valS = interruptControl.readSh2IntMaskReg(SLAVE, 0, Size.BYTE);
+        interruptControl.writeSh2IntMaskReg(MASTER, 0, valM | cart, Size.BYTE);
+        interruptControl.writeSh2IntMaskReg(SLAVE, 0, valS | cart, Size.BYTE);
     }
 
     private static void updateFrameBuffer(int val) {

@@ -26,7 +26,7 @@ public class Sh2Helper {
         sb.append(String.format("SR : %08x\t", ctx.SR));
 
         sb.append(((ctx.SR & Sh2.flagT) != 0 ? "T" : "-") + ((ctx.SR & Sh2.flagS) != 0 ? "S" : "-") +
-                ((ctx.SR & Sh2.flagQ) != 0 ? "Q" : "-") + (((ctx.SR & Sh2.flagBL) != 0 ? "BL" : "-")));
+                ((ctx.SR & Sh2.flagQ) != 0 ? "Q" : "-") + (((ctx.SR & Sh2.flagM) != 0 ? "M" : "-")));
         sb.append("\n");
 
 

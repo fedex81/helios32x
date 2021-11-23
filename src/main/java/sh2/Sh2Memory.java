@@ -7,9 +7,9 @@ import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 
-import static sh2.Sh2Emu.Sh2Access.MASTER;
-import static sh2.Sh2Emu.Sh2Access.SLAVE;
 import static sh2.Sh2Util.BASE_SH2_MMREG;
+import static sh2.Sh2Util.Sh2Access.MASTER;
+import static sh2.Sh2Util.Sh2Access.SLAVE;
 
 public final class Sh2Memory implements IMemory {
 
@@ -43,7 +43,7 @@ public final class Sh2Memory implements IMemory {
 
 	private Sh2MMREG[] sh2MMREGS = new Sh2MMREG[2];
 
-	public Sh2Emu.Sh2Access sh2Access = MASTER;
+	public Sh2Util.Sh2Access sh2Access = MASTER;
 
 	public Sh2Memory(ByteBuffer rom) {
 		this();
@@ -116,7 +116,7 @@ public final class Sh2Memory implements IMemory {
 			S32XMMREG.write(address, val, size);
 		} else if (address >= BASE_SH2_MMREG) {
 			if ((address & 0xFF00_0000) != 0xFF00_0000) {
-				throw new RuntimeException(sh2Access + ", write : " + size + " " + Integer.toHexString(address));
+				throw new RuntimeException(sh2Access + ", write address: " + Integer.toHexString(address) + " " + size);
 //				return;
 			}
 			sh2MMREGS[sh2Access.ordinal()].write(address & 0xFFFF, val, size);
@@ -156,7 +156,7 @@ public final class Sh2Memory implements IMemory {
 	}
 
 	@Override
-	public void setSh2Access(Sh2Emu.Sh2Access sh2Access) {
+	public void setSh2Access(Sh2Util.Sh2Access sh2Access) {
 		this.sh2Access = sh2Access;
 		S32XMMREG.sh2Access = sh2Access;
 	}

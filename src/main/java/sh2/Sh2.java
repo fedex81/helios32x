@@ -26,34 +26,17 @@ package sh2;
  *  This is not as accurate as it could be as we are not taking into consideration the pipeline,
  *  simultaneous execution of instructions,etc..
  */
-
 public class Sh2 {
 
-	/* this is a bit of an hack :)
-	 * Basically what it means its that when a jump is made to a syscall function
-	 * 0xFFFF will be read and handled in the interpreter accordingly
-	 */
-	public static final int BIOS_OPCODE = 0xFFFF;
 	public static final int flagT = 0x00000001;
 	public static final int flagS = 0x00000002;
 	public static final int flagIMASK = 0x000000f0;
 	public static final int flagQ = 0x00000100;
 	public static final int flagM = 0x00000200;
-	public static final int flagFD = 0x00008000;
 
-	/*
-	 * from mame to use in memory acesses
-	 */
-	public static final int flagBL = 0x10000000;
-	public static final int flagsRB = 0x20000000;
-	public static final int flagMD = 0x40000000;
+	public static final int SR_MASK = 0x3F3;
 
 	public static int burstCycles = 1;
-	/*
-	 * defines the number of cycles we can ran before stopping the interpreter
-	 */
-	public int cycles;
-	public int cycles_ran;
 
 	public boolean debugging = false;
 	private Sh2Context ctx;
@@ -76,21 +59,67 @@ public class Sh2 {
 	}
 
 	// get interrupt masks bits int the SR register
-	public int getIMASK() {
+	private int getIMASK() {
 		return (ctx.SR & flagIMASK) >>> 4;
 	}
 
 	public void reset(Sh2Context ctx) {
+		memory.setSh2Access(ctx.sh2Access);
 		ctx.VBR = 0;
 		ctx.PC = memory.read32i(0);
 		ctx.registers[15] = memory.read32i(4); //SP
-		cycles = burstCycles;
+		System.out.println(ctx.sh2Access + " SP: " + Integer.toHexString(ctx.registers[15]));
+		ctx.cycles = burstCycles;
 		System.out.println("reset");
 	}
 
-	public void NOIMP(int code) {
-		cycles--;
+	private void acceptInterrupts(Sh2Context ctx) {
+		int mask = getIMASK();
+		int imask = S32XMMREG.interruptControl.getInterruptLevel(ctx.sh2Access);
+		if (imask > mask) {
+			processInterrupt(ctx, imask);
+//			debugging = true;
+		}
+	}
+
+	private void processInterrupt(Sh2Context ctx, int source_irq) {
+		System.out.println(ctx.sh2Access + " Interrupt processed: " + source_irq);
+		push(ctx.SR);
+		push(ctx.PC);
+
+		//SR 7-4
+		ctx.SR &= 0xF0F;
+		ctx.SR |= (source_irq << 4);
+
+		int vectorNum = 64 + (source_irq >> 1);
+
+		ctx.PC = memory.read32i(ctx.VBR + (vectorNum << 2));
+		ctx.cycles -= 13;
+	}
+
+	//push to stack
+	private void push(int data) {
+		ctx.registers[15] -= 4;
+		memory.write32i(ctx.registers[15], data);
+		System.out.println(ctx.sh2Access + " PUSH SP: " + Integer.toHexString(ctx.registers[15]));
+	}
+
+	//pop from stack
+	private int pop() {
+		int res = memory.read32i(ctx.registers[15]);
+		ctx.registers[15] += 4;
+		System.out.println(ctx.sh2Access + " POP SP: " + Integer.toHexString(ctx.registers[15]));
+		return res;
+	}
+
+	private void NOIMP(int code) {
+		ctx.cycles--;
 		ctx.PC += 2;
+	}
+
+	private final void UNKNOWN(int instruction) {
+		Sh2Helper.printState(ctx, instruction);
+		throw new RuntimeException("Unknown inst: " + Integer.toHexString(instruction));
 	}
 
 	private final void MOVI(int code) {
@@ -101,7 +130,7 @@ public class Sh2 {
 		else ctx.registers[n] = (0xFFFFFF00 | i);
 
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -115,7 +144,7 @@ public class Sh2 {
 		else ctx.registers[n] |= 0xFFFF0000;
 
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -126,7 +155,7 @@ public class Sh2 {
 
 		ctx.registers[n] = memory.read32i((ctx.PC & 0xfffffffc) + 4 + (d << 2));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -137,7 +166,7 @@ public class Sh2 {
 
 		ctx.registers[n] = ctx.registers[m];
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -147,7 +176,7 @@ public class Sh2 {
 
 		memory.write8i(ctx.registers[n], (byte) ctx.registers[m]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -157,7 +186,7 @@ public class Sh2 {
 
 		memory.write16i(ctx.registers[n], ctx.registers[m]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -169,7 +198,7 @@ public class Sh2 {
 
 		memory.write32i(ctx.registers[n], ctx.registers[m]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -186,7 +215,7 @@ public class Sh2 {
 
 		//System.out.println("MOVBL @" + Integer.toHexString(ctx.registers[m]) + " value read " + ctx.registers[n] + " ctx.PC " + Integer.toHexString(PC));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -198,7 +227,7 @@ public class Sh2 {
 
 		ctx.registers[n] = (int) w;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -209,7 +238,7 @@ public class Sh2 {
 		ctx.registers[n] = memory.read32i(ctx.registers[m]);
 
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -220,7 +249,7 @@ public class Sh2 {
 		ctx.registers[n] -= 1;
 		memory.write8i(ctx.registers[n], (byte) ctx.registers[m]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -232,7 +261,7 @@ public class Sh2 {
 
 		memory.write16i(ctx.registers[n], ctx.registers[m]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -245,7 +274,7 @@ public class Sh2 {
 
 		memory.write32i(ctx.registers[n], ctx.registers[m]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -258,7 +287,7 @@ public class Sh2 {
 		ctx.registers[n] = (int) b;
 		if (n != m) ctx.registers[m] += 1;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -271,7 +300,7 @@ public class Sh2 {
 		ctx.registers[n] = (int) w;
 		if (n != m) ctx.registers[m] += 2;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -283,7 +312,7 @@ public class Sh2 {
 		ctx.registers[n] = memory.read32i(ctx.registers[m]);
 		if (n != m) ctx.registers[m] += 4;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -294,7 +323,7 @@ public class Sh2 {
 
 		memory.write8i(ctx.registers[n] + (d << 0), (byte) ctx.registers[0]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -305,7 +334,7 @@ public class Sh2 {
 
 		memory.write16i(ctx.registers[n] + (d << 1), ctx.registers[0]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -319,7 +348,7 @@ public class Sh2 {
 
 		//System.out.println("MOVLS4 " + Integer.toHexString(ctx.registers[n]));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -331,7 +360,7 @@ public class Sh2 {
 		byte b = (byte) (memory.read8i(ctx.registers[m] + d) & 0xFF);
 		ctx.registers[0] = (int) b;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -343,7 +372,7 @@ public class Sh2 {
 		ctx.registers[0] = (int) w;
 
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -356,7 +385,7 @@ public class Sh2 {
 
 
 		//System.out.println("MOVLL4 " + Integer.toHexString(ctx.registers[n]) + " @" + Integer.toHexString(ctx.registers[m] + (d *4)) );
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -366,7 +395,7 @@ public class Sh2 {
 
 		memory.write8i(ctx.registers[n] + ctx.registers[0], (byte) ctx.registers[m]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -376,7 +405,7 @@ public class Sh2 {
 
 		memory.write16i(ctx.registers[n] + ctx.registers[0], ctx.registers[m]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -386,7 +415,7 @@ public class Sh2 {
 
 		memory.write32i(ctx.registers[n] + ctx.registers[0], ctx.registers[m]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -398,7 +427,7 @@ public class Sh2 {
 		byte b = (byte) memory.read8i(ctx.registers[m] + ctx.registers[0]);
 		ctx.registers[n] = (int) b;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -410,7 +439,7 @@ public class Sh2 {
 		short w = (short) memory.read16i(ctx.registers[m] + ctx.registers[0]);
 		ctx.registers[n] = (int) w;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -421,7 +450,7 @@ public class Sh2 {
 
 		ctx.registers[n] = memory.read32i(ctx.registers[m] + ctx.registers[0]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -431,7 +460,7 @@ public class Sh2 {
 
 		memory.write8i(ctx.GBR + d, (byte) ctx.registers[0]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -441,7 +470,7 @@ public class Sh2 {
 
 		memory.write16i(ctx.GBR + (d << 1), ctx.registers[0]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -451,7 +480,7 @@ public class Sh2 {
 
 		memory.write32i(ctx.GBR + (d << 2), ctx.registers[0]);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -462,7 +491,7 @@ public class Sh2 {
 		byte b = (byte) memory.read8i(ctx.GBR + (d << 0));
 		ctx.registers[0] = (int) b;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -473,7 +502,7 @@ public class Sh2 {
 		short w = (short) memory.read16i(ctx.GBR + (d << 1));
 		ctx.registers[0] = (int) w;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -484,7 +513,7 @@ public class Sh2 {
 		ctx.registers[0] = memory.read32i(ctx.GBR + (d << 2));
 
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -493,7 +522,7 @@ public class Sh2 {
 
 		ctx.registers[0] = ((ctx.PC & 0xfffffffc) + 4 + (d << 2));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -502,7 +531,7 @@ public class Sh2 {
 
 		ctx.registers[n] = (ctx.SR & flagT);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -517,7 +546,7 @@ public class Sh2 {
 		ctx.registers[n] = (ctx.registers[m] & 0x0000FF00) >> 8;
 		ctx.registers[n] = ctx.registers[n] | temp1 | temp0;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -529,7 +558,7 @@ public class Sh2 {
 		ctx.registers[n] = ctx.registers[m] << 16;
 		ctx.registers[n] |= temp;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -541,7 +570,7 @@ public class Sh2 {
 		ctx.registers[n] = ((ctx.registers[n] & 0xffff0000) >>> 16) |
 				((ctx.registers[m] & 0x0000ffff) << 16);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -556,7 +585,7 @@ public class Sh2 {
 		/*Logger.log(Logger.CPU,String.format("add39: r[%d]=%x,%d r[%d]=%x,%d\r\n",
 	            n, ctx.registers[n], ctx.registers[n],
 	            m, ctx.registers[m], ctx.registers[m]));*/
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -570,7 +599,7 @@ public class Sh2 {
 		/*Logger.log(Logger.CPU,String.format("add40: r[%d]=%x,%d\r\n",
 	            n, ctx.registers[n], ctx.registers[n])); */
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -586,7 +615,7 @@ public class Sh2 {
 		else ctx.SR &= (~flagT);
 		if (tmp1 > ctx.registers[n]) ctx.SR |= flagT;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 		
 		/*Logger.log(Logger.CPU,String.format("addc41: r[%d]=%x,%d r[%d]=%x,%d tmp0=%x,%d, tmp1=%x,%d\r\n",
@@ -622,7 +651,7 @@ public class Sh2 {
 		} else
 			ctx.SR &= (~flagT);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -643,7 +672,7 @@ public class Sh2 {
 	        i, i,i));*/
 
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -662,7 +691,7 @@ public class Sh2 {
 	        m,  ctx.registers[m],  ctx.registers[m],  ctx.registers[m]));
 */
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -676,7 +705,7 @@ public class Sh2 {
 
 		//Logger.log(Logger.CPU,String.format("cmp/hs: r[%d]=%x >= r[%d]=%x ?\r", n, ctx.registers[n], m, ctx.registers[m]));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -691,7 +720,7 @@ public class Sh2 {
 		//Logger.log(Logger.CPU,String.format("cmp/ge: r[%d]=%x >= r[%d]=%x ?\r\n", n, ctx.registers[n], m, ctx.registers[m]));
 
 		//Logger.log(Logger.CPU,"CMPGE " + ctx.registers[n] + " >= " + ctx.registers[m]);
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -706,7 +735,7 @@ public class Sh2 {
 
 		//Logger.log(Logger.CPU,String.format("cmp/hi: r[%d]=%x >= r[%d]=%x ?\r", n, ctx.registers[n], m, ctx.registers[m]));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -720,7 +749,7 @@ public class Sh2 {
 
 		//Logger.log(Logger.CPU,String.format("cmp/gt: r[%d]=%x >= r[%d]=%x ?\r", n, ctx.registers[n], m, ctx.registers[m]));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -734,7 +763,7 @@ public class Sh2 {
 
 		//Logger.log(Logger.CPU,String.format("cmp/pz: r[%d]=%x >= 0 ?\r", n, ctx.registers[n]));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -747,7 +776,7 @@ public class Sh2 {
 
 		//Logger.log(Logger.CPU,String.format("cmp/pz: r[%d]=%x > 0 ?\r", n, ctx.registers[n]));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 		//Logger.log(Logger.CPU,"CMPPL " + ctx.registers[n]);
@@ -769,7 +798,7 @@ public class Sh2 {
 			ctx.SR |= flagT;
 
 		//	Logger.log(Logger.CPU,String.format("cmp/str: r[%d]=%x >= r[%d]=%x ?\r", n, ctx.registers[n], m, ctx.registers[m]));
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -864,7 +893,7 @@ public class Sh2 {
 
 		//Logger.log(Logger.CPU,String.format("div1s: r[%d]=%x >= r[%d]=%x ?\r", n, ctx.registers[n], m, ctx.registers[m]));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -885,7 +914,7 @@ public class Sh2 {
 		else
 			ctx.SR &= ~flagT;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -895,7 +924,7 @@ public class Sh2 {
 		ctx.SR &= (~flagM);
 		ctx.SR &= (~flagT);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -910,7 +939,7 @@ public class Sh2 {
 		ctx.MACL = (int) (mult & 0xffffffff);
 		ctx.MACH = (int) ((mult >>> 32) & 0xffffffff);
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 	}
 
@@ -926,7 +955,7 @@ public class Sh2 {
 		ctx.MACL = (int) (mult & 0xffffffff);
 		ctx.MACH = (int) ((mult >>> 32) & 0xffffffff);
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 	}
 
@@ -939,7 +968,7 @@ public class Sh2 {
 		} else {
 			ctx.SR &= (~flagT);
 		}
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -953,7 +982,7 @@ public class Sh2 {
 		if ((ctx.registers[m] & 0x00000080) == 0) ctx.registers[n] &= 0x000000FF;
 		else ctx.registers[n] |= 0xFFFFFF00;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -966,7 +995,7 @@ public class Sh2 {
 		else ctx.registers[n] |= 0xFFFF0000;
 
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -976,7 +1005,7 @@ public class Sh2 {
 
 		ctx.registers[n] = (ctx.registers[m] & 0x000000FF);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -987,7 +1016,7 @@ public class Sh2 {
 		ctx.registers[n] = ctx.registers[m];
 		ctx.registers[n] &= 0x0000FFFF;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1083,7 +1112,7 @@ public class Sh2 {
 			ctx.MACH = Res2;
 			ctx.MACL = Res0;
 		}
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 	}
 
@@ -1136,7 +1165,7 @@ public class Sh2 {
 			if (templ > ctx.MACL)
 				ctx.MACH += 1;
 		}
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 	}
 
@@ -1146,7 +1175,7 @@ public class Sh2 {
 
 		ctx.MACL = ctx.registers[n] * ctx.registers[m];
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 	}
 
@@ -1159,7 +1188,7 @@ public class Sh2 {
 
 		//System.out.println("MULLSW " + Integer.toHexString(MACL) + "R[n]=" + ctx.registers[n] + " R[m]=" + ctx.registers[m] );
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 	}
 
@@ -1169,7 +1198,7 @@ public class Sh2 {
 
 		ctx.MACL = (((int) ctx.registers[n] & 0xFFFF) * ((int) ctx.registers[m] & 0xFFFF));
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 	}
 
@@ -1179,7 +1208,7 @@ public class Sh2 {
 
 		ctx.registers[n] = 0 - ctx.registers[m];
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1195,7 +1224,7 @@ public class Sh2 {
 		if (tmp < ctx.registers[n])
 			ctx.SR |= flagT;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1205,7 +1234,7 @@ public class Sh2 {
 
 		ctx.registers[n] -= ctx.registers[m];
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1223,7 +1252,7 @@ public class Sh2 {
 		if (tmp1 < ctx.registers[n])
 			ctx.SR |= flagT;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1249,7 +1278,7 @@ public class Sh2 {
 		else
 			ctx.SR &= (~flagT);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1259,7 +1288,7 @@ public class Sh2 {
 
 		ctx.registers[n] &= ctx.registers[m];
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1268,7 +1297,7 @@ public class Sh2 {
 
 		ctx.registers[0] &= i;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1278,7 +1307,7 @@ public class Sh2 {
 		int value = (byte) memory.read8i(ctx.GBR + ctx.registers[0]);
 		memory.write8i(ctx.GBR + ctx.registers[0], ((byte) (value & i)));
 
-		cycles -= 4;
+		ctx.cycles -= 4;
 		ctx.PC += 2;
 	}
 
@@ -1289,7 +1318,7 @@ public class Sh2 {
 		ctx.registers[n] = ~ctx.registers[m];
 
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1300,7 +1329,7 @@ public class Sh2 {
 		ctx.registers[n] |= ctx.registers[m];
 
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1309,7 +1338,7 @@ public class Sh2 {
 
 		ctx.registers[0] |= i;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1320,7 +1349,7 @@ public class Sh2 {
 		int value = memory.read8i(ctx.GBR + ctx.registers[0]);
 		memory.write8i(ctx.GBR + ctx.registers[0], ((byte) (value | i)));
 
-		cycles -= 4;
+		ctx.cycles -= 4;
 	}
 
 	private final void TAS(int code) {
@@ -1332,7 +1361,7 @@ public class Sh2 {
 		else ctx.SR &= ~0x1;
 		memory.write8i(ctx.registers[n], ((byte) (value | 0x80)));
 
-		cycles -= 5;
+		ctx.cycles -= 5;
 
 		ctx.PC += 2;
 	}
@@ -1346,7 +1375,7 @@ public class Sh2 {
 		else ctx.SR &= (~flagT);
 
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1357,7 +1386,7 @@ public class Sh2 {
 			ctx.SR |= flagT;
 		else ctx.SR &= (~flagT);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1368,7 +1397,7 @@ public class Sh2 {
 		if ((value & i) == 0)
 			ctx.SR |= flagT;
 		else ctx.SR &= (~flagT);
-		cycles -= 3;
+		ctx.cycles -= 3;
 		ctx.PC += 2;
 	}
 
@@ -1378,7 +1407,7 @@ public class Sh2 {
 
 		ctx.registers[n] ^= ctx.registers[m];
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1387,7 +1416,7 @@ public class Sh2 {
 
 		ctx.registers[0] ^= i;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1397,7 +1426,7 @@ public class Sh2 {
 		int value = memory.read8i(ctx.GBR + ctx.registers[0]);
 		memory.write8i(ctx.GBR + ctx.registers[0], ((byte) (value ^ i)));
 
-		cycles -= 4;
+		ctx.cycles -= 4;
 		ctx.PC += 2;
 	}
 
@@ -1417,7 +1446,7 @@ public class Sh2 {
 
 		//Logger.log(Logger.CPU,String.format("rotr: despues %x\r", ctx.registers[n]));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1439,7 +1468,7 @@ public class Sh2 {
 
 		//Logger.log(Logger.CPU,String.format("rotcr89: r[%d]=%x\r", n, ctx.registers[n]));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1461,7 +1490,7 @@ public class Sh2 {
 
 		//	Logger.log(Logger.CPU,String.format("rotl: despues %x\r", ctx.registers[n]));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1483,7 +1512,7 @@ public class Sh2 {
 
 
 		// Logger.log(Logger.CPU,String.format("rotcl: r[%d]=%x\r", n, ctx.registers[n]));
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1499,7 +1528,7 @@ public class Sh2 {
 		else ctx.registers[n] &= 0x7FFFFFFF;
 
 		//Logger.log(Logger.CPU,String.format("shar: despues %x\r", ctx.registers[n]));
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1512,7 +1541,7 @@ public class Sh2 {
 		else ctx.SR |= flagT;
 		ctx.registers[n] <<= 1;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1525,7 +1554,7 @@ public class Sh2 {
 		ctx.registers[n] <<= 1;
 
 		//Logger.log(Logger.CPU,String.format("shll: despues %x\r", ctx.registers[n]));
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1539,7 +1568,7 @@ public class Sh2 {
 
 		//Logger.log(Logger.CPU,String.format("shlr: r[%d]=%x\r\n", n, ctx.registers[n]));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1549,7 +1578,7 @@ public class Sh2 {
 
 		ctx.registers[n] <<= 2;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1562,7 +1591,7 @@ public class Sh2 {
 
 //		System.out.println(String.format("shlr2: r[%d]=%x\r\n", n, ctx.registers[n]));
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1572,7 +1601,7 @@ public class Sh2 {
 
 		ctx.registers[n] <<= 8;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1582,7 +1611,7 @@ public class Sh2 {
 
 		ctx.registers[n] >>>= 8;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1592,7 +1621,7 @@ public class Sh2 {
 
 		ctx.registers[n] <<= 16;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1604,7 +1633,7 @@ public class Sh2 {
 
 		ctx.registers[n] &= 0x0000FFFF;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1619,9 +1648,9 @@ public class Sh2 {
 
 			ctx.PC += (d << 1) + 4;
 
-			cycles--;
+			ctx.cycles--;
 		} else {
-			cycles--;
+			ctx.cycles--;
 			ctx.PC += 2;
 		}
 	}
@@ -1639,9 +1668,9 @@ public class Sh2 {
 
 			ctx.PC = pc;
 
-			cycles--;
+			ctx.cycles--;
 		} else {
-			cycles--;
+			ctx.cycles--;
 			ctx.PC += 2;
 		}
 	}
@@ -1656,9 +1685,9 @@ public class Sh2 {
 
 			ctx.PC = ctx.PC + (d << 1) + 4;
 
-			cycles--;
+			ctx.cycles--;
 		} else {
-			cycles--;
+			ctx.cycles--;
 			ctx.PC += 2;
 		}
 	}
@@ -1676,9 +1705,9 @@ public class Sh2 {
 			decode(memory.read16i(ctx.PC + 2));
 
 			ctx.PC = pc;
-			cycles--;
+			ctx.cycles--;
 		} else {
-			cycles--;
+			ctx.cycles--;
 			ctx.PC += 2;
 		}
 	}
@@ -1697,7 +1726,7 @@ public class Sh2 {
 
 		ctx.PC = pc;
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 	}
 
 	private final void BSR(int code) {
@@ -1707,7 +1736,7 @@ public class Sh2 {
 		else disp = (0xFFFFF000 | code);
 
 
-		ctx.PR = ctx.PC + 4;
+		ctx.PR = ctx.PC;
 
 		int pc = ctx.PC + (disp << 1) + 4;
 
@@ -1715,7 +1744,7 @@ public class Sh2 {
 
 		ctx.PC = pc;
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 	}
 
 	private final void BRAF(int code) {
@@ -1726,13 +1755,13 @@ public class Sh2 {
 		decode(memory.read16i(ctx.PC + 2));
 
 		ctx.PC = pc;
-		cycles -= 2;
+		ctx.cycles -= 2;
 	}
 
 	private final void BSRF(int code) {
 		int n = RN(code);
 
-		ctx.PR = ctx.PC + 4;
+		ctx.PR = ctx.PC;
 
 		int pc = ctx.PC + ctx.registers[n] + 4;
 
@@ -1740,7 +1769,7 @@ public class Sh2 {
 
 		ctx.PC = pc;
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 	}
 
 	private final void JMP(int code) {
@@ -1752,13 +1781,13 @@ public class Sh2 {
 
 		ctx.PC = target;
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 	}
 
 	private final void JSR(int code) {
 		int n = RN(code);
 
-		ctx.PR = ctx.PC + 4;
+		ctx.PR = ctx.PC;
 
 		int target = ctx.registers[n];
 
@@ -1766,36 +1795,31 @@ public class Sh2 {
 
 		ctx.PC = target;
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 	}
 
 	private final void RTS(int code) {
-		int pc = ctx.PR;
-		decode(memory.read16i(ctx.PC + 2));
-		ctx.PC = pc;
-		cycles -= 2;
+		int prevPC = ctx.PC;
+		int newPc = ctx.PR + 4;
+		//delayed branch inst, run before setting PC as it is changing PC
+		decode(memory.read16i(prevPC + 2));
+		ctx.PC = newPc;
+		ctx.cycles -= 2;
 	}
 
-	//TODO check
 	private final void RTE(int code) {
-		int rb = (ctx.SR & flagsRB);
-		ctx.SSR = ctx.SR & 0x700083f3;
-
-//		if (( ctx.SR & flagsRB) != rb) {
-//			switch_gpr_banks();
-//		}
-
-		decode(memory.read16i(ctx.PC + 2));
-
-//		ctx.PC = SPC;
-
-		cycles -= 5;
+		int prevPC = ctx.PC;
+		//delayed branch inst, run before setting PC as it is changing PC
+		decode(memory.read16i(prevPC + 2));
+		ctx.PC = pop() + 4;
+		ctx.SR = pop() & SR_MASK;
+		ctx.cycles -= 5;
 	}
 
 	private final void CLRMAC(int code) {
 		ctx.MACL = ctx.MACH = 0;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1803,23 +1827,16 @@ public class Sh2 {
 	private final void CLRT(int code) {
 		ctx.SR &= (~flagT);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
 	private final void LDCSR(int code) {
 		int m = RN(code);
+		ctx.SR = ctx.registers[m] & SR_MASK;
 
-		int rb = (ctx.SR & flagsRB);
-
-		ctx.SR = ctx.registers[m] & 0x700083f3;
-
-//		if ((( ctx.SR & flagsRB) != rb) && (( ctx.SR & flagMD) != 0)) {
-//			switch_gpr_banks();
-//		}
-		cycles -= 4;
+		ctx.cycles -= 4;
 		ctx.PC += 2;
-
 	}
 
 	private final void LDCGBR(int code) {
@@ -1827,7 +1844,7 @@ public class Sh2 {
 
 		ctx.GBR = ctx.registers[m];
 
-		cycles -= 3;
+		ctx.cycles -= 3;
 		ctx.PC += 2;
 	}
 
@@ -1836,17 +1853,7 @@ public class Sh2 {
 
 		ctx.VBR = ctx.registers[m];
 
-		cycles -= 2;
-		ctx.PC += 2;
-
-	}
-
-	private final void LDCSSR(int code) {
-		int m = RN(code);
-
-		ctx.SSR = ctx.registers[m];
-
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 
 	}
@@ -1854,17 +1861,10 @@ public class Sh2 {
 	private final void LDCMSR(int code) {
 		int m = RN(code);
 
-		int rb = (ctx.SR & flagsRB);
-
-		ctx.SR = memory.read32i(ctx.registers[m]) & 0x700083f3;
-
-//		if ((( ctx.SR & flagsRB) != rb) && (( ctx.SR & flagMD) != 0)) {
-//			switch_gpr_banks();
-//		}
-
+		ctx.SR = memory.read32i(ctx.registers[m]) & SR_MASK;
 		ctx.registers[m] += 4;
 
-		cycles -= 4;
+		ctx.cycles -= 4;
 		ctx.PC += 2;
 	}
 
@@ -1874,7 +1874,7 @@ public class Sh2 {
 		ctx.GBR = memory.read32i(ctx.registers[m]);
 		ctx.registers[m] += 4;
 
-		cycles -= 3;
+		ctx.cycles -= 3;
 		ctx.PC += 2;
 	}
 
@@ -1884,30 +1884,7 @@ public class Sh2 {
 		ctx.VBR = memory.read32i(ctx.registers[m]);
 		ctx.registers[m] += 4;
 
-		cycles -= 2;
-		ctx.PC += 2;
-
-	}
-
-	private final void LDCMSSR(int code) {
-		int m = RN(code);
-
-		ctx.SSR = memory.read32i(ctx.registers[m]);
-		ctx.registers[m] += 4;
-
-		cycles -= 2;
-		ctx.PC += 2;
-
-	}
-
-	private final void LDCMRBANK(int code) {
-		int b = ((code >> 4) & 0x07) + 16;
-		int m = RN(code);
-
-		ctx.registers[b] = memory.read32i(ctx.registers[m]);
-		ctx.registers[m] += 4;
-
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 
 	}
@@ -1917,7 +1894,7 @@ public class Sh2 {
 
 		ctx.MACH = ctx.registers[m];
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 
 	}
@@ -1927,7 +1904,7 @@ public class Sh2 {
 
 		ctx.MACL = ctx.registers[m];
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 
 	}
@@ -1941,7 +1918,7 @@ public class Sh2 {
 
 		ctx.PC += 2;
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 
 	}
 
@@ -1952,7 +1929,7 @@ public class Sh2 {
 		ctx.registers[m] += 4;
 
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 	}
 
@@ -1962,7 +1939,7 @@ public class Sh2 {
 		ctx.MACL = memory.read32i(ctx.registers[m]);
 		ctx.registers[m] += 4;
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 
 	}
@@ -1977,17 +1954,17 @@ public class Sh2 {
 
 		ctx.registers[m] += 4;
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 	}
 
 	private final void LDTLB(int code) {
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
 	private final void NOP(int code) {
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1995,13 +1972,13 @@ public class Sh2 {
 	private final void SETT(int code) {
 		ctx.SR |= flagT;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
 
 	private final void SLEEP(int code) {
-		cycles -= 4;
+		ctx.cycles -= 4;
 		ctx.PC += 2;
 	}
 
@@ -2010,7 +1987,7 @@ public class Sh2 {
 
 		ctx.registers[n] = ctx.SR;
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 	}
 
@@ -2019,7 +1996,7 @@ public class Sh2 {
 
 		ctx.registers[n] = ctx.GBR;
 		ctx.PC += 2;
-		cycles -= 2;
+		ctx.cycles -= 2;
 
 	}
 
@@ -2028,28 +2005,8 @@ public class Sh2 {
 
 		ctx.registers[n] = ctx.VBR;
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
-	}
-
-	private final void STCSSR(int code) {
-		int n = RN(code);
-
-		ctx.registers[n] = ctx.SSR; //VBR;
-
-		cycles -= 2;
-		ctx.PC += 2;
-	}
-
-	private final void STCRBANK(int code) {
-		int b = ((code >> 4) & 0x07) + 16;
-		int n = RN(code);
-
-		ctx.registers[n] = ctx.registers[b];
-
-		cycles -= 2;
-		ctx.PC += 2;
-
 	}
 
 	private final void STCMSR(int code) {
@@ -2058,7 +2015,7 @@ public class Sh2 {
 		ctx.registers[n] -= 4;
 		memory.write32i(ctx.registers[n], ctx.SR);
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 
 	}
@@ -2069,7 +2026,7 @@ public class Sh2 {
 		ctx.registers[n] -= 4;
 		memory.write32i(ctx.registers[n], ctx.GBR);
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 
 	}
@@ -2080,30 +2037,7 @@ public class Sh2 {
 		ctx.registers[n] -= 4;
 		memory.write32i(ctx.registers[n], ctx.VBR);
 
-		cycles -= 2;
-		ctx.PC += 2;
-
-	}
-
-	private final void STCMSSR(int code) {
-		int n = RN(code);
-
-		ctx.registers[n] -= 4;
-		memory.write32i(ctx.registers[n], ctx.SSR);
-
-		cycles -= 2;
-		ctx.PC += 2;
-
-	}
-
-	private final void STCMRBANK(int code) {
-		int b = ((code >> 4) & 0x07) + 16;
-		int n = RN(code);
-
-		ctx.registers[n] -= 4;
-		memory.write32i(ctx.registers[n], ctx.registers[b]);
-
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 
 	}
@@ -2113,7 +2047,7 @@ public class Sh2 {
 
 		ctx.registers[n] = ctx.MACH;
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -2124,7 +2058,7 @@ public class Sh2 {
 		ctx.registers[n] = ctx.MACL;
 
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -2135,7 +2069,7 @@ public class Sh2 {
 
 		ctx.registers[n] = ctx.PR;
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 
 	}
@@ -2146,7 +2080,7 @@ public class Sh2 {
 		ctx.registers[n] -= 4;
 		memory.write32i(ctx.registers[n], ctx.MACH);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -2157,7 +2091,7 @@ public class Sh2 {
 		ctx.registers[n] -= 4;
 		memory.write32i(ctx.registers[n], ctx.MACL);
 
-		cycles--;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -2168,7 +2102,7 @@ public class Sh2 {
 		ctx.registers[n] -= 4;
 		memory.write32i(ctx.registers[n], ctx.PR);
 
-		cycles -= 2;
+		ctx.cycles -= 2;
 		ctx.PC += 2;
 	}
 
@@ -2178,38 +2112,16 @@ public class Sh2 {
 		imm = (0x000000FF & code);
 
 //		memory.regmapWritehandle32Inst(MMREG.TRA,imm<<2);
-		ctx.SSR = ctx.SR;
 //		SPC=PC+2;
 //		SGR=ctx.registers[15];
-		ctx.SR |= flagMD;
-		ctx.SR |= flagBL;
-		ctx.SR |= flagsRB;
+//		ctx.SR |= flagMD;
+//		ctx.SR |= flagBL;
+//		ctx.SR |= flagsRB;
 //		memory.regmapWritehandle32Inst(MMREG.EXPEVT,0x00000160);
 		ctx.PC = ctx.VBR + 0x00000100;
-		cycles -= 7;
+		ctx.cycles -= 7;
 		ctx.PC += 2;
-	}
-
-	/*
-	 * Because an instruction in a delay slot cannot alter the ctx.PC we can do this.
-	 */
-	public void run(Sh2Context ctx) {
-		this.ctx = ctx;
-		memory.setSh2Access(ctx.sh2Access);
-		int opcode;
-		for (; cycles >= 0; ) {
-			opcode = memory.read16i(ctx.PC);
-			printDebugMaybe(ctx, opcode);
-			decode(opcode);
-			//	Emu.interruptController.acceptInterrupts();
-		}
-		cycles_ran = burstCycles - cycles;
-		cycles = burstCycles;
-	}
-
-	public void Step(int pc) {
-		decode(memory.read16i(pc));
-		ctx.PC += 2;
+		throw new RuntimeException("TRAPA");
 	}
 
 	protected void printDebugMaybe(Sh2Context ctx, int instruction) {
@@ -2218,6 +2130,23 @@ public class Sh2 {
 		}
 	}
 
+	/*
+	 * Because an instruction in a delay slot cannot alter the PC we can do this.
+	 * Perf: better to keep run() close to decode()
+	 */
+	public void run(final Sh2Context ctx) {
+		this.ctx = ctx;
+		memory.setSh2Access(ctx.sh2Access);
+		int opcode;
+		for (; ctx.cycles >= 0; ) {
+			opcode = memory.read16i(ctx.PC);
+			printDebugMaybe(ctx, opcode);
+			decode(opcode);
+			acceptInterrupts(ctx);
+		}
+		ctx.cycles_ran = burstCycles - ctx.cycles;
+		ctx.cycles = burstCycles;
+	}
 
 	private final void decode(int instruction) {
 		switch ((instruction >>> 12) & 0xf) {
@@ -2573,9 +2502,6 @@ public class Sh2 {
 							case 2:
 								LDCMVBR(instruction);
 								return;
-							case 3:
-								LDCMSSR(instruction);
-								return;
 							default:
 								NOIMP(instruction);
 								return;
@@ -2831,7 +2757,6 @@ public class Sh2 {
 				MOVI(instruction);
 				return;
 		}
-		Sh2Helper.printState(ctx, instruction);
-		throw new RuntimeException("Unknown inst: " + Integer.toHexString(instruction));
+		UNKNOWN(instruction);
 	}
 }

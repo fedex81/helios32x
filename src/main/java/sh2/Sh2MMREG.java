@@ -14,9 +14,9 @@ import static sh2.Sh2Util.*;
 public class Sh2MMREG {
 
     private ByteBuffer regs = ByteBuffer.allocate(0xFF);
-    private Sh2Emu.Sh2Access sh2Access;
+    private Sh2Access sh2Access;
 
-    public Sh2MMREG(Sh2Emu.Sh2Access sh2Access) {
+    public Sh2MMREG(Sh2Access sh2Access) {
         this.sh2Access = sh2Access;
     }
 

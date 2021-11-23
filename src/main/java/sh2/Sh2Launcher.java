@@ -8,7 +8,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static sh2.Sh2Emu.Sh2Access.*;
+import static sh2.Sh2Util.Sh2Access.*;
 
 /**
  * Federico Berti
@@ -73,14 +73,14 @@ public class Sh2Launcher {
         ctx.memory.bios[SLAVE.ordinal()] = ctx.biosHolder.getBiosData(SLAVE);
         MdBus.bios = ctx.biosHolder.getBiosData(M68K);
 
-        ctx.sh2 = new Sh2Emu(ctx.memory);
+        ctx.sh2 = new Sh2(ctx.memory);
         return ctx;
     }
 
     static class Sh2LaunchContext {
         public BiosHolder biosHolder;
         public Sh2Memory memory;
-        public Sh2Emu sh2;
+        public Sh2 sh2;
     }
 
     static void sleep(long ms) {
