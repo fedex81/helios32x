@@ -19,7 +19,8 @@ public class Md32x extends Genesis {
     private int nextSh2Cycle = SH2_DIVIDER;
 
     private Sh2Launcher.Sh2LaunchContext ctx;
-    private Sh2Emu master, slave;
+    private Sh2Emu sh2Emu;
+    private Sh2Context masterCtx, slaveCtx;
 
     public Md32x(DisplayWindow emuFrame) {
         super(emuFrame);
@@ -30,8 +31,11 @@ public class Md32x extends Genesis {
         super.initAfterRomLoad();
         BiosHolder biosHolder = Sh2Launcher.initBios();
         ctx = Sh2Launcher.setupRom(this.romFile);
-        master = ctx.master;
-        slave = ctx.slave;
+        sh2Emu = ctx.sh2;
+        masterCtx = new Sh2Context(Sh2Emu.Sh2Access.MASTER);
+        slaveCtx = new Sh2Context(Sh2Emu.Sh2Access.SLAVE);
+        sh2Emu.sh2cpu.reset(masterCtx);
+        sh2Emu.sh2cpu.reset(slaveCtx);
     }
 
     @Override
@@ -62,9 +66,9 @@ public class Md32x extends Genesis {
     protected final void runSh2(int counter) {
         int cycleDelay = 0;
         if (counter % 3 == 0) {
-            master.run();
-            slave.run();
-            cycleDelay = master.sh2cpu.cycles_ran;
+            sh2Emu.run(masterCtx);
+            sh2Emu.run(slaveCtx);
+            cycleDelay = sh2Emu.sh2cpu.cycles_ran;
         }
     }
 

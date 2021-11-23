@@ -73,17 +73,14 @@ public class Sh2Launcher {
         ctx.memory.bios[SLAVE.ordinal()] = ctx.biosHolder.getBiosData(SLAVE);
         MdBus.bios = ctx.biosHolder.getBiosData(M68K);
 
-        ctx.master = new Sh2Emu(MASTER, ctx.memory);
-        ctx.slave = new Sh2Emu(SLAVE, ctx.memory);
-
+        ctx.sh2 = new Sh2Emu(ctx.memory);
         return ctx;
     }
 
     static class Sh2LaunchContext {
         public BiosHolder biosHolder;
         public Sh2Memory memory;
-        public Sh2Emu master;
-        public Sh2Emu slave;
+        public Sh2Emu sh2;
     }
 
     static void sleep(long ms) {

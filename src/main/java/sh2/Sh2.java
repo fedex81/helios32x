@@ -48,41 +48,19 @@ public class Sh2 {
 	public static final int flagsRB = 0x20000000;
 	public static final int flagMD = 0x40000000;
 
-	/* General Purpose Registers */
-	static final int rtcnt_div[] = {0, 4, 16, 64, 256, 1024, 2048, 4096};
-	static final int daysmonth[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 	public static int burstCycles = 1;
 	/*
 	 * defines the number of cycles we can ran before stopping the interpreter
 	 */
 	public int cycles;
-
-	/* Control Registers */
 	public int cycles_ran;
 
-	/* System Registers */
-	public int registers[];
-	public String sh2TypeCode;
-
-	/* Flags to access the bit fields in SR and FPSCR
-	 * Sintax : flagRegName
-	 */
-	public int GBR, SSR, VBR, SR;
-	public int MACH, MACL, PR;
-	public int PC;
-	public Sh2Disassembler disassembler;
 	public boolean debugging = false;
+	private Sh2Context ctx;
 	protected IMemory memory;
-	private Sh2Emu.Sh2Access sh2Access;
 
-	public Sh2(Sh2Emu.Sh2Access sh2Access, IMemory memory) {
-		// GPR registers
-		registers = new int[24];
+	public Sh2(IMemory memory) {
 		this.memory = memory;
-		this.sh2Access = sh2Access;
-		this.sh2TypeCode = sh2Access.name().substring(0, 1);
-		// setting system registers to their initial values
-		reset();
 	}
 
 	public static final int RN(int x) {
@@ -99,64 +77,46 @@ public class Sh2 {
 
 	// get interrupt masks bits int the SR register
 	public int getIMASK() {
-		return (SR & flagIMASK) >>> 4;
+		return (ctx.SR & flagIMASK) >>> 4;
 	}
 
-	/*
-	 * Switches the general purpose register bank.
-	 * There are 16 general purpose registers and the first 8 are mapped to
-	 * a different bank depending on the RB bit on SR
-	 * Page 26 - Sh4 Programming Model
-	 */
-	public void switch_gpr_banks() {
-		int temp[] = new int[8];
-		System.arraycopy(registers, 0, temp, 0, 8);
-		System.arraycopy(registers, 16, registers, 0, 8);
-		System.arraycopy(temp, 0, registers, 16, 8);
-	}
-
-	public void reset() {
-		VBR = 0;
-		SR = 0x700000f0;
-		PC = memory.read32i(0);
-		registers[15] = memory.read32i(4); //SP
+	public void reset(Sh2Context ctx) {
+		ctx.VBR = 0;
+		ctx.PC = memory.read32i(0);
+		ctx.registers[15] = memory.read32i(4); //SP
 		cycles = burstCycles;
 		System.out.println("reset");
 	}
 
-	public void setDisassembler(Sh2Disassembler s) {
-		disassembler = s;
-	}
-
 	public void NOIMP(int code) {
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVI(int code) {
 		int i = (code & 0xff);
 		int n = ((code >> 8) & 0x0f);
 
-		if ((i & 0x80) == 0) registers[n] = (0x000000FF & i);
-		else registers[n] = (0xFFFFFF00 | i);
+		if ((i & 0x80) == 0) ctx.registers[n] = (0x000000FF & i);
+		else ctx.registers[n] = (0xFFFFFF00 | i);
 
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVWI(int code) {
 		int d = (code & 0xff);
 		int n = ((code >> 8) & 0x0f);
 
-		registers[n] = memory.read16i(PC + 4 + (d << 1));
+		ctx.registers[n] = memory.read16i(ctx.PC + 4 + (d << 1));
 
-		if ((registers[n] & 0x8000) == 0) registers[n] &= 0x0000FFFF;
-		else registers[n] |= 0xFFFF0000;
+		if ((ctx.registers[n] & 0x8000) == 0) ctx.registers[n] &= 0x0000FFFF;
+		else ctx.registers[n] |= 0xFFFF0000;
 
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -164,10 +124,10 @@ public class Sh2 {
 		int d = (code & 0xff);
 		int n = ((code >> 8) & 0x0f);
 
-		registers[n] = memory.read32i((PC & 0xfffffffc) + 4 + (d << 2));
+		ctx.registers[n] = memory.read32i((ctx.PC & 0xfffffffc) + 4 + (d << 2));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -175,42 +135,42 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] = registers[m];
+		ctx.registers[n] = ctx.registers[m];
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVBS(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		memory.write8i(registers[n], (byte) registers[m]);
+		memory.write8i(ctx.registers[n], (byte) ctx.registers[m]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVWS(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		memory.write16i(registers[n], registers[m]);
+		memory.write16i(ctx.registers[n], ctx.registers[m]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVLS(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		//	System.out.println("MOVLS source " + Integer.toHexString(registers[n]) + "destination " + Integer.toHexString(registers[m]));
+		//	System.out.println("MOVLS source " + Integer.toHexString(ctx.registers[n]) + "destination " + Integer.toHexString(ctx.registers[m]));
 
-		memory.write32i(registers[n], registers[m]);
+		memory.write32i(ctx.registers[n], ctx.registers[m]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVBL(int code) {
@@ -218,62 +178,62 @@ public class Sh2 {
 		int n = RN(code);
 		byte c;
 
-		c = (byte) (memory.read8i(registers[m]) & 0xFF);
+		c = (byte) (memory.read8i(ctx.registers[m]) & 0xFF);
 
-		registers[n] = (int) c;
+		ctx.registers[n] = (int) c;
 
-		//Logger.log(Logger.CPU, String.format("movb7: r[%d]=%x,%d r[%d]=%x,%d\r", m, registers[m], registers[m], n, registers[n], registers[n]));
+		//Logger.log(Logger.CPU, String.format("movb7: r[%d]=%x,%d r[%d]=%x,%d\r", m, ctx.registers[m], ctx.registers[m], n, ctx.registers[n], ctx.registers[n]));
 
-		//System.out.println("MOVBL @" + Integer.toHexString(registers[m]) + " value read " + registers[n] + " PC " + Integer.toHexString(PC));
+		//System.out.println("MOVBL @" + Integer.toHexString(ctx.registers[m]) + " value read " + ctx.registers[n] + " ctx.PC " + Integer.toHexString(PC));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVWL(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		short w = (short) (memory.read16i(registers[m]) & 0xFFFF);
+		short w = (short) (memory.read16i(ctx.registers[m]) & 0xFFFF);
 
-		registers[n] = (int) w;
+		ctx.registers[n] = (int) w;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVLL(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] = memory.read32i(registers[m]);
+		ctx.registers[n] = memory.read32i(ctx.registers[m]);
 
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVBM(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] -= 1;
-		memory.write8i(registers[n], (byte) registers[m]);
+		ctx.registers[n] -= 1;
+		memory.write8i(ctx.registers[n], (byte) ctx.registers[m]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVWM(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] -= 2;
+		ctx.registers[n] -= 2;
 
-		memory.write16i(registers[n], registers[m]);
+		memory.write16i(ctx.registers[n], ctx.registers[m]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -281,12 +241,12 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] -= 4;
+		ctx.registers[n] -= 4;
 
-		memory.write32i(registers[n], registers[m]);
+		memory.write32i(ctx.registers[n], ctx.registers[m]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -294,12 +254,12 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		byte b = (byte) (memory.read8i(registers[m]) & 0xFF);
-		registers[n] = (int) b;
-		if (n != m) registers[m] += 1;
+		byte b = (byte) (memory.read8i(ctx.registers[m]) & 0xFF);
+		ctx.registers[n] = (int) b;
+		if (n != m) ctx.registers[m] += 1;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -307,12 +267,12 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		short w = (short) memory.read16i(registers[m]);
-		registers[n] = (int) w;
-		if (n != m) registers[m] += 2;
+		short w = (short) memory.read16i(ctx.registers[m]);
+		ctx.registers[n] = (int) w;
+		if (n != m) ctx.registers[m] += 2;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -320,11 +280,11 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] = memory.read32i(registers[m]);
-		if (n != m) registers[m] += 4;
+		ctx.registers[n] = memory.read32i(ctx.registers[m]);
+		if (n != m) ctx.registers[m] += 4;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -332,10 +292,10 @@ public class Sh2 {
 		int d = ((code >> 0) & 0x0f);
 		int n = RM(code);
 
-		memory.write8i(registers[n] + (d << 0), (byte) registers[0]);
+		memory.write8i(ctx.registers[n] + (d << 0), (byte) ctx.registers[0]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -343,10 +303,10 @@ public class Sh2 {
 		int d = ((code >> 0) & 0x0f);
 		int n = RM(code);
 
-		memory.write16i(registers[n] + (d << 1), registers[0]);
+		memory.write16i(ctx.registers[n] + (d << 1), ctx.registers[0]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -355,12 +315,12 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		memory.write32i(registers[n] + (d << 2), registers[m]);
+		memory.write32i(ctx.registers[n] + (d << 2), ctx.registers[m]);
 
-		//System.out.println("MOVLS4 " + Integer.toHexString(registers[n]));
+		//System.out.println("MOVLS4 " + Integer.toHexString(ctx.registers[n]));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -368,23 +328,23 @@ public class Sh2 {
 		int d = ((code >> 0) & 0x0f);
 		int m = RM(code);
 
-		byte b = (byte) (memory.read8i(registers[m] + d) & 0xFF);
-		registers[0] = (int) b;
+		byte b = (byte) (memory.read8i(ctx.registers[m] + d) & 0xFF);
+		ctx.registers[0] = (int) b;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVWL4(int code) {
 		int d = ((code >> 0) & 0x0f);
 		int m = RM(code);
 
-		short w = (short) memory.read16i(registers[m] + (d << 1));
-		registers[0] = (int) w;
+		short w = (short) memory.read16i(ctx.registers[m] + (d << 1));
+		ctx.registers[0] = (int) w;
 
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVLL4(int code) {
@@ -392,42 +352,42 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] = memory.read32i(registers[m] + (d << 2));
+		ctx.registers[n] = memory.read32i(ctx.registers[m] + (d << 2));
 
 
-		//System.out.println("MOVLL4 " + Integer.toHexString(registers[n]) + " @" + Integer.toHexString(registers[m] + (d *4)) );
+		//System.out.println("MOVLL4 " + Integer.toHexString(ctx.registers[n]) + " @" + Integer.toHexString(ctx.registers[m] + (d *4)) );
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVBS0(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		memory.write8i(registers[n] + registers[0], (byte) registers[m]);
+		memory.write8i(ctx.registers[n] + ctx.registers[0], (byte) ctx.registers[m]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVWS0(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		memory.write16i(registers[n] + registers[0], registers[m]);
+		memory.write16i(ctx.registers[n] + ctx.registers[0], ctx.registers[m]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVLS0(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		memory.write32i(registers[n] + registers[0], registers[m]);
+		memory.write32i(ctx.registers[n] + ctx.registers[0], ctx.registers[m]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -435,11 +395,11 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		byte b = (byte) memory.read8i(registers[m] + registers[0]);
-		registers[n] = (int) b;
+		byte b = (byte) memory.read8i(ctx.registers[m] + ctx.registers[0]);
+		ctx.registers[n] = (int) b;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -447,11 +407,11 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		short w = (short) memory.read16i(registers[m] + registers[0]);
-		registers[n] = (int) w;
+		short w = (short) memory.read16i(ctx.registers[m] + ctx.registers[0]);
+		ctx.registers[n] = (int) w;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -459,91 +419,91 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] = memory.read32i(registers[m] + registers[0]);
+		ctx.registers[n] = memory.read32i(ctx.registers[m] + ctx.registers[0]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void MOVBSG(int code) {
 		int d = (code & 0xff);
 
-		memory.write8i(GBR + d, (byte) registers[0]);
+		memory.write8i(ctx.GBR + d, (byte) ctx.registers[0]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void MOVWSG(int code) {
 		int d = ((code >> 0) & 0xff);
 
-		memory.write16i(GBR + (d << 1), registers[0]);
+		memory.write16i(ctx.GBR + (d << 1), ctx.registers[0]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void MOVLSG(int code) {
 		int d = ((code >> 0) & 0xff);
 
-		memory.write32i(GBR + (d << 2), registers[0]);
+		memory.write32i(ctx.GBR + (d << 2), ctx.registers[0]);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void MOVBLG(int code) {
 		int d = ((code >> 0) & 0xff);
 
-		byte b = (byte) memory.read8i(GBR + (d << 0));
-		registers[0] = (int) b;
+		byte b = (byte) memory.read8i(ctx.GBR + (d << 0));
+		ctx.registers[0] = (int) b;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void MOVWLG(int code) {
 		int d = ((code >> 0) & 0xff);
 
-		short w = (short) memory.read16i(GBR + (d << 1));
-		registers[0] = (int) w;
+		short w = (short) memory.read16i(ctx.GBR + (d << 1));
+		ctx.registers[0] = (int) w;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void MOVLLG(int code) {
 		int d = ((code >> 0) & 0xff);
 
-		registers[0] = memory.read32i(GBR + (d << 2));
+		ctx.registers[0] = memory.read32i(ctx.GBR + (d << 2));
 
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVA(int code) {
 		int d = (code & 0x000000ff);
 
-		registers[0] = ((PC & 0xfffffffc) + 4 + (d << 2));
+		ctx.registers[0] = ((ctx.PC & 0xfffffffc) + 4 + (d << 2));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MOVT(int code) {
 		int n = RN(code);
 
-		registers[n] = (SR & flagT);
+		ctx.registers[n] = (ctx.SR & flagT);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -552,25 +512,25 @@ public class Sh2 {
 		int n = RN(code);
 
 		int temp0, temp1;
-		temp0 = registers[m] & 0xFFFF0000;
-		temp1 = (registers[m] & 0x000000FF) << 8;
-		registers[n] = (registers[m] & 0x0000FF00) >> 8;
-		registers[n] = registers[n] | temp1 | temp0;
+		temp0 = ctx.registers[m] & 0xFFFF0000;
+		temp1 = (ctx.registers[m] & 0x000000FF) << 8;
+		ctx.registers[n] = (ctx.registers[m] & 0x0000FF00) >> 8;
+		ctx.registers[n] = ctx.registers[n] | temp1 | temp0;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void SWAPW(int code) {
 		int m = RM(code);
 		int n = RN(code);
 		int temp = 0;
-		temp = (registers[m] >>> 16) & 0x0000FFFF;
-		registers[n] = registers[m] << 16;
-		registers[n] |= temp;
+		temp = (ctx.registers[m] >>> 16) & 0x0000FFFF;
+		ctx.registers[n] = ctx.registers[m] << 16;
+		ctx.registers[n] |= temp;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -578,11 +538,11 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] = ((registers[n] & 0xffff0000) >>> 16) |
-				((registers[m] & 0x0000ffff) << 16);
+		ctx.registers[n] = ((ctx.registers[n] & 0xffff0000) >>> 16) |
+				((ctx.registers[m] & 0x0000ffff) << 16);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -590,48 +550,48 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] += registers[m]; 
+		ctx.registers[n] += ctx.registers[m]; 
 		
 
 		/*Logger.log(Logger.CPU,String.format("add39: r[%d]=%x,%d r[%d]=%x,%d\r\n",
-	            n, registers[n], registers[n],
-	            m, registers[m], registers[m]));*/
+	            n, ctx.registers[n], ctx.registers[n],
+	            m, ctx.registers[m], ctx.registers[m]));*/
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void ADDI(int code) {
 		int n = RN(code);
 		byte b = (byte) (code & 0xff);
-		//System.out.println("ADDI before " + Integer.toHexString(registers[n]) + "value to be added " + Integer.toHexString(b));
+		//System.out.println("ADDI before " + Integer.toHexString(ctx.registers[n]) + "value to be added " + Integer.toHexString(b));
 
-		registers[n] += (int) b;
+		ctx.registers[n] += (int) b;
 
 		/*Logger.log(Logger.CPU,String.format("add40: r[%d]=%x,%d\r\n",
-	            n, registers[n], registers[n])); */
+	            n, ctx.registers[n], ctx.registers[n])); */
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void ADDC(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		int tmp0 = registers[n];
-		int tmp1 = registers[n] + registers[m];
-		registers[n] = tmp1 + (SR & flagT);
+		int tmp0 = ctx.registers[n];
+		int tmp1 = ctx.registers[n] + ctx.registers[m];
+		ctx.registers[n] = tmp1 + (ctx.SR & flagT);
 		if (tmp0 > tmp1)
-			SR |= flagT;
-		else SR &= (~flagT);
-		if (tmp1 > registers[n]) SR |= flagT;
+			ctx.SR |= flagT;
+		else ctx.SR &= (~flagT);
+		if (tmp1 > ctx.registers[n]) ctx.SR |= flagT;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 		
 		/*Logger.log(Logger.CPU,String.format("addc41: r[%d]=%x,%d r[%d]=%x,%d tmp0=%x,%d, tmp1=%x,%d\r\n",
-	            m, registers[m], registers[m],
-	            n, registers[n], registers[n],
+	            m, ctx.registers[m], ctx.registers[m],
+	            n, ctx.registers[n], ctx.registers[n],
 	            tmp0, tmp0, tmp1, tmp1)); */
 	}
 
@@ -641,15 +601,15 @@ public class Sh2 {
 		int n = RN(code);
 		int dest = 0, src = 0;
 
-		if (registers[n] >= 0) dest = 1;
+		if (ctx.registers[n] >= 0) dest = 1;
 		else dest = 0;
-		if (registers[m] >= 0) src = 1;
+		if (ctx.registers[m] >= 0) src = 1;
 		else src = 0;
 
 		src += dest;
-		registers[n] += registers[m];
+		ctx.registers[n] += ctx.registers[m];
 
-		if (registers[n] >= 0)
+		if (ctx.registers[n] >= 0)
 			ans = 0;
 		else ans = 1;
 
@@ -657,13 +617,13 @@ public class Sh2 {
 
 		if ((src == 0) || (src == 2)) {
 			if (ans == 1)
-				SR |= ans;
-			else SR &= (~flagT);
+				ctx.SR |= ans;
+			else ctx.SR &= (~flagT);
 		} else
-			SR &= (~flagT);
+			ctx.SR &= (~flagT);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -673,18 +633,18 @@ public class Sh2 {
 		if ((code & 0x80) == 0) i = (0x000000FF & code);
 		else i = (0xFFFFFF00 | code);
 
-		if (registers[0] == i)
-			SR |= flagT;
-		else SR &= (~flagT);
+		if (ctx.registers[0] == i)
+			ctx.SR |= flagT;
+		else ctx.SR &= (~flagT);
 		
 
 		/*Logger.log(Logger.CPU,String.format("cmp/eq: r[0]=%x,%d,'%c' == #%x,%d,'%c' ?\r\n",
-				registers[0],registers[0], registers[0],
+				ctx.registers[0],ctx.registers[0], ctx.registers[0],
 	        i, i,i));*/
 
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -692,47 +652,47 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		if (registers[n] == registers[m])
-			SR |= flagT;
-		else SR &= (~flagT);
+		if (ctx.registers[n] == ctx.registers[m])
+			ctx.SR |= flagT;
+		else ctx.SR &= (~flagT);
 
 
 		/*Logger.log(Logger.CPU,String.format("cmp/eq: r[%d]=%x,%d,'%c' == r[%d]=%x,%d,'%c' \r",
-	        n,  registers[n],  registers[n],  registers[n],
-	        m,  registers[m],  registers[m],  registers[m]));
+	        n,  ctx.registers[n],  ctx.registers[n],  ctx.registers[n],
+	        m,  ctx.registers[m],  ctx.registers[m],  ctx.registers[m]));
 */
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void CMPHS(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		if (((long) (registers[n] & 0xFFFFFFFFL)) >= ((long) (registers[m] & 0xFFFFFFFFL)))
-			SR |= flagT;
-		else SR &= (~flagT);
+		if (((long) (ctx.registers[n] & 0xFFFFFFFFL)) >= ((long) (ctx.registers[m] & 0xFFFFFFFFL)))
+			ctx.SR |= flagT;
+		else ctx.SR &= (~flagT);
 
-		//Logger.log(Logger.CPU,String.format("cmp/hs: r[%d]=%x >= r[%d]=%x ?\r", n, registers[n], m, registers[m]));
+		//Logger.log(Logger.CPU,String.format("cmp/hs: r[%d]=%x >= r[%d]=%x ?\r", n, ctx.registers[n], m, ctx.registers[m]));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void CMPGE(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		if (registers[n] >= registers[m])
-			SR |= flagT;
-		else SR &= (~flagT);
+		if (ctx.registers[n] >= ctx.registers[m])
+			ctx.SR |= flagT;
+		else ctx.SR &= (~flagT);
 
-		//Logger.log(Logger.CPU,String.format("cmp/ge: r[%d]=%x >= r[%d]=%x ?\r\n", n, registers[n], m, registers[m]));
+		//Logger.log(Logger.CPU,String.format("cmp/ge: r[%d]=%x >= r[%d]=%x ?\r\n", n, ctx.registers[n], m, ctx.registers[m]));
 
-		//Logger.log(Logger.CPU,"CMPGE " + registers[n] + " >= " + registers[m]);
+		//Logger.log(Logger.CPU,"CMPGE " + ctx.registers[n] + " >= " + ctx.registers[m]);
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void CMPHI(int code) {
@@ -740,77 +700,77 @@ public class Sh2 {
 		int n = RN(code);
 
 		// AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH
-		if (((long) (registers[n] & 0xFFFFFFFFL)) > ((long) (registers[m] & 0xFFFFFFFFL)))
-			SR |= flagT;
-		else SR &= (~flagT);
+		if (((long) (ctx.registers[n] & 0xFFFFFFFFL)) > ((long) (ctx.registers[m] & 0xFFFFFFFFL)))
+			ctx.SR |= flagT;
+		else ctx.SR &= (~flagT);
 
-		//Logger.log(Logger.CPU,String.format("cmp/hi: r[%d]=%x >= r[%d]=%x ?\r", n, registers[n], m, registers[m]));
+		//Logger.log(Logger.CPU,String.format("cmp/hi: r[%d]=%x >= r[%d]=%x ?\r", n, ctx.registers[n], m, ctx.registers[m]));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void CMPGT(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		if (registers[n] > registers[m])
-			SR |= flagT;
-		else SR &= (~flagT);
+		if (ctx.registers[n] > ctx.registers[m])
+			ctx.SR |= flagT;
+		else ctx.SR &= (~flagT);
 
-		//Logger.log(Logger.CPU,String.format("cmp/gt: r[%d]=%x >= r[%d]=%x ?\r", n, registers[n], m, registers[m]));
+		//Logger.log(Logger.CPU,String.format("cmp/gt: r[%d]=%x >= r[%d]=%x ?\r", n, ctx.registers[n], m, ctx.registers[m]));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void CMPPZ(int code) {
 		int n = RN(code);
 
-		if (registers[n] >= 0)
-			SR |= flagT;
-		else SR &= (~flagT);
+		if (ctx.registers[n] >= 0)
+			ctx.SR |= flagT;
+		else ctx.SR &= (~flagT);
 
-		//Logger.log(Logger.CPU,String.format("cmp/pz: r[%d]=%x >= 0 ?\r", n, registers[n]));
+		//Logger.log(Logger.CPU,String.format("cmp/pz: r[%d]=%x >= 0 ?\r", n, ctx.registers[n]));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void CMPPL(int code) {
 		int n = RN(code);
 
-		if (registers[n] > 0)
-			SR |= flagT;
-		else SR &= (~flagT);
+		if (ctx.registers[n] > 0)
+			ctx.SR |= flagT;
+		else ctx.SR &= (~flagT);
 
-		//Logger.log(Logger.CPU,String.format("cmp/pz: r[%d]=%x > 0 ?\r", n, registers[n]));
+		//Logger.log(Logger.CPU,String.format("cmp/pz: r[%d]=%x > 0 ?\r", n, ctx.registers[n]));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
-		//Logger.log(Logger.CPU,"CMPPL " + registers[n]);
+		//Logger.log(Logger.CPU,"CMPPL " + ctx.registers[n]);
 	}
 
 	private final void CMPSTR(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		int tmp = registers[n] ^ registers[m];
+		int tmp = ctx.registers[n] ^ ctx.registers[m];
 
 		int HH = (tmp >>> 24) & 0xff;
 		int HL = (tmp >>> 16) & 0xff;
 		int LH = (tmp >>> 8) & 0xff;
 		int LL = tmp & 0xff;
 		if ((HH & HL & LH & LL) != 0)
-			SR &= ~flagT;
+			ctx.SR &= ~flagT;
 		else
-			SR |= flagT;
+			ctx.SR |= flagT;
 
-		//	Logger.log(Logger.CPU,String.format("cmp/str: r[%d]=%x >= r[%d]=%x ?\r", n, registers[n], m, registers[m]));
+		//	Logger.log(Logger.CPU,String.format("cmp/str: r[%d]=%x >= r[%d]=%x ?\r", n, ctx.registers[n], m, ctx.registers[m]));
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void DIV1(int code) {
@@ -821,137 +781,137 @@ public class Sh2 {
 		int tmp1;
 		int old_q;
 
-		old_q = SR & flagQ;
-		if ((0x80000000 & registers[n]) != 0)
-			SR |= flagQ;
+		old_q = ctx.SR & flagQ;
+		if ((0x80000000 & ctx.registers[n]) != 0)
+			ctx.SR |= flagQ;
 		else
-			SR &= ~flagQ;
+			ctx.SR &= ~flagQ;
 
-		tmp2 = registers[m];
-		registers[n] <<= 1;
+		tmp2 = ctx.registers[m];
+		ctx.registers[n] <<= 1;
 
-		registers[n] |= flagT;
+		ctx.registers[n] |= flagT;
 
 		if (old_q == 0) {
-			if ((SR & flagM) == 0) {
-				tmp0 = registers[n];
-				registers[n] -= tmp2;
-				tmp1 = (registers[n] > tmp0 ? 1 : 0);
-				if ((SR & flagQ) == 0)
+			if ((ctx.SR & flagM) == 0) {
+				tmp0 = ctx.registers[n];
+				ctx.registers[n] -= tmp2;
+				tmp1 = (ctx.registers[n] > tmp0 ? 1 : 0);
+				if ((ctx.SR & flagQ) == 0)
 					if (tmp1 == 1)
-						SR |= flagQ;
+						ctx.SR |= flagQ;
 					else
-						SR &= ~flagQ;
+						ctx.SR &= ~flagQ;
 				else if (tmp1 == 0)
-					SR |= flagQ;
+					ctx.SR |= flagQ;
 				else
-					SR &= ~flagQ;
+					ctx.SR &= ~flagQ;
 			} else {
-				tmp0 = registers[n];
-				registers[n] += tmp2;
-				tmp1 = (registers[n] < tmp0 ? 1 : 0);
-				if ((SR & flagQ) == 0) {
+				tmp0 = ctx.registers[n];
+				ctx.registers[n] += tmp2;
+				tmp1 = (ctx.registers[n] < tmp0 ? 1 : 0);
+				if ((ctx.SR & flagQ) == 0) {
 					if (tmp1 == 0)
-						SR |= flagQ;
+						ctx.SR |= flagQ;
 					else
-						SR &= ~flagQ;
+						ctx.SR &= ~flagQ;
 				} else {
 					if (tmp1 == 1)
-						SR |= flagQ;
+						ctx.SR |= flagQ;
 					else
-						SR &= ~flagQ;
+						ctx.SR &= ~flagQ;
 				}
 			}
 		} else {
-			if ((SR & flagM) == 0) {
-				tmp0 = registers[n];
-				registers[n] += tmp2;
-				tmp1 = (registers[n] < tmp0 ? 1 : 0);
-				if ((SR & flagQ) == 0) {
+			if ((ctx.SR & flagM) == 0) {
+				tmp0 = ctx.registers[n];
+				ctx.registers[n] += tmp2;
+				tmp1 = (ctx.registers[n] < tmp0 ? 1 : 0);
+				if ((ctx.SR & flagQ) == 0) {
 					if (tmp1 == 1)
-						SR |= flagQ;
+						ctx.SR |= flagQ;
 					else
-						SR &= ~flagQ;
+						ctx.SR &= ~flagQ;
 				} else {
 					if (tmp1 == 0)
-						SR |= flagQ;
+						ctx.SR |= flagQ;
 					else
-						SR &= ~flagQ;
+						ctx.SR &= ~flagQ;
 				}
 			} else {
-				tmp0 = registers[n];
-				registers[n] -= tmp2;
-				tmp1 = (registers[n] > tmp0 ? 1 : 0);
-				if ((SR & flagQ) == 0) {
+				tmp0 = ctx.registers[n];
+				ctx.registers[n] -= tmp2;
+				tmp1 = (ctx.registers[n] > tmp0 ? 1 : 0);
+				if ((ctx.SR & flagQ) == 0) {
 					if (tmp1 == 0)
-						SR |= flagQ;
+						ctx.SR |= flagQ;
 					else
-						SR &= ~flagQ;
+						ctx.SR &= ~flagQ;
 				} else {
 					if (tmp1 == 1)
-						SR |= flagQ;
+						ctx.SR |= flagQ;
 					else
-						SR &= ~flagQ;
+						ctx.SR &= ~flagQ;
 				}
 			}
 		}
 
-		tmp0 = (SR & (flagQ | flagM));
+		tmp0 = (ctx.SR & (flagQ | flagM));
 		if (((tmp0) == 0) || (tmp0 == 0x300)) /* if Q == M set T else clear T */
-			SR |= flagT;
+			ctx.SR |= flagT;
 		else
-			SR &= ~flagT;
+			ctx.SR &= ~flagT;
 
-		//Logger.log(Logger.CPU,String.format("div1s: r[%d]=%x >= r[%d]=%x ?\r", n, registers[n], m, registers[m]));
+		//Logger.log(Logger.CPU,String.format("div1s: r[%d]=%x >= r[%d]=%x ?\r", n, ctx.registers[n], m, ctx.registers[m]));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void DIV0S(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		if ((registers[n] & 0x80000000) == 0)
-			SR &= ~flagQ;
+		if ((ctx.registers[n] & 0x80000000) == 0)
+			ctx.SR &= ~flagQ;
 		else
-			SR |= flagQ;
-		if ((registers[m] & 0x80000000) == 0)
-			SR &= ~flagM;
+			ctx.SR |= flagQ;
+		if ((ctx.registers[m] & 0x80000000) == 0)
+			ctx.SR &= ~flagM;
 		else
-			SR |= flagM;
-		if (((registers[m] ^ registers[n]) & 0x80000000) != 0)
-			SR |= flagT;
+			ctx.SR |= flagM;
+		if (((ctx.registers[m] ^ ctx.registers[n]) & 0x80000000) != 0)
+			ctx.SR |= flagT;
 		else
-			SR &= ~flagT;
+			ctx.SR &= ~flagT;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void DIV0U(int code) {
-		SR &= (~flagQ);
-		SR &= (~flagM);
-		SR &= (~flagT);
+		ctx.SR &= (~flagQ);
+		ctx.SR &= (~flagM);
+		ctx.SR &= (~flagT);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void DMULS(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		long mult = (long) registers[n] * (long) registers[m];
+		long mult = (long) ctx.registers[n] * (long) ctx.registers[m];
 
 //		System.out.println("DMULS " + mult);
 
-		MACL = (int) (mult & 0xffffffff);
-		MACH = (int) ((mult >>> 32) & 0xffffffff);
+		ctx.MACL = (int) (mult & 0xffffffff);
+		ctx.MACH = (int) ((mult >>> 32) & 0xffffffff);
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void DMULU(int code) {
@@ -959,28 +919,28 @@ public class Sh2 {
 		int n = RN(code);
 
 		// this should be unsigned but oh well :/
-		long mult = (long) (registers[n] & 0xffffffffL) * (long) (registers[m] & 0xffffffffL);
+		long mult = (long) (ctx.registers[n] & 0xffffffffL) * (long) (ctx.registers[m] & 0xffffffffL);
 
 		System.out.println("DMULU" + Long.toHexString(mult));
 
-		MACL = (int) (mult & 0xffffffff);
-		MACH = (int) ((mult >>> 32) & 0xffffffff);
+		ctx.MACL = (int) (mult & 0xffffffff);
+		ctx.MACH = (int) ((mult >>> 32) & 0xffffffff);
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void DT(int code) {
 		int n = RN(code);
-		//Logger.log(Logger.CPU,"DT: R[" + n + "] = " + Integer.toHexString(registers[n]));
-		registers[n]--;
-		if (registers[n] == 0) {
-			SR |= flagT;
+		//Logger.log(Logger.CPU,"DT: R[" + n + "] = " + Integer.toHexString(ctx.registers[n]));
+		ctx.registers[n]--;
+		if (ctx.registers[n] == 0) {
+			ctx.SR |= flagT;
 		} else {
-			SR &= (~flagT);
+			ctx.SR &= (~flagT);
 		}
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -989,46 +949,46 @@ public class Sh2 {
 		int n = RN(code);
 
 
-		registers[n] = registers[m];
-		if ((registers[m] & 0x00000080) == 0) registers[n] &= 0x000000FF;
-		else registers[n] |= 0xFFFFFF00;
+		ctx.registers[n] = ctx.registers[m];
+		if ((ctx.registers[m] & 0x00000080) == 0) ctx.registers[n] &= 0x000000FF;
+		else ctx.registers[n] |= 0xFFFFFF00;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void EXTSW(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] = registers[m];
-		if ((registers[m] & 0x00008000) == 0) registers[n] &= 0x0000FFFF;
-		else registers[n] |= 0xFFFF0000;
+		ctx.registers[n] = ctx.registers[m];
+		if ((ctx.registers[m] & 0x00008000) == 0) ctx.registers[n] &= 0x0000FFFF;
+		else ctx.registers[n] |= 0xFFFF0000;
 
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void EXTUB(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] = (registers[m] & 0x000000FF);
+		ctx.registers[n] = (ctx.registers[m] & 0x000000FF);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void EXTUW(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] = registers[m];
-		registers[n] &= 0x0000FFFF;
+		ctx.registers[n] = ctx.registers[m];
+		ctx.registers[n] &= 0x0000FFFF;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MACL(int code) {
@@ -1039,10 +999,10 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		tempn = memory.read32i(registers[n]);
-		registers[n] += 4;
-		tempm = memory.read32i(registers[m]);
-		registers[m] += 4;
+		tempn = memory.read32i(ctx.registers[n]);
+		ctx.registers[n] += 4;
+		tempm = memory.read32i(ctx.registers[m]);
+		ctx.registers[m] += 4;
 
 		if ((tempn ^ tempm) < 0)
 			fnLmL = -1;
@@ -1089,15 +1049,15 @@ public class Sh2 {
 				Res0 = (~Res0) + 1;
 		}
 
-		if ((SR & flagS) == flagS) {
-			Res0 = MACL + Res0;
-			if (MACL > Res0)
+		if ((ctx.SR & flagS) == flagS) {
+			Res0 = ctx.MACL + Res0;
+			if (ctx.MACL > Res0)
 				Res2++;
 
-			if ((MACH & 0x00008000) != 0) ;
-			else Res2 += MACH | 0xFFFF0000;
+			if ((ctx.MACH & 0x00008000) != 0) ;
+			else Res2 += ctx.MACH | 0xFFFF0000;
 
-			Res2 += (MACL & 0x0000FFFF);
+			Res2 += (ctx.MACL & 0x0000FFFF);
 
 			if ((Res2 < 0) && (Res2 < 0xFFFF8000)) {
 				Res2 = 0x00008000;
@@ -1110,21 +1070,21 @@ public class Sh2 {
 			}
 			;
 
-			MACH = Res2;
-			MACL = Res0;
+			ctx.MACH = Res2;
+			ctx.MACL = Res0;
 		} else {
-			Res0 = MACL + Res0;
+			Res0 = ctx.MACL + Res0;
 
-			if (MACL > Res0)
+			if (ctx.MACL > Res0)
 				Res2++;
 
-			Res2 += MACH;
+			Res2 += ctx.MACH;
 
-			MACH = Res2;
-			MACL = Res0;
+			ctx.MACH = Res2;
+			ctx.MACL = Res0;
 		}
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MACW(int code) {
@@ -1134,15 +1094,15 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		tempn = memory.read16i(registers[n]);
-		registers[n] += 2;
-		tempm = memory.read16i(registers[m]);
-		registers[m] += 2;
+		tempn = memory.read16i(ctx.registers[n]);
+		ctx.registers[n] += 2;
+		tempm = memory.read16i(ctx.registers[m]);
+		ctx.registers[m] += 2;
 
-		templ = MACL;
+		templ = ctx.MACL;
 		tempm = ((int) (short) tempn * (int) (short) tempm);
 
-		if (MACL >= 0)
+		if (ctx.MACL >= 0)
 			dest = 0;
 		else
 			dest = 1;
@@ -1157,37 +1117,37 @@ public class Sh2 {
 
 		src += dest;
 
-		MACL += tempm;
+		ctx.MACL += tempm;
 
-		if (MACL >= 0)
+		if (ctx.MACL >= 0)
 			ans = 0;
 		else
 			ans = 1;
 
 		ans += dest;
 
-		if ((SR & flagS) == 0) {
+		if ((ctx.SR & flagS) == 0) {
 			if (ans == 1) {
-				if (src == 0) MACL = 0x7FFFFFFF;
-				if (src == 2) MACL = 0x80000000;
+				if (src == 0) ctx.MACL = 0x7FFFFFFF;
+				if (src == 2) ctx.MACL = 0x80000000;
 			}
 		} else {
-			MACH += tempn;
-			if (templ > MACL)
-				MACH += 1;
+			ctx.MACH += tempn;
+			if (templ > ctx.MACL)
+				ctx.MACH += 1;
 		}
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MULL(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		MACL = registers[n] * registers[m];
+		ctx.MACL = ctx.registers[n] * ctx.registers[m];
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MULSW(int code) {
@@ -1195,76 +1155,76 @@ public class Sh2 {
 		int n = RN(code);
 
 
-		MACL = (int) (short) registers[n] * (int) (short) registers[m];
+		ctx.MACL = (int) (short) ctx.registers[n] * (int) (short) ctx.registers[m];
 
-		//System.out.println("MULLSW " + Integer.toHexString(MACL) + "R[n]=" + registers[n] + " R[m]=" + registers[m] );
+		//System.out.println("MULLSW " + Integer.toHexString(MACL) + "R[n]=" + ctx.registers[n] + " R[m]=" + ctx.registers[m] );
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void MULSU(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		MACL = (((int) registers[n] & 0xFFFF) * ((int) registers[m] & 0xFFFF));
+		ctx.MACL = (((int) ctx.registers[n] & 0xFFFF) * ((int) ctx.registers[m] & 0xFFFF));
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void NEG(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] = 0 - registers[m];
+		ctx.registers[n] = 0 - ctx.registers[m];
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void NEGC(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		int tmp = 0 - registers[m];
-		registers[n] = tmp - (SR & flagT);
+		int tmp = 0 - ctx.registers[m];
+		ctx.registers[n] = tmp - (ctx.SR & flagT);
 		if (0 < tmp)
-			SR |= flagT;
-		else SR &= (~flagT);
-		if (tmp < registers[n])
-			SR |= flagT;
+			ctx.SR |= flagT;
+		else ctx.SR &= (~flagT);
+		if (tmp < ctx.registers[n])
+			ctx.SR |= flagT;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void SUB(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] -= registers[m];
+		ctx.registers[n] -= ctx.registers[m];
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void SUBC(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		int tmp0 = registers[n];
-		int tmp1 = registers[n] - registers[m];
-		registers[n] = tmp1 - (SR & flagT);
+		int tmp0 = ctx.registers[n];
+		int tmp1 = ctx.registers[n] - ctx.registers[m];
+		ctx.registers[n] = tmp1 - (ctx.SR & flagT);
 		if (tmp0 < tmp1)
-			SR |= flagT;
-		else SR &= (~flagT);
+			ctx.SR |= flagT;
+		else ctx.SR &= (~flagT);
 
-		if (tmp1 < registers[n])
-			SR |= flagT;
+		if (tmp1 < ctx.registers[n])
+			ctx.SR |= flagT;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -1273,92 +1233,92 @@ public class Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		int dest = (registers[n] >> 31) & 1;
-		int src = (registers[m] >> 31) & 1;
+		int dest = (ctx.registers[n] >> 31) & 1;
+		int src = (ctx.registers[m] >> 31) & 1;
 
 		src += dest;
-		registers[n] -= registers[m];
+		ctx.registers[n] -= ctx.registers[m];
 
-		ans = (registers[n] >> 31) & 1;
+		ans = (ctx.registers[n] >> 31) & 1;
 		ans += dest;
 
 		if (src == 1)
 			if (ans == 1)
-				SR |= flagT;
-			else SR &= (~flagT);
+				ctx.SR |= flagT;
+			else ctx.SR &= (~flagT);
 		else
-			SR &= (~flagT);
+			ctx.SR &= (~flagT);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void AND(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] &= registers[m];
+		ctx.registers[n] &= ctx.registers[m];
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void ANDI(int code) {
 		int i = ((code >> 0) & 0xff);
 
-		registers[0] &= i;
+		ctx.registers[0] &= i;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void ANDM(int code) {
 		int i = (byte) ((code >> 0) & 0xff);
 
-		int value = (byte) memory.read8i(GBR + registers[0]);
-		memory.write8i(GBR + registers[0], ((byte) (value & i)));
+		int value = (byte) memory.read8i(ctx.GBR + ctx.registers[0]);
+		memory.write8i(ctx.GBR + ctx.registers[0], ((byte) (value & i)));
 
 		cycles -= 4;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void NOT(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] = ~registers[m];
+		ctx.registers[n] = ~ctx.registers[m];
 
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void OR(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] |= registers[m];
+		ctx.registers[n] |= ctx.registers[m];
 
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void ORI(int code) {
 		int i = ((code >> 0) & 0xff);
 
-		registers[0] |= i;
+		ctx.registers[0] |= i;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void ORM(int code) {
 		int i = ((code >> 0) & 0xff);
 
-		int value = memory.read8i(GBR + registers[0]);
-		memory.write8i(GBR + registers[0], ((byte) (value | i)));
+		int value = memory.read8i(ctx.GBR + ctx.registers[0]);
+		memory.write8i(ctx.GBR + ctx.registers[0], ((byte) (value | i)));
 
 		cycles -= 4;
 	}
@@ -1366,360 +1326,360 @@ public class Sh2 {
 	private final void TAS(int code) {
 		int n = RN(code);
 
-		byte value = (byte) memory.read8i(registers[n]);
+		byte value = (byte) memory.read8i(ctx.registers[n]);
 		if (value == 0)
-			SR |= 0x1;
-		else SR &= ~0x1;
-		memory.write8i(registers[n], ((byte) (value | 0x80)));
+			ctx.SR |= 0x1;
+		else ctx.SR &= ~0x1;
+		memory.write8i(ctx.registers[n], ((byte) (value | 0x80)));
 
 		cycles -= 5;
 
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void TST(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		if ((registers[n] & registers[m]) == 0)
-			SR |= flagT;
-		else SR &= (~flagT);
+		if ((ctx.registers[n] & ctx.registers[m]) == 0)
+			ctx.SR |= flagT;
+		else ctx.SR &= (~flagT);
 
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void TSTI(int code) {
 		int i = ((code >> 0) & 0xff);
 
-		if ((registers[0] & i) != 0)
-			SR |= flagT;
-		else SR &= (~flagT);
+		if ((ctx.registers[0] & i) != 0)
+			ctx.SR |= flagT;
+		else ctx.SR &= (~flagT);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void TSTM(int code) {
 		int i = ((code >> 0) & 0xff);
 
-		int value = memory.read8i(GBR + registers[0]);
+		int value = memory.read8i(ctx.GBR + ctx.registers[0]);
 		if ((value & i) == 0)
-			SR |= flagT;
-		else SR &= (~flagT);
+			ctx.SR |= flagT;
+		else ctx.SR &= (~flagT);
 		cycles -= 3;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void XOR(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		registers[n] ^= registers[m];
+		ctx.registers[n] ^= ctx.registers[m];
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void XORI(int code) {
 		int i = ((code >> 0) & 0xff);
 
-		registers[0] ^= i;
+		ctx.registers[0] ^= i;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void XORM(int code) {
 		int i = ((code >> 0) & 0xff);
 
-		int value = memory.read8i(GBR + registers[0]);
-		memory.write8i(GBR + registers[0], ((byte) (value ^ i)));
+		int value = memory.read8i(ctx.GBR + ctx.registers[0]);
+		memory.write8i(ctx.GBR + ctx.registers[0], ((byte) (value ^ i)));
 
 		cycles -= 4;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void ROTR(int code) {
 		int n = RN(code);
 
-		if ((registers[n] & flagT) != 0) {
-			SR |= flagT;
-		} else SR &= ~flagT;
+		if ((ctx.registers[n] & flagT) != 0) {
+			ctx.SR |= flagT;
+		} else ctx.SR &= ~flagT;
 
-		registers[n] >>>= 1;
+		ctx.registers[n] >>>= 1;
 
-		if ((SR & flagT) != 0)
-			registers[n] |= 0x80000000;
+		if ((ctx.SR & flagT) != 0)
+			ctx.registers[n] |= 0x80000000;
 		else
-			registers[n] &= 0x7FFFFFFF;
+			ctx.registers[n] &= 0x7FFFFFFF;
 
-		//Logger.log(Logger.CPU,String.format("rotr: despues %x\r", registers[n]));
+		//Logger.log(Logger.CPU,String.format("rotr: despues %x\r", ctx.registers[n]));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void ROTCR(int code) {
 		int n = RN(code);
 		int temp = 0;
 
-		if ((registers[n] & 0x00000001) == 0) temp = 0;
+		if ((ctx.registers[n] & 0x00000001) == 0) temp = 0;
 		else temp = 1;
-		registers[n] >>= 1;
-		if ((SR & flagT) != 0)
-			registers[n] |= 0x80000000;
+		ctx.registers[n] >>= 1;
+		if ((ctx.SR & flagT) != 0)
+			ctx.registers[n] |= 0x80000000;
 		else
-			registers[n] &= 0x7FFFFFFF;
+			ctx.registers[n] &= 0x7FFFFFFF;
 		if (temp == 1) {
-			SR |= flagT;
-		} else SR &= ~flagT;
+			ctx.SR |= flagT;
+		} else ctx.SR &= ~flagT;
 
 
-		//Logger.log(Logger.CPU,String.format("rotcr89: r[%d]=%x\r", n, registers[n]));
+		//Logger.log(Logger.CPU,String.format("rotcr89: r[%d]=%x\r", n, ctx.registers[n]));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void ROTL(int code) {
 		int n = RN(code);
 
-		if ((registers[n] & 0x80000000) != 0)
-			SR |= flagT;
+		if ((ctx.registers[n] & 0x80000000) != 0)
+			ctx.SR |= flagT;
 		else
-			SR &= ~flagT;
+			ctx.SR &= ~flagT;
 
-		registers[n] <<= 1;
+		ctx.registers[n] <<= 1;
 
-		if ((SR & flagT) != 0) {
-			registers[n] |= 0x1;
+		if ((ctx.SR & flagT) != 0) {
+			ctx.registers[n] |= 0x1;
 		} else {
-			registers[n] &= 0xFFFFFFFE;
+			ctx.registers[n] &= 0xFFFFFFFE;
 		}
 
-		//	Logger.log(Logger.CPU,String.format("rotl: despues %x\r", registers[n]));
+		//	Logger.log(Logger.CPU,String.format("rotl: despues %x\r", ctx.registers[n]));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void ROTCL(int code) {
 		int n = RN(code);
 		int temp = 0;
 
-		if ((registers[n] & 0x80000000) == 0) temp = 0;
+		if ((ctx.registers[n] & 0x80000000) == 0) temp = 0;
 		else temp = 1;
 
-		registers[n] <<= 1;
-		if ((SR & flagT) != 0) registers[n] |= 0x00000001;
-		else registers[n] &= 0xFFFFFFFE;
+		ctx.registers[n] <<= 1;
+		if ((ctx.SR & flagT) != 0) ctx.registers[n] |= 0x00000001;
+		else ctx.registers[n] &= 0xFFFFFFFE;
 
 		if (temp == 1)
-			SR |= flagT;
+			ctx.SR |= flagT;
 		else
-			SR &= ~flagT;
+			ctx.SR &= ~flagT;
 
 
-		// Logger.log(Logger.CPU,String.format("rotcl: r[%d]=%x\r", n, registers[n]));
+		// Logger.log(Logger.CPU,String.format("rotcl: r[%d]=%x\r", n, ctx.registers[n]));
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void SHAR(int code) {
 		int n = RN(code);
 		int temp = 0;
-		if ((registers[n] & 0x00000001) == 0) SR &= (~flagT);
-		else SR |= flagT;
-		if ((registers[n] & 0x80000000) == 0) temp = 0;
+		if ((ctx.registers[n] & 0x00000001) == 0) ctx.SR &= (~flagT);
+		else ctx.SR |= flagT;
+		if ((ctx.registers[n] & 0x80000000) == 0) temp = 0;
 		else temp = 1;
-		registers[n] >>= 1;
-		if (temp == 1) registers[n] |= 0x80000000;
-		else registers[n] &= 0x7FFFFFFF;
+		ctx.registers[n] >>= 1;
+		if (temp == 1) ctx.registers[n] |= 0x80000000;
+		else ctx.registers[n] &= 0x7FFFFFFF;
 
-		//Logger.log(Logger.CPU,String.format("shar: despues %x\r", registers[n]));
+		//Logger.log(Logger.CPU,String.format("shar: despues %x\r", ctx.registers[n]));
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void SHAL(int code) {
 		int n = RN(code);
 
-		if ((registers[n] & 0x80000000) == 0)
-			SR &= (~flagT);
-		else SR |= flagT;
-		registers[n] <<= 1;
+		if ((ctx.registers[n] & 0x80000000) == 0)
+			ctx.SR &= (~flagT);
+		else ctx.SR |= flagT;
+		ctx.registers[n] <<= 1;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void SHLL(int code) {
 		int n = RN(code);
 
-		//	Logger.log(Logger.CPU,String.format("shll: antes %x\r", registers[n]));
-		SR = (SR & ~flagT) | ((registers[n] >>> 31) & 1);
-		registers[n] <<= 1;
+		//	Logger.log(Logger.CPU,String.format("shll: antes %x\r", ctx.registers[n]));
+		ctx.SR = (ctx.SR & ~flagT) | ((ctx.registers[n] >>> 31) & 1);
+		ctx.registers[n] <<= 1;
 
-		//Logger.log(Logger.CPU,String.format("shll: despues %x\r", registers[n]));
+		//Logger.log(Logger.CPU,String.format("shll: despues %x\r", ctx.registers[n]));
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void SHLR(int code) {
 		int n = RN(code);
 
-		SR = (SR & ~flagT) | (registers[n] & 1);
-		registers[n] >>>= 1;
-		registers[n] &= 0x7FFFFFFF;
+		ctx.SR = (ctx.SR & ~flagT) | (ctx.registers[n] & 1);
+		ctx.registers[n] >>>= 1;
+		ctx.registers[n] &= 0x7FFFFFFF;
 
-		//Logger.log(Logger.CPU,String.format("shlr: r[%d]=%x\r\n", n, registers[n]));
+		//Logger.log(Logger.CPU,String.format("shlr: r[%d]=%x\r\n", n, ctx.registers[n]));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void SHLL2(int code) {
 		int n = RN(code);
 
-		registers[n] <<= 2;
+		ctx.registers[n] <<= 2;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void SHLR2(int code) {
 		int n = RN(code);
 
-		registers[n] >>>= 2;
-		registers[n] &= 0x3FFFFFFF;
+		ctx.registers[n] >>>= 2;
+		ctx.registers[n] &= 0x3FFFFFFF;
 
-//		System.out.println(String.format("shlr2: r[%d]=%x\r\n", n, registers[n]));
+//		System.out.println(String.format("shlr2: r[%d]=%x\r\n", n, ctx.registers[n]));
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void SHLL8(int code) {
 		int n = RN(code);
 
-		registers[n] <<= 8;
+		ctx.registers[n] <<= 8;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void SHLR8(int code) {
 		int n = RN(code);
 
-		registers[n] >>>= 8;
+		ctx.registers[n] >>>= 8;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void SHLL16(int code) {
 		int n = RN(code);
 
-		registers[n] <<= 16;
+		ctx.registers[n] <<= 16;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void SHLR16(int code) {
 		int n = RN(code);
 
-		registers[n] >>>= 16;
+		ctx.registers[n] >>>= 16;
 
-		registers[n] &= 0x0000FFFF;
+		ctx.registers[n] &= 0x0000FFFF;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void BF(int code) {
-		if ((SR & flagT) == 0) {
+		if ((ctx.SR & flagT) == 0) {
 			int d = (code & 0xff);
 
 			if ((code & 0x80) == 0)
 				d = (0x000000FF & code);
 			else d = (0xFFFFFF00 | code);
 
-			PC += (d << 1) + 4;
+			ctx.PC += (d << 1) + 4;
 
 			cycles--;
 		} else {
 			cycles--;
-			PC += 2;
+			ctx.PC += 2;
 		}
 	}
 
 	private final void BFS(int code) {
-		if ((SR & flagT) == 0) {
+		if ((ctx.SR & flagT) == 0) {
 			int d = 0;
 			if ((code & 0x80) == 0)
 				d = (0x000000FF & code);
 			else d = (0xFFFFFF00 | code);
 
-			int pc = PC + (d << 1) + 4;
+			int pc = ctx.PC + (d << 1) + 4;
 
-			decode(memory.read16i(PC + 2));
+			decode(memory.read16i(ctx.PC + 2));
 
-			PC = pc;
+			ctx.PC = pc;
 
 			cycles--;
 		} else {
 			cycles--;
-			PC += 2;
+			ctx.PC += 2;
 		}
 	}
 
 	private final void BT(int code) {
-		if ((SR & flagT) != 0) {
+		if ((ctx.SR & flagT) != 0) {
 			int d = 0;
 
 			if ((code & 0x80) == 0)
 				d = (0x000000FF & code);
 			else d = (0xFFFFFF00 | code);
 
-			PC = PC + (d << 1) + 4;
+			ctx.PC = ctx.PC + (d << 1) + 4;
 
 			cycles--;
 		} else {
 			cycles--;
-			PC += 2;
+			ctx.PC += 2;
 		}
 	}
 
 	private final void BTS(int code) {
-		if ((SR & flagT) != 0) {
+		if ((ctx.SR & flagT) != 0) {
 			int d = 0;
 
 			if ((code & 0x80) == 0)
 				d = (0x000000FF & code);
 			else d = (0xFFFFFF00 | code);
 
-			int pc = PC + (d << 1) + 4;
+			int pc = ctx.PC + (d << 1) + 4;
 
-			decode(memory.read16i(PC + 2));
+			decode(memory.read16i(ctx.PC + 2));
 
-			PC = pc;
+			ctx.PC = pc;
 			cycles--;
 		} else {
 			cycles--;
-			PC += 2;
+			ctx.PC += 2;
 		}
 	}
 
@@ -1731,11 +1691,11 @@ public class Sh2 {
 			disp = (0x00000FFF & code);
 		else disp = (0xFFFFF000 | code);
 
-		int pc = PC + 4 + (disp << 1);
+		int pc = ctx.PC + 4 + (disp << 1);
 
-		decode(memory.read16i(PC + 2));
+		decode(memory.read16i(ctx.PC + 2));
 
-		PC = pc;
+		ctx.PC = pc;
 
 		cycles -= 2;
 	}
@@ -1747,13 +1707,13 @@ public class Sh2 {
 		else disp = (0xFFFFF000 | code);
 
 
-		PR = PC + 4;
+		ctx.PR = ctx.PC + 4;
 
-		int pc = PC + (disp << 1) + 4;
+		int pc = ctx.PC + (disp << 1) + 4;
 
-		decode(memory.read16i(PC + 2));
+		decode(memory.read16i(ctx.PC + 2));
 
-		PC = pc;
+		ctx.PC = pc;
 
 		cycles -= 2;
 	}
@@ -1761,24 +1721,24 @@ public class Sh2 {
 	private final void BRAF(int code) {
 		int n = RN(code);
 
-		int pc = PC + registers[n] + 4;
+		int pc = ctx.PC + ctx.registers[n] + 4;
 
-		decode(memory.read16i(PC + 2));
+		decode(memory.read16i(ctx.PC + 2));
 
-		PC = pc;
+		ctx.PC = pc;
 		cycles -= 2;
 	}
 
 	private final void BSRF(int code) {
 		int n = RN(code);
 
-		PR = PC + 4;
+		ctx.PR = ctx.PC + 4;
 
-		int pc = PC + registers[n] + 4;
+		int pc = ctx.PC + ctx.registers[n] + 4;
 
-		decode(memory.read16i(PC + 2));
+		decode(memory.read16i(ctx.PC + 2));
 
-		PC = pc;
+		ctx.PC = pc;
 
 		cycles -= 2;
 	}
@@ -1786,11 +1746,11 @@ public class Sh2 {
 	private final void JMP(int code) {
 		int n = RN(code);
 
-		int target = registers[n];
+		int target = ctx.registers[n];
 
-		decode(memory.read16i(PC + 2));
+		decode(memory.read16i(ctx.PC + 2));
 
-		PC = target;
+		ctx.PC = target;
 
 		cycles -= 2;
 	}
@@ -1798,145 +1758,145 @@ public class Sh2 {
 	private final void JSR(int code) {
 		int n = RN(code);
 
-		PR = PC + 4;
+		ctx.PR = ctx.PC + 4;
 
-		int target = registers[n];
+		int target = ctx.registers[n];
 
-		decode(memory.read16i(PC + 2));
+		decode(memory.read16i(ctx.PC + 2));
 
-		PC = target;
+		ctx.PC = target;
 
 		cycles -= 2;
 	}
 
 	private final void RTS(int code) {
-		int pc = PR;
-		decode(memory.read16i(PC + 2));
-		PC = pc;
+		int pc = ctx.PR;
+		decode(memory.read16i(ctx.PC + 2));
+		ctx.PC = pc;
 		cycles -= 2;
 	}
 
 	//TODO check
 	private final void RTE(int code) {
-		int rb = (SR & flagsRB);
-		SR = SSR & 0x700083f3;
+		int rb = (ctx.SR & flagsRB);
+		ctx.SSR = ctx.SR & 0x700083f3;
 
-		if ((SR & flagsRB) != rb) {
-			switch_gpr_banks();
-		}
+//		if (( ctx.SR & flagsRB) != rb) {
+//			switch_gpr_banks();
+//		}
 
-		decode(memory.read16i(PC + 2));
+		decode(memory.read16i(ctx.PC + 2));
 
-//		PC = SPC;
+//		ctx.PC = SPC;
 
 		cycles -= 5;
 	}
 
 	private final void CLRMAC(int code) {
-		MACL = MACH = 0;
+		ctx.MACL = ctx.MACH = 0;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void CLRT(int code) {
-		SR &= (~flagT);
+		ctx.SR &= (~flagT);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void LDCSR(int code) {
 		int m = RN(code);
 
-		int rb = (SR & flagsRB);
+		int rb = (ctx.SR & flagsRB);
 
-		SR = registers[m] & 0x700083f3;
+		ctx.SR = ctx.registers[m] & 0x700083f3;
 
-		if (((SR & flagsRB) != rb) && ((SR & flagMD) != 0)) {
-			switch_gpr_banks();
-		}
+//		if ((( ctx.SR & flagsRB) != rb) && (( ctx.SR & flagMD) != 0)) {
+//			switch_gpr_banks();
+//		}
 		cycles -= 4;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void LDCGBR(int code) {
 		int m = RN(code);
 
-		GBR = registers[m];
+		ctx.GBR = ctx.registers[m];
 
 		cycles -= 3;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void LDCVBR(int code) {
 		int m = RN(code);
 
-		VBR = registers[m];
+		ctx.VBR = ctx.registers[m];
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void LDCSSR(int code) {
 		int m = RN(code);
 
-		SSR = registers[m];
+		ctx.SSR = ctx.registers[m];
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void LDCMSR(int code) {
 		int m = RN(code);
 
-		int rb = (SR & flagsRB);
+		int rb = (ctx.SR & flagsRB);
 
-		SR = memory.read32i(registers[m]) & 0x700083f3;
+		ctx.SR = memory.read32i(ctx.registers[m]) & 0x700083f3;
 
-		if (((SR & flagsRB) != rb) && ((SR & flagMD) != 0)) {
-			switch_gpr_banks();
-		}
+//		if ((( ctx.SR & flagsRB) != rb) && (( ctx.SR & flagMD) != 0)) {
+//			switch_gpr_banks();
+//		}
 
-		registers[m] += 4;
+		ctx.registers[m] += 4;
 
 		cycles -= 4;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void LDCMGBR(int code) {
 		int m = RN(code);
 
-		GBR = memory.read32i(registers[m]);
-		registers[m] += 4;
+		ctx.GBR = memory.read32i(ctx.registers[m]);
+		ctx.registers[m] += 4;
 
 		cycles -= 3;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void LDCMVBR(int code) {
 		int m = RN(code);
 
-		VBR = memory.read32i(registers[m]);
-		registers[m] += 4;
+		ctx.VBR = memory.read32i(ctx.registers[m]);
+		ctx.registers[m] += 4;
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void LDCMSSR(int code) {
 		int m = RN(code);
 
-		SSR = memory.read32i(registers[m]);
-		registers[m] += 4;
+		ctx.SSR = memory.read32i(ctx.registers[m]);
+		ctx.registers[m] += 4;
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -1944,42 +1904,42 @@ public class Sh2 {
 		int b = ((code >> 4) & 0x07) + 16;
 		int m = RN(code);
 
-		registers[b] = memory.read32i(registers[m]);
-		registers[m] += 4;
+		ctx.registers[b] = memory.read32i(ctx.registers[m]);
+		ctx.registers[m] += 4;
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void LDSMACH(int code) {
 		int m = RN(code);
 
-		MACH = registers[m];
+		ctx.MACH = ctx.registers[m];
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void LDSMACL(int code) {
 		int m = RN(code);
 
-		MACL = registers[m];
+		ctx.MACL = ctx.registers[m];
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void LDSPR(int code) {
 		int m = RN(code);
 
-		PR = registers[m];
+		ctx.PR = ctx.registers[m];
 
 //		System.out.println("LDS " + Integer.toHexString(PR));
 
-		PC += 2;
+		ctx.PC += 2;
 
 		cycles -= 2;
 
@@ -1988,22 +1948,22 @@ public class Sh2 {
 	private final void LDSMMACH(int code) {
 		int m = RN(code);
 
-		MACH = memory.read32i(registers[m]);
-		registers[m] += 4;
+		ctx.MACH = memory.read32i(ctx.registers[m]);
+		ctx.registers[m] += 4;
 
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void LDSMMACL(int code) {
 		int m = RN(code);
 
-		MACL = memory.read32i(registers[m]);
-		registers[m] += 4;
+		ctx.MACL = memory.read32i(ctx.registers[m]);
+		ctx.registers[m] += 4;
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -2011,54 +1971,54 @@ public class Sh2 {
 	private final void LDSMPR(int code) {
 		int m = RN(code);
 
-		PR = memory.read32i(registers[m]);
+		ctx.PR = memory.read32i(ctx.registers[m]);
 
-		//	System.out.println("LSMPR Register[ " + m + "] to MACL " + Integer.toHexString(PR));
+		//	System.out.println("LSMctx.PR Register[ " + m + "] to ctx.MACL " + Integer.toHexString(PR));
 
-		registers[m] += 4;
+		ctx.registers[m] += 4;
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void LDTLB(int code) {
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void NOP(int code) {
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void SETT(int code) {
-		SR |= flagT;
+		ctx.SR |= flagT;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void SLEEP(int code) {
 		cycles -= 4;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void STCSR(int code) {
 		int n = RN(code);
 
-		registers[n] = SR;
+		ctx.registers[n] = ctx.SR;
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void STCGBR(int code) {
 		int n = RN(code);
 
-		registers[n] = GBR;
-		PC += 2;
+		ctx.registers[n] = ctx.GBR;
+		ctx.PC += 2;
 		cycles -= 2;
 
 	}
@@ -2066,73 +2026,73 @@ public class Sh2 {
 	private final void STCVBR(int code) {
 		int n = RN(code);
 
-		registers[n] = VBR;
+		ctx.registers[n] = ctx.VBR;
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void STCSSR(int code) {
 		int n = RN(code);
 
-		registers[n] = VBR;
+		ctx.registers[n] = ctx.SSR; //VBR;
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	private final void STCRBANK(int code) {
 		int b = ((code >> 4) & 0x07) + 16;
 		int n = RN(code);
 
-		registers[n] = registers[b];
+		ctx.registers[n] = ctx.registers[b];
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void STCMSR(int code) {
 		int n = RN(code);
 
-		registers[n] -= 4;
-		memory.write32i(registers[n], SR);
+		ctx.registers[n] -= 4;
+		memory.write32i(ctx.registers[n], ctx.SR);
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void STCMGBR(int code) {
 		int n = RN(code);
 
-		registers[n] -= 4;
-		memory.write32i(registers[n], GBR);
+		ctx.registers[n] -= 4;
+		memory.write32i(ctx.registers[n], ctx.GBR);
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void STCMVBR(int code) {
 		int n = RN(code);
 
-		registers[n] -= 4;
-		memory.write32i(registers[n], VBR);
+		ctx.registers[n] -= 4;
+		memory.write32i(ctx.registers[n], ctx.VBR);
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void STCMSSR(int code) {
 		int n = RN(code);
 
-		registers[n] -= 4;
-		memory.write32i(registers[n], SSR);
+		ctx.registers[n] -= 4;
+		memory.write32i(ctx.registers[n], ctx.SSR);
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -2140,32 +2100,32 @@ public class Sh2 {
 		int b = ((code >> 4) & 0x07) + 16;
 		int n = RN(code);
 
-		registers[n] -= 4;
-		memory.write32i(registers[n], registers[b]);
+		ctx.registers[n] -= 4;
+		memory.write32i(ctx.registers[n], ctx.registers[b]);
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void STSMACH(int code) {
 		int n = RN(code);
 
-		registers[n] = MACH;
+		ctx.registers[n] = ctx.MACH;
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void STSMACL(int code) {
 		int n = RN(code);
 
-		registers[n] = MACL;
+		ctx.registers[n] = ctx.MACL;
 
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
@@ -2173,43 +2133,43 @@ public class Sh2 {
 		int n = RN(code);
 
 
-		registers[n] = PR;
+		ctx.registers[n] = ctx.PR;
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void STSMMACH(int code) {
 		int n = RN(code);
 
-		registers[n] -= 4;
-		memory.write32i(registers[n], MACH);
+		ctx.registers[n] -= 4;
+		memory.write32i(ctx.registers[n], ctx.MACH);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void STSMMACL(int code) {
 		int n = RN(code);
 
-		registers[n] -= 4;
-		memory.write32i(registers[n], MACL);
+		ctx.registers[n] -= 4;
+		memory.write32i(ctx.registers[n], ctx.MACL);
 
 		cycles--;
-		PC += 2;
+		ctx.PC += 2;
 
 	}
 
 	private final void STSMPR(int code) {
 		int n = RN(code);
 
-		registers[n] -= 4;
-		memory.write32i(registers[n], PR);
+		ctx.registers[n] -= 4;
+		memory.write32i(ctx.registers[n], ctx.PR);
 
 		cycles -= 2;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	//TODO sh2
@@ -2218,27 +2178,28 @@ public class Sh2 {
 		imm = (0x000000FF & code);
 
 //		memory.regmapWritehandle32Inst(MMREG.TRA,imm<<2);
-		SSR = SR;
+		ctx.SSR = ctx.SR;
 //		SPC=PC+2;
-//		SGR=registers[15];
-		SR |= flagMD;
-		SR |= flagBL;
-		SR |= flagsRB;
+//		SGR=ctx.registers[15];
+		ctx.SR |= flagMD;
+		ctx.SR |= flagBL;
+		ctx.SR |= flagsRB;
 //		memory.regmapWritehandle32Inst(MMREG.EXPEVT,0x00000160);
-		PC = VBR + 0x00000100;
+		ctx.PC = ctx.VBR + 0x00000100;
 		cycles -= 7;
-		PC += 2;
+		ctx.PC += 2;
 	}
 
 	/*
-	 * Because an instruction in a delay slot cannot alter the PC we can do this.
+	 * Because an instruction in a delay slot cannot alter the ctx.PC we can do this.
 	 */
-	public void run() {
-		memory.setSh2Access(sh2Access);
+	public void run(Sh2Context ctx) {
+		this.ctx = ctx;
+		memory.setSh2Access(ctx.sh2Access);
 		int opcode;
 		for (; cycles >= 0; ) {
-			opcode = memory.read16i(PC);
-			printDebugMaybe(opcode);
+			opcode = memory.read16i(ctx.PC);
+			printDebugMaybe(ctx, opcode);
 			decode(opcode);
 			//	Emu.interruptController.acceptInterrupts();
 		}
@@ -2248,12 +2209,12 @@ public class Sh2 {
 
 	public void Step(int pc) {
 		decode(memory.read16i(pc));
-		PC += 2;
+		ctx.PC += 2;
 	}
 
-	protected void printDebugMaybe(int instruction) {
+	protected void printDebugMaybe(Sh2Context ctx, int instruction) {
 		if (debugging) {
-			Sh2Helper.printInst(this, instruction);
+			Sh2Helper.printInst(ctx, instruction);
 		}
 	}
 
@@ -2870,7 +2831,7 @@ public class Sh2 {
 				MOVI(instruction);
 				return;
 		}
-		Sh2Helper.printState(this, instruction);
+		Sh2Helper.printState(ctx, instruction);
 		throw new RuntimeException("Unknown inst: " + Integer.toHexString(instruction));
 	}
 }

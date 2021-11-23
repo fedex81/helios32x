@@ -7,24 +7,26 @@ package sh2;
  */
 public class Sh2Helper {
 
-    public static void printInst(Sh2 ctx, int opcode) {
-        System.out.println(ctx.sh2TypeCode + " " + Integer.toHexString(ctx.PC) + ": " + ctx.disassembler.disassemble(ctx.PC, opcode));
+    public static final Sh2Disassembler disasm = new Sh2Disassembler();
+
+    public static void printInst(Sh2Context ctx, int opcode) {
+        System.out.println(ctx.sh2TypeCode + " " + Integer.toHexString(ctx.PC) + ": " + disasm.disassemble(ctx.PC, opcode));
     }
 
-    public static void printState(Sh2 ctx, int opcode) {
+    public static void printState(Sh2Context ctx, int opcode) {
         System.out.println(toDebuggingString(ctx, opcode));
     }
 
-    public static String toDebuggingString(Sh2 ctx, int opcode) {
+    public static String toDebuggingString(Sh2Context ctx, int opcode) {
         StringBuilder sb = new StringBuilder("\n");
-        sb.append(ctx.disassembler.disassemble(ctx.PC, opcode)).append("\n");
+        sb.append(disasm.disassemble(ctx.PC, opcode)).append("\n");
         sb.append(String.format("PC : %08x\t", ctx.PC));
         sb.append(String.format("GBR: %08x\t", ctx.GBR));
         sb.append(String.format("VBR: %08x\t", ctx.VBR));
         sb.append(String.format("SR : %08x\t", ctx.SR));
 
-        sb.append(((ctx.SR & ctx.flagT) != 0 ? "T" : "-") + ((ctx.SR & ctx.flagS) != 0 ? "S" : "-") +
-                ((ctx.SR & ctx.flagQ) != 0 ? "Q" : "-") + (((ctx.SR & ctx.flagBL) != 0 ? "BL" : "-")));
+        sb.append(((ctx.SR & Sh2.flagT) != 0 ? "T" : "-") + ((ctx.SR & Sh2.flagS) != 0 ? "S" : "-") +
+                ((ctx.SR & Sh2.flagQ) != 0 ? "Q" : "-") + (((ctx.SR & Sh2.flagBL) != 0 ? "BL" : "-")));
         sb.append("\n");
 
 
