@@ -26,6 +26,7 @@ public class Sh2Context {
 
     public Sh2Util.Sh2Access sh2Access;
     public String sh2TypeCode;
+    public boolean debug;
 
     public Sh2Context(Sh2Util.Sh2Access sh2Access) {
         this.registers = new int[NUM_REG];

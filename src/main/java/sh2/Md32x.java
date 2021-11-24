@@ -47,7 +47,7 @@ public class Md32x extends Genesis {
         try {
             do {
                 cnt = counter;
-//                slave.sh2cpu.debugging = true;
+//                slaveCtx.debug = true;
 //                master.sh2cpu.debugging = true;
 //                MC68000WrapperDebug.verboseInst = false;
                 run68k(cnt);

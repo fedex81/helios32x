@@ -38,7 +38,6 @@ public class Sh2 {
 
 	public static int burstCycles = 1;
 
-	public boolean debugging = false;
 	private Sh2Context ctx;
 	protected IMemory memory;
 
@@ -101,14 +100,16 @@ public class Sh2 {
 	private void push(int data) {
 		ctx.registers[15] -= 4;
 		memory.write32i(ctx.registers[15], data);
-		System.out.println(ctx.sh2Access + " PUSH SP: " + Integer.toHexString(ctx.registers[15]));
+		System.out.println(ctx.sh2Access + " PUSH SP: " + Integer.toHexString(ctx.registers[15])
+				+ "," + Integer.toHexString(data));
 	}
 
 	//pop from stack
 	private int pop() {
 		int res = memory.read32i(ctx.registers[15]);
 		ctx.registers[15] += 4;
-		System.out.println(ctx.sh2Access + " POP SP: " + Integer.toHexString(ctx.registers[15]));
+		System.out.println(ctx.sh2Access + " POP SP: " + Integer.toHexString(ctx.registers[15])
+				+ "," + Integer.toHexString(res));
 		return res;
 	}
 
@@ -1811,7 +1812,8 @@ public class Sh2 {
 		int prevPC = ctx.PC;
 		//delayed branch inst, run before setting PC as it is changing PC
 		decode(memory.read16i(prevPC + 2));
-		ctx.PC = pop() + 4;
+		//NOTE should be +4, but we don't do it, see processInt
+		ctx.PC = pop();
 		ctx.SR = pop() & SR_MASK;
 		ctx.cycles -= 5;
 	}
@@ -2125,7 +2127,7 @@ public class Sh2 {
 	}
 
 	protected void printDebugMaybe(Sh2Context ctx, int instruction) {
-		if (debugging) {
+		if (ctx.debug) {
 			Sh2Helper.printInst(ctx, instruction);
 		}
 	}

@@ -28,10 +28,6 @@ public class Sh2Launcher {
 //    static String slaveBiosName = "32x_hbrew_bios_s.bin";
 //    static String mdBiosName = "32x_hbrew_bios_g.bin";
 
-    /**
-     * test2 - master: waiting for INT
-     * slave: looping on BF
-     */
     static String romName = "res/roms/test.bin";
 
     private static void initProps() {

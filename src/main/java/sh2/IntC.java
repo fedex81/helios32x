@@ -20,7 +20,7 @@ public class IntC {
 
     public static final Sh2Interrupt[] intVals = Sh2Interrupt.values();
     private static final Logger LOG = LogManager.getLogger(IntC.class.getSimpleName());
-    public static boolean DISABLE_INT = true;
+    public static boolean DISABLE_INT = false;
 
     //master and slave, valid = not masked
     private boolean[][] intValid = new boolean[2][intVals.length];
