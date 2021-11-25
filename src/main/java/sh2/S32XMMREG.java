@@ -86,7 +86,7 @@ public class S32XMMREG {
 
     {
         //TODO check bios require REN = 1
-        Sh2Util.writeBuffer(sysRegsMd, INT_MASK, REN_MASK, Size.WORD);
+        Sh2Util.writeBuffer(sysRegsMd, ADAPTER_CTRL, REN_MASK, Size.WORD);
         Sh2Util.writeBuffer(vdpRegs, VDP_BITMAP_MODE, NTSC_MASK, Size.WORD);
         dramBanks[0] = ByteBuffer.allocateDirect(DRAM_SIZE);
         dramBanks[1] = ByteBuffer.allocateDirect(DRAM_SIZE);
@@ -276,7 +276,7 @@ public class S32XMMREG {
         int baseReg = reg & ~1;
         ByteBuffer b = sh2Access == M68K ? sysRegsMd : sysRegsSh2;
         int val = Sh2Util.readBuffer(b, baseReg, Size.WORD);
-        if (val != value) {
+        if (val != value || size == Size.BYTE) {
             Sh2Util.writeBuffer(b, reg, value, size);
             int newVal = Sh2Util.readBuffer(b, baseReg, Size.WORD);
             res = val != newVal;
@@ -294,7 +294,7 @@ public class S32XMMREG {
         int baseReg = reg & ~1;
         ByteBuffer b = sh2Access == M68K ? sysRegsMd : sysRegsSh2;
         int val = Sh2Util.readBuffer(b, baseReg, Size.WORD);
-        if (val != value) {
+        if (val != value || size == Size.BYTE) {
             Sh2Util.writeBuffer(b, reg, value, size);
             int newVal = Sh2Util.readBuffer(b, baseReg, Size.WORD);
             res = val != newVal;
@@ -331,17 +331,17 @@ public class S32XMMREG {
 
     private boolean handleIntMaskRegWrite68k(int reg, int value, Size size) {
         int val = Sh2Util.readBuffer(sysRegsMd, INT_MASK, Size.WORD);
-        if (val != value) {
+        if (val != value || size == Size.BYTE) { //TODO dodgy
             Sh2Util.writeBuffer(sysRegsMd, reg, value, size);
-            val = Sh2Util.readBuffer(sysRegsMd, INT_MASK, Size.WORD) | REN_MASK;
-            if ((val & 1) == 0) {
+            int newVal = Sh2Util.readBuffer(sysRegsMd, INT_MASK, Size.WORD) | REN_MASK;
+            if (aden > 0 && (newVal & 1) == 0) {
                 System.out.println("#### Disabling ADEN not allowed");
-                val |= 1;
+                newVal |= 1;
             }
-            Sh2Util.writeBuffer(sysRegsMd, INT_MASK, val, Size.WORD);
-            setAdenSh2Reg(val & 1); //sh2 side read-only
-            updateFmShared(val); //sh2 side r/w too
-            return true;
+            Sh2Util.writeBuffer(sysRegsMd, INT_MASK, newVal, Size.WORD);
+            setAdenSh2Reg(newVal & 1); //sh2 side read-only
+            updateFmShared(newVal); //sh2 side r/w too
+            return val != newVal;
         }
         return false;
     }
@@ -355,8 +355,7 @@ public class S32XMMREG {
     private boolean handleIntMaskRegWriteSh2(Sh2Access sh2Access, int reg, int value, Size size) {
         int baseReg = reg & ~1;
         int val = interruptControl.readSh2IntMaskReg(sh2Access, reg, size);
-        if (val != value) {
-            //TODO hack
+        if (size == Size.BYTE || val != value) { //TODO dodgy
             interruptControl.writeSh2IntMaskReg(sh2Access, reg, value, size);
             int newVal = interruptControl.readSh2IntMaskReg(sh2Access, baseReg, Size.WORD) | (cart << 8);
             interruptControl.writeSh2IntMaskReg(sh2Access, baseReg, newVal, Size.WORD);
@@ -368,7 +367,7 @@ public class S32XMMREG {
 
     private boolean handleBitmapModeWrite(int reg, int value, Size size) {
         int val = Sh2Util.readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD);
-        if (val != value) {
+        if (size == Size.BYTE || val != value) {
             Sh2Util.writeBuffer(vdpRegs, reg, value, size);
             val = Sh2Util.readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD) | NTSC_MASK;
             Sh2Util.writeBuffer(vdpRegs, VDP_BITMAP_MODE, val, Size.WORD);
@@ -380,7 +379,7 @@ public class S32XMMREG {
 
     private boolean handleFBCRWrite(int reg, int value, Size size) {
         int val = Sh2Util.readBuffer(vdpRegs, FBCR, Size.WORD);
-        if (true || val != value) {
+        if (size == Size.BYTE || val != value) { //TODO dodgy
             Sh2Util.writeBuffer(vdpRegs, reg, value, size);
             int val1 = Sh2Util.readBuffer(vdpRegs, FBCR, Size.WORD);
             int regVal = 0;
@@ -417,9 +416,9 @@ public class S32XMMREG {
 
     private void setFmSh2Reg(int fm) {
         this.fm = fm;
-        int valM = interruptControl.readSh2IntMaskReg(MASTER, 0, Size.BYTE);
-        int valS = interruptControl.readSh2IntMaskReg(SLAVE, 0, Size.BYTE);
-        int val68k = Sh2Util.readBuffer(sysRegsMd, 0, Size.BYTE);
+        int valM = interruptControl.readSh2IntMaskReg(MASTER, 0, Size.BYTE) & 0x7F;
+        int valS = interruptControl.readSh2IntMaskReg(SLAVE, 0, Size.BYTE) & 0x7F;
+        int val68k = Sh2Util.readBuffer(sysRegsMd, 0, Size.BYTE) & 0x7F;
         interruptControl.writeSh2IntMaskReg(MASTER, 0, valM | (fm << 7), Size.BYTE);
         interruptControl.writeSh2IntMaskReg(SLAVE, 0, valS | (fm << 7), Size.BYTE);
         Sh2Util.writeBuffer(sysRegsMd, INT_MASK, val68k | (fm << 7), Size.BYTE);

@@ -33,6 +33,37 @@ public class S32xSharedRegsTest {
     }
 
     @Test
+    public void testFm() {
+        int expFm, fm;
+        checkFm(0);
+
+        testFm(M68K);
+        testFm(MASTER);
+        testFm(SLAVE);
+    }
+
+
+    private void testFm(Sh2Util.Sh2Access sh2Access) {
+        int expFm, fm;
+
+        expFm = fm = 1;
+        write(sh2Access, AD_CTRL, fm << 7, Size.BYTE);
+        checkFm(expFm);
+
+        expFm = fm = 0;
+        write(sh2Access, AD_CTRL, fm << 7, Size.BYTE);
+        checkFm(expFm);
+
+        expFm = fm = 1;
+        write(sh2Access, AD_CTRL, fm << 15, Size.WORD);
+        checkFm(expFm);
+
+        expFm = fm = 0;
+        write(sh2Access, AD_CTRL, fm << 15, Size.WORD);
+        checkFm(expFm);
+    }
+
+    @Test
     public void testCart() {
         //defaults to 0
         checkCart(0);
@@ -93,6 +124,15 @@ public class S32xSharedRegsTest {
         write(MASTER, INT_MASK, aden << 1, Size.BYTE);
         write(SLAVE, INT_MASK, aden << 1, Size.BYTE);
         checkAden(expAden);
+    }
+
+    private void checkFm(int exp) {
+        Assertions.assertEquals(exp, (read(M68K, AD_CTRL, Size.WORD) >> 15) & 1);
+        Assertions.assertEquals(exp, (read(M68K, AD_CTRL, Size.BYTE) >> 7) & 1);
+        Assertions.assertEquals(exp, (read(MASTER, INT_MASK, Size.WORD) >> 15) & 1);
+        Assertions.assertEquals(exp, (read(MASTER, INT_MASK, Size.BYTE) >> 7) & 1);
+        Assertions.assertEquals(exp, (read(SLAVE, INT_MASK, Size.WORD) >> 15) & 1);
+        Assertions.assertEquals(exp, (read(SLAVE, INT_MASK, Size.BYTE) >> 7) & 1);
     }
 
     private void checkAden(int expAden) {
