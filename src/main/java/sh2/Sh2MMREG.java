@@ -1,6 +1,8 @@
 package sh2;
 
 import omegadrive.util.Size;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.nio.ByteBuffer;
 
@@ -13,8 +15,11 @@ import static sh2.Sh2Util.*;
  */
 public class Sh2MMREG {
 
+    private static final Logger LOG = LogManager.getLogger(Sh2MMREG.class.getSimpleName());
+
     private ByteBuffer regs = ByteBuffer.allocate(0xFF);
     private Sh2Access sh2Access;
+    private static final boolean verbose = false;
 
     public Sh2MMREG(Sh2Access sh2Access) {
         this.sh2Access = sh2Access;
@@ -43,9 +48,11 @@ public class Sh2MMREG {
     }
 
     private void logAccess(String type, int reg, int value, Size size) {
-        System.out.println(sh2Access + " SH2 reg " + type + " " +
-                size + ", (" + sh2RegNames[reg] + ") " + Integer.toHexString(reg) + ": " +
-                Integer.toHexString(value));
+        if (verbose) {
+            System.out.println(sh2Access + " SH2 reg " + type + " " +
+                    size + ", (" + sh2RegNames[reg] + ") " + Integer.toHexString(reg) + ": " +
+                    Integer.toHexString(value));
+        }
     }
 
     //64/32 -> 32 only

@@ -1,5 +1,6 @@
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.S32XMMREG;
 import sh2.Sh2Util;
@@ -18,6 +19,14 @@ public class VdpAutoFillTest {
     static int AFLEN_OFFSET = 0x4000 + VDP_REG_OFFSET + Sh2Util.AFLR;
     static int AFSAR_OFFSET = 0x4000 + VDP_REG_OFFSET + Sh2Util.AFSAR;
 
+    private S32XMMREG s32XMMREG;
+
+    @BeforeEach
+    public void before() {
+        S32XMMREG.instance = null;
+        s32XMMREG = new S32XMMREG();
+    }
+
     @Test
     public void testAutoFill01() {
         byte[] b = new byte[0x800];
@@ -26,7 +35,7 @@ public class VdpAutoFillTest {
         int startAddr = 0x22A;
         int len = 0xE3;
         int data = 0xAA;
-        S32XMMREG.runAutoFillInternal(buffer, startAddr, data, len);
+        s32XMMREG.runAutoFillInternal(buffer, startAddr, data, len);
         int expected = 792851489;
         Assertions.assertEquals(expected, Arrays.hashCode(b));
     }
@@ -39,7 +48,7 @@ public class VdpAutoFillTest {
         int startAddr = 0x280;
         int len = 0xE0;
         int data = 0xAA;
-        S32XMMREG.runAutoFillInternal(buffer, startAddr, data, len);
+        s32XMMREG.runAutoFillInternal(buffer, startAddr, data, len);
         int expected = 506704897;
         Assertions.assertEquals(expected, Arrays.hashCode(b));
     }
@@ -55,12 +64,12 @@ public class VdpAutoFillTest {
         int startAddr = 0x1E0;
         int len = 0x30;
         int data = 0xAA;
-        S32XMMREG.write(AFLEN_OFFSET, len, Size.WORD);
-        S32XMMREG.write(AFSAR_OFFSET, startAddr, Size.WORD);
-        S32XMMREG.runAutoFillInternal(buffer, startAddr, data, len);
+        s32XMMREG.write(AFLEN_OFFSET, len, Size.WORD);
+        s32XMMREG.write(AFSAR_OFFSET, startAddr, Size.WORD);
+        s32XMMREG.runAutoFillInternal(buffer, startAddr, data, len);
         int expSar = (startAddr & 0xFF00) + ((len + startAddr) & 0xFF);
-        int actLen = S32XMMREG.read(AFLEN_OFFSET, Size.WORD);
-        int actSar = S32XMMREG.read(AFSAR_OFFSET, Size.WORD);
+        int actLen = s32XMMREG.read(AFLEN_OFFSET, Size.WORD);
+        int actSar = s32XMMREG.read(AFSAR_OFFSET, Size.WORD);
         Assertions.assertEquals(len, actLen);
         Assertions.assertEquals(expSar, actSar);
     }

@@ -21,6 +21,7 @@ public class IntC {
     public static final Sh2Interrupt[] intVals = Sh2Interrupt.values();
     private static final Logger LOG = LogManager.getLogger(IntC.class.getSimpleName());
     public static boolean DISABLE_INT = false;
+    private static final boolean verbose = false;
 
     //master and slave, valid = not masked
     private boolean[][] intValid = new boolean[2][intVals.length];
@@ -122,8 +123,10 @@ public class IntC {
     }
 
     private void logInfo(String action, int sh2, int ipt) {
-        LOG.info("{}: {} {} valid (unmasked): {}, pending: {}, willTrigger: {}, intLevel: {}",
-                action, Sh2Util.Sh2Access.vals[sh2], intVals[ipt], intValid[sh2][ipt], intPending[sh2][ipt], intTrigger[sh2][ipt], interruptLevel[sh2]);
+        if (verbose) {
+            LOG.info("{}: {} {} valid (unmasked): {}, pending: {}, willTrigger: {}, intLevel: {}",
+                    action, Sh2Util.Sh2Access.vals[sh2], intVals[ipt], intValid[sh2][ipt], intPending[sh2][ipt], intTrigger[sh2][ipt], interruptLevel[sh2]);
+        }
     }
 
     public enum Sh2Interrupt {

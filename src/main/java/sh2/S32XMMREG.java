@@ -51,33 +51,40 @@ public class S32XMMREG {
 
     public static Sh2Access sh2Access = MASTER;
 
-    public static ByteBuffer sysRegsSh2 = ByteBuffer.allocate(SIZE_32X_SYSREG);
-    public static ByteBuffer sysRegsMd = ByteBuffer.allocate(SIZE_32X_SYSREG);
-    public static ByteBuffer vdpRegs = ByteBuffer.allocate(SIZE_32X_VDPREG);
-    public static ByteBuffer colorPalette = ByteBuffer.allocateDirect(SIZE_32X_COLPAL);
-    public static ByteBuffer[] dramBanks = new ByteBuffer[2];
-
-    static VdpDebugView view;
-
+    //TODO fix
+    @Deprecated
+    public static S32XMMREG instance;
+    public ByteBuffer sysRegsSh2 = ByteBuffer.allocate(SIZE_32X_SYSREG);
+    public ByteBuffer sysRegsMd = ByteBuffer.allocate(SIZE_32X_SYSREG);
+    public ByteBuffer vdpRegs = ByteBuffer.allocate(SIZE_32X_VDPREG);
+    public ByteBuffer colorPalette = ByteBuffer.allocateDirect(SIZE_32X_COLPAL);
+    public ByteBuffer[] dramBanks = new ByteBuffer[2];
     //0 = disabled, 1 = 32x enabled
-    public static volatile int aden = 0;
+    public volatile int aden = 0;
+    public IntC interruptControl = new IntC();
+    VdpDebugView view;
+    int frameBufferDisplay = 0;
+    int frameBufferWritable = 1;
+    int fsLatch = 0;
     //0 = no cart, 1 = otherwise
-    private static volatile int cart = 0;
-
-    static int frameBufferDisplay = 0;
-    static int frameBufferWritable = 1;
-    static int fsLatch = 0;
-    private static boolean hBlankOn, vBlankOn;
-    private static BITMAP_MODE bitmap_mode = BITMAP_MODE.BLANK;
-    private static VideoMode videoMode = VideoMode.NTSCU_H40_V28;
-    private static int hCount = 0;
+    private volatile int cart = 0;
+    //0 = md access, 1 = sh2 access
+    private volatile int fm = 0;
+    private boolean hBlankOn, vBlankOn;
+    private BITMAP_MODE bitmap_mode = BITMAP_MODE.BLANK;
 
     private static final int REN_MASK = 0x80;
     private static final int NTSC_MASK = 0x8000;
+    private VideoMode videoMode = VideoMode.NTSCU_H40_V28;
+    private int hCount = 0;
 
-    public static IntC interruptControl = new IntC();
+    enum BITMAP_MODE {
+        BLANK, PACKED_PX, DIRECT_COL, RUN_LEN;
 
-    static {
+        public static BITMAP_MODE[] vals = BITMAP_MODE.values();
+    }
+
+    {
         //TODO check bios require REN = 1
         Sh2Util.writeBuffer(sysRegsMd, INT_MASK, REN_MASK, Size.WORD);
         Sh2Util.writeBuffer(vdpRegs, VDP_BITMAP_MODE, NTSC_MASK, Size.WORD);
@@ -86,14 +93,15 @@ public class S32XMMREG {
         view = VdpDebugView.createInstance(dramBanks, colorPalette);
     }
 
-    enum BITMAP_MODE {
-        BLANK, PACKED_PX, DIRECT_COL, RUN_LEN;
-
-        public static BITMAP_MODE[] vals = BITMAP_MODE.values();
+    public S32XMMREG() {
+        if (instance != null) {
+            throw new RuntimeException("S32XMMREG one instance allowed");
+        }
+        instance = this;
     }
 
-    public static void setHBlankOn(boolean hBlankOn) {
-        S32XMMREG.hBlankOn = hBlankOn;
+    public void setHBlankOn(boolean hBlankOn) {
+        this.hBlankOn = hBlankOn;
         int val = Sh2Util.readBuffer(vdpRegs, FBCR, Size.WORD);
         val = (hBlankOn ? 1 : 0) << 14 | (val & 0xBFFF);
         Sh2Util.writeBuffer(vdpRegs, FBCR, val, Size.WORD);
@@ -108,8 +116,8 @@ public class S32XMMREG {
 //        System.out.println("HBlank: " + hBlankOn);
     }
 
-    public static void setVBlankOn(boolean vBlankOn) {
-        S32XMMREG.vBlankOn = vBlankOn;
+    public void setVBlankOn(boolean vBlankOn) {
+        this.vBlankOn = vBlankOn;
         int val = Sh2Util.readBuffer(vdpRegs, FBCR, Size.WORD);
         val = (vBlankOn ? 1 : 0) << 15 | (val & 0x7FFF);
         Sh2Util.writeBuffer(vdpRegs, FBCR, val, Size.WORD);
@@ -129,7 +137,7 @@ public class S32XMMREG {
 //        System.out.println("VBlank: " + vBlankOn);
     }
 
-    public static void write(int address, int value, Size size) {
+    public void write(int address, int value, Size size) {
         address &= 0xFFF_FFFF;
         value &= size.getMask();
         if (address >= START_32X_SYSREG_CACHE && address < END_32X_VDPREG_CACHE) {
@@ -152,7 +160,7 @@ public class S32XMMREG {
         }
     }
 
-    public static int read(int address, Size size) {
+    public int read(int address, Size size) {
         address &= 0xFFF_FFFF;
         int res = 0;
         if (address >= START_32X_SYSREG_CACHE && address < END_32X_VDPREG_CACHE) {
@@ -171,7 +179,7 @@ public class S32XMMREG {
         return (int) (res & size.getMask());
     }
 
-    private static int handleRegRead(int address, Size size) {
+    private int handleRegRead(int address, Size size) {
         int reg = address & S32X_MMREG_MASK;
         if (size == Size.LONG && reg < COMM0) {
             throw new RuntimeException("unsupported 32 bit access: " + address);
@@ -187,7 +195,7 @@ public class S32XMMREG {
         return res;
     }
 
-    private static boolean handleRegWrite(int address, int value, Size size) {
+    private boolean handleRegWrite(int address, int value, Size size) {
         boolean skipWrite = false;
         boolean regChanged = false;
         int reg = address & S32X_MMREG_MASK;
@@ -231,9 +239,7 @@ public class S32XMMREG {
                 case HINT_CLEAR:
                 case PWM_INT_CLEAR:
                 case CMD_INT_CLEAR:
-                    int intIdx = VRES_14.ordinal() - (regEven - 0x14);
-                    IntC.Sh2Interrupt intType = IntC.intVals[intIdx];
-                    interruptControl.clearInterrupt(sh2Access, intType);
+                    handleIntClearWrite(sh2Access, regEven, value, size);
                     break;
             }
         }
@@ -256,7 +262,16 @@ public class S32XMMREG {
         return regChanged;
     }
 
-    private static boolean handleReg4Write(Sh2Access sh2Access, int reg, int value, Size size) {
+    private void handleIntClearWrite(Sh2Access sh2Access, int regEven, int value, Size size) {
+        if (sh2Access != M68K) {
+            int intIdx = VRES_14.ordinal() - (regEven - 0x14);
+            IntC.Sh2Interrupt intType = IntC.intVals[intIdx];
+            interruptControl.clearInterrupt(sh2Access, intType);
+        }
+    }
+
+
+    private boolean handleReg4Write(Sh2Access sh2Access, int reg, int value, Size size) {
         boolean res = false;
         int baseReg = reg & ~1;
         ByteBuffer b = sh2Access == M68K ? sysRegsMd : sysRegsSh2;
@@ -274,7 +289,7 @@ public class S32XMMREG {
         return res;
     }
 
-    private static boolean handleReg2Write(Sh2Access sh2Access, int reg, int value, Size size) {
+    private boolean handleReg2Write(Sh2Access sh2Access, int reg, int value, Size size) {
         boolean res = false;
         int baseReg = reg & ~1;
         ByteBuffer b = sh2Access == M68K ? sysRegsMd : sysRegsSh2;
@@ -300,7 +315,7 @@ public class S32XMMREG {
         return res;
     }
 
-    private static boolean handleIntMaskRegWrite(Sh2Access sh2Access, int reg, int value, Size size) {
+    private boolean handleIntMaskRegWrite(Sh2Access sh2Access, int reg, int value, Size size) {
         boolean res = false;
         switch (sh2Access) {
             case M68K:
@@ -314,7 +329,7 @@ public class S32XMMREG {
         return res;
     }
 
-    private static boolean handleIntMaskRegWrite68k(int reg, int value, Size size) {
+    private boolean handleIntMaskRegWrite68k(int reg, int value, Size size) {
         int val = Sh2Util.readBuffer(sysRegsMd, INT_MASK, Size.WORD);
         if (val != value) {
             Sh2Util.writeBuffer(sysRegsMd, reg, value, size);
@@ -324,26 +339,34 @@ public class S32XMMREG {
                 val |= 1;
             }
             Sh2Util.writeBuffer(sysRegsMd, INT_MASK, val, Size.WORD);
-            aden = val & 1;
+            setAdenSh2Reg(val & 1); //sh2 side read-only
+            updateFmShared(val); //sh2 side r/w too
             return true;
         }
         return false;
     }
 
-    private static boolean handleIntMaskRegWriteSh2(Sh2Access sh2Access, int reg, int value, Size size) {
+    private void updateFmShared(int wordVal) {
+        if (fm != ((wordVal >> 15) & 1)) {
+            setFmSh2Reg((wordVal >> 15) & 1);
+        }
+    }
+
+    private boolean handleIntMaskRegWriteSh2(Sh2Access sh2Access, int reg, int value, Size size) {
         int baseReg = reg & ~1;
         int val = interruptControl.readSh2IntMaskReg(sh2Access, reg, size);
         if (val != value) {
             //TODO hack
             interruptControl.writeSh2IntMaskReg(sh2Access, reg, value, size);
-            int newVal = interruptControl.readSh2IntMaskReg(sh2Access, baseReg, Size.WORD) | (cart << 8) | (aden << 9);
+            int newVal = interruptControl.readSh2IntMaskReg(sh2Access, baseReg, Size.WORD) | (cart << 8);
             interruptControl.writeSh2IntMaskReg(sh2Access, baseReg, newVal, Size.WORD);
+            updateFmShared(newVal); //68k side r/w too
             return newVal != val;
         }
         return false;
     }
 
-    private static boolean handleBitmapModeWrite(int reg, int value, Size size) {
+    private boolean handleBitmapModeWrite(int reg, int value, Size size) {
         int val = Sh2Util.readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD);
         if (val != value) {
             Sh2Util.writeBuffer(vdpRegs, reg, value, size);
@@ -355,7 +378,7 @@ public class S32XMMREG {
         return false;
     }
 
-    private static boolean handleFBCRWrite(int reg, int value, Size size) {
+    private boolean handleFBCRWrite(int reg, int value, Size size) {
         int val = Sh2Util.readBuffer(vdpRegs, FBCR, Size.WORD);
         if (true || val != value) {
             Sh2Util.writeBuffer(vdpRegs, reg, value, size);
@@ -376,26 +399,45 @@ public class S32XMMREG {
         return false;
     }
 
-    public static void setCart(int cart) {
-        S32XMMREG.cart = cart;
+    public void setCart(int cart) {
+        this.cart = cart;
         int valM = interruptControl.readSh2IntMaskReg(MASTER, 0, Size.BYTE);
         int valS = interruptControl.readSh2IntMaskReg(SLAVE, 0, Size.BYTE);
         interruptControl.writeSh2IntMaskReg(MASTER, 0, valM | cart, Size.BYTE);
         interruptControl.writeSh2IntMaskReg(SLAVE, 0, valS | cart, Size.BYTE);
     }
 
-    private static void updateFrameBuffer(int val) {
+    private void setAdenSh2Reg(int aden) {
+        this.aden = aden;
+        int valM = interruptControl.readSh2IntMaskReg(MASTER, 0, Size.BYTE);
+        int valS = interruptControl.readSh2IntMaskReg(SLAVE, 0, Size.BYTE);
+        interruptControl.writeSh2IntMaskReg(MASTER, 0, valM | (aden << 1), Size.BYTE);
+        interruptControl.writeSh2IntMaskReg(SLAVE, 0, valS | (aden << 1), Size.BYTE);
+    }
+
+    private void setFmSh2Reg(int fm) {
+        this.fm = fm;
+        int valM = interruptControl.readSh2IntMaskReg(MASTER, 0, Size.BYTE);
+        int valS = interruptControl.readSh2IntMaskReg(SLAVE, 0, Size.BYTE);
+        int val68k = Sh2Util.readBuffer(sysRegsMd, 0, Size.BYTE);
+        interruptControl.writeSh2IntMaskReg(MASTER, 0, valM | (fm << 7), Size.BYTE);
+        interruptControl.writeSh2IntMaskReg(SLAVE, 0, valS | (fm << 7), Size.BYTE);
+        Sh2Util.writeBuffer(sysRegsMd, INT_MASK, val68k | (fm << 7), Size.BYTE);
+        System.out.println(sh2Access + " FM: " + fm);
+    }
+
+    private void updateFrameBuffer(int val) {
         frameBufferDisplay = val & 1;
         frameBufferWritable = (frameBufferDisplay + 1) & 1;
     }
 
-    private static void runAutoFill(int data) {
+    private void runAutoFill(int data) {
         int startAddr = Sh2Util.readBuffer(vdpRegs, AFSAR, Size.WORD);
         int len = Sh2Util.readBuffer(vdpRegs, AFLR, Size.WORD) & 0xFF;
         runAutoFillInternal(dramBanks[frameBufferWritable], startAddr, data, len);
     }
 
-    public static void runAutoFillInternal(ByteBuffer buffer, int startAddrWord, int data, int len) {
+    public void runAutoFillInternal(ByteBuffer buffer, int startAddrWord, int data, int len) {
         int addrFixed = startAddrWord & 0xFF00;
         int addrVariable = startAddrWord & 0xFF;
 //     String s1 = "start %08X, len %04X, data %04X";
@@ -418,15 +460,15 @@ public class S32XMMREG {
                 Integer.toHexString(value));
     }
 
-    private static void detectRegAccess(boolean isSys, int address, int value, Size size) {
+    private void detectRegAccess(boolean isSys, int address, int value, Size size) {
         detectRegAccess(isSys, address, value, size, false);
     }
 
-    private static void detectRegAccess(boolean isSys, int address, Size size) {
+    private void detectRegAccess(boolean isSys, int address, Size size) {
         detectRegAccess(isSys, address, -1, size, true);
     }
 
-    private static void detectRegAccess(boolean isSys, int address, int value, Size size, boolean read) {
+    private void detectRegAccess(boolean isSys, int address, int value, Size size, boolean read) {
         String sformat = "%s %s %s, %s(%X), %4X %s";
         String type = read ? "R" : "W";
         int reg = (address & 0xFF) & ~1;

@@ -38,23 +38,29 @@ public class MdBus extends GenesisBus {
     public static ByteBuffer bios;
     public static ByteBuffer writeableHintRom = ByteBuffer.allocate(4).putInt(-1);
 
+    private S32XMMREG s32XMMREG;
+
     private static int romMask, romSize;
 
     private static int bankSetValue = 0;
     private static int bankSetShift = bankSetValue << 20;
 
+    public MdBus() {
+        this.s32XMMREG = new S32XMMREG();
+        s32XMMREG.setCart(romSize > 0 ? 1 : 0);
+    }
+
     public static void setRom(ByteBuffer b) {
         rom = b;
         romSize = rom.capacity();
         romMask = (int) Math.pow(2, Util.log2(romSize) + 1) - 1;
-        S32XMMREG.setCart(romSize > 0 ? 1 : 0);
     }
 
     @Override
     public long read(long address, Size size) {
         S32XMMREG.sh2Access = Sh2Util.Sh2Access.M68K;
         address &= 0xFF_FFFFF;
-        if (S32XMMREG.aden > 0) {
+        if (s32XMMREG.aden > 0) {
             return readAdapterEnOn((int) address, size);
         } else {
             return readAdapterEnOff((int) address, size);
@@ -65,10 +71,9 @@ public class MdBus extends GenesisBus {
     public void write(long address, long data, Size size) {
         S32XMMREG.sh2Access = Sh2Util.Sh2Access.M68K;
         address &= 0xFF_FFFFF;
-        S32XMMREG.sh2Access = Sh2Util.Sh2Access.M68K;
         logInfo("Write address: {}, data: {}, size: {}", Long.toHexString(address),
                 Long.toHexString(data), size);
-        if (S32XMMREG.aden > 0) {
+        if (s32XMMREG.aden > 0) {
             writeAdapterEnOn((int) address, (int) data, size);
         } else {
             writeAdapterEnOff((int) address, (int) data, size);
@@ -169,19 +174,19 @@ public class MdBus extends GenesisBus {
 
     private void write32xWord(int address, int data, Size size) {
         if (size != Size.LONG) {
-            S32XMMREG.write(address, data, size);
+            s32XMMREG.write(address, data, size);
         } else {
-            S32XMMREG.write(address, data >> 16, Size.WORD);
-            S32XMMREG.write(address + 2, data & 0xFFFF, Size.WORD);
+            s32XMMREG.write(address, data >> 16, Size.WORD);
+            s32XMMREG.write(address + 2, data & 0xFFFF, Size.WORD);
         }
     }
 
     private int read32xWord(int address, Size size) {
         if (size != Size.LONG) {
-            return S32XMMREG.read(address, size);
+            return s32XMMREG.read(address, size);
         } else {
-            int res = S32XMMREG.read(address, Size.WORD) << 16;
-            return res | S32XMMREG.read(address + 2, Size.WORD);
+            int res = s32XMMREG.read(address, Size.WORD) << 16;
+            return res | s32XMMREG.read(address + 2, Size.WORD);
         }
     }
 
@@ -197,10 +202,10 @@ public class MdBus extends GenesisBus {
         super.onVdpEvent(event, value);
         switch (event) {
             case V_BLANK_CHANGE:
-                S32XMMREG.setVBlankOn((boolean) value);
+                s32XMMREG.setVBlankOn((boolean) value);
                 break;
             case H_BLANK_CHANGE:
-                S32XMMREG.setHBlankOn((boolean) value);
+                s32XMMREG.setHBlankOn((boolean) value);
                 break;
         }
     }

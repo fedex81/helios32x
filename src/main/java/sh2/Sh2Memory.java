@@ -42,11 +42,13 @@ public final class Sh2Memory implements IMemory {
 			romMask = SDRAM_MASK;
 
 	private Sh2MMREG[] sh2MMREGS = new Sh2MMREG[2];
+	private S32XMMREG s32XMMREG;
 
 	public Sh2Util.Sh2Access sh2Access = MASTER;
 
 	public Sh2Memory(ByteBuffer rom) {
 		this();
+		s32XMMREG = S32XMMREG.instance;
 		this.rom = rom;
 		romSize = rom.capacity();
 		romMask = (int) Math.pow(2, Util.log2(romSize) + 1) - 1;
@@ -80,9 +82,9 @@ public final class Sh2Memory implements IMemory {
 				address = address > romSize - 1 ? address - (romSize) : address;
 				return Sh2Util.readBuffer(rom, address & romMask, size);
 			} else if (address >= S32XMMREG.START_32X_SYSREG_CACHE && address < S32XMMREG.END_32X_COLPAL_CACHE) {
-				return S32XMMREG.read(address, size);
+				return s32XMMREG.read(address, size);
 			} else if (address >= S32XMMREG.START_32X_SYSREG && address < S32XMMREG.END_32X_COLPAL) {
-				return S32XMMREG.read(address, size);
+				return s32XMMREG.read(address, size);
 			} else if (address >= START_SDRAM && address < END_SDRAM) {
 				return Sh2Util.readBuffer(sdram, address & SDRAM_MASK, size);
 			} else if (address >= START_SDRAM_CACHE && address < END_SDRAM_CACHE) {
@@ -101,19 +103,19 @@ public final class Sh2Memory implements IMemory {
 
 	private void write(int address, int val, Size size) {
 		if (address >= S32XMMREG.START_32X_SYSREG && address < S32XMMREG.END_32X_COLPAL) {
-			S32XMMREG.write(address, val, size);
+			s32XMMREG.write(address, val, size);
 		} else if (address >= S32XMMREG.START_32X_SYSREG_CACHE && address < S32XMMREG.END_32X_COLPAL_CACHE) {
-			S32XMMREG.write(address, val, size);
+			s32XMMREG.write(address, val, size);
 		} else if (address >= S32XMMREG.START_DRAM_CACHE && address < S32XMMREG.END_DRAM_CACHE) {
-			S32XMMREG.write(address, val, size);
+			s32XMMREG.write(address, val, size);
 		} else if (address >= S32XMMREG.START_DRAM && address < S32XMMREG.END_DRAM) {
-			S32XMMREG.write(address, val, size);
+			s32XMMREG.write(address, val, size);
 		} else if (address >= START_SDRAM && address < END_SDRAM) {
 			Sh2Util.writeBuffer(sdram, address & SDRAM_MASK, val, size);
 		} else if (address >= START_SDRAM_CACHE && address < END_SDRAM_CACHE) {
 			Sh2Util.writeBuffer(sdram, address & SDRAM_MASK, val, size);
 		} else if (address >= S32XMMREG.START_OVER_IMAGE && address < S32XMMREG.END_OVER_IMAGE) {
-			S32XMMREG.write(address, val, size);
+			s32XMMREG.write(address, val, size);
 		} else if (address >= BASE_SH2_MMREG) {
 			if ((address & 0xFF00_0000) != 0xFF00_0000) {
 				throw new RuntimeException(sh2Access + ", write address: " + Integer.toHexString(address) + " " + size);

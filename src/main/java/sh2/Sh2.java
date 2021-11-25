@@ -74,7 +74,7 @@ public class Sh2 {
 
 	private void acceptInterrupts(Sh2Context ctx) {
 		int mask = getIMASK();
-		int imask = S32XMMREG.interruptControl.getInterruptLevel(ctx.sh2Access);
+		int imask = S32XMMREG.instance.interruptControl.getInterruptLevel(ctx.sh2Access);
 		if (imask > mask) {
 			processInterrupt(ctx, imask);
 //			debugging = true;
@@ -82,7 +82,7 @@ public class Sh2 {
 	}
 
 	private void processInterrupt(Sh2Context ctx, int source_irq) {
-		System.out.println(ctx.sh2Access + " Interrupt processed: " + source_irq);
+//		System.out.println(ctx.sh2Access + " Interrupt processed: " + source_irq);
 		push(ctx.SR);
 		push(ctx.PC);
 
@@ -100,16 +100,16 @@ public class Sh2 {
 	private void push(int data) {
 		ctx.registers[15] -= 4;
 		memory.write32i(ctx.registers[15], data);
-		System.out.println(ctx.sh2Access + " PUSH SP: " + Integer.toHexString(ctx.registers[15])
-				+ "," + Integer.toHexString(data));
+//		System.out.println(ctx.sh2Access + " PUSH SP: " + Integer.toHexString(ctx.registers[15])
+//				+ "," + Integer.toHexString(data));
 	}
 
 	//pop from stack
 	private int pop() {
 		int res = memory.read32i(ctx.registers[15]);
 		ctx.registers[15] += 4;
-		System.out.println(ctx.sh2Access + " POP SP: " + Integer.toHexString(ctx.registers[15])
-				+ "," + Integer.toHexString(res));
+//		System.out.println(ctx.sh2Access + " POP SP: " + Integer.toHexString(ctx.registers[15])
+//				+ "," + Integer.toHexString(res));
 		return res;
 	}
 
