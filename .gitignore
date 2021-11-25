@@ -4,6 +4,7 @@ out
 .idea
 omegadrive
 sh4_code
+helios.prefs
 
 # Project exclude paths
 /build/

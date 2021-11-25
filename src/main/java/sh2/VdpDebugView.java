@@ -11,6 +11,7 @@ import java.nio.ShortBuffer;
 import java.util.Arrays;
 
 import static sh2.S32XMMREG.DRAM_SIZE;
+import static sh2.VdpDebugView.VdpDebugViewImpl.ImageType.*;
 
 /**
  * VdpDebugView
@@ -56,7 +57,7 @@ public interface VdpDebugView {
         }
 
         static final int PANEL_TEXT_HEIGHT = 20;
-        static final int PANEL_HEIGHT = 512 + PANEL_TEXT_HEIGHT;
+        static final int PANEL_HEIGHT = 256 + PANEL_TEXT_HEIGHT;
         static final int PANEL_WIDTH = 320;
         static final Dimension layerDim = new Dimension(PANEL_WIDTH, PANEL_HEIGHT);
         static final int DIRECT_COLOR_LINES = 204; // ~(65536 - 256)/320
@@ -68,32 +69,28 @@ public interface VdpDebugView {
 
         private JFrame frame;
         private JPanel panel;
-        private final ImageIcon[] imgIcons = new ImageIcon[NUM_FB];
-        private final BufferedImage[] imageList = new BufferedImage[NUM_FB];
+        private final ImageIcon[] imgIcons = new ImageIcon[values().length];
+        private final BufferedImage[] imageList = new BufferedImage[values().length];
         private ShortBuffer[] frameBuffersWord = new ShortBuffer[NUM_FB];
         private ShortBuffer colorPaletteWords;
         private VideoMode videoMode = VideoMode.NTSCJ_H20_V18; //force an update later
         private short[] fbDataWords = new short[(DRAM_SIZE - LINE_TABLE_BYTES) >> 1];
         private int[] lineTableWords = new int[LINE_TABLE_WORDS];
 
-        protected VdpDebugViewImpl(ByteBuffer[] frameBuffers, ByteBuffer colorPalette) {
-            this.colorPaletteWords = colorPalette.asShortBuffer();
-            this.frameBuffersWord[0] = frameBuffers[0].asShortBuffer();
-            this.frameBuffersWord[1] = frameBuffers[1].asShortBuffer();
-            init();
-        }
-
         private void init() {
-            imageList[0] = createImage(gd, layerDim);
-            imageList[1] = createImage(gd, layerDim);
+            imageList[BUFF_0.ordinal()] = createImage(gd, layerDim);
+            imageList[BUFF_1.ordinal()] = createImage(gd, layerDim);
+            imageList[FULL.ordinal()] = createImage(gd, layerDim);
             SwingUtilities.invokeLater(() -> {
                 this.frame = new JFrame();
                 this.panel = new JPanel();
-                JComponent p0 = createComponent(0);
-                JComponent p1 = createComponent(1);
+                JComponent p0 = createComponent(BUFF_0);
+                JComponent p1 = createComponent(BUFF_1);
+                JComponent p2 = createComponent(FULL);
                 panel.add(p0);
                 panel.add(p1);
-                panel.setSize(new Dimension(PANEL_WIDTH * 2, (int) (PANEL_HEIGHT * 1.5)));
+                panel.add(p2);
+                panel.setSize(new Dimension(PANEL_WIDTH * 2, (int) (PANEL_HEIGHT * 1.2)));
                 frame.add(panel);
                 frame.setMinimumSize(panel.getSize());
                 frame.setTitle("32x Vdp Debug Viewer");
@@ -103,10 +100,41 @@ public interface VdpDebugView {
             initBgrMapper();
         }
 
-        JComponent createComponent(int num) {
+        protected VdpDebugViewImpl(ByteBuffer[] frameBuffers, ByteBuffer colorPalette) {
+            this.colorPaletteWords = colorPalette.asShortBuffer();
+            this.frameBuffersWord[0] = frameBuffers[0].asShortBuffer();
+            this.frameBuffersWord[1] = frameBuffers[1].asShortBuffer();
+            init();
+        }
+
+        JComponent createComponent(ImageType type) {
+            int num = type.ordinal();
             imgIcons[num] = new ImageIcon(imageList[num]);
+            JPanel pnl = new JPanel();
+            BoxLayout bl = new BoxLayout(pnl, BoxLayout.Y_AXIS);
+            pnl.setLayout(bl);
+            JLabel title = new JLabel(type.toString());
             JLabel lbl = new JLabel(imgIcons[num]);
-            return lbl;
+            pnl.add(title);
+            pnl.add(lbl);
+            return pnl;
+        }
+
+        private void updateVideoMode(VideoMode videoMode) {
+            if (videoMode.getDimension().equals(this.videoMode)) {
+                return;
+            }
+            imageList[0] = createImage(gd, videoMode.getDimension());
+            imageList[1] = createImage(gd, videoMode.getDimension());
+            imageList[2] = createImage(gd, videoMode.getDimension());
+            imgIcons[0].setImage(imageList[0]);
+            imgIcons[1].setImage(imageList[1]);
+            imgIcons[2].setImage(imageList[2]);
+            System.out.println("Updating videoMode, " + this.videoMode + " -> " + videoMode);
+            this.videoMode = videoMode;
+            frame.invalidate();
+            frame.pack();
+            frame.repaint();
         }
 
         @Override
@@ -116,17 +144,7 @@ public interface VdpDebugView {
             }
 //        System.out.println(System.currentTimeMillis() + " Update, draw: " + dramBank);
             draw(videoMode, bitmap_mode, dramBank, screenShift);
-//            draw(videoMode, bitmap_mode, 1, screenShift);
             panel.repaint();
-        }
-
-        private void updateVideoMode(VideoMode videoMode) {
-            imageList[0] = createImage(gd, videoMode.getDimension());
-            imageList[1] = createImage(gd, videoMode.getDimension());
-            imgIcons[0].setImage(imageList[0]);
-            imgIcons[1].setImage(imageList[1]);
-            System.out.println("Updating videoMode, " + this.videoMode + " -> " + videoMode);
-            this.videoMode = videoMode;
         }
 
         void draw(VideoMode videoMode, S32XMMREG.BITMAP_MODE bitmap_mode, int num, int screenShift) {
@@ -145,7 +163,17 @@ public interface VdpDebugView {
                     drawDirectColor(videoMode, num, screenShift);
                     break;
             }
+            fillFullImage(num);
         }
+
+        //copy the current front buffer to the FULL image
+        private void fillFullImage(int num) {
+            int[] imgData = getPixels(imageList[num]);
+            int[] imgDataFull = getPixels(imageList[FULL.ordinal()]);
+            System.arraycopy(imgData, 0, imgDataFull, 0, imgData.length);
+        }
+
+        enum ImageType {BUFF_0, BUFF_1, FULL}
 
         //Mars Sample Program - Pharaoh
         private void drawDirectColor(VideoMode videoMode, int num, int screenShift) {
