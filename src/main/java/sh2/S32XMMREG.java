@@ -70,6 +70,7 @@ public class S32XMMREG {
     private static boolean hBlankOn, vBlankOn;
     private static BITMAP_MODE bitmap_mode = BITMAP_MODE.BLANK;
     private static VideoMode videoMode = VideoMode.NTSCU_H40_V28;
+    private static int hCount = 0;
 
     private static final int REN_MASK = 0x80;
     private static final int NTSC_MASK = 0x8000;
@@ -98,7 +99,8 @@ public class S32XMMREG {
         Sh2Util.writeBuffer(vdpRegs, FBCR, val, Size.WORD);
         if (hBlankOn) {
             int hCnt = Sh2Util.readBuffer(sysRegsSh2, HCOUNT_REG, Size.WORD);
-            if (--hCnt < 0) {
+            if (--hCount < 0) {
+                hCount = Sh2Util.readBuffer(sysRegsSh2, HCOUNT_REG, Size.WORD) & 0xFF;
                 interruptControl.setIntPending(MASTER, HINT_10, true);
                 interruptControl.setIntPending(SLAVE, HINT_10, true);
             }
