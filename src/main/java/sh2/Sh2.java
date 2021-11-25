@@ -124,13 +124,9 @@ public class Sh2 {
 	}
 
 	private final void MOVI(int code) {
-		int i = (code & 0xff);
 		int n = ((code >> 8) & 0x0f);
-
-		if ((i & 0x80) == 0) ctx.registers[n] = (0x000000FF & i);
-		else ctx.registers[n] = (0xFFFFFF00 | i);
-
-
+		//8 bit sign extend
+		ctx.registers[n] = (byte) (code & 0xFF);
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
@@ -658,11 +654,7 @@ public class Sh2 {
 	}
 
 	private final void CMPIM(int code) {
-		int i = 0;
-
-		if ((code & 0x80) == 0) i = (0x000000FF & code);
-		else i = (0xFFFFFF00 | code);
-
+		int i = (byte) (code & 0xFF);
 		if (ctx.registers[0] == i)
 			ctx.SR |= flagT;
 		else ctx.SR &= (~flagT);
@@ -1641,13 +1633,9 @@ public class Sh2 {
 
 	private final void BF(int code) {
 		if ((ctx.SR & flagT) == 0) {
-			int d = (code & 0xff);
-
-			if ((code & 0x80) == 0)
-				d = (0x000000FF & code);
-			else d = (0xFFFFFF00 | code);
-
-			ctx.PC += (d << 1) + 4;
+			//8 bit sign extend, then double
+			int d = (byte) (code & 0xFF) << 1;
+			ctx.PC += d + 4;
 
 			ctx.cycles--;
 		} else {
@@ -1658,12 +1646,9 @@ public class Sh2 {
 
 	private final void BFS(int code) {
 		if ((ctx.SR & flagT) == 0) {
-			int d = 0;
-			if ((code & 0x80) == 0)
-				d = (0x000000FF & code);
-			else d = (0xFFFFFF00 | code);
-
-			int pc = ctx.PC + (d << 1) + 4;
+			//8 bit sign extend, then double
+			int d = (byte) (code & 0xFF) << 1;
+			int pc = ctx.PC + d + 4;
 
 			decode(memory.read16i(ctx.PC + 2));
 
@@ -1678,13 +1663,9 @@ public class Sh2 {
 
 	private final void BT(int code) {
 		if ((ctx.SR & flagT) != 0) {
-			int d = 0;
-
-			if ((code & 0x80) == 0)
-				d = (0x000000FF & code);
-			else d = (0xFFFFFF00 | code);
-
-			ctx.PC = ctx.PC + (d << 1) + 4;
+			//8 bit sign extend, then double
+			int d = (byte) (code & 0xFF) << 1;
+			ctx.PC = ctx.PC + d + 4;
 
 			ctx.cycles--;
 		} else {
@@ -1695,13 +1676,9 @@ public class Sh2 {
 
 	private final void BTS(int code) {
 		if ((ctx.SR & flagT) != 0) {
-			int d = 0;
-
-			if ((code & 0x80) == 0)
-				d = (0x000000FF & code);
-			else d = (0xFFFFFF00 | code);
-
-			int pc = ctx.PC + (d << 1) + 4;
+			//8 bit sign extend, then double
+			int d = (byte) (code & 0xFF) << 1;
+			int pc = ctx.PC + d + 4;
 
 			decode(memory.read16i(ctx.PC + 2));
 
@@ -1714,7 +1691,6 @@ public class Sh2 {
 	}
 
 	private final void BRA(int code) {
-
 		int disp;
 
 		if ((code & 0x800) == 0)
@@ -2143,7 +2119,13 @@ public class Sh2 {
 		for (; ctx.cycles >= 0; ) {
 			opcode = memory.read16i(ctx.PC);
 			printDebugMaybe(ctx, opcode);
-			decode(opcode);
+			try {
+				decode(opcode);
+			} catch (Exception e) {
+				Sh2Helper.printState(ctx, opcode);
+				e.printStackTrace();
+				System.exit(1);
+			}
 			acceptInterrupts(ctx);
 		}
 		ctx.cycles_ran = burstCycles - ctx.cycles;
