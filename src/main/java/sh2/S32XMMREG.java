@@ -70,7 +70,7 @@ public class S32XMMREG {
     public ByteBuffer[] dramBanks = new ByteBuffer[2];
 
     public IntC interruptControl = new IntC();
-    VdpDebugView view;
+    private MarsVdp vdp;
     int frameBufferDisplay = 0;
     int frameBufferWritable = 1;
     int fsLatch = 0;
@@ -95,7 +95,7 @@ public class S32XMMREG {
         Sh2Util.writeBuffer(vdpRegs, VDP_BITMAP_MODE, NTSC_MASK, Size.WORD);
         dramBanks[0] = ByteBuffer.allocateDirect(DRAM_SIZE);
         dramBanks[1] = ByteBuffer.allocateDirect(DRAM_SIZE);
-        view = VdpDebugView.createInstance(dramBanks, colorPalette);
+        vdp = MarsVdp.createInstance(dramBanks, colorPalette);
     }
 
     public S32XMMREG() {
@@ -130,7 +130,7 @@ public class S32XMMREG {
         if (vBlankOn) {
             int screenShift = Sh2Util.readBuffer(vdpRegs, SSCR, Size.WORD) & 1;
             int currentFb = val & 1;
-            view.update(videoMode, bitmap_mode, val & 1, screenShift);
+            vdp.draw(videoMode, bitmap_mode, val & 1, screenShift);
             if (currentFb != fsLatch) {
                 int newVal = ((val & 0xFFFE) | fsLatch);
                 Sh2Util.writeBuffer(vdpRegs, FBCR, newVal, Size.WORD);

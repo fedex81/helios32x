@@ -33,7 +33,7 @@ public class Sh2Launcher {
     private static void initProps() {
         System.setProperty("helios.headless", "true");
         System.setProperty("helios.fullSpeed", "false");
-        System.setProperty("helios.enable.sound", "false");
+        System.setProperty("helios.enable.sound", "true");
         System.setProperty("68k.debug", "false");
         System.setProperty("32x.show.vdp.debug.viewer", "true");
     }
