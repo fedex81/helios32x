@@ -1,3 +1,5 @@
+package s32x;
+
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -7,6 +9,7 @@ import sh2.IntC;
 import sh2.S32XMMREG;
 import sh2.Sh2Util;
 
+import static s32x.MarsRegTestUtil.*;
 import static sh2.Sh2Util.Sh2Access.*;
 
 /**
@@ -16,11 +19,7 @@ import static sh2.Sh2Util.Sh2Access.*;
  */
 public class S32xSharedRegsTest {
 
-    static int INT_MASK = 0x4000 + Sh2Util.INT_MASK;
-    static int AD_CTRL = INT_MASK;
-
     static {
-        System.setProperty("32x.show.vdp.debug.viewer", "false");
         IntC.DISABLE_INT = false;
     }
 
@@ -28,8 +27,7 @@ public class S32xSharedRegsTest {
 
     @BeforeEach
     public void before() {
-        S32XMMREG.instance = null;
-        s32XMMREG = new S32XMMREG();
+        s32XMMREG = createInstance();
     }
 
     @Test

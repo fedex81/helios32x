@@ -1,12 +1,15 @@
+package s32x;
+
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.S32XMMREG;
-import sh2.Sh2Util;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+
+import static s32x.MarsRegTestUtil.*;
 
 /**
  * Federico Berti
@@ -15,16 +18,11 @@ import java.util.Arrays;
  */
 public class VdpAutoFillTest {
 
-    static int VDP_REG_OFFSET = 0x100;
-    static int AFLEN_OFFSET = 0x4000 + VDP_REG_OFFSET + Sh2Util.AFLR;
-    static int AFSAR_OFFSET = 0x4000 + VDP_REG_OFFSET + Sh2Util.AFSAR;
-
     private S32XMMREG s32XMMREG;
 
     @BeforeEach
     public void before() {
-        S32XMMREG.instance = null;
-        s32XMMREG = new S32XMMREG();
+        s32XMMREG = createInstance();
     }
 
     @Test

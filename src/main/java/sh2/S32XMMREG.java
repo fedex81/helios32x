@@ -51,6 +51,15 @@ public class S32XMMREG {
 
     public static Sh2Access sh2Access = MASTER;
 
+    //0 = no cart, 1 = otherwise
+    private volatile int cart = 0;
+    //0 = md access, 1 = sh2 access
+    private volatile int fm = 0;
+    //0 = disabled, 1 = 32x enabled
+    public volatile int aden = 0;
+    //0 = palette access disabled, 1 = enabled
+    public volatile int pen = 1;
+
     //TODO fix
     @Deprecated
     public static S32XMMREG instance;
@@ -59,17 +68,13 @@ public class S32XMMREG {
     public ByteBuffer vdpRegs = ByteBuffer.allocate(SIZE_32X_VDPREG);
     public ByteBuffer colorPalette = ByteBuffer.allocateDirect(SIZE_32X_COLPAL);
     public ByteBuffer[] dramBanks = new ByteBuffer[2];
-    //0 = disabled, 1 = 32x enabled
-    public volatile int aden = 0;
+
     public IntC interruptControl = new IntC();
     VdpDebugView view;
     int frameBufferDisplay = 0;
     int frameBufferWritable = 1;
     int fsLatch = 0;
-    //0 = no cart, 1 = otherwise
-    private volatile int cart = 0;
-    //0 = md access, 1 = sh2 access
-    private volatile int fm = 0;
+
     private boolean hBlankOn, vBlankOn;
     private BITMAP_MODE bitmap_mode = BITMAP_MODE.BLANK;
 
@@ -113,6 +118,7 @@ public class S32XMMREG {
                 interruptControl.setIntPending(SLAVE, HINT_10, true);
             }
         }
+        setPen(hBlankOn || vBlankOn ? 1 : 0);
 //        System.out.println("HBlank: " + hBlankOn);
     }
 
@@ -134,6 +140,7 @@ public class S32XMMREG {
             interruptControl.setIntPending(MASTER, VINT_12, true);
             interruptControl.setIntPending(SLAVE, VINT_12, true);
         }
+        setPen(hBlankOn || vBlankOn ? 1 : 0);
 //        System.out.println("VBlank: " + vBlankOn);
     }
 
@@ -423,6 +430,12 @@ public class S32XMMREG {
         interruptControl.writeSh2IntMaskReg(SLAVE, 0, valS | (fm << 7), Size.BYTE);
         Sh2Util.writeBuffer(sysRegsMd, INT_MASK, val68k | (fm << 7), Size.BYTE);
         System.out.println(sh2Access + " FM: " + fm);
+    }
+
+    private void setPen(int pen) {
+        this.pen = pen;
+        int val = (pen << 5) | (Sh2Util.readBuffer(vdpRegs, FBCR, Size.BYTE) & 0xDF);
+        Sh2Util.writeBuffer(vdpRegs, FBCR, val, Size.BYTE);
     }
 
     private void updateFrameBuffer(int val) {

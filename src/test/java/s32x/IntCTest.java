@@ -1,9 +1,10 @@
+package s32x;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.IntC;
 import sh2.IntC.Sh2Interrupt;
-import sh2.Sh2Util;
 
 import static sh2.IntC.Sh2Interrupt.*;
 import static sh2.Sh2Util.Sh2Access.MASTER;
@@ -15,12 +16,7 @@ import static sh2.Sh2Util.Sh2Access.MASTER;
  */
 public class IntCTest {
 
-    static int VDP_REG_OFFSET = 0x100;
-    static int FBCR_OFFSET = 0x4000 + VDP_REG_OFFSET + Sh2Util.FBCR;
-    static int BITMAP_MODE_OFFSET = 0x4000 + VDP_REG_OFFSET + Sh2Util.VDP_BITMAP_MODE;
-
     static {
-        System.setProperty("32x.show.vdp.debug.viewer", "false");
         IntC.DISABLE_INT = false;
     }
 
