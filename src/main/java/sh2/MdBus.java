@@ -50,10 +50,15 @@ public class MdBus extends GenesisBus {
         s32XMMREG.setCart(romSize > 0 ? 1 : 0);
     }
 
+    //TODO call by launcher
+    @Deprecated
     public static void setRom(ByteBuffer b) {
         rom = b;
         romSize = rom.capacity();
         romMask = (int) Math.pow(2, Util.log2(romSize) + 1) - 1;
+        if (S32XMMREG.instance != null) {
+            S32XMMREG.instance.setCart(romSize > 0 ? 1 : 0);
+        }
     }
 
     @Override
@@ -195,6 +200,10 @@ public class MdBus extends GenesisBus {
         if (verboseMd) {
             LOG.info(new ParameterizedMessage(str, args));
         }
+    }
+
+    public MarsVdp getMarsVdp() {
+        return s32XMMREG.getVdp();
     }
 
     @Override

@@ -169,4 +169,8 @@ public class MarsVdp {
             bgr5toRgb8Mapper[i] = (r << 16) | (g << 8) | b;
         }
     }
+
+    public int[] getScreenDataLinear() {
+        return buffer;
+    }
 }

@@ -2,6 +2,8 @@ package sh2;
 
 import omegadrive.util.Size;
 import omegadrive.util.VideoMode;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.nio.ByteBuffer;
 
@@ -16,6 +18,8 @@ import static sh2.Sh2Util.Sh2Access.*;
  * Copyright 2021
  */
 public class S32XMMREG {
+
+    private static final Logger LOG = LogManager.getLogger(S32XMMREG.class.getSimpleName());
 
     public static final int SIZE_32X_SYSREG = 0x100;
     public static final int SIZE_32X_VDPREG = 0x100;
@@ -103,6 +107,10 @@ public class S32XMMREG {
             throw new RuntimeException("S32XMMREG one instance allowed");
         }
         instance = this;
+    }
+
+    public MarsVdp getVdp() {
+        return vdp;
     }
 
     public void setHBlankOn(boolean hBlankOn) {
@@ -411,6 +419,7 @@ public class S32XMMREG {
         int valS = interruptControl.readSh2IntMaskReg(SLAVE, 0, Size.BYTE);
         interruptControl.writeSh2IntMaskReg(MASTER, 0, valM | cart, Size.BYTE);
         interruptControl.writeSh2IntMaskReg(SLAVE, 0, valS | cart, Size.BYTE);
+        LOG.info("Cart set to: " + cart);
     }
 
     private void setAdenSh2Reg(int aden) {

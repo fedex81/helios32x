@@ -5,6 +5,8 @@ import omegadrive.ui.DisplayWindow;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.Optional;
+
 /**
  * Federico Berti
  * <p>
@@ -21,6 +23,8 @@ public class Md32x extends Genesis {
     private Sh2Launcher.Sh2LaunchContext ctx;
     private Sh2 sh2;
     private Sh2Context masterCtx, slaveCtx;
+    private MarsVdp marsVdp;
+
 
     public Md32x(DisplayWindow emuFrame) {
         super(emuFrame);
@@ -36,6 +40,8 @@ public class Md32x extends Genesis {
         slaveCtx = new Sh2Context(Sh2Util.Sh2Access.SLAVE);
         sh2.reset(masterCtx);
         sh2.reset(slaveCtx);
+
+        marsVdp = S32XMMREG.instance.getVdp();
     }
 
     @Override
@@ -49,7 +55,7 @@ public class Md32x extends Genesis {
                 cnt = counter;
 //                slaveCtx.debug = true;
 //                masterCtx.debug = true;
-//                MC68000WrapperDebug.verboseInst = false;
+//                MC68000WrapperDebug.verboseInst = true;
                 run68k(cnt);
                 runZ80(cnt);
                 runFM(cnt);
@@ -79,8 +85,15 @@ public class Md32x extends Genesis {
     }
 
     @Override
-    public void newFrame() {
-        super.newFrame();
-//        Util.sleep(1000);
+    protected void doRendering(int[] data, Optional<String> stats) {
+        int mdDataLen = data.length;
+        int[] marsData = marsVdp.getScreenDataLinear();
+        if (mdDataLen == marsData.length) {
+            //TODO this just overwrites the MD buffer with the 32x buffer
+            data = marsData;
+        } else {
+            //bootstrap, 32x not ready
+        }
+        renderScreenLinearInternal(data, stats);
     }
 }
