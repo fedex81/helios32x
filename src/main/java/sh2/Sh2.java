@@ -796,9 +796,12 @@ public class Sh2 {
 	}
 
 	private final void DIV1(int code) {
-		int m = RM(code);
-		int n = RN(code);
+		int m = RM(code); //divisor
+		int n = RN(code);//dividend
+		DIV1(ctx, m, n);
+	}
 
+	public final static void DIV1(Sh2Context ctx, int m, int n) {
 		int tmp0, tmp2;
 		int tmp1;
 		int old_q;
@@ -812,7 +815,7 @@ public class Sh2 {
 		tmp2 = ctx.registers[m];
 		ctx.registers[n] <<= 1;
 
-		ctx.registers[n] |= flagT;
+		ctx.registers[n] |= (ctx.SR & flagT);
 
 		if (old_q == 0) {
 			if ((ctx.SR & flagM) == 0) {
@@ -884,8 +887,10 @@ public class Sh2 {
 		else
 			ctx.SR &= ~flagT;
 
-		//Logger.log(Logger.CPU,String.format("div1s: r[%d]=%x >= r[%d]=%x ?\r", n, ctx.registers[n], m, ctx.registers[m]));
-
+//		System.out.printf("####,div1s: r[%d]=%x >= r[%d]=%x, %d, %d, %d\n", n,
+//				ctx.registers[n], m, ctx.registers[m], ((ctx.SR & flagM) > 0) ? 1: 0,
+//				((ctx.SR & flagQ) > 0) ? 1: 0,
+//				((ctx.SR & flagT) > 0) ? 1: 0);
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
@@ -893,7 +898,6 @@ public class Sh2 {
 	private final void DIV0S(int code) {
 		int m = RM(code);
 		int n = RN(code);
-
 		if ((ctx.registers[n] & 0x80000000) == 0)
 			ctx.SR &= ~flagQ;
 		else
@@ -906,7 +910,11 @@ public class Sh2 {
 			ctx.SR |= flagT;
 		else
 			ctx.SR &= ~flagT;
-
+//		System.out.printf("####,div0s: r[%d]=%x >= r[%d]=%x, %d, %d, %d", n,
+//				ctx.registers[n], m, ctx.registers[m], ((ctx.SR & flagM) > 0) ? 1: 0,
+//				((ctx.SR & flagQ) > 0) ? 1: 0,
+//				((ctx.SR & flagT) > 0) ? 1: 0);
+//		System.out.printf(", r[%d]=%x\n", 4, ctx.registers[4]);
 		ctx.cycles--;
 		ctx.PC += 2;
 
@@ -926,8 +934,7 @@ public class Sh2 {
 		int n = RN(code);
 
 		long mult = (long) ctx.registers[n] * (long) ctx.registers[m];
-
-//		System.out.println("DMULS " + mult);
+//		System.out.printf("####,DMULS,%8X,%8X,%16X\n", ctx.registers[n], ctx.registers[m], mult);
 
 		ctx.MACL = (int) (mult & 0xffffffff);
 		ctx.MACH = (int) ((mult >>> 32) & 0xffffffff);
@@ -943,7 +950,7 @@ public class Sh2 {
 		// this should be unsigned but oh well :/
 		long mult = (long) (ctx.registers[n] & 0xffffffffL) * (long) (ctx.registers[m] & 0xffffffffL);
 
-		System.out.println("DMULU" + Long.toHexString(mult));
+//		System.out.printf("####,DMULU,%8X,%8X,%16X\n", ctx.registers[n], ctx.registers[m], mult);
 
 		ctx.MACL = (int) (mult & 0xffffffff);
 		ctx.MACH = (int) ((mult >>> 32) & 0xffffffff);
@@ -2118,7 +2125,7 @@ public class Sh2 {
 		int opcode;
 		for (; ctx.cycles >= 0; ) {
 			opcode = memory.read16i(ctx.PC);
-			printDebugMaybe(ctx, opcode);
+
 			try {
 				decode(opcode);
 			} catch (Exception e) {
@@ -2133,6 +2140,7 @@ public class Sh2 {
 	}
 
 	private final void decode(int instruction) {
+		printDebugMaybe(ctx, instruction);
 		switch ((instruction >>> 12) & 0xf) {
 			case 0:
 				switch ((instruction >>> 0) & 0xf) {
