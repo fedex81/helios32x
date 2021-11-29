@@ -136,6 +136,13 @@ public class Sh2Util {
     public static final int CAS_L2_OFFSET_32 = 0x8888;
     public static final int CAS_L3_OFFSET_32 = 0x88C8;
 
+    public static final int SMR_OFFSET = 0xFE00;
+    public static final int BRR_OFFSET = 0xFE01;
+    public static final int SCR_OFFSET = 0xFE02;
+    public static final int TDR_OFFSET = 0xFE03;
+    public static final int SSR_OFFSET = 0xFE04;
+    public static final int RDR_OFFSET = 0xFE05;
+
     public static final int TIER_OFFSET = 0xFE10;
     public static final int FTCSR_OFFSET = 0xFE11;
     public static final int FRCH_OFFSET = 0xFE12;
@@ -184,6 +191,12 @@ public class Sh2Util {
         sh2RegNames[FTCSR_OFFSET] = "FTCSR"; //Free-running timer control/status register (FTCSR)
         sh2RegNames[FRCL_OFFSET] = "FRCL";//Free-running counter LOW (FRC)
         sh2RegNames[FRCH_OFFSET] = "FRCH";//Free-running counter HIGH (FRC)
+        sh2RegNames[SMR_OFFSET] = "SCI_SMR";//Serial mode register
+        sh2RegNames[SCR_OFFSET] = "SCI_SCR";//Serial control register
+        sh2RegNames[TDR_OFFSET] = "SCI_TDR";//Transmit data register
+        sh2RegNames[SSR_OFFSET] = "SCI_SSR";//Serial status register
+        sh2RegNames[RDR_OFFSET] = "SCI_RDR";//Receive data register
+        sh2RegNames[BRR_OFFSET] = "SCI_BRR";//Bit rate register
         sh2RegNames[DVSR] = "DVSR";
         sh2RegNames[DVDNTH] = "DVDNTH";
         sh2RegNames[DVDNTL] = "DVDNTL";

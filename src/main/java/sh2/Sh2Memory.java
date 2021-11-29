@@ -31,6 +31,8 @@ public final class Sh2Memory implements IMemory {
 	public static final int END_ROM_CACHE = START_ROM_CACHE + 0x40_0000; //4 Mbit window;
 	public static final int END_ROM = START_ROM + 0x40_0000; //4 Mbit window;
 
+	public static final int START_DATA_ARRAY = 0xC000_0000;
+
 	public ByteBuffer[] bios = new ByteBuffer[2];
 	private IntBuffer[] biosViewDWORD = new IntBuffer[2];
 	private ShortBuffer[] biosViewWord = new ShortBuffer[2];
@@ -89,6 +91,8 @@ public final class Sh2Memory implements IMemory {
 				return Sh2Util.readBuffer(sdram, address & SDRAM_MASK, size);
 			} else if (address >= START_SDRAM_CACHE && address < END_SDRAM_CACHE) {
 				return Sh2Util.readBuffer(sdram, address & SDRAM_MASK, size);
+			} else if ((address & 0xfffff000) == START_DATA_ARRAY) {
+				return sh2MMREGS[sh2Access.ordinal()].readCache(address, size);
 			} else if (address >= BASE_SH2_MMREG) {
 				if ((address & 0xFF00_0000) != 0xFF00_0000) {
 					throw new RuntimeException(sh2Access + ", read : " + size + " " + Integer.toHexString(address));
@@ -116,6 +120,8 @@ public final class Sh2Memory implements IMemory {
 			Sh2Util.writeBuffer(sdram, address & SDRAM_MASK, val, size);
 		} else if (address >= S32XMMREG.START_OVER_IMAGE && address < S32XMMREG.END_OVER_IMAGE) {
 			s32XMMREG.write(address, val, size);
+		} else if ((address & 0xfffff000) == START_DATA_ARRAY) {
+			sh2MMREGS[sh2Access.ordinal()].writeCache(address, val, size);
 		} else if (address >= BASE_SH2_MMREG) {
 			if ((address & 0xFF00_0000) != 0xFF00_0000) {
 				throw new RuntimeException(sh2Access + ", write address: " + Integer.toHexString(address) + " " + size);

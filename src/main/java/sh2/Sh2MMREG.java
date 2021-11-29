@@ -17,12 +17,24 @@ public class Sh2MMREG {
 
     private static final Logger LOG = LogManager.getLogger(Sh2MMREG.class.getSimpleName());
 
-    private ByteBuffer regs = ByteBuffer.allocate(0xFF);
+    public static final int DATA_ARRAY_SIZE = 0x1000;
+
+    private ByteBuffer regs = ByteBuffer.allocateDirect(0x100);
+    private ByteBuffer data_array = ByteBuffer.allocateDirect(DATA_ARRAY_SIZE); // cache (can be used as RAM)
+
     private Sh2Access sh2Access;
     private static final boolean verbose = false;
 
     public Sh2MMREG(Sh2Access sh2Access) {
         this.sh2Access = sh2Access;
+    }
+
+    public void writeCache(int address, int value, Size size) {
+        Sh2Util.writeBuffer(data_array, address & 0xFFF, value, size);
+    }
+
+    public int readCache(int address, Size size) {
+        return Sh2Util.readBuffer(data_array, address & 0xFFF, size);
     }
 
     public void write(int reg, int value, Size size) {
