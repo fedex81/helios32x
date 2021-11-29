@@ -1,6 +1,8 @@
 package sh2;
 
 
+import omegadrive.Device;
+
 /*
  *  Revision 1 -  port the code from Dcemu and use information provided by dark||raziel (done)
  *  Revision 2 -  add terminal recursivity to the interpreter and bugfix everything (hopefully done)
@@ -26,7 +28,7 @@ package sh2;
  *  This is not as accurate as it could be as we are not taking into consideration the pipeline,
  *  simultaneous execution of instructions,etc..
  */
-public class Sh2 {
+public class Sh2 implements Device {
 
 	public static final int flagT = 0x00000001;
 	public static final int flagS = 0x00000002;
@@ -40,9 +42,11 @@ public class Sh2 {
 
 	private Sh2Context ctx;
 	protected IMemory memory;
+	protected IntC interruptControl;
 
-	public Sh2(IMemory memory) {
+	public Sh2(IMemory memory, IntC intc) {
 		this.memory = memory;
+		this.interruptControl = intc;
 	}
 
 	public static final int RN(int x) {
@@ -66,15 +70,16 @@ public class Sh2 {
 		memory.setSh2Access(ctx.sh2Access);
 		ctx.VBR = 0;
 		ctx.PC = memory.read32i(0);
+		ctx.SR = flagIMASK;
 		ctx.registers[15] = memory.read32i(4); //SP
 		System.out.println(ctx.sh2Access + " SP: " + Integer.toHexString(ctx.registers[15]));
 		ctx.cycles = burstCycles;
-		System.out.println("reset");
+		System.out.println(ctx.sh2Access + " reset");
 	}
 
 	private void acceptInterrupts(Sh2Context ctx) {
 		int mask = getIMASK();
-		int imask = S32XMMREG.instance.interruptControl.getInterruptLevel(ctx.sh2Access);
+		int imask = interruptControl.getInterruptLevel(ctx.sh2Access);
 		if (imask > mask) {
 			processInterrupt(ctx, imask);
 //			debugging = true;

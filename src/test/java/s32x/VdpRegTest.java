@@ -25,14 +25,15 @@ public class VdpRegTest {
     public void testPEN() {
         S32XMMREG.sh2Access = Sh2Util.Sh2Access.MASTER;
         s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 0, Size.WORD);
-        MarsRegTestUtil.assertPEN(s32XMMREG, false);
-        s32XMMREG.setVBlankOn(false);
+        //startup, vblankOn, pen= true
+        MarsRegTestUtil.assertPEN(s32XMMREG, true);
+        s32XMMREG.setVBlankOn(true);
 
         s32XMMREG.setHBlankOn(true);
         MarsRegTestUtil.assertPEN(s32XMMREG, true);
 
-        s32XMMREG.setHBlankOn(false);
-        MarsRegTestUtil.assertPEN(s32XMMREG, false);
+        s32XMMREG.setHBlankOn(false); //vblank on
+        MarsRegTestUtil.assertPEN(s32XMMREG, true);
 
         s32XMMREG.setVBlankOn(true);
         s32XMMREG.setHBlankOn(true);

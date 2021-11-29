@@ -17,8 +17,6 @@ import static sh2.Sh2Util.Sh2Access.*;
  */
 public class Sh2Launcher {
 
-    static final int burstCycles = 1;
-
     static String biosBasePath = "res/bios/";
     static String masterBiosName = "32x_bios_m.bin";
     static String slaveBiosName = "32x_bios_s.bin";
@@ -45,7 +43,6 @@ public class Sh2Launcher {
 
     private static void launch32x() {
         Path romPath = Paths.get(romName);
-        Sh2LaunchContext ctx = setupRom(romPath);
         Md32x sp = (Md32x) SystemLoader.getInstance().handleNewRomFile(romPath);
         Util.waitForever();
     }
@@ -58,24 +55,43 @@ public class Sh2Launcher {
         return biosHolder;
     }
 
-    public static Sh2LaunchContext setupRom(Path romFile) {
+    public static Sh2LaunchContext setupRom(S32xBus bus, Path romFile) {
         Sh2LaunchContext ctx = new Sh2LaunchContext();
+        ctx.masterCtx = new Sh2Context(Sh2Util.Sh2Access.MASTER);
+        ctx.slaveCtx = new Sh2Context(SLAVE);
         ctx.biosHolder = initBios();
-        ByteBuffer rom = ByteBuffer.wrap(FileLoader.readFileSafe(romFile));
-        ctx.memory = new Sh2Memory(rom);
-
-        MdBus.setRom(rom);
+        ctx.bus = bus;
+        ctx.rom = ByteBuffer.wrap(FileLoader.readFileSafe(romFile));
+        ctx.s32XMMREG = new S32XMMREG();
+        ctx.memory = new Sh2Memory(ctx.s32XMMREG, ctx.rom);
         ctx.memory.bios[MASTER.ordinal()] = ctx.biosHolder.getBiosData(MASTER);
         ctx.memory.bios[SLAVE.ordinal()] = ctx.biosHolder.getBiosData(SLAVE);
-        MdBus.bios = ctx.biosHolder.getBiosData(M68K);
-
-        ctx.sh2 = new Sh2(ctx.memory);
+        ctx.intc = new IntC();
+        ctx.sh2 = new Sh2(ctx.memory, ctx.intc);
+        ctx.initContext();
         return ctx;
     }
 
     static class Sh2LaunchContext {
+        public Sh2Context masterCtx, slaveCtx;
+        public S32xBus bus;
         public BiosHolder biosHolder;
         public Sh2Memory memory;
         public Sh2 sh2;
+        public IntC intc;
+        public S32XMMREG s32XMMREG;
+        public ByteBuffer rom;
+        public MarsVdp marsVdp;
+
+        public void initContext() {
+            bus.attachDevice(sh2).attachDevice(s32XMMREG);
+            bus.setBios68k(biosHolder.getBiosData(M68K));
+            bus.setRom(rom);
+            bus.masterCtx = masterCtx;
+            bus.slaveCtx = slaveCtx;
+            sh2.reset(masterCtx);
+            sh2.reset(slaveCtx);
+            marsVdp = bus.getMarsVdp();
+        }
     }
 }

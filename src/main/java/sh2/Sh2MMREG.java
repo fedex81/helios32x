@@ -3,10 +3,12 @@ package sh2;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.Sh2Util.Sh2Access;
 
 import java.nio.ByteBuffer;
+import java.util.stream.IntStream;
 
-import static sh2.Sh2Util.*;
+import static sh2.dict.Sh2Dict.*;
 
 /**
  * Federico Berti
@@ -27,6 +29,7 @@ public class Sh2MMREG {
 
     public Sh2MMREG(Sh2Access sh2Access) {
         this.sh2Access = sh2Access;
+        reset();
     }
 
     public void writeCache(int address, int value, Size size) {
@@ -85,5 +88,15 @@ public class Sh2MMREG {
         regs.putInt(DVDNTUH & 0xFF, rem);
         regs.putInt(DVDNTL & 0xFF, quot);
         regs.putInt(DVDNTUL & 0xFF, quot);
+    }
+
+    public void reset() {
+        //from picodrive
+        IntStream.range(0, regs.capacity()).forEach(i -> regs.put(i, (byte) 0));
+        Sh2Util.writeBuffer(regs, BRR & 0xFF, 0xFF, Size.BYTE);
+        Sh2Util.writeBuffer(regs, TDR & 0xFF, 0xFF, Size.BYTE);
+        Sh2Util.writeBuffer(regs, SSR & 0xFF, 0x84, Size.BYTE);
+        Sh2Util.writeBuffer(regs, TIER & 0xFF, 0x11, Size.BYTE);
+        Sh2Util.writeBuffer(regs, TOCR & 0xFF, 0x17, Size.BYTE);
     }
 }

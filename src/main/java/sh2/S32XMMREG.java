@@ -1,23 +1,26 @@
 package sh2;
 
+import omegadrive.Device;
 import omegadrive.util.Size;
 import omegadrive.util.VideoMode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.Sh2Util.Sh2Access;
+import sh2.dict.S32xDict;
 
 import java.nio.ByteBuffer;
 
 import static sh2.IntC.Sh2Interrupt.*;
 import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
-import static sh2.Sh2Util.*;
 import static sh2.Sh2Util.Sh2Access.*;
+import static sh2.dict.S32xDict.*;
 
 /**
  * Federico Berti
  * <p>
  * Copyright 2021
  */
-public class S32XMMREG {
+public class S32XMMREG implements Device {
 
     private static final Logger LOG = LogManager.getLogger(S32XMMREG.class.getSimpleName());
 
@@ -55,6 +58,8 @@ public class S32XMMREG {
 
     public static Sh2Access sh2Access = MASTER;
 
+    private static final boolean verbose = false;
+
     //0 = no cart, 1 = otherwise
     private volatile int cart = 0;
     //0 = md access, 1 = sh2 access
@@ -64,9 +69,6 @@ public class S32XMMREG {
     //0 = palette access disabled, 1 = enabled
     public volatile int pen = 1;
 
-    //TODO fix
-    @Deprecated
-    public static S32XMMREG instance;
     public ByteBuffer sysRegsSh2 = ByteBuffer.allocate(SIZE_32X_SYSREG);
     public ByteBuffer sysRegsMd = ByteBuffer.allocate(SIZE_32X_SYSREG);
     public ByteBuffer vdpRegs = ByteBuffer.allocate(SIZE_32X_VDPREG);
@@ -82,10 +84,10 @@ public class S32XMMREG {
     private boolean hBlankOn, vBlankOn;
     private BITMAP_MODE bitmap_mode = BITMAP_MODE.BLANK;
 
-    private static final int REN_MASK = 0x80;
     private static final int NTSC_MASK = 0x8000;
     private VideoMode videoMode = VideoMode.NTSCU_H40_V28;
     private int hCount = 0;
+    private S32xBus bus;
 
     enum BITMAP_MODE {
         BLANK, PACKED_PX, DIRECT_COL, RUN_LEN;
@@ -93,20 +95,22 @@ public class S32XMMREG {
         public static BITMAP_MODE[] vals = BITMAP_MODE.values();
     }
 
-    {
-        //TODO check bios require REN = 1
-        Sh2Util.writeBuffer(sysRegsMd, ADAPTER_CTRL, REN_MASK, Size.WORD);
+    public S32XMMREG() {
+        init();
+    }
+
+    @Override
+    public void init() {
+        Sh2Util.writeBuffer(sysRegsMd, ADAPTER_CTRL, P32XS_REN | P32XS_nRES, Size.WORD); //from Picodrive
         Sh2Util.writeBuffer(vdpRegs, VDP_BITMAP_MODE, NTSC_MASK, Size.WORD);
+        Sh2Util.writeBuffer(vdpRegs, FBCR, P32XV_VBLK | P32XV_PEN, Size.WORD);
         dramBanks[0] = ByteBuffer.allocateDirect(DRAM_SIZE);
         dramBanks[1] = ByteBuffer.allocateDirect(DRAM_SIZE);
         vdp = MarsVdp.createInstance(dramBanks, colorPalette);
     }
 
-    public S32XMMREG() {
-        if (instance != null) {
-            throw new RuntimeException("S32XMMREG one instance allowed");
-        }
-        instance = this;
+    public void setBus(S32xBus bus) {
+        this.bus = bus;
     }
 
     public MarsVdp getVdp() {
@@ -201,8 +205,10 @@ public class S32XMMREG {
         }
         boolean isSys = address < END_32X_SYSREG_CACHE;
         ByteBuffer regArea = isSys ? (sh2Access == M68K ? sysRegsMd : sysRegsSh2) : vdpRegs;
-        checkName(address, size);
-//        detectRegAccess(isSys, address, size);
+        if (verbose) {
+            S32xDict.checkName(sh2Access, address, size);
+            detectRegAccess(isSys, address, -1, size, true);
+        }
         int res = Sh2Util.readBuffer(regArea, reg, size);
         if (sh2Access != M68K && reg < INT_CTRL_REG) {
             res = interruptControl.readSh2IntMaskReg(sh2Access, reg, size);
@@ -269,11 +275,11 @@ public class S32XMMREG {
             }
 
         }
-        if (regChanged) {
-//            detectRegAccess(isSys, address, value, size);
-//            logAccess("write", address, value, size, reg, isSys);
+        if (verbose && regChanged) {
+            detectRegAccess(isSys, address, value, size, false);
+            logAccess("write", address, value, size, reg, isSys);
         }
-        checkName(address, size);
+        checkName(sh2Access, address, size);
         return regChanged;
     }
 
@@ -348,10 +354,15 @@ public class S32XMMREG {
         int val = Sh2Util.readBuffer(sysRegsMd, INT_MASK, Size.WORD);
         if (val != value || size == Size.BYTE) { //TODO dodgy
             Sh2Util.writeBuffer(sysRegsMd, reg, value, size);
-            int newVal = Sh2Util.readBuffer(sysRegsMd, INT_MASK, Size.WORD) | REN_MASK;
+            int newVal = Sh2Util.readBuffer(sysRegsMd, INT_MASK, Size.WORD) | P32XS_REN; //force REN
             if (aden > 0 && (newVal & 1) == 0) {
                 System.out.println("#### Disabling ADEN not allowed");
                 newVal |= 1;
+            }
+            //reset cancel
+            if ((val & P32XS_nRES) == 0 && (newVal & P32XS_nRES) > 0) {
+                //TODO this breaks test2
+//                bus.resetSh2();
             }
             Sh2Util.writeBuffer(sysRegsMd, INT_MASK, newVal, Size.WORD);
             setAdenSh2Reg(newVal & 1); //sh2 side read-only
@@ -481,16 +492,9 @@ public class S32XMMREG {
                 Integer.toHexString(value));
     }
 
-    private void detectRegAccess(boolean isSys, int address, int value, Size size) {
-        detectRegAccess(isSys, address, value, size, false);
-    }
-
-    private void detectRegAccess(boolean isSys, int address, Size size) {
-        detectRegAccess(isSys, address, -1, size, true);
-    }
-
     private void detectRegAccess(boolean isSys, int address, int value, Size size, boolean read) {
-        String sformat = "%s %s %s, %s(%X), %4X %s";
+        String sformat = "%s %s %s, %s(%X), %4X %s %s";
+        final String evenOdd = (address & 1) == 0 ? "E" : "O";
         String type = read ? "R" : "W";
         int reg = (address & 0xFF) & ~1;
         String s = null;
@@ -503,26 +507,29 @@ public class S32XMMREG {
             switch (reg) {
                 case VDP_BITMAP_MODE:
                     s = String.format(sformat, sh2Access.toString(), type, s32xRegNames[rns][regNamePos],
-                            BITMAP_MODE.vals[value & 3].name(), value & 3, value, size.name());
+                            BITMAP_MODE.vals[value & 3].name(), value & 3, value, size.name(), evenOdd);
                     break;
                 case FBCR:
                     String s1 = "D" + frameBufferDisplay + "W" + frameBufferWritable +
                             "|H" + ((value >> 14) & 1) + "V" + ((value >> 15) & 1);
-                    s = String.format(sformat, sh2Access.toString(), type, s32xRegNames[rns][regNamePos], s1, value & 3, value, size.name());
+                    s = String.format(sformat, sh2Access.toString(), type, s32xRegNames[rns][regNamePos],
+                            s1, value & 3, value, size.name(), evenOdd);
                     break;
                 default:
-                    s = String.format(sformat, sh2Access.toString(), type, s32xRegNames[rns][regNamePos], "", value, value, size.name());
+                    s = String.format(sformat, sh2Access.toString(), type, s32xRegNames[rns][regNamePos],
+                            "", value, value, size.name(), evenOdd);
                     break;
             }
         } else {
             switch (reg) {
                 case INT_MASK:
                     s = String.format(sformat, sh2Access.toString(), type, s32xRegNames[rns][reg],
-                            "[RESET: " + ((value & 3) >> 1) + ", ADEN: " + (value & 1) + "]", value & 3, value, size.name());
+                            "[RESET: " + ((value & 3) >> 1) + ", ADEN: " + (value & 1) + "]", value & 3,
+                            value, size.name(), evenOdd);
                     break;
                 case BANK_SET_REG:
                     s = String.format(sformat, sh2Access.toString(), type, s32xRegNames[rns][reg],
-                            "", value & 3, value, size.name());
+                            "", value & 3, value, size.name(), evenOdd);
                     break;
                 case COMM0:
                 case COMM1:
@@ -544,24 +551,16 @@ public class S32XMMREG {
                                 (char) ((valueMem & 0x000000FF) >> 0) + "'";
                     }
                     s = String.format(sformat, sh2Access.toString(), type, s32xRegNames[rns][reg],
-                            s1, value, valueMem, size.name());
+                            s1, value, valueMem, size.name(), evenOdd);
                     break;
                 default:
-                    s = String.format(sformat, sh2Access.toString(), type, s32xRegNames[rns][reg], "", value, value, size.name());
+                    s = String.format(sformat, sh2Access.toString(), type, s32xRegNames[rns][reg], "",
+                            value, value, size.name(), evenOdd);
                     break;
             }
         }
         if (s != null) {
             System.out.println(s);
-        }
-    }
-
-    private static void checkName(int address, Size size) {
-        int reg = (address & 0xFFF) & ~1;
-        int rns = sh2Access == M68K ? M68K.ordinal() : MASTER.ordinal();
-        if (s32xRegNames[rns][reg] == null) {
-            System.out.println(sh2Access + " 32X mmreg unknown reg: " +
-                    Integer.toHexString(reg) + ", address: " + Integer.toHexString(address));
         }
     }
 }

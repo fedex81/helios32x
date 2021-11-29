@@ -1,5 +1,6 @@
 package sh2;
 
+import omegadrive.bus.model.GenesisBusProvider;
 import omegadrive.system.Genesis;
 import omegadrive.ui.DisplayWindow;
 import org.apache.logging.log4j.LogManager;
@@ -20,10 +21,10 @@ public class Md32x extends Genesis {
     protected final static int SH2_CYCLES_PER_STEP;
     protected final static int SH2_DIVIDER;
 
-    //cps = 6, div = 14 -> 53.6/7*3 = 23.01 correct speed
-    //cps = 3, div = 7 -> 53.6/7*3 = 23.01 correct speed
-    //cps = 1, div = 3 -> 53.6/3 lockstep, underclock
-    //cps = 1, div = 2 -> 53.6/2 lockstep, overclock
+    //cps = 6, div = 14 -> 53.6/7*3 = 23.01 correct speed, master/slave not in lockstep
+    //cps = 3, div = 7 -> 53.6/7*3 = 23.01 correct speed, not lockstep
+    //cps = 1, div = 3 -> 53.6/3 = 17.9 underclock, lockstep
+    //cps = 1, div = 2 -> 53.6/2 = 26.8 overclock, lockstep,
     static {
         SH2_CYCLES_PER_STEP = 1;
         Sh2.burstCycles = SH2_CYCLES_PER_STEP;
@@ -48,16 +49,13 @@ public class Md32x extends Genesis {
 
     @Override
     protected void initAfterRomLoad() {
-        super.initAfterRomLoad();
         BiosHolder biosHolder = Sh2Launcher.initBios();
-        ctx = Sh2Launcher.setupRom(this.romFile);
+        ctx = Sh2Launcher.setupRom((S32xBus) bus, this.romFile);
+        masterCtx = ctx.masterCtx;
+        slaveCtx = ctx.slaveCtx;
         sh2 = ctx.sh2;
-        masterCtx = new Sh2Context(Sh2Util.Sh2Access.MASTER);
-        slaveCtx = new Sh2Context(Sh2Util.Sh2Access.SLAVE);
-        sh2.reset(masterCtx);
-        sh2.reset(slaveCtx);
-
-        marsVdp = S32XMMREG.instance.getVdp();
+        marsVdp = ctx.marsVdp;
+        super.initAfterRomLoad(); //needs to be last
     }
 
     @Override
@@ -95,6 +93,11 @@ public class Md32x extends Genesis {
             sh2.run(slaveCtx);
             nextSSh2Cycle += slaveCtx.cycles_ran * SH2_DIVIDER;
         }
+    }
+
+    @Override
+    protected GenesisBusProvider createBus() {
+        return new S32xBus();
     }
 
     @Override

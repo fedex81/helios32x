@@ -3,7 +3,7 @@ package s32x;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import sh2.S32XMMREG;
-import sh2.Sh2Util;
+import sh2.dict.S32xDict;
 
 /**
  * Federico Berti
@@ -13,19 +13,18 @@ import sh2.Sh2Util;
 public class MarsRegTestUtil {
 
     public static final int VDP_REG_OFFSET = 0x100;
-    public static final int FBCR_OFFSET = 0x4000 + VDP_REG_OFFSET + Sh2Util.FBCR;
-    public static final int BITMAP_MODE_OFFSET = 0x4000 + VDP_REG_OFFSET + Sh2Util.VDP_BITMAP_MODE;
-    public static final int INT_MASK = 0x4000 + Sh2Util.INT_MASK;
+    public static final int FBCR_OFFSET = 0x4000 + VDP_REG_OFFSET + S32xDict.FBCR;
+    public static final int BITMAP_MODE_OFFSET = 0x4000 + VDP_REG_OFFSET + S32xDict.VDP_BITMAP_MODE;
+    public static final int INT_MASK = 0x4000 + S32xDict.INT_MASK;
     public static final int AD_CTRL = INT_MASK;
-    public static int AFLEN_OFFSET = 0x4000 + VDP_REG_OFFSET + Sh2Util.AFLR;
-    public static int AFSAR_OFFSET = 0x4000 + VDP_REG_OFFSET + Sh2Util.AFSAR;
+    public static int AFLEN_OFFSET = 0x4000 + VDP_REG_OFFSET + S32xDict.AFLR;
+    public static int AFSAR_OFFSET = 0x4000 + VDP_REG_OFFSET + S32xDict.AFSAR;
 
     static {
         System.setProperty("32x.show.vdp.debug.viewer", "false");
     }
 
-    public static S32XMMREG createInstance(){
-        S32XMMREG.instance = null;
+    public static S32XMMREG createInstance() {
         return new S32XMMREG();
     }
 

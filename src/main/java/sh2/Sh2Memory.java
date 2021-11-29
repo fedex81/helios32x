@@ -48,16 +48,16 @@ public final class Sh2Memory implements IMemory {
 
 	public Sh2Util.Sh2Access sh2Access = MASTER;
 
-	public Sh2Memory(ByteBuffer rom) {
+	public Sh2Memory(S32XMMREG s32XMMREG, ByteBuffer rom) {
 		this();
-		s32XMMREG = S32XMMREG.instance;
+		this.s32XMMREG = s32XMMREG;
 		this.rom = rom;
 		romSize = rom.capacity();
 		romMask = (int) Math.pow(2, Util.log2(romSize) + 1) - 1;
 		System.out.println("Rom size: " + Integer.toHexString(romSize) + ", mask: " + Integer.toHexString(romMask));
 	}
 
-	public Sh2Memory() {
+	private Sh2Memory() {
 		bios[MASTER.ordinal()] = ByteBuffer.allocate(BOOT_ROM_SIZE);
 		bios[SLAVE.ordinal()] = ByteBuffer.allocate(BOOT_ROM_SIZE);
 		sdram = ByteBuffer.allocateDirect(SDRAM_SIZE);
@@ -125,12 +125,18 @@ public final class Sh2Memory implements IMemory {
 		} else if (address >= BASE_SH2_MMREG) {
 			if ((address & 0xFF00_0000) != 0xFF00_0000) {
 				throw new RuntimeException(sh2Access + ", write address: " + Integer.toHexString(address) + " " + size);
-//				return;
+				//	return;
 			}
 			sh2MMREGS[sh2Access.ordinal()].write(address & 0xFFFF, val, size);
 		} else {
 			throw new RuntimeException(sh2Access + ", write : " + size + " " + Integer.toHexString(address));
 		}
+	}
+
+	@Override
+	public void resetSh2() {
+		sh2MMREGS[MASTER.ordinal()].reset();
+		sh2MMREGS[SLAVE.ordinal()].reset();
 	}
 
 	@Override
@@ -167,48 +173,5 @@ public final class Sh2Memory implements IMemory {
 	public void setSh2Access(Sh2Util.Sh2Access sh2Access) {
 		this.sh2Access = sh2Access;
 		S32XMMREG.sh2Access = sh2Access;
-	}
-
-	@Override
-	public void sqWriteTomemoryInst(int addr, int i) {
-		throw new RuntimeException();
-	}
-
-	@Override
-	public void regmapWritehandle32Inst(int tra, int i) {
-		throw new RuntimeException();
-	}
-
-	@Override
-	public void read64i(int register, float[] fRm, int i) {
-		throw new RuntimeException();
-	}
-
-	@Override
-	public void write64i(int i, float[] fRm, int i1) {
-		throw new RuntimeException();
-	}
-
-	@Override
-	public int regmapReadhandle32i(int qacr0) {
-		throw new RuntimeException();
-	}
-
-	@Override
-	public IntBuffer getSQ0() {
-		throw new RuntimeException();
-	}
-
-	@Override
-	public IntBuffer getSQ1() {
-		throw new RuntimeException();
-	}
-
-	public static final int _dword_index(int address) {
-		return address >>> 2;
-	}
-
-	public static final int _word_index(int address) {
-		return address >>> 1;
 	}
 }
