@@ -16,9 +16,25 @@ public class Md32x extends Genesis {
 
     private static final Logger LOG = LogManager.getLogger(Md32x.class.getSimpleName());
 
-    protected final static int SH2_DIVIDER = (int) (3d / MCLK_DIVIDER); //23.01Mhz NTSC
+    //23.01Mhz NTSC
+    protected final static int SH2_CYCLES_PER_STEP;
+    protected final static int SH2_DIVIDER;
 
-    private int nextSh2Cycle = SH2_DIVIDER;
+    //cps = 6, div = 14 -> 53.6/7*3 = 23.01 correct speed
+    //cps = 3, div = 7 -> 53.6/7*3 = 23.01 correct speed
+    //cps = 1, div = 3 -> 53.6/3 lockstep, underclock
+    //cps = 1, div = 2 -> 53.6/2 lockstep, overclock
+    static {
+        SH2_CYCLES_PER_STEP = 1;
+        Sh2.burstCycles = SH2_CYCLES_PER_STEP;
+        if (SH2_CYCLES_PER_STEP == 1) {
+            SH2_DIVIDER = 3; //2
+        } else {
+            SH2_DIVIDER = MCLK_DIVIDER * SH2_CYCLES_PER_STEP / 3;
+        }
+    }
+
+    private int nextMSh2Cycle = 1, nextSSh2Cycle = 1;
 
     private Sh2Launcher.Sh2LaunchContext ctx;
     private Sh2 sh2;
@@ -69,18 +85,15 @@ public class Md32x extends Genesis {
         LOG.info("Exiting rom thread loop");
     }
 
-    int masterDelay = 1, slaveDelay = 1;
-
+    //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
     protected final void runSh2(int counter) {
-        if (counter % 3 == 0) {
-            if (--masterDelay == 0) {
-                sh2.run(masterCtx);
-                masterDelay = masterCtx.cycles_ran;
-            }
-            if (--slaveDelay == 0) {
-                sh2.run(slaveCtx);
-                slaveDelay = slaveCtx.cycles_ran;
-            }
+        if (nextMSh2Cycle == counter) {
+            sh2.run(masterCtx);
+            nextMSh2Cycle += masterCtx.cycles_ran * SH2_DIVIDER;
+        }
+        if (nextSSh2Cycle == counter) {
+            sh2.run(slaveCtx);
+            nextSSh2Cycle += slaveCtx.cycles_ran * SH2_DIVIDER;
         }
     }
 
@@ -95,5 +108,12 @@ public class Md32x extends Genesis {
             //bootstrap, 32x not ready
         }
         renderScreenLinearInternal(data, stats);
+    }
+
+    @Override
+    protected void resetCycleCounters(int counter) {
+        super.resetCycleCounters(counter);
+        nextMSh2Cycle = Math.max(1, nextMSh2Cycle - counter);
+        nextSSh2Cycle = Math.max(1, nextMSh2Cycle - counter);
     }
 }
