@@ -78,12 +78,4 @@ public class Sh2Launcher {
         public Sh2Memory memory;
         public Sh2 sh2;
     }
-
-    static void sleep(long ms) {
-        try {
-            Thread.sleep(ms);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
 }

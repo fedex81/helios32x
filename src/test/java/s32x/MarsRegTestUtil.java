@@ -39,6 +39,11 @@ public class MarsRegTestUtil {
         Assertions.assertEquals(enable ? 1 : 0, (res >> 5) & 1);
     }
 
+    public static void assertFEN(S32XMMREG s32XMMREG, boolean enable) {
+        int res = s32XMMREG.read(FBCR_OFFSET, Size.WORD);
+        Assertions.assertEquals(enable ? 0 : 1, (res >> 1) & 1);
+    }
+
     public static void assertVBlank(S32XMMREG s32XMMREG, boolean on) {
         int res = s32XMMREG.read(FBCR_OFFSET, Size.WORD);
         Assertions.assertEquals(on ? 1 : 0, res >> 15);

@@ -51,6 +51,29 @@ public class VdpRegTest {
         MarsRegTestUtil.assertPEN(s32XMMREG, false);
     }
 
+    /**
+     * Frame Buffer Authorization, bit#1
+     * 0: Access approved
+     * 1: Access denied
+     * <p>
+     * When having performed FILL, be sure to access the Frame Buffer after
+     * confirming that FEN is equal to 0.
+     * <p>
+     * ie. when the vdp is accessing the FB, FEN = 1
+     * dram refresh, FEN=1
+     */
+    @Test
+    public void testFEN() {
+        int res = s32XMMREG.read(MarsRegTestUtil.FBCR_OFFSET, Size.WORD);
+        MarsRegTestUtil.assertFEN(s32XMMREG, true);
+
+        s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 2, Size.WORD);
+        MarsRegTestUtil.assertFEN(s32XMMREG, false);
+
+        s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 0, Size.WORD);
+        MarsRegTestUtil.assertFEN(s32XMMREG, true);
+    }
+
     @Test
     public void testFBCR_ReadOnly() {
         S32XMMREG.sh2Access = Sh2Util.Sh2Access.MASTER;
