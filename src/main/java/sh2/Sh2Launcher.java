@@ -85,6 +85,7 @@ public class Sh2Launcher {
 
         public void initContext() {
             bus.attachDevice(sh2).attachDevice(s32XMMREG);
+            s32XMMREG.setInterruptControl(intc);
             bus.setBios68k(biosHolder.getBiosData(M68K));
             bus.setRom(rom);
             bus.masterCtx = masterCtx;

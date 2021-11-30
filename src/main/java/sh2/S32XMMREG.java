@@ -75,7 +75,7 @@ public class S32XMMREG implements Device {
     public ByteBuffer colorPalette = ByteBuffer.allocateDirect(SIZE_32X_COLPAL);
     public ByteBuffer[] dramBanks = new ByteBuffer[2];
 
-    public IntC interruptControl = new IntC();
+    public IntC interruptControl;
     private MarsVdp vdp;
     int frameBufferDisplay = 0;
     int frameBufferWritable = 1;
@@ -422,6 +422,10 @@ public class S32XMMREG implements Device {
             return true;
         }
         return false;
+    }
+
+    public void setInterruptControl(IntC interruptControl) {
+        this.interruptControl = interruptControl;
     }
 
     public void setCart(int cart) {

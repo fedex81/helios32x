@@ -2,16 +2,19 @@ package sh2;
 
 import omegadrive.util.Size;
 import omegadrive.util.Util;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 
-import static sh2.Sh2Util.BASE_SH2_MMREG;
 import static sh2.Sh2Util.Sh2Access.MASTER;
 import static sh2.Sh2Util.Sh2Access.SLAVE;
 
 public final class Sh2Memory implements IMemory {
+
+	private static final Logger LOG = LogManager.getLogger(Sh2Memory.class.getSimpleName());
 
 	private static final int BOOT_ROM_SIZE = 0x4000; // 16kb
 	private static final int SDRAM_SIZE = 0x4_0000; // 256kb
@@ -32,6 +35,9 @@ public final class Sh2Memory implements IMemory {
 	public static final int END_ROM = START_ROM + 0x40_0000; //4 Mbit window;
 
 	public static final int START_DATA_ARRAY = 0xC000_0000;
+	public static final int START_ONCHIP_MOD = 0xFFFF_FE00;
+	public static final int START_DRAM_MODE = 0xFFFF_8000;
+	public static final int END_DRAM_MODE = 0xFFFF_C000;
 
 	public ByteBuffer[] bios = new ByteBuffer[2];
 	private IntBuffer[] biosViewDWORD = new IntBuffer[2];
@@ -93,15 +99,15 @@ public final class Sh2Memory implements IMemory {
 				return Sh2Util.readBuffer(sdram, address & SDRAM_MASK, size);
 			} else if ((address & 0xfffff000) == START_DATA_ARRAY) {
 				return sh2MMREGS[sh2Access.ordinal()].readCache(address, size);
-			} else if (address >= BASE_SH2_MMREG) {
-				if ((address & 0xFF00_0000) != 0xFF00_0000) {
-					throw new RuntimeException(sh2Access + ", read : " + size + " " + Integer.toHexString(address));
-				}
+			} else if ((address & START_ONCHIP_MOD) == START_ONCHIP_MOD) {
+				return sh2MMREGS[sh2Access.ordinal()].read(address & 0xFFFF, size);
+			} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
 				return sh2MMREGS[sh2Access.ordinal()].read(address & 0xFFFF, size);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
+		LOG.error("{} read from addr: {}, {}", sh2Access, Integer.toHexString(address), size);
 		throw new RuntimeException(sh2Access + ", read : " + size + " " + Integer.toHexString(address));
 	}
 
@@ -122,14 +128,14 @@ public final class Sh2Memory implements IMemory {
 			s32XMMREG.write(address, val, size);
 		} else if ((address & 0xfffff000) == START_DATA_ARRAY) {
 			sh2MMREGS[sh2Access.ordinal()].writeCache(address, val, size);
-		} else if (address >= BASE_SH2_MMREG) {
-			if ((address & 0xFF00_0000) != 0xFF00_0000) {
-				throw new RuntimeException(sh2Access + ", write address: " + Integer.toHexString(address) + " " + size);
-				//	return;
-			}
+		} else if ((address & START_ONCHIP_MOD) == START_ONCHIP_MOD) {
+			sh2MMREGS[sh2Access.ordinal()].write(address & 0xFFFF, val, size);
+		} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
 			sh2MMREGS[sh2Access.ordinal()].write(address & 0xFFFF, val, size);
 		} else {
-			throw new RuntimeException(sh2Access + ", write : " + size + " " + Integer.toHexString(address));
+			LOG.error("{} write to addr: {}, {} {}", sh2Access, Integer.toHexString(address),
+					Integer.toHexString(val), size);
+//			throw new RuntimeException(sh2Access + ", write : " + size + " " + Integer.toHexString(address));
 		}
 	}
 

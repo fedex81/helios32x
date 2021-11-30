@@ -11,8 +11,6 @@ import java.nio.ByteBuffer;
  */
 public class Sh2Util {
 
-    public static final int BASE_SH2_MMREG = 0xffff_0000;
-
     public static void writeBuffer(ByteBuffer b, int pos, int value, Size size) {
         switch (size) {
             case BYTE:
