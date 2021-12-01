@@ -5,6 +5,7 @@ import omegadrive.util.Size;
 import omegadrive.util.VideoMode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.MarsVdp.BITMAP_MODE;
 import sh2.Sh2Util.Sh2Access;
 import sh2.dict.S32xDict;
 
@@ -61,13 +62,16 @@ public class S32XMMREG implements Device {
     private static final boolean verbose = false;
 
     //0 = no cart, 1 = otherwise
-    private volatile int cart = 0;
+    private int cart = 0;
     //0 = md access, 1 = sh2 access
-    private volatile int fm = 0;
+    private int fm = 0;
     //0 = disabled, 1 = 32x enabled
-    public volatile int aden = 0;
+    public int aden = 0;
     //0 = palette access disabled, 1 = enabled
-    public volatile int pen = 1;
+    private int pen = 1;
+    //0 - pal, 1 - NTSC
+    private int pal = 1;
+
 
     public ByteBuffer sysRegsSh2 = ByteBuffer.allocate(SIZE_32X_SYSREG);
     public ByteBuffer sysRegsMd = ByteBuffer.allocate(SIZE_32X_SYSREG);
@@ -81,19 +85,10 @@ public class S32XMMREG implements Device {
     int frameBufferWritable = 1;
     int fsLatch = 0;
 
-    private boolean hBlankOn, vBlankOn;
+    private boolean hBlankOn, vBlankOn = true;
     private BITMAP_MODE bitmap_mode = BITMAP_MODE.BLANK;
-
-    private static final int NTSC_MASK = 0x8000;
-    private VideoMode videoMode = VideoMode.NTSCU_H40_V28;
     private int hCount = 0;
     private S32xBus bus;
-
-    enum BITMAP_MODE {
-        BLANK, PACKED_PX, DIRECT_COL, RUN_LEN;
-
-        public static BITMAP_MODE[] vals = BITMAP_MODE.values();
-    }
 
     public S32XMMREG() {
         init();
@@ -102,8 +97,8 @@ public class S32XMMREG implements Device {
     @Override
     public void init() {
         Sh2Util.writeBuffer(sysRegsMd, ADAPTER_CTRL, P32XS_REN | P32XS_nRES, Size.WORD); //from Picodrive
-        Sh2Util.writeBuffer(vdpRegs, VDP_BITMAP_MODE, NTSC_MASK, Size.WORD);
-        Sh2Util.writeBuffer(vdpRegs, FBCR, P32XV_VBLK | P32XV_PEN, Size.WORD);
+        Sh2Util.writeBuffer(vdpRegs, VDP_BITMAP_MODE, pal * P32XV_PAL, Size.WORD);
+        Sh2Util.writeBuffer(vdpRegs, FBCR, (vBlankOn ? 1 : 0) * P32XV_VBLK | (pen * P32XV_PEN), Size.WORD);
         dramBanks[0] = ByteBuffer.allocateDirect(DRAM_SIZE);
         dramBanks[1] = ByteBuffer.allocateDirect(DRAM_SIZE);
         vdp = MarsVdp.createInstance(dramBanks, colorPalette);
@@ -142,7 +137,7 @@ public class S32XMMREG implements Device {
         if (vBlankOn) {
             int screenShift = Sh2Util.readBuffer(vdpRegs, SSCR, Size.WORD) & 1;
             int currentFb = val & 1;
-            vdp.draw(videoMode, bitmap_mode, val & 1, screenShift);
+            vdp.draw(bitmap_mode, val & 1, screenShift);
             if (currentFb != fsLatch) {
                 int newVal = ((val & 0xFFFE) | fsLatch);
                 Sh2Util.writeBuffer(vdpRegs, FBCR, newVal, Size.WORD);
@@ -210,7 +205,7 @@ public class S32XMMREG implements Device {
             detectRegAccess(isSys, address, -1, size, true);
         }
         int res = Sh2Util.readBuffer(regArea, reg, size);
-        if (sh2Access != M68K && reg < INT_CTRL_REG) {
+        if (sh2Access != M68K && isSys && reg < INT_CTRL_REG) {
             res = interruptControl.readSh2IntMaskReg(sh2Access, reg, size);
         }
         return res;
@@ -395,8 +390,9 @@ public class S32XMMREG implements Device {
         int val = Sh2Util.readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD);
         if (size == Size.BYTE || val != value) {
             Sh2Util.writeBuffer(vdpRegs, reg, value, size);
-            val = Sh2Util.readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD) | NTSC_MASK;
-            Sh2Util.writeBuffer(vdpRegs, VDP_BITMAP_MODE, val, Size.WORD);
+            val = Sh2Util.readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD) & ~(P32XV_PAL | P32XV_240);
+            int v240 = pal == 0 && vdp.getVideoMode().isV30() ? 1 : 0;
+            Sh2Util.writeBuffer(vdpRegs, VDP_BITMAP_MODE, val | (pal * P32XV_PAL) | (v240 * P32XV_240), Size.WORD);
             bitmap_mode = BITMAP_MODE.vals[val & 3];
             return true;
         }
@@ -486,6 +482,14 @@ public class S32XMMREG implements Device {
             len--;
         } while (len > 0);
         Sh2Util.writeBuffer(vdpRegs, AFSAR, addrFixed + addrVariable, Size.WORD);
+    }
+
+    public void updateVideoMode(VideoMode video) {
+        vdp.updateVideoMode(video);
+        pal = video.isPal() ? 0 : 1;
+        int v240 = video.isPal() && video.isV30() ? 1 : 0;
+        int val = Sh2Util.readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD) & ~(P32XV_PAL | P32XV_240);
+        Sh2Util.writeBuffer(vdpRegs, VDP_BITMAP_MODE, val | (pal * P32XV_PAL) | (v240 * P32XV_240), Size.WORD);
     }
 
     private static void logAccess(String type, int address, int value, Size size, int reg, boolean isSys) {

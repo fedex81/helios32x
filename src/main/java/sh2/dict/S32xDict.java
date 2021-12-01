@@ -25,8 +25,10 @@ public class S32xDict {
     public static final int P32XS_RV = (1 << 0);
 
     public static final int P32XV_VBLK = (1 << 15);
+    public static final int P32XV_PAL = (1 << 15);
     public static final int P32XV_HBLK = (1 << 14);
     public static final int P32XV_PEN = (1 << 13);
+    public static final int P32XV_240 = (1 << 6);
     public static final int P32XV_nFEN = (1 << 1);
     public static final int P32XV_FS = (1 << 0);
 

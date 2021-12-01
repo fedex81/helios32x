@@ -105,7 +105,7 @@ public interface MarsVdpDebugView {
         }
 
         private void updateVideoMode(VideoMode videoMode) {
-            if (videoMode.getDimension().equals(this.videoMode)) {
+            if (videoMode.equals(this.videoMode)) {
                 return;
             }
             imageList[0] = ImageUtil.createImage(gd, videoMode.getDimension());

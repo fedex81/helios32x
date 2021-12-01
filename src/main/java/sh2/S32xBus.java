@@ -5,6 +5,7 @@ import omegadrive.bus.md.GenesisBus;
 import omegadrive.bus.model.GenesisBusProvider;
 import omegadrive.util.Size;
 import omegadrive.util.Util;
+import omegadrive.util.VideoMode;
 import omegadrive.vdp.model.BaseVdpAdapterEventSupport;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -221,6 +222,9 @@ public class S32xBus extends GenesisBus {
                 break;
             case H_BLANK_CHANGE:
                 s32XMMREG.setHBlankOn((boolean) value);
+                break;
+            case VIDEO_MODE:
+                s32XMMREG.updateVideoMode((VideoMode) value);
                 break;
         }
     }

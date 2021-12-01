@@ -31,6 +31,12 @@ public class MarsVdp {
     private static final int[] bgr5toRgb8Mapper = new int[0x10000];
     static final int NUM_FB = 2;
 
+    public enum BITMAP_MODE {
+        BLANK, PACKED_PX, DIRECT_COL, RUN_LEN;
+
+        public static BITMAP_MODE[] vals = BITMAP_MODE.values();
+    }
+
     private int[] buffer;
 
     private ShortBuffer[] frameBuffersWord = new ShortBuffer[NUM_FB];
@@ -52,10 +58,7 @@ public class MarsVdp {
         return v;
     }
 
-    public void draw(VideoMode videoMode, S32XMMREG.BITMAP_MODE bitmap_mode, int num, int screenShift) {
-        if (videoMode != this.videoMode) {
-            updateVideoMode(videoMode);
-        }
+    public void draw(BITMAP_MODE bitmap_mode, int num, int screenShift) {
         switch (bitmap_mode) {
             case BLANK:
                 Arrays.fill(buffer, 0, buffer.length, 0);
@@ -73,13 +76,17 @@ public class MarsVdp {
         view.update(videoMode, num, buffer);
     }
 
-    private void updateVideoMode(VideoMode videoMode) {
-        if (videoMode.getDimension().equals(this.videoMode)) {
+    public void updateVideoMode(VideoMode videoMode) {
+        if (videoMode.equals(this.videoMode)) {
             return;
         }
         this.buffer = new int[videoMode.getDimension().width * videoMode.getDimension().height];
         LOG.info("Updating videoMode, {} -> {}", this.videoMode, videoMode);
         this.videoMode = videoMode;
+    }
+
+    public VideoMode getVideoMode() {
+        return videoMode;
     }
 
     //Mars Sample Program - Pharaoh
