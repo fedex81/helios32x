@@ -103,12 +103,14 @@ public class Md32x extends Genesis {
     @Override
     protected void doRendering(int[] data, Optional<String> stats) {
         int mdDataLen = data.length;
-        int[] marsData = marsVdp.getScreenDataLinear();
-        if (mdDataLen == marsData.length) {
-            //TODO this just overwrites the MD buffer with the 32x buffer
-            data = marsData;
-        } else {
-            //bootstrap, 32x not ready
+        if (!marsVdp.isBlank()) {
+            int[] marsData = marsVdp.getScreenDataLinear();
+            if (mdDataLen == marsData.length) {
+                //TODO this just overwrites the MD buffer with the 32x buffer
+                data = marsData;
+            } else {
+                //bootstrap, 32x not ready
+            }
         }
         renderScreenLinearInternal(data, stats);
     }

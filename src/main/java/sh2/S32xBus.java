@@ -96,16 +96,10 @@ public class S32xBus extends GenesisBus {
         long res = 0;
         S32XMMREG.sh2Access = Sh2Util.Sh2Access.M68K;
         if (address < 0x100) {
-            if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {
-                res = writeableHintRom.getInt(0);
-                if (res != -1) {
-                    LOG.info("HINT vector read, address: {}, size: {}", Long.toHexString(address), size);
-                    res = Sh2Util.readBuffer(writeableHintRom, address & 3, size);
-                } else {
-                    res = Sh2Util.readBuffer(bios68k, address, size);
-                }
-            }
             res = Sh2Util.readBuffer(bios68k, address, size);
+            if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {
+                res = readHIntVector(address, size);
+            }
         } else if (address >= START_ROM_MIRROR && address < END_ROM_MIRROR) {
             address &= ROM_WINDOW_MASK;
             address &= romMask;
@@ -202,6 +196,16 @@ public class S32xBus extends GenesisBus {
         }
     }
 
+    private long readHIntVector(int address, Size size) {
+        long res = writeableHintRom.getInt(0);
+        if (res != -1) {
+            LOG.info("HINT vector read, address: {}, size: {}", Long.toHexString(address), size);
+            res = Sh2Util.readBuffer(writeableHintRom, address & 3, size);
+        } else {
+            res = Sh2Util.readBuffer(bios68k, address, size);
+        }
+        return res;
+    }
 
     private static void logInfo(String str, Object... args) {
         if (verboseMd) {

@@ -1,7 +1,12 @@
 package sh2.dict;
 
 import omegadrive.util.Size;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import sh2.MarsVdp;
 import sh2.Sh2Util;
+
+import java.nio.ByteBuffer;
 
 import static sh2.Sh2Util.Sh2Access.M68K;
 import static sh2.Sh2Util.Sh2Access.MASTER;
@@ -12,6 +17,8 @@ import static sh2.Sh2Util.Sh2Access.MASTER;
  * Copyright 2021
  */
 public class S32xDict {
+
+    private static final Logger LOG = LogManager.getLogger(S32xDict.class.getSimpleName());
 
     public static final int P32XS_FM = (1 << 15);
     public static final int P32XS_nCART = (1 << 8);
@@ -151,6 +158,14 @@ public class S32xDict {
         s32xRegNames[M68K.ordinal()][AFDR + 0x100] = "AFDR"; //Auto Fill Data Register
     }
 
+    public static class S32xDictLogContext {
+        public Sh2Util.Sh2Access sh2Access;
+        public ByteBuffer regArea;
+        public boolean isSys;
+        public int fbD, fbW;
+        public boolean read;
+    }
+
     public static void checkName(Sh2Util.Sh2Access sh2Access, int address, Size size) {
         int reg = (address & 0xFFF) & ~1;
         int rns = sh2Access == M68K ? M68K.ordinal() : MASTER.ordinal();
@@ -158,5 +173,91 @@ public class S32xDict {
             System.out.println(sh2Access + " 32X mmreg unknown reg: " +
                     Integer.toHexString(reg) + ", address: " + Integer.toHexString(address));
         }
+    }
+
+    public static void logAccess(S32xDictLogContext logCtx, int address, int value, Size size, int reg) {
+        reg &= ~1;
+        String type = logCtx.read ? "read" : "write";
+        int rns = logCtx.sh2Access == M68K ? M68K.ordinal() : MASTER.ordinal();
+        String str = (logCtx.sh2Access + " 32X reg " + type + " " +
+                size + ", (" + s32xRegNames[rns][logCtx.isSys ? reg : reg + 0x100] + ") " + Integer.toHexString(address) +
+                (!logCtx.read ? ": " + Integer.toHexString(value) : ""));
+        LOG.info(str);
+    }
+
+    public static void detectRegAccess(S32xDictLogContext logCtx, int address, int value, Size size) {
+        String sformat = "%s %s %s, %s(%X), %4X %s %s";
+        final String evenOdd = (address & 1) == 0 ? "E" : "O";
+        String type = logCtx.read ? "R" : "W";
+        int reg = (address & 0xFF) & ~1;
+        String s = null;
+        int currentWord = Sh2Util.readBuffer(logCtx.regArea, reg, Size.WORD);
+        value = logCtx.read ? currentWord : value;
+        int rns = logCtx.sh2Access == M68K ? M68K.ordinal() : MASTER.ordinal();
+        if (!logCtx.isSys) {
+            final int regNamePos = reg + 0x100;
+            switch (reg) {
+                case VDP_BITMAP_MODE:
+                    s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][regNamePos],
+                            MarsVdp.BITMAP_MODE.vals[value & 3].name(), value & 3, value, size.name(), evenOdd);
+                    break;
+                case FBCR:
+                    String s1 = "D" + logCtx.fbD + "W" + logCtx.fbW +
+                            "|H" + ((value >> 14) & 1) + "V" + ((value >> 15) & 1);
+                    s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][regNamePos],
+                            s1, value & 3, value, size.name(), evenOdd);
+                    break;
+                default:
+                    s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][regNamePos],
+                            "", value, value, size.name(), evenOdd);
+                    break;
+            }
+        } else {
+            switch (reg) {
+                case INT_MASK:
+                    s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][reg],
+                            "[RESET: " + ((value & 3) >> 1) + ", ADEN: " + (value & 1) + "]", value & 3,
+                            value, size.name(), evenOdd);
+                    break;
+                case BANK_SET_REG:
+                    s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][reg],
+                            "", value & 3, value, size.name(), evenOdd);
+                    break;
+                case COMM0:
+                case COMM1:
+                case COMM2:
+                case COMM3:
+                case COMM4:
+                case COMM5:
+                case COMM6:
+                case COMM7:
+                    if (logCtx.read) {
+                        return;
+                    }
+                    int valueMem = Sh2Util.readBuffer(logCtx.regArea, reg, Size.LONG);
+                    String s1 = decodeComm(valueMem);
+                    s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][reg],
+                            s1, value, valueMem, size.name(), evenOdd);
+                    break;
+                default:
+                    s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][reg], "",
+                            value, value, size.name(), evenOdd);
+                    break;
+            }
+        }
+        if (s != null) {
+            LOG.info(s);
+        }
+    }
+
+    public static String decodeComm(int valueMem) {
+        String s1 = "";
+        if (valueMem > 0x10_00_00_00) { //might be ASCII
+            s1 = "'" + (char) ((valueMem & 0xFF000000) >> 24) +
+                    (char) ((valueMem & 0x00FF0000) >> 16) +
+                    (char) ((valueMem & 0x0000FF00) >> 8) +
+                    (char) ((valueMem & 0x000000FF) >> 0) + "'";
+        }
+        return s1;
     }
 }

@@ -26,10 +26,10 @@ public class Sh2Launcher {
 //    static String slaveBiosName = "32x_hbrew_bios_s.bin";
 //    static String mdBiosName = "32x_hbrew_bios_g.bin";
 
-    static String romName = "res/roms/test.bin";
+    static String romName = "res/roms/test1.bin";
 
     private static void initProps() {
-        System.setProperty("helios.headless", "true");
+        System.setProperty("helios.headless", "false");
         System.setProperty("helios.fullSpeed", "false");
         System.setProperty("helios.enable.sound", "true");
         System.setProperty("68k.debug", "false");

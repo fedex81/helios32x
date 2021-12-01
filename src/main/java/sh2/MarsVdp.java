@@ -46,6 +46,7 @@ public class MarsVdp {
     private int[] lineTableWords = new int[LINE_TABLE_WORDS];
 
     private MarsVdpDebugView view;
+    private BITMAP_MODE lastBitmapMode = BITMAP_MODE.BLANK;
 
     public static MarsVdp createInstance(ByteBuffer[] frameBuffers, ByteBuffer colorPalette) {
         MarsVdp v = new MarsVdp();
@@ -59,6 +60,7 @@ public class MarsVdp {
     }
 
     public void draw(BITMAP_MODE bitmap_mode, int num, int screenShift) {
+        lastBitmapMode = bitmap_mode;
         switch (bitmap_mode) {
             case BLANK:
                 Arrays.fill(buffer, 0, buffer.length, 0);
@@ -180,4 +182,9 @@ public class MarsVdp {
     public int[] getScreenDataLinear() {
         return buffer;
     }
+
+    public boolean isBlank() {
+        return lastBitmapMode == BITMAP_MODE.BLANK;
+    }
+
 }

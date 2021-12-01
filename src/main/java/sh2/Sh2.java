@@ -1178,7 +1178,8 @@ public class Sh2 implements Device {
 		int m = RM(code);
 		int n = RN(code);
 
-		ctx.MACL = ctx.registers[n] * ctx.registers[m];
+		ctx.MACL = (ctx.registers[n] * ctx.registers[m]) & 0xFFFF_FFFF;
+//		System.out.printf("####,MULL,%8X,%8X,%16X\n", ctx.registers[n], ctx.registers[m], ctx.MACL);
 
 		ctx.cycles -= 2;
 		ctx.PC += 2;
@@ -1188,11 +1189,8 @@ public class Sh2 implements Device {
 		int m = RM(code);
 		int n = RN(code);
 
-
 		ctx.MACL = (int) (short) ctx.registers[n] * (int) (short) ctx.registers[m];
-
-		//System.out.println("MULLSW " + Integer.toHexString(MACL) + "R[n]=" + ctx.registers[n] + " R[m]=" + ctx.registers[m] );
-
+//		System.out.printf("####,MULSW,%8X,%8X,%16X\n", ctx.registers[n], ctx.registers[m], ctx.MACL);
 		ctx.cycles -= 2;
 		ctx.PC += 2;
 	}
@@ -1202,6 +1200,7 @@ public class Sh2 implements Device {
 		int n = RN(code);
 
 		ctx.MACL = (((int) ctx.registers[n] & 0xFFFF) * ((int) ctx.registers[m] & 0xFFFF));
+//		System.out.printf("####,MULSU,%8X,%8X,%16X\n", ctx.registers[n], ctx.registers[m], ctx.MACL);
 
 		ctx.cycles -= 2;
 		ctx.PC += 2;

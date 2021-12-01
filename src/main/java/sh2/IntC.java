@@ -114,6 +114,9 @@ public class IntC {
     public void clearInterrupt(int sh2, int ipt) {
         this.intPending[sh2][ipt] = false;
         this.intTrigger[sh2][ipt] = false;
+        //TODO check
+//        Arrays.fill(intPending[sh2], false);
+//        Arrays.fill(intTrigger[sh2], false);
         resetInterruptLevel(sh2);
         logInfo("CLEAR", sh2, ipt);
     }
