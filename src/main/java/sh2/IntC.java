@@ -48,7 +48,9 @@ public class IntC {
             this.intValid[sh2][ipt] = isValid;
             boolean isPending = this.intPending[sh2][ipt];
             boolean isTrigger = this.intTrigger[sh2][ipt];
-            if (!isTrigger || ipt == CMD_8.ordinal()) {
+            //TODO check
+//            if (!isTrigger || ipt == CMD_8.ordinal()) {
+            if (ipt == CMD_8.ordinal()) {
                 this.intTrigger[sh2][ipt] = isValid && isPending;
             }
             resetInterruptLevel(sh2);

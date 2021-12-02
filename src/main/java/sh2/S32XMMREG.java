@@ -372,14 +372,10 @@ public class S32XMMREG implements Device {
         int val = Sh2Util.readBuffer(b, baseReg, Size.WORD);
         Sh2Util.writeBuffer(b, reg, value, size);
         int newVal = Sh2Util.readBuffer(b, baseReg, Size.WORD);
-        int intm = newVal & 1;
-        int ints = (newVal >> 1) & 1;
-        if (intm > 0) {
-            interruptControl.setIntPending(MASTER, CMD_8, true);
-        }
-        if (ints > 0) {
-            interruptControl.setIntPending(SLAVE, CMD_8, true);
-        }
+        boolean intm = (newVal & 1) > 0;
+        boolean ints = ((newVal >> 1) & 1) > 0;
+        interruptControl.setIntPending(MASTER, CMD_8, intm);
+        interruptControl.setIntPending(SLAVE, CMD_8, ints);
         return newVal != val;
     }
 
