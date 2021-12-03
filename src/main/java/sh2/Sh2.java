@@ -44,6 +44,8 @@ public class Sh2 implements Device {
 	protected IMemory memory;
 	protected IntC interruptControl;
 
+	private int[] iset = new int[0x10000];
+
 	public Sh2(IMemory memory, IntC intc) {
 		this.memory = memory;
 		this.interruptControl = intc;
@@ -89,8 +91,7 @@ public class Sh2 implements Device {
 	private void processInterrupt(Sh2Context ctx, int source_irq) {
 //		System.out.println(ctx.sh2Access + " Interrupt processed: " + source_irq);
 		push(ctx.SR);
-		push(ctx.PC);
-
+		push(ctx.PC); //stores the next inst to be executed
 		//SR 7-4
 		ctx.SR &= 0xF0F;
 		ctx.SR |= (source_irq << 4);
@@ -123,12 +124,12 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void UNKNOWN(int instruction) {
+	protected final void UNKNOWN(int instruction) {
 		Sh2Helper.printState(ctx, instruction);
 		throw new RuntimeException("Unknown inst: " + Integer.toHexString(instruction));
 	}
 
-	private final void MOVI(int code) {
+	protected final void MOVI(int code) {
 		int n = ((code >> 8) & 0x0f);
 		//8 bit sign extend
 		ctx.registers[n] = (byte) (code & 0xFF);
@@ -136,7 +137,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVWI(int code) {
+	protected final void MOVWI(int code) {
 		int d = (code & 0xff);
 		int n = ((code >> 8) & 0x0f);
 
@@ -151,7 +152,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVLI(int code) {
+	protected final void MOVLI(int code) {
 		int d = (code & 0xff);
 		int n = ((code >> 8) & 0x0f);
 
@@ -162,7 +163,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOV(int code) {
+	protected final void MOV(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -172,7 +173,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVBS(int code) {
+	protected final void MOVBS(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -182,7 +183,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVWS(int code) {
+	protected final void MOVWS(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -192,7 +193,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVLS(int code) {
+	protected final void MOVLS(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -204,7 +205,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVBL(int code) {
+	protected final void MOVBL(int code) {
 		int m = RM(code);
 		int n = RN(code);
 		byte c;
@@ -221,7 +222,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVWL(int code) {
+	protected final void MOVWL(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -233,7 +234,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVLL(int code) {
+	protected final void MOVLL(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -244,7 +245,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVBM(int code) {
+	protected final void MOVBM(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -255,7 +256,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVWM(int code) {
+	protected final void MOVWM(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -268,7 +269,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVLM(int code) {
+	protected final void MOVLM(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -281,7 +282,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVBP(int code) {
+	protected final void MOVBP(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -294,7 +295,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVWP(int code) {
+	protected final void MOVWP(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -307,7 +308,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVLP(int code) {
+	protected final void MOVLP(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -319,7 +320,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVBS4(int code) {
+	protected final void MOVBS4(int code) {
 		int d = ((code >> 0) & 0x0f);
 		int n = RM(code);
 
@@ -330,7 +331,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVWS4(int code) {
+	protected final void MOVWS4(int code) {
 		int d = ((code >> 0) & 0x0f);
 		int n = RM(code);
 
@@ -341,7 +342,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVLS4(int code) {
+	protected final void MOVLS4(int code) {
 		int d = (code & 0x0f);
 		int m = RM(code);
 		int n = RN(code);
@@ -355,7 +356,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVBL4(int code) {
+	protected final void MOVBL4(int code) {
 		int d = ((code >> 0) & 0x0f);
 		int m = RM(code);
 
@@ -366,7 +367,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVWL4(int code) {
+	protected final void MOVWL4(int code) {
 		int d = ((code >> 0) & 0x0f);
 		int m = RM(code);
 
@@ -378,7 +379,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVLL4(int code) {
+	protected final void MOVLL4(int code) {
 		int d = (code & 0x0f);
 		int m = RM(code);
 		int n = RN(code);
@@ -391,7 +392,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVBS0(int code) {
+	protected final void MOVBS0(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -401,7 +402,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVWS0(int code) {
+	protected final void MOVWS0(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -411,7 +412,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVLS0(int code) {
+	protected final void MOVLS0(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -422,7 +423,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVBL0(int code) {
+	protected final void MOVBL0(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -434,7 +435,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVWL0(int code) {
+	protected final void MOVWL0(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -446,7 +447,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVLL0(int code) {
+	protected final void MOVLL0(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -457,7 +458,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVBSG(int code) {
+	protected final void MOVBSG(int code) {
 		int d = (code & 0xff);
 
 		memory.write8i(ctx.GBR + d, (byte) ctx.registers[0]);
@@ -467,7 +468,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVWSG(int code) {
+	protected final void MOVWSG(int code) {
 		int d = ((code >> 0) & 0xff);
 
 		memory.write16i(ctx.GBR + (d << 1), ctx.registers[0]);
@@ -477,7 +478,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVLSG(int code) {
+	protected final void MOVLSG(int code) {
 		int d = ((code >> 0) & 0xff);
 
 		memory.write32i(ctx.GBR + (d << 2), ctx.registers[0]);
@@ -487,7 +488,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVBLG(int code) {
+	protected final void MOVBLG(int code) {
 		int d = ((code >> 0) & 0xff);
 
 		byte b = (byte) memory.read8i(ctx.GBR + (d << 0));
@@ -498,7 +499,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVWLG(int code) {
+	protected final void MOVWLG(int code) {
 		int d = ((code >> 0) & 0xff);
 
 		short w = (short) memory.read16i(ctx.GBR + (d << 1));
@@ -509,7 +510,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void MOVLLG(int code) {
+	protected final void MOVLLG(int code) {
 		int d = ((code >> 0) & 0xff);
 
 		ctx.registers[0] = memory.read32i(ctx.GBR + (d << 2));
@@ -519,7 +520,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVA(int code) {
+	protected final void MOVA(int code) {
 		int d = (code & 0x000000ff);
 
 		ctx.registers[0] = ((ctx.PC & 0xfffffffc) + 4 + (d << 2));
@@ -528,7 +529,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MOVT(int code) {
+	protected final void MOVT(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] = (ctx.SR & flagT);
@@ -538,7 +539,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void SWAPB(int code) {
+	protected final void SWAPB(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -552,7 +553,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void SWAPW(int code) {
+	protected final void SWAPW(int code) {
 		int m = RM(code);
 		int n = RN(code);
 		int temp = 0;
@@ -565,7 +566,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void XTRCT(int code) {
+	protected final void XTRCT(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -574,10 +575,17 @@ public class Sh2 implements Device {
 
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
-	private final void ADD(int code) {
+	public static void main(String[] args) {
+		int rm = 0x1111_8000;
+		int rn = 0xFFFF_2222;
+
+		int re = ((rm & 0xffff) << 16) | ((rn & 0xffff0000) >>> 16);
+		System.out.println(Integer.toHexString(re));
+	}
+
+	protected final void ADD(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -591,7 +599,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void ADDI(int code) {
+	protected final void ADDI(int code) {
 		int n = RN(code);
 		byte b = (byte) (code & 0xff);
 		//System.out.println("ADDI before " + Integer.toHexString(ctx.registers[n]) + "value to be added " + Integer.toHexString(b));
@@ -605,7 +613,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void ADDC(int code) {
+	protected final void ADDC(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -626,7 +634,7 @@ public class Sh2 implements Device {
 	            tmp0, tmp0, tmp1, tmp1)); */
 	}
 
-	private final void ADDV(int code) {
+	protected final void ADDV(int code) {
 		int ans;
 		int m = RM(code);
 		int n = RN(code);
@@ -658,7 +666,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void CMPIM(int code) {
+	protected final void CMPIM(int code) {
 		int i = (byte) (code & 0xFF);
 		if (ctx.registers[0] == i)
 			ctx.SR |= flagT;
@@ -675,7 +683,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void CMPEQ(int code) {
+	protected final void CMPEQ(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -693,7 +701,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void CMPHS(int code) {
+	protected final void CMPHS(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -707,7 +715,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void CMPGE(int code) {
+	protected final void CMPGE(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -722,7 +730,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void CMPHI(int code) {
+	protected final void CMPHI(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -737,7 +745,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void CMPGT(int code) {
+	protected final void CMPGT(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -752,7 +760,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void CMPPZ(int code) {
+	protected final void CMPPZ(int code) {
 		int n = RN(code);
 
 		if (ctx.registers[n] >= 0)
@@ -765,7 +773,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void CMPPL(int code) {
+	protected final void CMPPL(int code) {
 		int n = RN(code);
 
 		if (ctx.registers[n] > 0)
@@ -780,7 +788,7 @@ public class Sh2 implements Device {
 		//Logger.log(Logger.CPU,"CMPPL " + ctx.registers[n]);
 	}
 
-	private final void CMPSTR(int code) {
+	protected final void CMPSTR(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -800,88 +808,98 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void DIV1(int code) {
-		int m = RM(code); //divisor
+	/**
+	 * https://chromium.googlesource.com/chromiumos/third_party/gcc/+/009f97f2bf0e7c070fac2d2806af05e166ceaf3c/gcc/gcc-4.6.0/libgcc/config/sh/lib1funcs-Os-4-200.S
+	 *
+	 * @param code
+	 */
+	protected final void DIV1(int code) {
 		int n = RN(code);//dividend
-		DIV1(ctx, m, n);
+		int m = RM(code); //divisor
+		DIV1(ctx, n, m);
 	}
 
-	public final static void DIV1(Sh2Context ctx, int m, int n) {
-		int tmp0, tmp2;
+	public final static void DIV1(Sh2Context ctx, int dvd, int dvsr) {
+		int tmp0;
 		int tmp1;
 		int old_q;
 
 		old_q = ctx.SR & flagQ;
-		if ((0x80000000 & ctx.registers[n]) != 0)
+		if ((0x80000000 & ctx.registers[dvd]) != 0)
 			ctx.SR |= flagQ;
 		else
 			ctx.SR &= ~flagQ;
 
-		tmp2 = ctx.registers[m];
-		ctx.registers[n] <<= 1;
+		int dvdl = ctx.registers[dvd];
+		int dvsrl = ctx.registers[dvsr];
 
-		ctx.registers[n] |= (ctx.SR & flagT);
+		dvdl <<= 1;
+		dvdl |= (ctx.SR & flagT);
 
 		if (old_q == 0) {
 			if ((ctx.SR & flagM) == 0) {
-				tmp0 = ctx.registers[n];
-				ctx.registers[n] -= tmp2;
-				tmp1 = (ctx.registers[n] > tmp0 ? 1 : 0);
-				if ((ctx.SR & flagQ) == 0)
-					if (tmp1 == 1)
-						ctx.SR |= flagQ;
-					else
-						ctx.SR &= ~flagQ;
-				else if (tmp1 == 0)
-					ctx.SR |= flagQ;
-				else
-					ctx.SR &= ~flagQ;
-			} else {
-				tmp0 = ctx.registers[n];
-				ctx.registers[n] += tmp2;
-				tmp1 = (ctx.registers[n] < tmp0 ? 1 : 0);
+				tmp0 = dvdl;
+				dvdl -= dvsrl;
 				if ((ctx.SR & flagQ) == 0) {
-					if (tmp1 == 0)
+					if (dvdl > tmp0) {
 						ctx.SR |= flagQ;
-					else
+					} else {
 						ctx.SR &= ~flagQ;
+					}
+				} else if (dvdl > tmp0) {
+					ctx.SR &= ~flagQ;
 				} else {
-					if (tmp1 == 1)
-						ctx.SR |= flagQ;
-					else
+					ctx.SR |= flagQ;
+				}
+			} else {
+				tmp0 = dvdl;
+				dvdl += dvsrl;
+				if ((ctx.SR & flagQ) == 0) {
+					if (dvdl < tmp0) {
 						ctx.SR &= ~flagQ;
+					} else {
+						ctx.SR |= flagQ;
+					}
+				} else {
+					if (dvdl < tmp0) {
+						ctx.SR |= flagQ;
+					} else {
+						ctx.SR &= ~flagQ;
+					}
 				}
 			}
 		} else {
 			if ((ctx.SR & flagM) == 0) {
-				tmp0 = ctx.registers[n];
-				ctx.registers[n] += tmp2;
-				tmp1 = (ctx.registers[n] < tmp0 ? 1 : 0);
+				tmp0 = dvdl;
+				dvdl += dvsrl;
 				if ((ctx.SR & flagQ) == 0) {
-					if (tmp1 == 1)
+					if (dvdl < tmp0) {
 						ctx.SR |= flagQ;
-					else
+					} else {
 						ctx.SR &= ~flagQ;
+					}
 				} else {
-					if (tmp1 == 0)
-						ctx.SR |= flagQ;
-					else
+					if (dvdl < tmp0) {
 						ctx.SR &= ~flagQ;
+					} else {
+						ctx.SR |= flagQ;
+					}
 				}
 			} else {
-				tmp0 = ctx.registers[n];
-				ctx.registers[n] -= tmp2;
-				tmp1 = (ctx.registers[n] > tmp0 ? 1 : 0);
+				tmp0 = dvdl;
+				dvdl -= dvsrl;
 				if ((ctx.SR & flagQ) == 0) {
-					if (tmp1 == 0)
-						ctx.SR |= flagQ;
-					else
+					if (dvdl > tmp0) {
 						ctx.SR &= ~flagQ;
+					} else {
+						ctx.SR |= flagQ;
+					}
 				} else {
-					if (tmp1 == 1)
+					if (dvdl > tmp0) {
 						ctx.SR |= flagQ;
-					else
+					} else {
 						ctx.SR &= ~flagQ;
+					}
 				}
 			}
 		}
@@ -892,15 +910,16 @@ public class Sh2 implements Device {
 		else
 			ctx.SR &= ~flagT;
 
-//		System.out.printf("####,div1s: r[%d]=%x >= r[%d]=%x, %d, %d, %d\n", n,
-//				ctx.registers[n], m, ctx.registers[m], ((ctx.SR & flagM) > 0) ? 1: 0,
+		ctx.registers[dvd] = dvdl;
+//		System.out.printf("####,div1s: r[%d]=%x >= r[%d]=%x, %d, %d, %d\n", dvd,
+//				ctx.registers[dvd], dvsr, ctx.registers[dvsr], ((ctx.SR & flagM) > 0) ? 1: 0,
 //				((ctx.SR & flagQ) > 0) ? 1: 0,
 //				((ctx.SR & flagT) > 0) ? 1: 0);
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
-	private final void DIV0S(int code) {
+	protected final void DIV0S(int code) {
 		int m = RM(code);
 		int n = RN(code);
 		if ((ctx.registers[n] & 0x80000000) == 0)
@@ -915,26 +934,28 @@ public class Sh2 implements Device {
 			ctx.SR |= flagT;
 		else
 			ctx.SR &= ~flagT;
-//		System.out.printf("####,div0s: r[%d]=%x >= r[%d]=%x, %d, %d, %d", n,
-//				ctx.registers[n], m, ctx.registers[m], ((ctx.SR & flagM) > 0) ? 1: 0,
-//				((ctx.SR & flagQ) > 0) ? 1: 0,
-//				((ctx.SR & flagT) > 0) ? 1: 0);
+		System.out.printf("####,div0s: r[%d]=%x >= r[%d]=%x, %d, %d, %d\n", n,
+				ctx.registers[n], m, ctx.registers[m], ((ctx.SR & flagM) > 0) ? 1 : 0,
+				((ctx.SR & flagQ) > 0) ? 1 : 0,
+				((ctx.SR & flagT) > 0) ? 1 : 0);
 //		System.out.printf(", r[%d]=%x\n", 4, ctx.registers[4]);
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
-	private final void DIV0U(int code) {
+	protected final void DIV0U(int code) {
 		ctx.SR &= (~flagQ);
 		ctx.SR &= (~flagM);
 		ctx.SR &= (~flagT);
 
 		ctx.cycles--;
 		ctx.PC += 2;
+//		System.out.printf("####,div0u: %d, %d, %d\n", ((ctx.SR & flagM) > 0) ? 1: 0,
+//				((ctx.SR & flagQ) > 0) ? 1: 0,
+//				((ctx.SR & flagT) > 0) ? 1: 0);
 	}
 
-	private final void DMULS(int code) {
+	protected final void DMULS(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -948,7 +969,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void DMULU(int code) {
+	protected final void DMULU(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -964,7 +985,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void DT(int code) {
+	protected final void DT(int code) {
 		int n = RN(code);
 		//Logger.log(Logger.CPU,"DT: R[" + n + "] = " + Integer.toHexString(ctx.registers[n]));
 		ctx.registers[n]--;
@@ -978,7 +999,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void EXTSB(int code) {
+	protected final void EXTSB(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -991,7 +1012,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void EXTSW(int code) {
+	protected final void EXTSW(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1004,7 +1025,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void EXTUB(int code) {
+	protected final void EXTUB(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1014,7 +1035,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void EXTUW(int code) {
+	protected final void EXTUW(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1025,7 +1046,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MACL(int code) {
+	protected final void MACL(int code) {
 		int RnL, RnH, RmL, RmH, Res0, Res1, Res2;
 		int temp0, temp1, temp2, temp3;
 		int tempm, tempn, fnLmL;
@@ -1121,7 +1142,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MACW(int code) {
+	protected final void MACW(int code) {
 		int tempm, tempn, dest, src, ans;
 		int templ;
 
@@ -1174,7 +1195,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MULL(int code) {
+	protected final void MULL(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1185,7 +1206,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MULSW(int code) {
+	protected final void MULSW(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1195,7 +1216,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void MULSU(int code) {
+	protected final void MULSU(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1206,7 +1227,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void NEG(int code) {
+	protected final void NEG(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1216,7 +1237,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void NEGC(int code) {
+	protected final void NEGC(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1232,7 +1253,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void SUB(int code) {
+	protected final void SUB(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1242,7 +1263,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void SUBC(int code) {
+	protected final void SUBC(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1261,7 +1282,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void SUBV(int code) {
+	protected final void SUBV(int code) {
 		int ans;
 		int m = RM(code);
 		int n = RN(code);
@@ -1286,7 +1307,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void AND(int code) {
+	protected final void AND(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1296,7 +1317,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void ANDI(int code) {
+	protected final void ANDI(int code) {
 		int i = ((code >> 0) & 0xff);
 
 		ctx.registers[0] &= i;
@@ -1305,7 +1326,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void ANDM(int code) {
+	protected final void ANDM(int code) {
 		int i = (byte) ((code >> 0) & 0xff);
 
 		int value = (byte) memory.read8i(ctx.GBR + ctx.registers[0]);
@@ -1315,7 +1336,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void NOT(int code) {
+	protected final void NOT(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1326,7 +1347,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void OR(int code) {
+	protected final void OR(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1337,7 +1358,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void ORI(int code) {
+	protected final void ORI(int code) {
 		int i = ((code >> 0) & 0xff);
 
 		ctx.registers[0] |= i;
@@ -1347,7 +1368,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void ORM(int code) {
+	protected final void ORM(int code) {
 		int i = ((code >> 0) & 0xff);
 
 		int value = memory.read8i(ctx.GBR + ctx.registers[0]);
@@ -1356,7 +1377,7 @@ public class Sh2 implements Device {
 		ctx.cycles -= 4;
 	}
 
-	private final void TAS(int code) {
+	protected final void TAS(int code) {
 		int n = RN(code);
 
 		byte value = (byte) memory.read8i(ctx.registers[n]);
@@ -1370,7 +1391,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void TST(int code) {
+	protected final void TST(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1383,7 +1404,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void TSTI(int code) {
+	protected final void TSTI(int code) {
 		int i = ((code >> 0) & 0xff);
 
 		if ((ctx.registers[0] & i) != 0)
@@ -1394,7 +1415,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void TSTM(int code) {
+	protected final void TSTM(int code) {
 		int i = ((code >> 0) & 0xff);
 
 		int value = memory.read8i(ctx.GBR + ctx.registers[0]);
@@ -1405,7 +1426,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void XOR(int code) {
+	protected final void XOR(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
@@ -1415,7 +1436,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void XORI(int code) {
+	protected final void XORI(int code) {
 		int i = ((code >> 0) & 0xff);
 
 		ctx.registers[0] ^= i;
@@ -1424,7 +1445,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void XORM(int code) {
+	protected final void XORM(int code) {
 		int i = ((code >> 0) & 0xff);
 
 		int value = memory.read8i(ctx.GBR + ctx.registers[0]);
@@ -1434,7 +1455,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void ROTR(int code) {
+	protected final void ROTR(int code) {
 		int n = RN(code);
 
 		if ((ctx.registers[n] & flagT) != 0) {
@@ -1454,7 +1475,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void ROTCR(int code) {
+	protected final void ROTCR(int code) {
 		int n = RN(code);
 		int temp = 0;
 
@@ -1476,7 +1497,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void ROTL(int code) {
+	protected final void ROTL(int code) {
 		int n = RN(code);
 
 		if ((ctx.registers[n] & 0x80000000) != 0)
@@ -1498,7 +1519,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void ROTCL(int code) {
+	protected final void ROTCL(int code) {
 		int n = RN(code);
 		int temp = 0;
 
@@ -1520,7 +1541,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void SHAR(int code) {
+	protected final void SHAR(int code) {
 		int n = RN(code);
 		int temp = 0;
 		if ((ctx.registers[n] & 0x00000001) == 0) ctx.SR &= (~flagT);
@@ -1537,7 +1558,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void SHAL(int code) {
+	protected final void SHAL(int code) {
 		int n = RN(code);
 
 		if ((ctx.registers[n] & 0x80000000) == 0)
@@ -1550,7 +1571,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void SHLL(int code) {
+	protected final void SHLL(int code) {
 		int n = RN(code);
 
 		//	Logger.log(Logger.CPU,String.format("shll: antes %x\r", ctx.registers[n]));
@@ -1563,7 +1584,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void SHLR(int code) {
+	protected final void SHLR(int code) {
 		int n = RN(code);
 
 		ctx.SR = (ctx.SR & ~flagT) | (ctx.registers[n] & 1);
@@ -1577,7 +1598,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void SHLL2(int code) {
+	protected final void SHLL2(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] <<= 2;
@@ -1587,7 +1608,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void SHLR2(int code) {
+	protected final void SHLR2(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] >>>= 2;
@@ -1600,7 +1621,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void SHLL8(int code) {
+	protected final void SHLL8(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] <<= 8;
@@ -1610,7 +1631,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void SHLR8(int code) {
+	protected final void SHLR8(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] >>>= 8;
@@ -1620,7 +1641,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void SHLL16(int code) {
+	protected final void SHLL16(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] <<= 16;
@@ -1630,7 +1651,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void SHLR16(int code) {
+	protected final void SHLR16(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] >>>= 16;
@@ -1642,7 +1663,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void BF(int code) {
+	protected final void BF(int code) {
 		if ((ctx.SR & flagT) == 0) {
 			//8 bit sign extend, then double
 			int d = (byte) (code & 0xFF) << 1;
@@ -1655,24 +1676,20 @@ public class Sh2 implements Device {
 		}
 	}
 
-	private final void BFS(int code) {
+	protected final void BFS(int code) {
 		if ((ctx.SR & flagT) == 0) {
 			//8 bit sign extend, then double
 			int d = (byte) (code & 0xFF) << 1;
-			int pc = ctx.PC + d + 4;
-
-			decode(memory.read16i(ctx.PC + 2));
-
-			ctx.PC = pc;
-
-			ctx.cycles--;
+			int prevPc = ctx.PC;
+			ctx.PC = ctx.PC + d + 4;
+			delaySlot(prevPc + 2);
 		} else {
-			ctx.cycles--;
 			ctx.PC += 2;
 		}
+		ctx.cycles--;
 	}
 
-	private final void BT(int code) {
+	protected final void BT(int code) {
 		if ((ctx.SR & flagT) != 0) {
 			//8 bit sign extend, then double
 			int d = (byte) (code & 0xFF) << 1;
@@ -1685,127 +1702,114 @@ public class Sh2 implements Device {
 		}
 	}
 
-	private final void BTS(int code) {
+	protected final void BTS(int code) {
 		if ((ctx.SR & flagT) != 0) {
 			//8 bit sign extend, then double
 			int d = (byte) (code & 0xFF) << 1;
-			int pc = ctx.PC + d + 4;
-
-			decode(memory.read16i(ctx.PC + 2));
-
-			ctx.PC = pc;
-			ctx.cycles--;
+			int prevPc = ctx.PC;
+			ctx.PC = ctx.PC + d + 4;
+			delaySlot(prevPc + 2);
 		} else {
-			ctx.cycles--;
 			ctx.PC += 2;
 		}
+		ctx.cycles--;
 	}
 
-	private final void BRA(int code) {
+	protected final void BRA(int code) {
 		int disp;
 
 		if ((code & 0x800) == 0)
 			disp = (0x00000FFF & code);
 		else disp = (0xFFFFF000 | code);
 
-		int pc = ctx.PC + 4 + (disp << 1);
-
-		decode(memory.read16i(ctx.PC + 2));
-
-		ctx.PC = pc;
-
+		int prevPc = ctx.PC;
+		ctx.PC = ctx.PC + 4 + (disp << 1);
+		delaySlot(prevPc + 2);
 		ctx.cycles -= 2;
 	}
 
-	private final void BSR(int code) {
+	protected final void BSR(int code) {
 		int disp = 0;
 		if ((code & 0x800) == 0)
 			disp = (0x00000FFF & code);
 		else disp = (0xFFFFF000 | code);
 
-
+		//PC is the start address of the second instruction after this instruction.
+		//PR is incremented by in RTS
 		ctx.PR = ctx.PC;
-
-		int pc = ctx.PC + (disp << 1) + 4;
-
-		decode(memory.read16i(ctx.PC + 2));
-
-		ctx.PC = pc;
-
+		ctx.PC = ctx.PC + (disp << 1) + 4;
+		delaySlot(ctx.PR + 2);
 		ctx.cycles -= 2;
 	}
 
-	private final void BRAF(int code) {
+	protected final void BRAF(int code) {
 		int n = RN(code);
 
-		int pc = ctx.PC + ctx.registers[n] + 4;
+		int prevPc = ctx.PC;
+		//PC is the start address of the second instruction after this instruction.
+		ctx.PC += ctx.registers[n] + 4;
 
-		decode(memory.read16i(ctx.PC + 2));
-
-		ctx.PC = pc;
+		delaySlot(prevPc + 2);
 		ctx.cycles -= 2;
 	}
 
-	private final void BSRF(int code) {
+	protected final void BSRF(int code) {
 		int n = RN(code);
 
+		//PC is the start address of the second instruction after this instruction.
+		//PR is incremented by in RTS
 		ctx.PR = ctx.PC;
-
-		int pc = ctx.PC + ctx.registers[n] + 4;
-
-		decode(memory.read16i(ctx.PC + 2));
-
-		ctx.PC = pc;
-
+		ctx.PC = ctx.PC + ctx.registers[n] + 4;
+		delaySlot(ctx.PR + 2);
 		ctx.cycles -= 2;
 	}
 
-	private final void JMP(int code) {
+	protected final void JMP(int code) {
 		int n = RN(code);
+		int prevPc = ctx.PC;
+		//NOTE: docs say this should be +4, are they wrong ??
+		ctx.PC = ctx.registers[n];
 
-		int target = ctx.registers[n];
-
-		decode(memory.read16i(ctx.PC + 2));
-
-		ctx.PC = target;
-
+		delaySlot(prevPc + 2);
 		ctx.cycles -= 2;
 	}
 
-	private final void JSR(int code) {
+	protected final void JSR(int code) {
 		int n = RN(code);
 
+		//PR is incremented by 4 in RTS
 		ctx.PR = ctx.PC;
-
-		int target = ctx.registers[n];
-
-		decode(memory.read16i(ctx.PC + 2));
-
-		ctx.PC = target;
+		//NOTE: docs say this should be +4, are they wrong ??
+		ctx.PC = ctx.registers[n];
+		delaySlot(ctx.PR + 2);
 
 		ctx.cycles -= 2;
 	}
 
-	private final void RTS(int code) {
-		int prevPC = ctx.PC;
-		int newPc = ctx.PR + 4;
-		//delayed branch inst, run before setting PC as it is changing PC
-		decode(memory.read16i(prevPC + 2));
-		ctx.PC = newPc;
+	protected final void RTS(int code) {
+		int prevPc = ctx.PC;
+		ctx.PC = ctx.PR + 4;
+		delaySlot(prevPc + 2);
 		ctx.cycles -= 2;
 	}
 
-	private final void RTE(int code) {
-		int prevPC = ctx.PC;
-		//delayed branch inst, run before setting PC as it is changing PC
-		decode(memory.read16i(prevPC + 2));
+	protected final void RTE(int code) {
+		int prevPc = ctx.PC;
 		//NOTE should be +4, but we don't do it, see processInt
 		ctx.PC = pop();
 		ctx.SR = pop() & SR_MASK;
+		delaySlot(prevPc + 2);
 		ctx.cycles -= 5;
 	}
 
-	private final void CLRMAC(int code) {
+	private void delaySlot(int pc) {
+		int nextPc = ctx.PC;
+		ctx.PC = pc;
+		decode(memory.read16i(ctx.PC));
+		ctx.PC = nextPc;
+	}
+
+	protected final void CLRMAC(int code) {
 		ctx.MACL = ctx.MACH = 0;
 
 		ctx.cycles--;
@@ -1813,14 +1817,14 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void CLRT(int code) {
+	protected final void CLRT(int code) {
 		ctx.SR &= (~flagT);
 
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
-	private final void LDCSR(int code) {
+	protected final void LDCSR(int code) {
 		int m = RN(code);
 		ctx.SR = ctx.registers[m] & SR_MASK;
 
@@ -1828,7 +1832,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void LDCGBR(int code) {
+	protected final void LDCGBR(int code) {
 		int m = RN(code);
 
 		ctx.GBR = ctx.registers[m];
@@ -1837,7 +1841,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void LDCVBR(int code) {
+	protected final void LDCVBR(int code) {
 		int m = RN(code);
 
 		ctx.VBR = ctx.registers[m];
@@ -1847,7 +1851,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void LDCMSR(int code) {
+	protected final void LDCMSR(int code) {
 		int m = RN(code);
 
 		ctx.SR = memory.read32i(ctx.registers[m]) & SR_MASK;
@@ -1857,7 +1861,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void LDCMGBR(int code) {
+	protected final void LDCMGBR(int code) {
 		int m = RN(code);
 
 		ctx.GBR = memory.read32i(ctx.registers[m]);
@@ -1867,7 +1871,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void LDCMVBR(int code) {
+	protected final void LDCMVBR(int code) {
 		int m = RN(code);
 
 		ctx.VBR = memory.read32i(ctx.registers[m]);
@@ -1878,7 +1882,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void LDSMACH(int code) {
+	protected final void LDSMACH(int code) {
 		int m = RN(code);
 
 		ctx.MACH = ctx.registers[m];
@@ -1888,7 +1892,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void LDSMACL(int code) {
+	protected final void LDSMACL(int code) {
 		int m = RN(code);
 
 		ctx.MACL = ctx.registers[m];
@@ -1898,7 +1902,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void LDSPR(int code) {
+	protected final void LDSPR(int code) {
 		int m = RN(code);
 
 		ctx.PR = ctx.registers[m];
@@ -1911,7 +1915,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void LDSMMACH(int code) {
+	protected final void LDSMMACH(int code) {
 		int m = RN(code);
 
 		ctx.MACH = memory.read32i(ctx.registers[m]);
@@ -1922,7 +1926,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void LDSMMACL(int code) {
+	protected final void LDSMMACL(int code) {
 		int m = RN(code);
 
 		ctx.MACL = memory.read32i(ctx.registers[m]);
@@ -1934,7 +1938,7 @@ public class Sh2 implements Device {
 	}
 
 
-	private final void LDSMPR(int code) {
+	protected final void LDSMPR(int code) {
 		int m = RN(code);
 
 		ctx.PR = memory.read32i(ctx.registers[m]);
@@ -1947,18 +1951,18 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void LDTLB(int code) {
+	protected final void LDTLB(int code) {
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
-	private final void NOP(int code) {
+	protected final void NOP(int code) {
 		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
 
-	private final void SETT(int code) {
+	protected final void SETT(int code) {
 		ctx.SR |= flagT;
 
 		ctx.cycles--;
@@ -1966,12 +1970,12 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void SLEEP(int code) {
+	protected final void SLEEP(int code) {
 		ctx.cycles -= 4;
 		ctx.PC += 2;
 	}
 
-	private final void STCSR(int code) {
+	protected final void STCSR(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] = ctx.SR;
@@ -1980,7 +1984,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void STCGBR(int code) {
+	protected final void STCGBR(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] = ctx.GBR;
@@ -1989,7 +1993,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void STCVBR(int code) {
+	protected final void STCVBR(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] = ctx.VBR;
@@ -1998,7 +2002,7 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	private final void STCMSR(int code) {
+	protected final void STCMSR(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] -= 4;
@@ -2009,7 +2013,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void STCMGBR(int code) {
+	protected final void STCMGBR(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] -= 4;
@@ -2020,7 +2024,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void STCMVBR(int code) {
+	protected final void STCMVBR(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] -= 4;
@@ -2031,7 +2035,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void STSMACH(int code) {
+	protected final void STSMACH(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] = ctx.MACH;
@@ -2041,7 +2045,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void STSMACL(int code) {
+	protected final void STSMACL(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] = ctx.MACL;
@@ -2052,7 +2056,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void STSPR(int code) {
+	protected final void STSPR(int code) {
 		int n = RN(code);
 
 
@@ -2063,7 +2067,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void STSMMACH(int code) {
+	protected final void STSMMACH(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] -= 4;
@@ -2074,7 +2078,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void STSMMACL(int code) {
+	protected final void STSMMACL(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] -= 4;
@@ -2085,7 +2089,7 @@ public class Sh2 implements Device {
 
 	}
 
-	private final void STSMPR(int code) {
+	protected final void STSMPR(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] -= 4;
@@ -2093,10 +2097,11 @@ public class Sh2 implements Device {
 
 		ctx.cycles -= 2;
 		ctx.PC += 2;
+//		throw new RuntimeException("check");
 	}
 
 	//TODO sh2
-	private final void TRAPA(int code) {
+	protected final void TRAPA(int code) {
 		int imm;
 		imm = (0x000000FF & code);
 
@@ -2115,7 +2120,12 @@ public class Sh2 implements Device {
 
 	protected void printDebugMaybe(Sh2Context ctx, int instruction) {
 		if (ctx.debug) {
-			Sh2Helper.printInst(ctx, instruction);
+			String s = Sh2Helper.getInstString(ctx, instruction);
+			if (iset[instruction] == 0) {
+				s = "NEW INST: " + s;
+				iset[instruction]++;
+			}
+			System.out.println(s);
 		}
 	}
 
@@ -2143,7 +2153,7 @@ public class Sh2 implements Device {
 		ctx.cycles = burstCycles;
 	}
 
-	private final void decode(int instruction) {
+	protected final void decode(int instruction) {
 		printDebugMaybe(ctx, instruction);
 		switch ((instruction >>> 12) & 0xf) {
 			case 0:
@@ -2754,5 +2764,9 @@ public class Sh2 implements Device {
 				return;
 		}
 		UNKNOWN(instruction);
+	}
+
+	public void setCtx(Sh2Context ctx) {
+		this.ctx = ctx;
 	}
 }

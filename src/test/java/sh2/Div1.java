@@ -104,7 +104,7 @@ public class Div1 {
 
         for (int i = 0; i < 32; i++) {
             ROTL(ctx, 4);
-            DIV1(ctx, m, n);
+            DIV1(ctx, n, m);
         }
     }
 

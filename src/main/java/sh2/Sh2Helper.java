@@ -10,7 +10,11 @@ public class Sh2Helper {
     public static final Sh2Disassembler disasm = new Sh2Disassembler();
 
     public static void printInst(Sh2Context ctx, int opcode) {
-        System.out.println(ctx.sh2TypeCode + " " + Integer.toHexString(ctx.PC) + ": " + disasm.disassemble(ctx.PC, opcode));
+        System.out.println(getInstString(ctx, opcode));
+    }
+
+    public static String getInstString(Sh2Context ctx, int opcode) {
+        return ctx.sh2TypeCode + " " + Integer.toHexString(ctx.PC) + ": " + disasm.disassemble(ctx.PC, opcode);
     }
 
     public static void printState(Sh2Context ctx, int opcode) {

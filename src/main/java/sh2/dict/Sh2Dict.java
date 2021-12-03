@@ -53,6 +53,20 @@ public class Sh2Dict {
     public static final int DVDNTUL = 0xFF1C;
 
 
+    public static final int DMA_DRCR0 = 0xFE71;
+    public static final int DMA_DRCR1 = 0xFE72;
+    public static final int DMA_SAR0 = 0xFF80;
+    public static final int DMA_SAR1 = 0xFF90;
+    public static final int DMA_DAR0 = 0xFF84;
+    public static final int DMA_DAR1 = 0xFF94;
+    public static final int DMA_TCR0 = 0xFF88;
+    public static final int DMA_TCR1 = 0xFF98;
+    public static final int DMA_CHCR0 = 0xFF8C;
+    public static final int DMA_CHCR1 = 0xFF9C;
+    public static final int DMAOR = 0xFFB0;
+    public static final int VRCDMA0 = 0xFFA0;
+    public static final int VRCDMA1 = 0xFFA8;
+
     public static final int RTCSR = 0xFFF0;
     public static final int RTCNT = 0xFFF4;
     public static final int RTCOR = 0xFFF8;
@@ -95,5 +109,19 @@ public class Sh2Dict {
         sh2RegNames[DVDNTL] = "DVDNTL";
         sh2RegNames[DVDNTUH] = "DVDNTUH";
         sh2RegNames[DVDNTUL] = "DVDNTUL";
+
+        sh2RegNames[VRCDMA0] = "VRCDMA0";
+        sh2RegNames[VRCDMA1] = "VRCDMA1";
+        sh2RegNames[DMA_DRCR0] = "DMA_DRCR0";
+        sh2RegNames[DMA_DRCR1] = "DMA_DRCR1";
+        sh2RegNames[DMA_CHCR0] = "DMA_CHCR0";
+        sh2RegNames[DMA_CHCR1] = "DMA_CHCR1";
+        sh2RegNames[DMA_DAR0] = "DMA_DAR0";
+        sh2RegNames[DMA_DAR1] = "DMA_DAR1";
+        sh2RegNames[DMA_SAR0] = "DMA_SAR0";
+        sh2RegNames[DMA_SAR1] = "DMA_SAR1";
+        sh2RegNames[DMA_TCR0] = "DMA_TCR0";
+        sh2RegNames[DMA_TCR1] = "DMA_TCR1";
+        sh2RegNames[DMAOR] = "DMAOR";
     }
 }
