@@ -820,8 +820,7 @@ public class Sh2 implements Device {
 	}
 
 	public final static void DIV1(Sh2Context ctx, int dvd, int dvsr) {
-		int tmp0;
-		int tmp1;
+		long tmp0;
 		int old_q;
 
 		old_q = ctx.SR & flagQ;
@@ -830,16 +829,21 @@ public class Sh2 implements Device {
 		else
 			ctx.SR &= ~flagQ;
 
-		int dvdl = ctx.registers[dvd];
-		int dvsrl = ctx.registers[dvsr];
+		long dvdl = ctx.registers[dvd] & 0xFFFF_FFFFL;
+		long dvsrl = ctx.registers[dvsr] &= 0xFFFF_FFFFL;
 
 		dvdl <<= 1;
 		dvdl |= (ctx.SR & flagT);
+		dvdl &= 0xFFFF_FFFFL;
+//		System.out.printf("1: %x\n", dvdl);
+
+		tmp0 = dvdl;
 
 		if (old_q == 0) {
 			if ((ctx.SR & flagM) == 0) {
-				tmp0 = dvdl;
 				dvdl -= dvsrl;
+				dvdl &= 0xFFFF_FFFFL;
+//				System.out.printf("2a: %x\n", dvdl);
 				if ((ctx.SR & flagQ) == 0) {
 					if (dvdl > tmp0) {
 						ctx.SR |= flagQ;
@@ -852,8 +856,9 @@ public class Sh2 implements Device {
 					ctx.SR |= flagQ;
 				}
 			} else {
-				tmp0 = dvdl;
 				dvdl += dvsrl;
+				dvdl &= 0xFFFF_FFFFL;
+//				System.out.printf("2b: %x\n", dvdl);
 				if ((ctx.SR & flagQ) == 0) {
 					if (dvdl < tmp0) {
 						ctx.SR &= ~flagQ;
@@ -870,8 +875,9 @@ public class Sh2 implements Device {
 			}
 		} else {
 			if ((ctx.SR & flagM) == 0) {
-				tmp0 = dvdl;
 				dvdl += dvsrl;
+				dvdl &= 0xFFFF_FFFFL;
+//				System.out.printf("2c: %x\n", dvdl);
 				if ((ctx.SR & flagQ) == 0) {
 					if (dvdl < tmp0) {
 						ctx.SR |= flagQ;
@@ -886,8 +892,9 @@ public class Sh2 implements Device {
 					}
 				}
 			} else {
-				tmp0 = dvdl;
 				dvdl -= dvsrl;
+				dvdl &= 0xFFFF_FFFFL;
+//				System.out.printf("2d: %x\n", dvdl);
 				if ((ctx.SR & flagQ) == 0) {
 					if (dvdl > tmp0) {
 						ctx.SR &= ~flagQ;
@@ -910,7 +917,7 @@ public class Sh2 implements Device {
 		else
 			ctx.SR &= ~flagT;
 
-		ctx.registers[dvd] = dvdl;
+		ctx.registers[dvd] = (int) dvdl;
 //		System.out.printf("####,div1s: r[%d]=%x >= r[%d]=%x, %d, %d, %d\n", dvd,
 //				ctx.registers[dvd], dvsr, ctx.registers[dvsr], ((ctx.SR & flagM) > 0) ? 1: 0,
 //				((ctx.SR & flagQ) > 0) ? 1: 0,
@@ -934,11 +941,10 @@ public class Sh2 implements Device {
 			ctx.SR |= flagT;
 		else
 			ctx.SR &= ~flagT;
-		System.out.printf("####,div0s: r[%d]=%x >= r[%d]=%x, %d, %d, %d\n", n,
-				ctx.registers[n], m, ctx.registers[m], ((ctx.SR & flagM) > 0) ? 1 : 0,
-				((ctx.SR & flagQ) > 0) ? 1 : 0,
-				((ctx.SR & flagT) > 0) ? 1 : 0);
-//		System.out.printf(", r[%d]=%x\n", 4, ctx.registers[4]);
+//		System.out.printf("####,div0s: r[%d]=%x >= r[%d]=%x, %d, %d, %d\n", n,
+//				ctx.registers[n], m, ctx.registers[m], ((ctx.SR & flagM) > 0) ? 1 : 0,
+//				((ctx.SR & flagQ) > 0) ? 1 : 0,
+//				((ctx.SR & flagT) > 0) ? 1 : 0);
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
@@ -2097,25 +2103,15 @@ public class Sh2 implements Device {
 
 		ctx.cycles -= 2;
 		ctx.PC += 2;
-//		throw new RuntimeException("check");
 	}
 
-	//TODO sh2
 	protected final void TRAPA(int code) {
-		int imm;
-		imm = (0x000000FF & code);
+		int imm = (0x000000FF & code);
+		push(ctx.SR);
+		push(ctx.PC + 2);
 
-//		memory.regmapWritehandle32Inst(MMREG.TRA,imm<<2);
-//		SPC=PC+2;
-//		SGR=ctx.registers[15];
-//		ctx.SR |= flagMD;
-//		ctx.SR |= flagBL;
-//		ctx.SR |= flagsRB;
-//		memory.regmapWritehandle32Inst(MMREG.EXPEVT,0x00000160);
-		ctx.PC = ctx.VBR + 0x00000100;
-		ctx.cycles -= 7;
-		ctx.PC += 2;
-		throw new RuntimeException("TRAPA");
+		ctx.PC = memory.read32i(ctx.VBR + (imm << 2)) + 4;
+		ctx.cycles -= 8;
 	}
 
 	protected void printDebugMaybe(Sh2Context ctx, int instruction) {

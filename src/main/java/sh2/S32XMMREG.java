@@ -163,10 +163,14 @@ public class S32XMMREG implements Device {
         if (address >= START_32X_SYSREG_CACHE && address < END_32X_VDPREG_CACHE) {
             handleRegWrite(address, value, size);
         } else if (address >= START_32X_COLPAL_CACHE && address < END_32X_COLPAL_CACHE) {
-            if (size == Size.WORD) {
-                Sh2Util.writeBuffer(colorPalette, address & S32X_COLPAL_MASK, value, size);
-            } else {
-                System.err.println("Unable to access colorPalette as " + size);
+            switch (size) {
+                case WORD:
+                case LONG:
+                    Sh2Util.writeBuffer(colorPalette, address & S32X_COLPAL_MASK, value, size);
+                    break;
+                default:
+                    LOG.error(sh2Access + " write, unable to access colorPalette as " + size);
+                    break;
             }
         } else if (address >= START_DRAM_CACHE && address < END_DRAM_CACHE) {
             if (size == Size.BYTE && value == 0) { //value =0 on byte access is ignored
@@ -189,7 +193,7 @@ public class S32XMMREG implements Device {
             if (size == Size.WORD) {
                 res = Sh2Util.readBuffer(colorPalette, address & S32X_COLPAL_MASK, size);
             } else {
-                System.err.println("Unable to access colorPalette as " + size);
+                LOG.error(sh2Access + " read, unable to access colorPalette as " + size);
             }
         } else if (address >= START_DRAM_CACHE && address < END_DRAM_CACHE) {
             res = Sh2Util.readBuffer(dramBanks[frameBufferWritable], address & DRAM_MASK, size);
