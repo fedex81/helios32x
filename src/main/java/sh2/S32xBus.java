@@ -9,7 +9,6 @@ import omegadrive.util.VideoMode;
 import omegadrive.vdp.model.BaseVdpAdapterEventSupport;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.message.ParameterizedMessage;
 import sh2.dict.S32xDict;
 
 import java.nio.ByteBuffer;
@@ -83,8 +82,10 @@ public class S32xBus extends GenesisBus {
     public void write(long address, long data, Size size) {
         S32XMMREG.sh2Access = Sh2Util.Sh2Access.M68K;
         address &= 0xFF_FFFFF;
-        logInfo("Write address: {}, data: {}, size: {}", Long.toHexString(address),
-                Long.toHexString(data), size);
+        if (verboseMd) {
+            LOG.info("Write address: {}, data: {}, size: {}", Long.toHexString(address),
+                    Long.toHexString(data), size);
+        }
         if (s32XMMREG.aden > 0) {
             writeAdapterEnOn((int) address, (int) data, size);
         } else {
@@ -122,8 +123,10 @@ public class S32xBus extends GenesisBus {
         } else {
             res = super.read(address, size);
         }
-        logInfo("Read address: {}, size: {}, result: {}",
-                Long.toHexString(address), size, Long.toHexString(res));
+        if (verboseMd) {
+            LOG.info("Read address: {}, size: {}, result: {}",
+                    Long.toHexString(address), size, Long.toHexString(res));
+        }
         return res;
     }
 
@@ -137,8 +140,10 @@ public class S32xBus extends GenesisBus {
         } else {
             res = super.read(address, size);
         }
-        logInfo("Read address: {}, size: {}, result: {}",
-                Long.toHexString(address), size, Long.toHexString(res));
+        if (verboseMd) {
+            LOG.info("Read address: {}, size: {}, result: {}",
+                    Long.toHexString(address), size, Long.toHexString(res));
+        }
         return res;
     }
 
@@ -205,12 +210,6 @@ public class S32xBus extends GenesisBus {
             res = Sh2Util.readBuffer(bios68k, address, size);
         }
         return res;
-    }
-
-    private static void logInfo(String str, Object... args) {
-        if (verboseMd) {
-            LOG.info(new ParameterizedMessage(str, args));
-        }
     }
 
     public MarsVdp getMarsVdp() {
