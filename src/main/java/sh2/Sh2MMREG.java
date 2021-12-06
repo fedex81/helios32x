@@ -45,7 +45,9 @@ public class Sh2MMREG {
         checkName(reg);
         Sh2Util.writeBuffer(regs, reg & 0xFF, value, size);
         if (reg == DVDNTL) {
-            divDsp();
+            div64Dsp();
+        } else if (reg == DVDNT) {
+            div32Dsp(value, size);
         }
     }
 
@@ -71,8 +73,8 @@ public class Sh2MMREG {
     }
 
     //64/32 -> 32 only
-    //TODO 32/32 -> 32
-    private void divDsp() {
+    //TODO 39 cycles, overflow handling?
+    private void div64Dsp() {
         long dh = regs.getInt(DVDNTH & 0xFF);
         long dl = regs.getInt(DVDNTL & 0xFF);
         long dvd = ((dh << 32) & 0xffffffff_ffffffffL) | (dl & 0xffffffffL);
@@ -88,6 +90,20 @@ public class Sh2MMREG {
         regs.putInt(DVDNTUH & 0xFF, rem);
         regs.putInt(DVDNTL & 0xFF, quot);
         regs.putInt(DVDNTUL & 0xFF, quot);
+    }
+
+    //32/32 -> 32
+    //TODO 39 cycles, overflow handling?
+    private void div32Dsp(int value, Size size) {
+        long d = value;
+        Sh2Util.writeBuffer(regs, DVDNTH & 0xFF, (int) (d >> 32), size); //sign extend MSB into DVDNTH
+        Sh2Util.writeBuffer(regs, DVDNTL & 0xFF, value, size);
+        int dvd = regs.getInt(DVDNT & 0xFF);
+        int dvsr = regs.getInt(DVSR & 0xFF);
+        int quot = dvd / dvsr;
+        int rem = (int) (dvd - quot * dvsr);
+        regs.putInt(DVDNTH & 0xFF, rem);
+        regs.putInt(DVDNT & 0xFF, quot);
     }
 
     public void reset() {

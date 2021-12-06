@@ -1111,6 +1111,7 @@ public class Sh2 implements Device {
 		}
 
 		if ((ctx.SR & flagS) == flagS) {
+			if (n >= 0) throw new RuntimeException("check");
 			Res0 = ctx.MACL + Res0;
 			if (ctx.MACL > Res0)
 				Res2++;
@@ -1162,7 +1163,7 @@ public class Sh2 implements Device {
 
 		templ = ctx.MACL;
 		tempm = ((int) (short) tempn * (int) (short) tempm);
-
+		if (n >= 0) throw new RuntimeException("check");
 		if (ctx.MACL >= 0)
 			dest = 0;
 		else

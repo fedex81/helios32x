@@ -33,6 +33,7 @@ public class Sh2Dict {
     public static final int TOCR = 0xFE17;
 
     public static final int IPRA = 0xFEE2;
+    public static final int VCRWDT = 0xFEE4;
     public static final int IPRB = 0xFE60;
     public static final int VCRA = 0xFE62;
     public static final int VCRB = 0xFE64;
@@ -45,6 +46,8 @@ public class Sh2Dict {
     public static final int WCR = 0xFFE8;
     public static final int MCR = 0xFFEC;
     public static final int DVSR = 0xFF00;
+    public static final int DVDNT = 0xFF04;
+    public static final int DVCR = 0xFF08;
     public static final int DVDNTH = 0xFF10;
     public static final int DVDNTL = 0xFF14;
     /* Quotient long-term register */
@@ -52,6 +55,9 @@ public class Sh2Dict {
     public static final int DVDNTUH = 0xFF18;
     public static final int DVDNTUL = 0xFF1C;
 
+    public static final int BARAH = 0xFF40;
+    public static final int BARAL = 0xFF42;
+    public static final int BARBH = 0xFF60;
 
     public static final int DMA_DRCR0 = 0xFE71;
     public static final int DMA_DRCR1 = 0xFE72;
@@ -105,6 +111,8 @@ public class Sh2Dict {
         sh2RegNames[VCRB] = "VCRB";//Vector number setting register B
 
         sh2RegNames[DVSR] = "DVSR";
+        sh2RegNames[DVCR] = "DVCR"; //Division control register
+        sh2RegNames[DVDNT] = "DVDNT"; //Dividend register L for 32-bit division
         sh2RegNames[DVDNTH] = "DVDNTH";
         sh2RegNames[DVDNTL] = "DVDNTL";
         sh2RegNames[DVDNTUH] = "DVDNTUH";
@@ -123,5 +131,10 @@ public class Sh2Dict {
         sh2RegNames[DMA_TCR0] = "DMA_TCR0";
         sh2RegNames[DMA_TCR1] = "DMA_TCR1";
         sh2RegNames[DMAOR] = "DMAOR";
+
+        sh2RegNames[VCRWDT] = "VCRWDT"; //Vector number setting register WDT
+        sh2RegNames[BARAH] = "BARAH";   //Break address register AH
+        sh2RegNames[BARAL] = "BARAL";   //Break address register AL
+        sh2RegNames[BARBH] = "BARBH";   //Break address register BH
     }
 }

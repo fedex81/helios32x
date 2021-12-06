@@ -97,6 +97,14 @@ public final class Sh2Memory implements IMemory {
 				return Sh2Util.readBuffer(sdram, address & SDRAM_MASK, size);
 			} else if (address >= START_SDRAM_CACHE && address < END_SDRAM_CACHE) {
 				return Sh2Util.readBuffer(sdram, address & SDRAM_MASK, size);
+			} else if (address >= S32XMMREG.START_DRAM && address < S32XMMREG.END_DRAM) {
+				return s32XMMREG.read(address, size);
+			} else if (address >= S32XMMREG.START_DRAM_CACHE && address < S32XMMREG.END_DRAM_CACHE) {
+				return s32XMMREG.read(address, size);
+			} else if (address >= S32XMMREG.START_OVER_IMAGE && address < S32XMMREG.END_OVER_IMAGE) {
+				return s32XMMREG.read(address, size);
+			} else if (address >= S32XMMREG.START_OVER_IMAGE_CACHE && address < S32XMMREG.END_OVER_IMAGE_CACHE) {
+				return s32XMMREG.read(address, size);
 			} else if ((address & 0xfffff000) == START_DATA_ARRAY) {
 				return sh2MMREGS[sh2Access.ordinal()].readCache(address, size);
 			} else if ((address & START_ONCHIP_MOD) == START_ONCHIP_MOD) {
@@ -126,6 +134,8 @@ public final class Sh2Memory implements IMemory {
 		} else if (address >= START_SDRAM_CACHE && address < END_SDRAM_CACHE) {
 			Sh2Util.writeBuffer(sdram, address & SDRAM_MASK, val, size);
 		} else if (address >= S32XMMREG.START_OVER_IMAGE && address < S32XMMREG.END_OVER_IMAGE) {
+			s32XMMREG.write(address, val, size);
+		} else if (address >= S32XMMREG.START_OVER_IMAGE_CACHE && address < S32XMMREG.END_OVER_IMAGE_CACHE) {
 			s32XMMREG.write(address, val, size);
 		} else if ((address & 0xfffff000) == START_DATA_ARRAY) {
 			sh2MMREGS[sh2Access.ordinal()].writeCache(address, val, size);

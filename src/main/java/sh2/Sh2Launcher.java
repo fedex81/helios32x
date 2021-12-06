@@ -61,7 +61,7 @@ public class Sh2Launcher {
         ctx.slaveCtx = new Sh2Context(SLAVE);
         ctx.biosHolder = initBios();
         ctx.bus = bus;
-        ctx.rom = ByteBuffer.wrap(FileLoader.readFileSafe(romFile));
+        ctx.rom = ByteBuffer.wrap(FileLoader.readBinaryFile(romFile, ".32x"));
         ctx.s32XMMREG = new S32XMMREG();
         ctx.memory = new Sh2Memory(ctx.s32XMMREG, ctx.rom);
         ctx.memory.bios[MASTER.ordinal()] = ctx.biosHolder.getBiosData(MASTER);

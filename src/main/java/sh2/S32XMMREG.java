@@ -197,6 +197,8 @@ public class S32XMMREG implements Device {
             }
         } else if (address >= START_DRAM_CACHE && address < END_DRAM_CACHE) {
             res = Sh2Util.readBuffer(dramBanks[frameBufferWritable], address & DRAM_MASK, size);
+        } else if (address >= START_OVER_IMAGE_CACHE && address < END_OVER_IMAGE_CACHE) {
+            res = Sh2Util.readBuffer(dramBanks[frameBufferWritable], address & DRAM_MASK, size);
         } else {
             throw new RuntimeException();
         }
