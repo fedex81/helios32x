@@ -3,8 +3,8 @@ package sh2.dict;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.MarsVdp;
 import sh2.Sh2Util;
+import sh2.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
 
@@ -199,7 +199,7 @@ public class S32xDict {
             switch (reg) {
                 case VDP_BITMAP_MODE:
                     s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][regNamePos],
-                            MarsVdp.BITMAP_MODE.vals[value & 3].name(), value & 3, value, size.name(), evenOdd);
+                            MarsVdp.BitmapMode.vals[value & 3].name(), value & 3, value, size.name(), evenOdd);
                     break;
                 case FBCR:
                     String s1 = "D" + logCtx.fbD + "W" + logCtx.fbW +

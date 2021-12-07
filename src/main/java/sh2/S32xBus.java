@@ -10,6 +10,7 @@ import omegadrive.vdp.model.BaseVdpAdapterEventSupport;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.dict.S32xDict;
+import sh2.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
 

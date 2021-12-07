@@ -1,10 +1,9 @@
-package sh2;
+package sh2.vdp;
 
 import omegadrive.util.VideoMode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.awt.*;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
 import java.util.Arrays;
@@ -16,85 +15,59 @@ import static sh2.S32XMMREG.DRAM_SIZE;
  * <p>
  * Copyright 2021
  */
-public class MarsVdp {
+public class MarsVdpImpl implements MarsVdp {
 
-    private static final Logger LOG = LogManager.getLogger(MarsVdp.class.getSimpleName());
-
-    static final int PANEL_TEXT_HEIGHT = 20;
-    static final int PANEL_HEIGHT = 256 + PANEL_TEXT_HEIGHT;
-    static final int PANEL_WIDTH = 320;
-    static final Dimension layerDim = new Dimension(PANEL_WIDTH, PANEL_HEIGHT);
-    static final int DIRECT_COLOR_LINES = 204; // ~(65536 - 256)/320
-    static final int LINE_TABLE_WORDS = 256;
-    static final int LINE_TABLE_BYTES = LINE_TABLE_WORDS << 1;
-
-    private static final int[] bgr5toRgb8Mapper = new int[0x10000];
-    static final int NUM_FB = 2;
-
-    public enum BITMAP_MODE {
-        BLANK, PACKED_PX, DIRECT_COL, RUN_LEN;
-
-        public static BITMAP_MODE[] vals = BITMAP_MODE.values();
-    }
+    private static final Logger LOG = LogManager.getLogger(MarsVdpImpl.class.getSimpleName());
 
     private int[] buffer;
 
     private ShortBuffer[] frameBuffersWord = new ShortBuffer[NUM_FB];
     private ShortBuffer colorPaletteWords;
-    private VideoMode videoMode;
     private short[] fbDataWords = new short[(DRAM_SIZE - LINE_TABLE_BYTES) >> 1];
     private int[] lineTableWords = new int[LINE_TABLE_WORDS];
 
     private MarsVdpDebugView view;
-    private BITMAP_MODE lastBitmapMode = BITMAP_MODE.BLANK;
+    private MarsVdpContext latestContext;
 
-    public static MarsVdp createInstance(ByteBuffer[] frameBuffers, ByteBuffer colorPalette) {
-        MarsVdp v = new MarsVdp();
+    static {
+        MarsVdp.initBgrMapper();
+    }
+
+    public static MarsVdp createInstance(MarsVdpContext vdpContext, ByteBuffer[] frameBuffers, ByteBuffer colorPalette) {
+        MarsVdpImpl v = new MarsVdpImpl();
         v.colorPaletteWords = colorPalette.asShortBuffer();
         v.frameBuffersWord[0] = frameBuffers[0].asShortBuffer();
         v.frameBuffersWord[1] = frameBuffers[1].asShortBuffer();
         v.view = MarsVdpDebugView.createInstance();
-        v.updateVideoMode(VideoMode.NTSCJ_H20_V18); //force an update later
-        initBgrMapper();
+        v.latestContext = vdpContext;
+        v.updateVideoModeInternal(vdpContext.videoMode);
         return v;
     }
 
-    public void draw(BITMAP_MODE bitmap_mode, int num, int screenShift) {
-        lastBitmapMode = bitmap_mode;
-        switch (bitmap_mode) {
+    @Override
+    public void draw(MarsVdpContext context) {
+        switch (context.bitmapMode) {
             case BLANK:
                 Arrays.fill(buffer, 0, buffer.length, 0);
                 break;
             case PACKED_PX:
-                drawPackedPixel(videoMode, num, screenShift);
+                drawPackedPixel(context);
                 break;
             case RUN_LEN:
-                drawRunLen(videoMode, num, screenShift);
+                drawRunLen(context);
                 break;
             case DIRECT_COL:
-                drawDirectColor(videoMode, num, screenShift);
+                drawDirectColor(context);
                 break;
         }
-        view.update(videoMode, num, buffer);
-    }
-
-    public void updateVideoMode(VideoMode videoMode) {
-        if (videoMode.equals(this.videoMode)) {
-            return;
-        }
-        this.buffer = new int[videoMode.getDimension().width * videoMode.getDimension().height];
-        LOG.info("Updating videoMode, {} -> {}", this.videoMode, videoMode);
-        this.videoMode = videoMode;
-    }
-
-    public VideoMode getVideoMode() {
-        return videoMode;
+        view.update(context, buffer);
+        latestContext = context;
     }
 
     //Mars Sample Program - Pharaoh
-    private void drawDirectColor(VideoMode videoMode, int num, int screenShift) {
-        final int w = videoMode.getDimension().width;
-        final ShortBuffer b = frameBuffersWord[num];
+    private void drawDirectColor(MarsVdpContext context) {
+        final int w = context.videoMode.getDimension().width;
+        final ShortBuffer b = frameBuffersWord[context.frameBufferDisplay];
         final int[] imgData = buffer;
         b.position(LINE_TABLE_WORDS);
         b.get(fbDataWords);
@@ -111,10 +84,10 @@ public class MarsVdp {
         }
     }
 
-    private void drawRunLen(VideoMode videoMode, int num, int screenShift) {
-        final int h = videoMode.getDimension().height;
-        final int w = videoMode.getDimension().width;
-        final ShortBuffer b = frameBuffersWord[num];
+    private void drawRunLen(MarsVdpContext context) {
+        final int h = context.videoMode.getDimension().height;
+        final int w = context.videoMode.getDimension().width;
+        final ShortBuffer b = frameBuffersWord[context.frameBufferDisplay];
         final int[] imgData = buffer;
         b.position(LINE_TABLE_WORDS);
         b.get(fbDataWords);
@@ -140,8 +113,8 @@ public class MarsVdp {
     }
 
     //32X Sample Program - Celtic - PWM Test
-    void drawPackedPixel(VideoMode videoMode, int num, int screenShift) {
-        final ShortBuffer b = frameBuffersWord[num];
+    void drawPackedPixel(MarsVdpContext context) {
+        final ShortBuffer b = frameBuffersWord[context.frameBufferDisplay];
         final int[] imgData = buffer;
 
         b.position(0);
@@ -153,12 +126,12 @@ public class MarsVdp {
         b.get(fbDataWords);
 
         int last = 0;
-        final int h = videoMode.getDimension().height;
-        final int w = videoMode.getDimension().width;
+        final int h = context.videoMode.getDimension().height;
+        final int w = context.videoMode.getDimension().width;
 
         for (int row = 0; row < h; row++) {
             //TODO why 64???
-            final int linePos = lineTableWords[row] + screenShift + 64;
+            final int linePos = lineTableWords[row] + context.screenShift + 64;
             final int basePos = row * w;
             for (int col = 0, wordOffset = 0; col < w; col += 2, wordOffset++) {
                 final int palWordIdx1 = (fbDataWords[linePos + wordOffset] >> 8) & 0xFF;
@@ -170,21 +143,27 @@ public class MarsVdp {
         }
     }
 
-    private static void initBgrMapper() {
-        for (int i = 0; i < bgr5toRgb8Mapper.length; i++) {
-            int b = ((i >> 10) & 0x1F) << 3; //5 to 8 bits, multiply by 8
-            int g = ((i >> 5) & 0x1F) << 3;
-            int r = ((i >> 0) & 0x1F) << 3;
-            bgr5toRgb8Mapper[i] = (r << 16) | (g << 8) | b;
+    @Override
+    public void updateVideoMode(VideoMode videoMode) {
+        if (videoMode.equals(latestContext.videoMode)) {
+            return;
         }
+        updateVideoModeInternal(videoMode);
+        latestContext.videoMode = videoMode;
     }
 
+    private void updateVideoModeInternal(VideoMode videoMode) {
+        this.buffer = new int[videoMode.getDimension().width * videoMode.getDimension().height];
+        LOG.info("Updating videoMode, {} -> {}", latestContext.videoMode, videoMode);
+    }
+
+    @Override
     public int[] getScreenDataLinear() {
         return buffer;
     }
 
+    @Override
     public boolean isBlank() {
-        return lastBitmapMode == BITMAP_MODE.BLANK;
+        return latestContext.bitmapMode == BitmapMode.BLANK;
     }
-
 }

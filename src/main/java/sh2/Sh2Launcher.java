@@ -3,6 +3,7 @@ package sh2;
 import omegadrive.SystemLoader;
 import omegadrive.util.FileLoader;
 import omegadrive.util.Util;
+import sh2.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -32,7 +33,7 @@ public class Sh2Launcher {
      * <p>
      * rom06: DVDNT 32/32 div
      */
-    static String romName = "res/roms/rom07.zip";
+    static String romName = "res/roms/testc1.32x";
 
     private static void initProps() {
         System.setProperty("helios.headless", "false");

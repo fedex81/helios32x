@@ -5,6 +5,7 @@ import omegadrive.system.Genesis;
 import omegadrive.ui.DisplayWindow;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.vdp.MarsVdp;
 
 import java.util.Optional;
 

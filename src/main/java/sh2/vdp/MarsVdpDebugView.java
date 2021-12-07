@@ -1,4 +1,4 @@
-package sh2;
+package sh2.vdp;
 
 import omegadrive.util.ImageUtil;
 import omegadrive.util.VideoMode;
@@ -7,7 +7,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 
-import static sh2.MarsVdpDebugView.ImageType.*;
+import static sh2.vdp.MarsVdpDebugView.ImageType.*;
 
 /**
  * VdpDebugView
@@ -20,13 +20,13 @@ public interface MarsVdpDebugView {
 
     static MarsVdpDebugView NO_OP = new MarsVdpDebugView() {
         @Override
-        public void update(VideoMode videoMode, int fbSelect, int[] buffer) {
+        public void update(MarsVdp.MarsVdpContext context, int[] buffer) {
         }
     };
 
     public enum ImageType {BUFF_0, BUFF_1, FULL}
 
-    void update(VideoMode videoMode, int fbSelect, int[] buffer);
+    void update(MarsVdp.MarsVdpContext context, int[] buffer);
 
     public static MarsVdpDebugView createInstance() {
         return MarsVdpDebugViewImpl.DEBUG_VIEWER_ENABLED ? new MarsVdpDebugViewImpl() : NO_OP;
@@ -121,11 +121,11 @@ public interface MarsVdpDebugView {
         }
 
         @Override
-        public void update(VideoMode videoMode, int dramBank, int[] rgb888) {
+        public void update(MarsVdp.MarsVdpContext context, int[] rgb888) {
             if (videoMode != this.videoMode) {
                 updateVideoMode(videoMode);
             }
-            copyToImages(dramBank, rgb888);
+            copyToImages(context.frameBufferDisplay, rgb888);
             panel.repaint();
         }
 
