@@ -20,8 +20,4 @@ public interface IMemory {
     void write8i(int register, byte register1);
 
     void resetSh2();
-
-    default void setSh2Access(Sh2Util.Sh2Access sh2Access) {
-        //DO NOTHING
-    }
 }

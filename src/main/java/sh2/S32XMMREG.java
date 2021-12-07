@@ -1,6 +1,7 @@
 package sh2;
 
 import omegadrive.Device;
+import omegadrive.system.BaseSystem;
 import omegadrive.util.Size;
 import omegadrive.util.VideoMode;
 import org.apache.logging.log4j.LogManager;
@@ -8,6 +9,7 @@ import org.apache.logging.log4j.Logger;
 import sh2.MarsVdp.BITMAP_MODE;
 import sh2.Sh2Util.Sh2Access;
 import sh2.dict.S32xDict;
+import sh2.dict.S32xMemAccessDelay;
 
 import java.nio.ByteBuffer;
 
@@ -57,8 +59,6 @@ public class S32XMMREG implements Device {
     public static final int START_OVER_IMAGE = START_OVER_IMAGE_CACHE + CACHE_THROUGH_OFFSET;
     public static final int END_OVER_IMAGE = END_OVER_IMAGE_CACHE + CACHE_THROUGH_OFFSET;
 
-    public static Sh2Access sh2Access = MASTER;
-
     private static final boolean verbose = false, verboseRead = false;
 
     //0 = no cart, 1 = otherwise
@@ -90,6 +90,7 @@ public class S32XMMREG implements Device {
     private int hCount = 0;
     private S32xBus bus;
     private S32xDictLogContext logCtx;
+    private int deviceAccessType;
 
     public S32XMMREG() {
         init();
@@ -169,9 +170,10 @@ public class S32XMMREG implements Device {
                     Sh2Util.writeBuffer(colorPalette, address & S32X_COLPAL_MASK, value, size);
                     break;
                 default:
-                    LOG.error(sh2Access + " write, unable to access colorPalette as " + size);
+                    LOG.error(BaseSystem.getAccessType() + " write, unable to access colorPalette as " + size);
                     break;
             }
+            deviceAccessType = S32xMemAccessDelay.PALETTE;
         } else if (address >= START_DRAM_CACHE && address < END_DRAM_CACHE) {
             if (size == Size.BYTE && value == 0) { //value =0 on byte access is ignored
                 return;
@@ -182,6 +184,7 @@ public class S32XMMREG implements Device {
         } else {
             throw new RuntimeException();
         }
+        S32xMemAccessDelay.addWriteCpuDelay(deviceAccessType);
     }
 
     public int read(int address, Size size) {
@@ -193,8 +196,9 @@ public class S32XMMREG implements Device {
             if (size == Size.WORD) {
                 res = Sh2Util.readBuffer(colorPalette, address & S32X_COLPAL_MASK, size);
             } else {
-                LOG.error(sh2Access + " read, unable to access colorPalette as " + size);
+                LOG.error(BaseSystem.getAccessType() + " read, unable to access colorPalette as " + size);
             }
+            deviceAccessType = S32xMemAccessDelay.PALETTE;
         } else if (address >= START_DRAM_CACHE && address < END_DRAM_CACHE) {
             res = Sh2Util.readBuffer(dramBanks[frameBufferWritable], address & DRAM_MASK, size);
         } else if (address >= START_OVER_IMAGE_CACHE && address < END_OVER_IMAGE_CACHE) {
@@ -202,15 +206,18 @@ public class S32XMMREG implements Device {
         } else {
             throw new RuntimeException();
         }
+        S32xMemAccessDelay.addReadCpuDelay(deviceAccessType);
         return (int) (res & size.getMask());
     }
 
     private int handleRegRead(int address, Size size) {
+        Sh2Access sh2Access = BaseSystem.getAccessType();
         int reg = address & S32X_MMREG_MASK;
         if (size == Size.LONG && reg < COMM0) {
             throw new RuntimeException("unsupported 32 bit access: " + address);
         }
         boolean isSys = address < END_32X_SYSREG_CACHE;
+        deviceAccessType = isSys ? S32xMemAccessDelay.SYS_REG : S32xMemAccessDelay.VDP_REG;
         ByteBuffer regArea = isSys ? (sh2Access == M68K ? sysRegsMd : sysRegsSh2) : vdpRegs;
         if (verboseRead) {
             doLog(regArea, isSys, address, reg, -1, size, true);
@@ -231,6 +238,7 @@ public class S32XMMREG implements Device {
     }
 
     private boolean handleRegWrite(int address, int value, Size size) {
+        Sh2Access sh2Access = BaseSystem.getAccessType();
         boolean skipWrite = false;
         boolean regChanged = false;
         int reg = address & S32X_MMREG_MASK;
@@ -239,6 +247,7 @@ public class S32XMMREG implements Device {
             throw new RuntimeException("unsupported 32 bit access, reg: " + address);
         }
         final boolean isSys = address < END_32X_SYSREG_CACHE;
+        deviceAccessType = isSys ? S32xMemAccessDelay.SYS_REG : S32xMemAccessDelay.VDP_REG;
         final ByteBuffer regArea = isSys ? (sh2Access == M68K ? sysRegsMd : sysRegsSh2) : vdpRegs;
         boolean logAccess = false;
 
@@ -316,13 +325,13 @@ public class S32XMMREG implements Device {
     }
 
     private void doLog(ByteBuffer regArea, boolean isSys, int address, int reg, int value, Size size, boolean read) {
-        logCtx.sh2Access = sh2Access;
+        logCtx.sh2Access = BaseSystem.getAccessType();
         logCtx.regArea = regArea;
         logCtx.isSys = isSys;
         logCtx.read = read;
         logCtx.fbD = frameBufferDisplay;
         logCtx.fbW = frameBufferWritable;
-        checkName(sh2Access, address, size);
+        checkName(logCtx.sh2Access, address, size);
         S32xDict.logAccess(logCtx, address, value, size, reg);
         S32xDict.detectRegAccess(logCtx, address, value, size);
     }
@@ -354,9 +363,6 @@ public class S32XMMREG implements Device {
         return res;
     }
 
-//    static final int clrSh2CmdIntAfterReadBase = 5;
-//    int clrSh2CmdIntAfterRead = clrSh2CmdIntAfterReadBase;
-
     private boolean handleReg2Write(Sh2Access sh2Access, int reg, int value, Size size) {
         boolean res = false;
         switch (sh2Access) {
@@ -374,6 +380,7 @@ public class S32XMMREG implements Device {
 
     private boolean handleIntControlWrite68k(int reg, int value, Size size) {
         int baseReg = reg & ~1;
+        Sh2Access sh2Access = BaseSystem.getAccessType();
         ByteBuffer b = sh2Access == M68K ? sysRegsMd : sysRegsSh2;
         int val = Sh2Util.readBuffer(b, baseReg, Size.WORD);
         Sh2Util.writeBuffer(b, reg, value, size);
@@ -486,6 +493,7 @@ public class S32XMMREG implements Device {
     }
 
     private void setFmSh2Reg(int fm) {
+        Sh2Access sh2Access = BaseSystem.getAccessType();
         this.fm = fm;
         int valM = interruptControl.readSh2IntMaskReg(MASTER, 0, Size.BYTE) & 0x7F;
         int valS = interruptControl.readSh2IntMaskReg(SLAVE, 0, Size.BYTE) & 0x7F;

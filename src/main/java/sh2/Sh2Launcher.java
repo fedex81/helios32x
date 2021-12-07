@@ -26,7 +26,13 @@ public class Sh2Launcher {
 //    static String slaveBiosName = "32x_hbrew_bios_s.bin";
 //    static String mdBiosName = "32x_hbrew_bios_g.bin";
 
-    static String romName = "res/roms/test1.bin";
+    /**
+     * test1.bin
+     * 68k writes 'OK  ' on comm reg but sh2 is not answering
+     * <p>
+     * rom06: DVDNT 32/32 div
+     */
+    static String romName = "res/roms/rom07.zip";
 
     private static void initProps() {
         System.setProperty("helios.headless", "false");

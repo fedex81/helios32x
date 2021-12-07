@@ -69,7 +69,6 @@ public class Sh2 implements Device {
 	}
 
 	public void reset(Sh2Context ctx) {
-		memory.setSh2Access(ctx.sh2Access);
 		ctx.VBR = 0;
 		ctx.PC = memory.read32i(0);
 		ctx.SR = flagIMASK;
@@ -2132,7 +2131,6 @@ public class Sh2 implements Device {
 	 */
 	public void run(final Sh2Context ctx) {
 		this.ctx = ctx;
-		memory.setSh2Access(ctx.sh2Access);
 		int opcode;
 		for (; ctx.cycles >= 0; ) {
 			opcode = memory.read16i(ctx.PC);

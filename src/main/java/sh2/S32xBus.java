@@ -69,7 +69,6 @@ public class S32xBus extends GenesisBus {
 
     @Override
     public long read(long address, Size size) {
-        S32XMMREG.sh2Access = Sh2Util.Sh2Access.M68K;
         address &= 0xFF_FFFFF;
         if (s32XMMREG.aden > 0) {
             return readAdapterEnOn((int) address, size);
@@ -80,7 +79,6 @@ public class S32xBus extends GenesisBus {
 
     @Override
     public void write(long address, long data, Size size) {
-        S32XMMREG.sh2Access = Sh2Util.Sh2Access.M68K;
         address &= 0xFF_FFFFF;
         if (verboseMd) {
             LOG.info("Write address: {}, data: {}, size: {}", Long.toHexString(address),
@@ -95,7 +93,6 @@ public class S32xBus extends GenesisBus {
 
     private long readAdapterEnOn(int address, Size size) {
         long res = 0;
-        S32XMMREG.sh2Access = Sh2Util.Sh2Access.M68K;
         if (address < 0x100) {
             res = Sh2Util.readBuffer(bios68k, address, size);
             if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {

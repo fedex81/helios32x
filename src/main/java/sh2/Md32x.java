@@ -19,20 +19,13 @@ public class Md32x extends Genesis {
 
     //23.01Mhz NTSC
     protected final static int SH2_CYCLES_PER_STEP;
-    protected final static int SH2_DIVIDER;
+    protected final static int SH2_CYCLE_RATIO;
 
-    //cps = 6, div = 14 -> 53.6/7*3 = 23.01 correct speed, master/slave not in lockstep
-    //cps = 3, div = 7 -> 53.6/7*3 = 23.01 correct speed, not lockstep
-    //cps = 1, div = 3 -> 53.6/3 = 17.9 underclock, lockstep
-    //cps = 1, div = 2 -> 53.6/2 = 26.8 overclock, lockstep,
     static {
-        SH2_CYCLES_PER_STEP = 1;
+        SH2_CYCLES_PER_STEP = 3;
         Sh2.burstCycles = SH2_CYCLES_PER_STEP;
-        if (SH2_CYCLES_PER_STEP == 1) {
-            SH2_DIVIDER = 3; //2
-        } else {
-            SH2_DIVIDER = MCLK_DIVIDER * SH2_CYCLES_PER_STEP / 3;
-        }
+        //3 cycles @ 23Mhz = 1 cycle @ 7.67
+        SH2_CYCLE_RATIO = 3; //23.01/7.67 = 3
     }
 
     private int nextMSh2Cycle = 1, nextSSh2Cycle = 1;
@@ -41,7 +34,6 @@ public class Md32x extends Genesis {
     private Sh2 sh2;
     private Sh2Context masterCtx, slaveCtx;
     private MarsVdp marsVdp;
-
 
     public Md32x(DisplayWindow emuFrame) {
         super(emuFrame);
@@ -86,12 +78,14 @@ public class Md32x extends Genesis {
     //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
     protected final void runSh2(int counter) {
         if (nextMSh2Cycle == counter) {
+            setAccessType(Sh2Util.Sh2Access.MASTER);
             sh2.run(masterCtx);
-            nextMSh2Cycle += masterCtx.cycles_ran * SH2_DIVIDER;
+            nextMSh2Cycle += (masterCtx.cycles_ran + resetCpuDelay()) / SH2_CYCLE_RATIO;
         }
         if (nextSSh2Cycle == counter) {
+            setAccessType(Sh2Util.Sh2Access.SLAVE);
             sh2.run(slaveCtx);
-            nextSSh2Cycle += slaveCtx.cycles_ran * SH2_DIVIDER;
+            nextSSh2Cycle += (slaveCtx.cycles_ran + resetCpuDelay()) / SH2_CYCLE_RATIO;
         }
     }
 

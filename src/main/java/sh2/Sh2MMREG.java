@@ -79,6 +79,10 @@ public class Sh2MMREG {
         long dl = regs.getInt(DVDNTL & 0xFF);
         long dvd = ((dh << 32) & 0xffffffff_ffffffffL) | (dl & 0xffffffffL);
         int dvsr = regs.getInt(DVSR & 0xFF);
+        if (dvsr == 0) {
+            LOG.error("divisor is 0!");
+            return;
+        }
         long quotL = dvd / dvsr;
         int quot = (int) quotL;
         int rem = (int) (dvd - quot * dvsr);
@@ -90,6 +94,7 @@ public class Sh2MMREG {
         regs.putInt(DVDNTUH & 0xFF, rem);
         regs.putInt(DVDNTL & 0xFF, quot);
         regs.putInt(DVDNTUL & 0xFF, quot);
+//        BaseSystem.addCpuDelay(39);
     }
 
     //32/32 -> 32
@@ -100,10 +105,15 @@ public class Sh2MMREG {
         Sh2Util.writeBuffer(regs, DVDNTL & 0xFF, value, size);
         int dvd = regs.getInt(DVDNT & 0xFF);
         int dvsr = regs.getInt(DVSR & 0xFF);
+        if (dvsr == 0) {
+            LOG.error("divisor is 0!");
+            return;
+        }
         int quot = dvd / dvsr;
         int rem = (int) (dvd - quot * dvsr);
         regs.putInt(DVDNTH & 0xFF, rem);
         regs.putInt(DVDNT & 0xFF, quot);
+//        BaseSystem.addCpuDelay(39);
     }
 
     public void reset() {
