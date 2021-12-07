@@ -7,7 +7,7 @@ import sh2.IntC;
 import sh2.IntC.Sh2Interrupt;
 
 import static sh2.IntC.Sh2Interrupt.*;
-import static sh2.Sh2Util.Sh2Access.MASTER;
+import static sh2.Sh2Util.CpuDeviceAccess.MASTER;
 
 /**
  * Federico Berti

@@ -8,8 +8,8 @@ import sh2.Sh2Util;
 
 import java.nio.ByteBuffer;
 
-import static sh2.Sh2Util.Sh2Access.M68K;
-import static sh2.Sh2Util.Sh2Access.MASTER;
+import static sh2.Sh2Util.CpuDeviceAccess.M68K;
+import static sh2.Sh2Util.CpuDeviceAccess.MASTER;
 
 /**
  * Federico Berti
@@ -159,14 +159,14 @@ public class S32xDict {
     }
 
     public static class S32xDictLogContext {
-        public Sh2Util.Sh2Access sh2Access;
+        public Sh2Util.CpuDeviceAccess sh2Access;
         public ByteBuffer regArea;
         public boolean isSys;
         public int fbD, fbW;
         public boolean read;
     }
 
-    public static void checkName(Sh2Util.Sh2Access sh2Access, int address, Size size) {
+    public static void checkName(Sh2Util.CpuDeviceAccess sh2Access, int address, Size size) {
         int reg = (address & 0xFFF) & ~1;
         int rns = sh2Access == M68K ? M68K.ordinal() : MASTER.ordinal();
         if (s32xRegNames[rns][reg] == null) {

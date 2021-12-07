@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.S32XMMREG;
-import sh2.Sh2Util;
 import sh2.dict.S32xDict;
 
 import static sh2.dict.S32xDict.P32XV_240;
@@ -28,7 +27,6 @@ public class FrameBufferControlTest {
 
     @Test
     public void testFrameBufferSelect_BlankMode() {
-        S32XMMREG.sh2Access = Sh2Util.Sh2Access.MASTER;
         s32XMMREG.write(MarsRegTestUtil.BITMAP_MODE_OFFSET, 0, Size.WORD); //blank
 
         s32XMMREG.setVBlankOn(false);
@@ -55,7 +53,6 @@ public class FrameBufferControlTest {
 
     @Test
     public void testFrameBufferSelect() {
-        S32XMMREG.sh2Access = Sh2Util.Sh2Access.MASTER;
         s32XMMREG.write(MarsRegTestUtil.BITMAP_MODE_OFFSET, 1, Size.WORD); //packed pixel
         int res = s32XMMREG.read(MarsRegTestUtil.FBCR_OFFSET, Size.WORD);
 

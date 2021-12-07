@@ -17,7 +17,7 @@ public class PrTest {
     @BeforeEach
     public void before() {
         sh2 = new Sh2(null, null);
-        ctx = new Sh2Context(Sh2Util.Sh2Access.MASTER);
+        ctx = new Sh2Context(Sh2Util.CpuDeviceAccess.MASTER);
         sh2.setCtx(ctx);
     }
 

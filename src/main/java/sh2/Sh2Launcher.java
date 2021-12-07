@@ -8,7 +8,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static sh2.Sh2Util.Sh2Access.*;
+import static sh2.Sh2Util.CpuDeviceAccess.*;
 
 /**
  * Federico Berti
@@ -63,7 +63,7 @@ public class Sh2Launcher {
 
     public static Sh2LaunchContext setupRom(S32xBus bus, Path romFile) {
         Sh2LaunchContext ctx = new Sh2LaunchContext();
-        ctx.masterCtx = new Sh2Context(Sh2Util.Sh2Access.MASTER);
+        ctx.masterCtx = new Sh2Context(Sh2Util.CpuDeviceAccess.MASTER);
         ctx.slaveCtx = new Sh2Context(SLAVE);
         ctx.biosHolder = initBios();
         ctx.bus = bus;

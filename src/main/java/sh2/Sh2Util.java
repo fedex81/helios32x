@@ -42,9 +42,9 @@ public class Sh2Util {
         }
     }
 
-    public enum Sh2Access {
+    public enum CpuDeviceAccess {
         MASTER, SLAVE, M68K;
 
-        public static final Sh2Access[] vals = Sh2Access.values();
+        public static final CpuDeviceAccess[] vals = CpuDeviceAccess.values();
     }
 }

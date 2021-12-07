@@ -7,7 +7,7 @@ import omegadrive.util.VideoMode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.MarsVdp.BITMAP_MODE;
-import sh2.Sh2Util.Sh2Access;
+import sh2.Sh2Util.CpuDeviceAccess;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
 
@@ -15,7 +15,7 @@ import java.nio.ByteBuffer;
 
 import static sh2.IntC.Sh2Interrupt.*;
 import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
-import static sh2.Sh2Util.Sh2Access.*;
+import static sh2.Sh2Util.CpuDeviceAccess.*;
 import static sh2.dict.S32xDict.*;
 
 /**
@@ -211,7 +211,7 @@ public class S32XMMREG implements Device {
     }
 
     private int handleRegRead(int address, Size size) {
-        Sh2Access sh2Access = BaseSystem.getAccessType();
+        CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
         int reg = address & S32X_MMREG_MASK;
         if (size == Size.LONG && reg < COMM0) {
             throw new RuntimeException("unsupported 32 bit access: " + address);
@@ -238,7 +238,7 @@ public class S32XMMREG implements Device {
     }
 
     private boolean handleRegWrite(int address, int value, Size size) {
-        Sh2Access sh2Access = BaseSystem.getAccessType();
+        CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
         boolean skipWrite = false;
         boolean regChanged = false;
         int reg = address & S32X_MMREG_MASK;
@@ -336,7 +336,7 @@ public class S32XMMREG implements Device {
         S32xDict.detectRegAccess(logCtx, address, value, size);
     }
 
-    private void handleIntClearWrite(Sh2Access sh2Access, int regEven, int value, Size size) {
+    private void handleIntClearWrite(CpuDeviceAccess sh2Access, int regEven, int value, Size size) {
         if (sh2Access != M68K) {
             int intIdx = VRES_14.ordinal() - (regEven - 0x14);
             IntC.Sh2Interrupt intType = IntC.intVals[intIdx];
@@ -345,7 +345,7 @@ public class S32XMMREG implements Device {
     }
 
 
-    private boolean handleReg4Write(Sh2Access sh2Access, int reg, int value, Size size) {
+    private boolean handleReg4Write(CpuDeviceAccess sh2Access, int reg, int value, Size size) {
         boolean res = false;
         int baseReg = reg & ~1;
         ByteBuffer b = sh2Access == M68K ? sysRegsMd : sysRegsSh2;
@@ -363,7 +363,7 @@ public class S32XMMREG implements Device {
         return res;
     }
 
-    private boolean handleReg2Write(Sh2Access sh2Access, int reg, int value, Size size) {
+    private boolean handleReg2Write(CpuDeviceAccess sh2Access, int reg, int value, Size size) {
         boolean res = false;
         switch (sh2Access) {
             case M68K:
@@ -380,7 +380,7 @@ public class S32XMMREG implements Device {
 
     private boolean handleIntControlWrite68k(int reg, int value, Size size) {
         int baseReg = reg & ~1;
-        Sh2Access sh2Access = BaseSystem.getAccessType();
+        CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
         ByteBuffer b = sh2Access == M68K ? sysRegsMd : sysRegsSh2;
         int val = Sh2Util.readBuffer(b, baseReg, Size.WORD);
         Sh2Util.writeBuffer(b, reg, value, size);
@@ -392,7 +392,7 @@ public class S32XMMREG implements Device {
         return newVal != val;
     }
 
-    private boolean handleReg0Write(Sh2Access sh2Access, int reg, int value, Size size) {
+    private boolean handleReg0Write(CpuDeviceAccess sh2Access, int reg, int value, Size size) {
         boolean res = false;
         switch (sh2Access) {
             case M68K:
@@ -432,7 +432,7 @@ public class S32XMMREG implements Device {
         }
     }
 
-    private boolean handleIntMaskRegWriteSh2(Sh2Access sh2Access, int reg, int value, Size size) {
+    private boolean handleIntMaskRegWriteSh2(CpuDeviceAccess sh2Access, int reg, int value, Size size) {
         int baseReg = reg & ~1;
         int val = interruptControl.readSh2IntMaskReg(sh2Access, reg, size);
         interruptControl.writeSh2IntMaskReg(sh2Access, reg, value, size);
@@ -493,7 +493,7 @@ public class S32XMMREG implements Device {
     }
 
     private void setFmSh2Reg(int fm) {
-        Sh2Access sh2Access = BaseSystem.getAccessType();
+        CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
         this.fm = fm;
         int valM = interruptControl.readSh2IntMaskReg(MASTER, 0, Size.BYTE) & 0x7F;
         int valS = interruptControl.readSh2IntMaskReg(SLAVE, 0, Size.BYTE) & 0x7F;

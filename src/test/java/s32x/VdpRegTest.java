@@ -4,7 +4,6 @@ import omegadrive.util.Size;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.S32XMMREG;
-import sh2.Sh2Util;
 
 /**
  * Federico Berti
@@ -23,7 +22,6 @@ public class VdpRegTest {
     //palette enable bit#13
     @Test
     public void testPEN() {
-        S32XMMREG.sh2Access = Sh2Util.Sh2Access.MASTER;
         s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 0, Size.WORD);
         //startup, vblankOn, pen= true
         MarsRegTestUtil.assertPEN(s32XMMREG, true);
@@ -77,7 +75,6 @@ public class VdpRegTest {
 
     @Test
     public void testFBCR_ReadOnly() {
-        S32XMMREG.sh2Access = Sh2Util.Sh2Access.MASTER;
         s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 0, Size.WORD);
 
         s32XMMREG.setVBlankOn(true);

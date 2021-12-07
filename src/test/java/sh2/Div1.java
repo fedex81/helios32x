@@ -18,7 +18,7 @@ public class Div1 {
 
     @BeforeEach
     public void b4() {
-        ctx = new Sh2Context(Sh2Util.Sh2Access.MASTER);
+        ctx = new Sh2Context(Sh2Util.CpuDeviceAccess.MASTER);
         sh2 = new Sh2(null, null);
         sh2.setCtx(ctx);
     }

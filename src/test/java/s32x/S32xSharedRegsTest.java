@@ -1,5 +1,6 @@
 package s32x;
 
+import omegadrive.system.BaseSystem;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -10,7 +11,7 @@ import sh2.S32XMMREG;
 import sh2.Sh2Util;
 
 import static s32x.MarsRegTestUtil.*;
-import static sh2.Sh2Util.Sh2Access.*;
+import static sh2.Sh2Util.CpuDeviceAccess.*;
 
 /**
  * Federico Berti
@@ -41,7 +42,7 @@ public class S32xSharedRegsTest {
     }
 
 
-    private void testFm(Sh2Util.Sh2Access sh2Access) {
+    private void testFm(Sh2Util.CpuDeviceAccess sh2Access) {
         int expFm, fm;
 
         expFm = fm = 1;
@@ -149,13 +150,13 @@ public class S32xSharedRegsTest {
         Assertions.assertEquals(exp >> 8, read(SLAVE, INT_MASK, Size.BYTE));
     }
 
-    private int read(Sh2Util.Sh2Access sh2Access, int reg, Size size) {
-        S32XMMREG.sh2Access = sh2Access;
+    private int read(Sh2Util.CpuDeviceAccess sh2Access, int reg, Size size) {
+        BaseSystem.setAccessType(sh2Access);
         return s32XMMREG.read(reg, size);
     }
 
-    private void write(Sh2Util.Sh2Access sh2Access, int reg, int value, Size size) {
-        S32XMMREG.sh2Access = sh2Access;
+    private void write(Sh2Util.CpuDeviceAccess sh2Access, int reg, int value, Size size) {
+        BaseSystem.setAccessType(sh2Access);
         s32XMMREG.write(reg, value, size);
     }
 }

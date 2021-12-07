@@ -3,7 +3,7 @@ package sh2;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.Sh2Util.Sh2Access;
+import sh2.Sh2Util.CpuDeviceAccess;
 
 import java.nio.ByteBuffer;
 import java.util.stream.IntStream;
@@ -24,10 +24,10 @@ public class Sh2MMREG {
     private ByteBuffer regs = ByteBuffer.allocateDirect(0x100);
     private ByteBuffer data_array = ByteBuffer.allocateDirect(DATA_ARRAY_SIZE); // cache (can be used as RAM)
 
-    private Sh2Access sh2Access;
+    private CpuDeviceAccess sh2Access;
     private static final boolean verbose = false;
 
-    public Sh2MMREG(Sh2Access sh2Access) {
+    public Sh2MMREG(CpuDeviceAccess sh2Access) {
         this.sh2Access = sh2Access;
         reset();
     }

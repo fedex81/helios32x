@@ -3,13 +3,13 @@ package sh2;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.Sh2Util.Sh2Access;
+import sh2.Sh2Util.CpuDeviceAccess;
 
 import java.nio.ByteBuffer;
 
 import static sh2.IntC.Sh2Interrupt.*;
-import static sh2.Sh2Util.Sh2Access.MASTER;
-import static sh2.Sh2Util.Sh2Access.SLAVE;
+import static sh2.Sh2Util.CpuDeviceAccess.MASTER;
+import static sh2.Sh2Util.CpuDeviceAccess.SLAVE;
 
 /**
  * Federico Berti
@@ -58,7 +58,7 @@ public class IntC {
         }
     }
 
-    public void setIntsMasked(Sh2Access sh2Access, int value) {
+    public void setIntsMasked(CpuDeviceAccess sh2Access, int value) {
         final int sh2 = sh2Access.ordinal();
         for (int i = 0; i < 4; i++) {
             int imask = value & (1 << i);
@@ -68,17 +68,17 @@ public class IntC {
         }
     }
 
-    public int readSh2IntMaskReg(Sh2Access sh2Access, int pos, Size size) {
+    public int readSh2IntMaskReg(CpuDeviceAccess sh2Access, int pos, Size size) {
         return Sh2Util.readBuffer(sh2_int_mask[sh2Access.ordinal()], pos, size);
     }
 
-    public void writeSh2IntMaskReg(Sh2Access sh2Access, int reg, int value, Size size) {
+    public void writeSh2IntMaskReg(CpuDeviceAccess sh2Access, int reg, int value, Size size) {
         Sh2Util.writeBuffer(sh2_int_mask[sh2Access.ordinal()], reg, value, size);
         int newVal = readSh2IntMaskReg(sh2Access, 0, Size.WORD);
         setIntsMasked(sh2Access, newVal);
     }
 
-    public void setIntPending(Sh2Access sh2Access, Sh2Interrupt interrupt, boolean isPending) {
+    public void setIntPending(CpuDeviceAccess sh2Access, Sh2Interrupt interrupt, boolean isPending) {
         setIntPending(sh2Access.ordinal(), interrupt.ordinal(), isPending);
     }
 
@@ -109,7 +109,7 @@ public class IntC {
         interruptLevel[sh2] = newLevel;
     }
 
-    public void clearInterrupt(Sh2Access sh2Access, Sh2Interrupt intType) {
+    public void clearInterrupt(CpuDeviceAccess sh2Access, Sh2Interrupt intType) {
         clearInterrupt(sh2Access.ordinal(), intType.ordinal());
     }
 
@@ -123,14 +123,14 @@ public class IntC {
         logInfo("CLEAR", sh2, ipt);
     }
 
-    public int getInterruptLevel(Sh2Access sh2Access) {
+    public int getInterruptLevel(CpuDeviceAccess sh2Access) {
         return DISABLE_INT ? 0 : this.interruptLevel[sh2Access.ordinal()];
     }
 
     private void logInfo(String action, int sh2, int ipt) {
         if (verbose) {
             LOG.info("{}: {} {} valid (unmasked): {}, pending: {}, willTrigger: {}, intLevel: {}",
-                    action, Sh2Util.Sh2Access.vals[sh2], intVals[ipt], intValid[sh2][ipt], intPending[sh2][ipt], intTrigger[sh2][ipt], interruptLevel[sh2]);
+                    action, CpuDeviceAccess.vals[sh2], intVals[ipt], intValid[sh2][ipt], intPending[sh2][ipt], intTrigger[sh2][ipt], interruptLevel[sh2]);
         }
     }
 

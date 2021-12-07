@@ -11,8 +11,8 @@ import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 
-import static sh2.Sh2Util.Sh2Access.MASTER;
-import static sh2.Sh2Util.Sh2Access.SLAVE;
+import static sh2.Sh2Util.CpuDeviceAccess.MASTER;
+import static sh2.Sh2Util.CpuDeviceAccess.SLAVE;
 
 public final class Sh2Memory implements IMemory {
 
@@ -79,7 +79,7 @@ public final class Sh2Memory implements IMemory {
 	}
 
 	private int read(int address, Size size) {
-		Sh2Util.Sh2Access sh2Access = BaseSystem.getAccessType();
+		Sh2Util.CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
 		int res = 0;
 		if (address >= 0 && address < BOOT_ROM_SIZE) {
 			res = Sh2Util.readBuffer(bios[sh2Access.ordinal()], address, size);
@@ -131,7 +131,7 @@ public final class Sh2Memory implements IMemory {
 	}
 
 	private void write(int address, int val, Size size) {
-		Sh2Util.Sh2Access sh2Access = BaseSystem.getAccessType();
+		Sh2Util.CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
 		if (address >= S32XMMREG.START_32X_SYSREG && address < S32XMMREG.END_32X_COLPAL) {
 			s32XMMREG.write(address, val, size);
 		} else if (address >= S32XMMREG.START_32X_SYSREG_CACHE && address < S32XMMREG.END_32X_COLPAL_CACHE) {
