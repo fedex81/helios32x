@@ -2,6 +2,7 @@ package sh2;
 
 
 import omegadrive.Device;
+import omegadrive.system.BaseSystem;
 
 /*
  *  Revision 1 -  port the code from Dcemu and use information provided by dark||raziel (done)
@@ -44,7 +45,7 @@ public class Sh2 implements Device {
 	protected IMemory memory;
 	protected IntC interruptControl;
 
-	private int[] iset = new int[0x10000];
+	private int[][] iset = new int[2][0x10000];
 
 	public Sh2(IMemory memory, IntC intc) {
 		this.memory = memory;
@@ -69,26 +70,29 @@ public class Sh2 implements Device {
 	}
 
 	public void reset(Sh2Context ctx) {
+		BaseSystem.setAccessType(ctx.cpuAccess);
 		ctx.VBR = 0;
 		ctx.PC = memory.read32i(0);
 		ctx.SR = flagIMASK;
 		ctx.registers[15] = memory.read32i(4); //SP
-		System.out.println(ctx.sh2Access + " SP: " + Integer.toHexString(ctx.registers[15]));
+		System.out.println(ctx.cpuAccess + " SP: " + Integer.toHexString(ctx.registers[15]));
 		ctx.cycles = burstCycles;
-		System.out.println(ctx.sh2Access + " reset");
+		System.out.println(ctx.cpuAccess + " reset");
 	}
 
-	private void acceptInterrupts(Sh2Context ctx) {
+	private boolean acceptInterrupts(Sh2Context ctx) {
 		int mask = getIMASK();
-		int imask = interruptControl.getInterruptLevel(ctx.sh2Access);
+		int imask = interruptControl.getInterruptLevel(ctx.cpuAccess);
 		if (imask > mask) {
 			processInterrupt(ctx, imask);
-//			debugging = true;
+			return true;
 		}
+		return false;
 	}
 
 	private void processInterrupt(Sh2Context ctx, int source_irq) {
 //		System.out.println(ctx.sh2Access + " Interrupt processed: " + source_irq);
+		BaseSystem.setAccessType(ctx.cpuAccess);
 		push(ctx.SR);
 		push(ctx.PC); //stores the next inst to be executed
 		//SR 7-4
@@ -112,9 +116,9 @@ public class Sh2 implements Device {
 	//pop from stack
 	private int pop() {
 		int res = memory.read32i(ctx.registers[15]);
-		ctx.registers[15] += 4;
-//		System.out.println(ctx.sh2Access + " POP SP: " + Integer.toHexString(ctx.registers[15])
+//		System.out.println(ctx.cpuAccess + " POP SP: " + Integer.toHexString(ctx.registers[15])
 //				+ "," + Integer.toHexString(res));
+		ctx.registers[15] += 4;
 		return res;
 	}
 
@@ -2114,14 +2118,24 @@ public class Sh2 implements Device {
 		ctx.cycles -= 8;
 	}
 
-	protected void printDebugMaybe(Sh2Context ctx, int instruction) {
+	protected void printOnlyNewOpcodes(Sh2Context ctx, int opcode) {
 		if (ctx.debug) {
-			String s = Sh2Helper.getInstString(ctx, instruction);
-			if (iset[instruction] == 0) {
-				s = "NEW INST: " + s;
-				iset[instruction]++;
+			final int p = ctx.cpuAccess.ordinal();
+			if (iset[p][opcode] == 0) {
+				String s = Sh2Helper.getInstString(ctx, opcode);
+				s += " [NEW]";
+				iset[p][opcode]++;
+				System.out.println(s);
 			}
-			System.out.println(s);
+		}
+	}
+
+	protected void printDebugMaybe(Sh2Context ctx, int instruction) {
+//		if(ctx.PC == 0x60001ac){
+//			ctx.debug = true;
+//		}
+		if (ctx.debug) {
+			Sh2Helper.printState(ctx, instruction);
 		}
 	}
 

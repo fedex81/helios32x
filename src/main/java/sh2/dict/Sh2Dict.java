@@ -1,5 +1,10 @@
 package sh2.dict;
 
+import omegadrive.system.BaseSystem;
+import omegadrive.util.Size;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * Federico Berti
  * <p>
@@ -7,7 +12,10 @@ package sh2.dict;
  */
 public class Sh2Dict {
 
-    public static String[] sh2RegNames = new String[0xFFFF];
+    private static final Logger LOG = LogManager.getLogger(Sh2Dict.class.getSimpleName());
+
+    private static int REG_NAME_SIZE = 0x10000;
+    public static String[] sh2RegNames = new String[REG_NAME_SIZE];
 
     public static final int CAS_L1_OFFSET_16 = 0x8426;
     public static final int CAS_L2_OFFSET_16 = 0x8446;
@@ -32,6 +40,7 @@ public class Sh2Dict {
     public static final int TCR = 0xFE16;
     public static final int TOCR = 0xFE17;
 
+    public static final int ICR = 0xFEE0;
     public static final int IPRA = 0xFEE2;
     public static final int VCRWDT = 0xFEE4;
     public static final int IPRB = 0xFE60;
@@ -136,5 +145,18 @@ public class Sh2Dict {
         sh2RegNames[BARAH] = "BARAH";   //Break address register AH
         sh2RegNames[BARAL] = "BARAL";   //Break address register AL
         sh2RegNames[BARBH] = "BARBH";   //Break address register BH
+    }
+
+    public static void checkName(int reg) {
+        if (sh2RegNames[reg] == null) {
+            LOG.info("{} SH2 mmreg unknown reg: {}", BaseSystem.getAccessType(), Integer.toHexString(reg));
+        }
+    }
+
+    public static void logAccess(String type, int reg, int value, Size size) {
+        String s = BaseSystem.getAccessType() + " SH2 reg " + type + " " +
+                size + ", (" + sh2RegNames[reg] + ") " + Integer.toHexString(reg) + ": " +
+                Integer.toHexString(value);
+        LOG.info(s);
     }
 }

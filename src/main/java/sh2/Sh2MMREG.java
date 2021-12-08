@@ -20,8 +20,11 @@ public class Sh2MMREG {
     private static final Logger LOG = LogManager.getLogger(Sh2MMREG.class.getSimpleName());
 
     public static final int DATA_ARRAY_SIZE = 0x1000;
+    public static final int DATA_ARRAY_MASK = DATA_ARRAY_SIZE - 1;
+    public static final int SH2_REG_SIZE = 0x1000;
+    public static final int SH2_REG_MASK = SH2_REG_SIZE - 1;
 
-    private ByteBuffer regs = ByteBuffer.allocateDirect(0x100);
+    private ByteBuffer regs = ByteBuffer.allocateDirect(SH2_REG_SIZE);
     private ByteBuffer data_array = ByteBuffer.allocateDirect(DATA_ARRAY_SIZE); // cache (can be used as RAM)
 
     private CpuDeviceAccess sh2Access;
@@ -33,17 +36,19 @@ public class Sh2MMREG {
     }
 
     public void writeCache(int address, int value, Size size) {
-        Sh2Util.writeBuffer(data_array, address & 0xFFF, value, size);
+        Sh2Util.writeBuffer(data_array, address & DATA_ARRAY_MASK, value, size);
     }
 
     public int readCache(int address, Size size) {
-        return Sh2Util.readBuffer(data_array, address & 0xFFF, size);
+        return Sh2Util.readBuffer(data_array, address & DATA_ARRAY_MASK, size);
     }
 
     public void write(int reg, int value, Size size) {
-        logAccess("write", reg, value, size);
+        if (verbose) {
+            logAccess("write", reg, value, size);
+        }
         checkName(reg);
-        Sh2Util.writeBuffer(regs, reg & 0xFF, value, size);
+        Sh2Util.writeBuffer(regs, reg & SH2_REG_MASK, value, size);
         if (reg == DVDNTL) {
             div64Dsp();
         } else if (reg == DVDNT) {
@@ -52,24 +57,12 @@ public class Sh2MMREG {
     }
 
     public int read(int reg, Size size) {
-        int res = Sh2Util.readBuffer(regs, reg & 0xFF, size);
-        logAccess("read", reg, res, size);
+        int res = Sh2Util.readBuffer(regs, reg & SH2_REG_MASK, size);
+        if (verbose) {
+            logAccess("read", reg, res, size);
+        }
         checkName(reg);
         return res;
-    }
-
-    private void checkName(int reg) {
-        if (sh2RegNames[reg] == null) {
-            System.out.println(sh2Access + " SH2 mmreg unknown reg: " + Integer.toHexString(reg));
-        }
-    }
-
-    private void logAccess(String type, int reg, int value, Size size) {
-        if (verbose) {
-            System.out.println(sh2Access + " SH2 reg " + type + " " +
-                    size + ", (" + sh2RegNames[reg] + ") " + Integer.toHexString(reg) + ": " +
-                    Integer.toHexString(value));
-        }
     }
 
     //64/32 -> 32 only

@@ -415,6 +415,7 @@ public class S32XMMREG implements Device {
         }
         //reset cancel
         if ((val & P32XS_nRES) == 0 && (newVal & P32XS_nRES) > 0) {
+            System.out.println(BaseSystem.getAccessType() + " Reset Cancel?");
             //TODO this breaks test2
 //                bus.resetSh2();
         }

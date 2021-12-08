@@ -24,13 +24,13 @@ public class Sh2Context {
     public int cycles;
     public int cycles_ran;
 
-    public Sh2Util.CpuDeviceAccess sh2Access;
+    public Sh2Util.CpuDeviceAccess cpuAccess;
     public String sh2TypeCode;
     public boolean debug;
 
     public Sh2Context(Sh2Util.CpuDeviceAccess sh2Access) {
         this.registers = new int[NUM_REG];
-        this.sh2Access = sh2Access;
+        this.cpuAccess = sh2Access;
         this.sh2TypeCode = sh2Access.name().substring(0, 1);
     }
 }
