@@ -26,11 +26,16 @@ public class S32xBus extends GenesisBus {
 
     public static final int START_HINT_VECTOR_WRITEABLE = 0x70;
     public static final int END_HINT_VECTOR_WRITEABLE = 0x74;
+    public static final int START_FRAME_BUFFER = 0x84_0000;
+    public static final int END_FRAME_BUFFER = START_FRAME_BUFFER + S32XMMREG.DRAM_SIZE;
+    public static final int START_OVERWRITE_IMAGE = 0x86_0000;
+    public static final int END_OVERWRITE_IMAGE = START_OVERWRITE_IMAGE + S32XMMREG.DRAM_SIZE;
     public static final int START_ROM_MIRROR = 0x88_0000;
     public static final int END_ROM_MIRROR = 0x90_0000;
     public static final int START_ROM_MIRROR_BANK = END_ROM_MIRROR;
     public static final int END_ROM_MIRROR_BANK = 0xA0_0000;
     public static final int ROM_WINDOW_MASK = 0x7_FFFF; //according to docs, *NOT* 0xF_FFFF
+    public static final int ROM_MIRROR_MASK = 0xF_FFFF;
     public static final int START_32X_SYSREG = 0xA1_5100;
     public static final int END_32X_SYSREG = START_32X_SYSREG + 0x80;
     public static final int START_32X_VDPREG = END_32X_SYSREG;
@@ -105,8 +110,14 @@ public class S32xBus extends GenesisBus {
             address = address > romSize - 1 ? address - (romSize) : address;
             res = Sh2Util.readBuffer(rom, address & romMask, size);
         } else if (address >= START_ROM_MIRROR_BANK && address < END_ROM_MIRROR_BANK) {
-            int val = bankSetShift | (address & 0xF_FFFF);
+            int val = bankSetShift | (address & ROM_MIRROR_MASK);
             res = Sh2Util.readBuffer(rom, val, size);
+        } else if (address >= START_FRAME_BUFFER && address < END_FRAME_BUFFER) {
+            int addr = 0x400_0000 + (address & S32XMMREG.DRAM_MASK);
+            res = read32xWord(addr, size);
+        } else if (address >= START_OVERWRITE_IMAGE && address < END_OVERWRITE_IMAGE) {
+            int addr = 0x402_0000 + (address & S32XMMREG.DRAM_MASK);
+            res = read32xWord(addr, size);
         } else if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
             int addr = (address - START_32X_SYSREG + 0x4000); //START_32X_SYSREG_CACHE;
             res = read32xWord(addr, size);
@@ -146,7 +157,13 @@ public class S32xBus extends GenesisBus {
     }
 
     private void writeAdapterEnOn(int address, int data, Size size) {
-        if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
+        if (address >= START_FRAME_BUFFER && address < END_FRAME_BUFFER) {
+            int val = 0x400_0000 + (address & S32XMMREG.DRAM_MASK);
+            write32xWord(val, data, size);
+        } else if (address >= START_OVERWRITE_IMAGE && address < END_OVERWRITE_IMAGE) {
+            int val = 0x402_0000 + (address & S32XMMREG.DRAM_MASK);
+            write32xWord(val, data, size);
+        } else if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
             int addr = (address - START_32X_SYSREG + 0x4000); //START_32X_SYSREG_CACHE;
             if (((addr & 0xFF) & ~1) == S32xDict.BANK_SET_REG) {
                 bankSetValue = (data & 3);
@@ -159,6 +176,9 @@ public class S32xBus extends GenesisBus {
         } else if (address >= START_32X_COLPAL && address < END_32X_COLPAL) {
             int addr = (address - START_32X_COLPAL + 0x4200); //START_32X_COLPAL_CACHE;
             write32xWord(addr, data, size);
+        } else if (address >= START_ROM_MIRROR_BANK && address < END_ROM_MIRROR_BANK) {
+            //NOTE it could be writing to SRAM via the rom mirror
+            super.write((address & ROM_MIRROR_MASK) | bankSetShift, data, size);
         } else if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {
             LOG.info("HINT vector write, address: {}, data: {}, size: {}", Long.toHexString(address),
                     Long.toHexString(data), size);

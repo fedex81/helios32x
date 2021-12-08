@@ -226,12 +226,9 @@ public class S32XMMREG implements Device {
         }
         //TODO autoClear int reg?
         //Both are automatically cleared if SH2 does not interrupt clear.
-//        else if (sh2Access == M68K && isSys && (reg == INT_CTRL_REG || reg == INT_CTRL_REG + 1)) {
-//            if (clrSh2CmdIntAfterRead-- < 0) {
-//                //Sh2Util.writeBuffer(sysRegsMd, INT_CTRL_REG, 0, Size.WORD);
-//                clrSh2CmdIntAfterRead = clrSh2CmdIntAfterReadBase;
-//            }
-//        }
+        else if (sh2Access == M68K && isSys && (reg == INT_CTRL_REG || reg == INT_CTRL_REG + 1)) {
+            System.out.println(sh2Access + " INT_CTRL_REG" + reg + ", res: " + res);
+        }
         return res;
     }
 
@@ -339,6 +336,13 @@ public class S32XMMREG implements Device {
             int intIdx = VRES_14.ordinal() - (regEven - 0x14);
             IntC.Sh2Interrupt intType = IntC.intVals[intIdx];
             interruptControl.clearInterrupt(sh2Access, intType);
+            //autoclear Int_control_reg
+            if (intType == CMD_8) {
+                int bitPos = 1 << sh2Access.ordinal();
+                int val = Sh2Util.readBuffer(sysRegsMd, INT_CTRL_REG, Size.WORD) & (~bitPos);
+                handleIntControlWrite68k(INT_CTRL_REG, val, Size.WORD);
+                System.out.println(sh2Access + " auto clear " + intType);
+            }
         }
     }
 
@@ -378,11 +382,9 @@ public class S32XMMREG implements Device {
 
     private boolean handleIntControlWrite68k(int reg, int value, Size size) {
         int baseReg = reg & ~1;
-        CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
-        ByteBuffer b = sh2Access == M68K ? sysRegsMd : sysRegsSh2;
-        int val = Sh2Util.readBuffer(b, baseReg, Size.WORD);
-        Sh2Util.writeBuffer(b, reg, value, size);
-        int newVal = Sh2Util.readBuffer(b, baseReg, Size.WORD);
+        int val = Sh2Util.readBuffer(sysRegsMd, baseReg, Size.WORD);
+        Sh2Util.writeBuffer(sysRegsMd, reg, value, size);
+        int newVal = Sh2Util.readBuffer(sysRegsMd, baseReg, Size.WORD);
         boolean intm = (newVal & 1) > 0;
         boolean ints = ((newVal >> 1) & 1) > 0;
         interruptControl.setIntPending(MASTER, CMD_8, intm);
