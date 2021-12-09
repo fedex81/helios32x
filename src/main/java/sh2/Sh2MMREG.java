@@ -3,7 +3,7 @@ package sh2;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.Sh2Util.CpuDeviceAccess;
+import sh2.S32xUtil.CpuDeviceAccess;
 
 import java.nio.ByteBuffer;
 import java.util.stream.IntStream;
@@ -36,11 +36,11 @@ public class Sh2MMREG {
     }
 
     public void writeCache(int address, int value, Size size) {
-        Sh2Util.writeBuffer(data_array, address & DATA_ARRAY_MASK, value, size);
+        S32xUtil.writeBuffer(data_array, address & DATA_ARRAY_MASK, value, size);
     }
 
     public int readCache(int address, Size size) {
-        return Sh2Util.readBuffer(data_array, address & DATA_ARRAY_MASK, size);
+        return S32xUtil.readBuffer(data_array, address & DATA_ARRAY_MASK, size);
     }
 
     public void write(int reg, int value, Size size) {
@@ -48,7 +48,7 @@ public class Sh2MMREG {
             logAccess("write", reg, value, size);
         }
         checkName(reg);
-        Sh2Util.writeBuffer(regs, reg & SH2_REG_MASK, value, size);
+        S32xUtil.writeBuffer(regs, reg & SH2_REG_MASK, value, size);
         if (reg == DVDNTL) {
             div64Dsp();
         } else if (reg == DVDNT) {
@@ -57,7 +57,7 @@ public class Sh2MMREG {
     }
 
     public int read(int reg, Size size) {
-        int res = Sh2Util.readBuffer(regs, reg & SH2_REG_MASK, size);
+        int res = S32xUtil.readBuffer(regs, reg & SH2_REG_MASK, size);
         if (verbose) {
             logAccess("read", reg, res, size);
         }
@@ -94,8 +94,8 @@ public class Sh2MMREG {
     //TODO 39 cycles, overflow handling?
     private void div32Dsp(int value, Size size) {
         long d = value;
-        Sh2Util.writeBuffer(regs, DVDNTH & 0xFF, (int) (d >> 32), size); //sign extend MSB into DVDNTH
-        Sh2Util.writeBuffer(regs, DVDNTL & 0xFF, value, size);
+        S32xUtil.writeBuffer(regs, DVDNTH & 0xFF, (int) (d >> 32), size); //sign extend MSB into DVDNTH
+        S32xUtil.writeBuffer(regs, DVDNTL & 0xFF, value, size);
         int dvd = regs.getInt(DVDNT & 0xFF);
         int dvsr = regs.getInt(DVSR & 0xFF);
         if (dvsr == 0) {
@@ -112,10 +112,10 @@ public class Sh2MMREG {
     public void reset() {
         //from picodrive
         IntStream.range(0, regs.capacity()).forEach(i -> regs.put(i, (byte) 0));
-        Sh2Util.writeBuffer(regs, BRR & 0xFF, 0xFF, Size.BYTE);
-        Sh2Util.writeBuffer(regs, TDR & 0xFF, 0xFF, Size.BYTE);
-        Sh2Util.writeBuffer(regs, SSR & 0xFF, 0x84, Size.BYTE);
-        Sh2Util.writeBuffer(regs, TIER & 0xFF, 0x11, Size.BYTE);
-        Sh2Util.writeBuffer(regs, TOCR & 0xFF, 0x17, Size.BYTE);
+        S32xUtil.writeBuffer(regs, BRR & 0xFF, 0xFF, Size.BYTE);
+        S32xUtil.writeBuffer(regs, TDR & 0xFF, 0xFF, Size.BYTE);
+        S32xUtil.writeBuffer(regs, SSR & 0xFF, 0x84, Size.BYTE);
+        S32xUtil.writeBuffer(regs, TIER & 0xFF, 0x11, Size.BYTE);
+        S32xUtil.writeBuffer(regs, TOCR & 0xFF, 0x17, Size.BYTE);
     }
 }

@@ -3,13 +3,13 @@ package sh2.dict;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.Sh2Util;
+import sh2.S32xUtil;
 import sh2.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
 
-import static sh2.Sh2Util.CpuDeviceAccess.M68K;
-import static sh2.Sh2Util.CpuDeviceAccess.MASTER;
+import static sh2.S32xUtil.CpuDeviceAccess.M68K;
+import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 
 /**
  * Federico Berti
@@ -159,14 +159,14 @@ public class S32xDict {
     }
 
     public static class S32xDictLogContext {
-        public Sh2Util.CpuDeviceAccess sh2Access;
+        public S32xUtil.CpuDeviceAccess sh2Access;
         public ByteBuffer regArea;
         public boolean isSys;
         public int fbD, fbW;
         public boolean read;
     }
 
-    public static void checkName(Sh2Util.CpuDeviceAccess sh2Access, int address, Size size) {
+    public static void checkName(S32xUtil.CpuDeviceAccess sh2Access, int address, Size size) {
         int reg = (address & 0xFFF) & ~1;
         int rns = sh2Access == M68K ? M68K.ordinal() : MASTER.ordinal();
         if (s32xRegNames[rns][reg] == null) {
@@ -191,7 +191,7 @@ public class S32xDict {
         String type = logCtx.read ? "R" : "W";
         int reg = (address & 0xFF) & ~1;
         String s = null;
-        int currentWord = Sh2Util.readBuffer(logCtx.regArea, reg, Size.WORD);
+        int currentWord = S32xUtil.readBuffer(logCtx.regArea, reg, Size.WORD);
         value = logCtx.read ? currentWord : value;
         int rns = logCtx.sh2Access == M68K ? M68K.ordinal() : MASTER.ordinal();
         if (!logCtx.isSys) {
@@ -234,7 +234,7 @@ public class S32xDict {
                     if (logCtx.read) {
                         return;
                     }
-                    int valueMem = Sh2Util.readBuffer(logCtx.regArea, reg, Size.LONG);
+                    int valueMem = S32xUtil.readBuffer(logCtx.regArea, reg, Size.LONG);
                     String s1 = decodeComm(valueMem);
                     s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][reg],
                             s1, value, valueMem, size.name(), evenOdd);

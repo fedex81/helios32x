@@ -8,10 +8,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.IntC;
 import sh2.S32XMMREG;
-import sh2.Sh2Util;
+import sh2.S32xUtil;
 
 import static s32x.MarsRegTestUtil.*;
-import static sh2.Sh2Util.CpuDeviceAccess.*;
+import static sh2.S32xUtil.CpuDeviceAccess.*;
 
 /**
  * Federico Berti
@@ -42,7 +42,7 @@ public class S32xSharedRegsTest {
     }
 
 
-    private void testFm(Sh2Util.CpuDeviceAccess sh2Access) {
+    private void testFm(S32xUtil.CpuDeviceAccess sh2Access) {
         int expFm, fm;
 
         expFm = fm = 1;
@@ -150,12 +150,12 @@ public class S32xSharedRegsTest {
         Assertions.assertEquals(exp >> 8, read(SLAVE, INT_MASK, Size.BYTE));
     }
 
-    private int read(Sh2Util.CpuDeviceAccess sh2Access, int reg, Size size) {
+    private int read(S32xUtil.CpuDeviceAccess sh2Access, int reg, Size size) {
         BaseSystem.setAccessType(sh2Access);
         return s32XMMREG.read(reg, size);
     }
 
-    private void write(Sh2Util.CpuDeviceAccess sh2Access, int reg, int value, Size size) {
+    private void write(S32xUtil.CpuDeviceAccess sh2Access, int reg, int value, Size size) {
         BaseSystem.setAccessType(sh2Access);
         s32XMMREG.write(reg, value, size);
     }

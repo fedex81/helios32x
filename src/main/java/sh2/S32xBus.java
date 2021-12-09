@@ -10,6 +10,8 @@ import omegadrive.vdp.model.BaseVdpAdapterEventSupport;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.dict.S32xDict;
+import sh2.sh2.Sh2;
+import sh2.sh2.Sh2Context;
 import sh2.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
@@ -100,7 +102,7 @@ public class S32xBus extends GenesisBus {
     private long readAdapterEnOn(int address, Size size) {
         long res = 0;
         if (address < 0x100) {
-            res = Sh2Util.readBuffer(bios68k, address, size);
+            res = S32xUtil.readBuffer(bios68k, address, size);
             if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {
                 res = readHIntVector(address, size);
             }
@@ -108,10 +110,10 @@ public class S32xBus extends GenesisBus {
             address &= ROM_WINDOW_MASK;
             address &= romMask;
             address = address > romSize - 1 ? address - (romSize) : address;
-            res = Sh2Util.readBuffer(rom, address & romMask, size);
+            res = S32xUtil.readBuffer(rom, address & romMask, size);
         } else if (address >= START_ROM_MIRROR_BANK && address < END_ROM_MIRROR_BANK) {
             int val = bankSetShift | (address & ROM_MIRROR_MASK);
-            res = Sh2Util.readBuffer(rom, val, size);
+            res = S32xUtil.readBuffer(rom, val, size);
         } else if (address >= START_FRAME_BUFFER && address < END_FRAME_BUFFER) {
             int addr = 0x400_0000 + (address & S32XMMREG.DRAM_MASK);
             res = read32xWord(addr, size);
@@ -185,7 +187,7 @@ public class S32xBus extends GenesisBus {
         } else if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {
             LOG.info("HINT vector write, address: {}, data: {}, size: {}", Long.toHexString(address),
                     Long.toHexString(data), size);
-            Sh2Util.writeBuffer(writeableHintRom, address & 3, data, size);
+            S32xUtil.writeBuffer(writeableHintRom, address & 3, data, size);
         } else {
             super.write(address, data, size);
         }
@@ -226,9 +228,9 @@ public class S32xBus extends GenesisBus {
         long res = writeableHintRom.getInt(0);
         if (res != -1) {
 //            LOG.info("HINT vector read, address: {}, size: {}", Long.toHexString(address), size);
-            res = Sh2Util.readBuffer(writeableHintRom, address & 3, size);
+            res = S32xUtil.readBuffer(writeableHintRom, address & 3, size);
         } else {
-            res = Sh2Util.readBuffer(bios68k, address, size);
+            res = S32xUtil.readBuffer(bios68k, address, size);
         }
         return res;
     }
@@ -264,6 +266,6 @@ public class S32xBus extends GenesisBus {
     public void resetSh2() {
         sh2.reset(masterCtx);
         sh2.reset(slaveCtx);
-        sh2.memory.resetSh2();
+//        sh2.memory.resetSh2(); TODO
     }
 }

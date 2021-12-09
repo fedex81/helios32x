@@ -1,8 +1,10 @@
-package sh2;
+package sh2.sh2;
 
 
 import omegadrive.Device;
 import omegadrive.system.BaseSystem;
+import sh2.IMemory;
+import sh2.IntC;
 
 /*
  *  Revision 1 -  port the code from Dcemu and use information provided by dark||raziel (done)
@@ -2118,25 +2120,8 @@ public class Sh2 implements Device {
 		ctx.cycles -= 8;
 	}
 
-	protected void printOnlyNewOpcodes(Sh2Context ctx, int opcode) {
-		if (ctx.debug) {
-			final int p = ctx.cpuAccess.ordinal();
-			if (iset[p][opcode] == 0) {
-				String s = Sh2Helper.getInstString(ctx, opcode);
-				s += " [NEW]";
-				iset[p][opcode]++;
-				System.out.println(s);
-			}
-		}
-	}
-
+	//NO-OP
 	protected void printDebugMaybe(Sh2Context ctx, int instruction) {
-//		if(ctx.PC == 0x60001ac){
-//			ctx.debug = true;
-//		}
-		if (ctx.debug) {
-			Sh2Helper.printState(ctx, instruction);
-		}
 	}
 
 	/*

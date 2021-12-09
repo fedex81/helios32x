@@ -5,6 +5,8 @@ import omegadrive.system.Genesis;
 import omegadrive.ui.DisplayWindow;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.sh2.Sh2;
+import sh2.sh2.Sh2Context;
 import sh2.vdp.MarsVdp;
 
 import java.util.Optional;
@@ -79,12 +81,12 @@ public class Md32x extends Genesis {
     //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
     protected final void runSh2(int counter) {
         if (nextMSh2Cycle == counter) {
-            setAccessType(Sh2Util.CpuDeviceAccess.MASTER);
+            setAccessType(S32xUtil.CpuDeviceAccess.MASTER);
             sh2.run(masterCtx);
             nextMSh2Cycle += (masterCtx.cycles_ran + resetCpuDelay()) / SH2_CYCLE_RATIO;
         }
         if (nextSSh2Cycle == counter) {
-            setAccessType(Sh2Util.CpuDeviceAccess.SLAVE);
+            setAccessType(S32xUtil.CpuDeviceAccess.SLAVE);
             sh2.run(slaveCtx);
             nextSSh2Cycle += (slaveCtx.cycles_ran + resetCpuDelay()) / SH2_CYCLE_RATIO;
         }

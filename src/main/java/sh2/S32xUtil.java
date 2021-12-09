@@ -9,7 +9,7 @@ import java.nio.ByteBuffer;
  * <p>
  * Copyright 2021
  */
-public class Sh2Util {
+public class S32xUtil {
 
     public static void writeBuffer(ByteBuffer b, int pos, int value, Size size) {
         switch (size) {

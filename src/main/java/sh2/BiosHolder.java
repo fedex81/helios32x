@@ -12,7 +12,7 @@ import java.nio.file.Path;
  */
 public class BiosHolder {
 
-    private ByteBuffer[] biosData = new ByteBuffer[Sh2Util.CpuDeviceAccess.values().length];
+    private ByteBuffer[] biosData = new ByteBuffer[S32xUtil.CpuDeviceAccess.values().length];
     private Path sh2m, sh2s, m68k;
 
     public BiosHolder(Path sh2m, Path sh2s, Path m68k) {
@@ -27,12 +27,12 @@ public class BiosHolder {
         assert sh2s.toFile().exists();
         assert m68k.toFile().exists();
 
-        biosData[Sh2Util.CpuDeviceAccess.MASTER.ordinal()] = ByteBuffer.wrap(FileLoader.readFileSafe(sh2m));
-        biosData[Sh2Util.CpuDeviceAccess.SLAVE.ordinal()] = ByteBuffer.wrap(FileLoader.readFileSafe(sh2s));
-        biosData[Sh2Util.CpuDeviceAccess.M68K.ordinal()] = ByteBuffer.wrap(FileLoader.readFileSafe(m68k));
+        biosData[S32xUtil.CpuDeviceAccess.MASTER.ordinal()] = ByteBuffer.wrap(FileLoader.readFileSafe(sh2m));
+        biosData[S32xUtil.CpuDeviceAccess.SLAVE.ordinal()] = ByteBuffer.wrap(FileLoader.readFileSafe(sh2s));
+        biosData[S32xUtil.CpuDeviceAccess.M68K.ordinal()] = ByteBuffer.wrap(FileLoader.readFileSafe(m68k));
     }
 
-    public ByteBuffer getBiosData(Sh2Util.CpuDeviceAccess type) {
+    public ByteBuffer getBiosData(S32xUtil.CpuDeviceAccess type) {
         return biosData[type.ordinal()];
     }
 }

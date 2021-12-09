@@ -1,9 +1,9 @@
 package sh2.dict;
 
 import omegadrive.system.BaseSystem;
-import sh2.Sh2Util;
+import sh2.S32xUtil;
 
-import static sh2.Sh2Util.CpuDeviceAccess.*;
+import static sh2.S32xUtil.CpuDeviceAccess.*;
 
 /**
  * Federico Berti
@@ -23,8 +23,8 @@ public class S32xMemAccessDelay {
     public static final int[][] readDelays, writeDelays;
 
     static {
-        readDelays = new int[Sh2Util.CpuDeviceAccess.vals.length][7];
-        writeDelays = new int[Sh2Util.CpuDeviceAccess.vals.length][7];
+        readDelays = new int[S32xUtil.CpuDeviceAccess.vals.length][7];
+        writeDelays = new int[S32xUtil.CpuDeviceAccess.vals.length][7];
 
         readDelays[M68K.ordinal()][ROM] = 3; //[0,5]
         readDelays[M68K.ordinal()][FRAME_BUFFER] = 3; //[2,4]

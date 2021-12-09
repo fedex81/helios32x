@@ -1,8 +1,9 @@
-package sh2;
+package sh2.sh2;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import sh2.S32xUtil;
 
 /**
  * Federico Berti
@@ -17,7 +18,7 @@ public class PrTest {
     @BeforeEach
     public void before() {
         sh2 = new Sh2(null, null);
-        ctx = new Sh2Context(Sh2Util.CpuDeviceAccess.MASTER);
+        ctx = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
         sh2.setCtx(ctx);
     }
 

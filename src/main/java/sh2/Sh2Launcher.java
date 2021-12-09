@@ -3,13 +3,16 @@ package sh2;
 import omegadrive.SystemLoader;
 import omegadrive.util.FileLoader;
 import omegadrive.util.Util;
+import sh2.sh2.Sh2;
+import sh2.sh2.Sh2Context;
+import sh2.sh2.Sh2Debug;
 import sh2.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static sh2.Sh2Util.CpuDeviceAccess.*;
+import static sh2.S32xUtil.CpuDeviceAccess.*;
 
 /**
  * Federico Berti
@@ -64,7 +67,7 @@ public class Sh2Launcher {
 
     public static Sh2LaunchContext setupRom(S32xBus bus, Path romFile) {
         Sh2LaunchContext ctx = new Sh2LaunchContext();
-        ctx.masterCtx = new Sh2Context(Sh2Util.CpuDeviceAccess.MASTER);
+        ctx.masterCtx = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
         ctx.slaveCtx = new Sh2Context(SLAVE);
         ctx.biosHolder = initBios();
         ctx.bus = bus;
@@ -74,7 +77,8 @@ public class Sh2Launcher {
         ctx.memory.bios[MASTER.ordinal()] = ctx.biosHolder.getBiosData(MASTER);
         ctx.memory.bios[SLAVE.ordinal()] = ctx.biosHolder.getBiosData(SLAVE);
         ctx.intc = new IntC();
-        ctx.sh2 = new Sh2(ctx.memory, ctx.intc);
+        ctx.sh2 = (ctx.masterCtx.debug || ctx.slaveCtx.debug) ?
+                new Sh2(ctx.memory, ctx.intc) : new Sh2Debug(ctx.memory, ctx.intc);
         ctx.initContext();
         return ctx;
     }
