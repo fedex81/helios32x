@@ -179,6 +179,9 @@ public class S32xBus extends GenesisBus {
         } else if (address >= START_ROM_MIRROR_BANK && address < END_ROM_MIRROR_BANK) {
             //NOTE it could be writing to SRAM via the rom mirror
             super.write((address & ROM_MIRROR_MASK) | bankSetShift, data, size);
+        } else if (address >= START_ROM_MIRROR && address < END_ROM_MIRROR) {
+            //TODO ?? rom37
+            super.write(address & ROM_WINDOW_MASK, data, size);
         } else if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {
             LOG.info("HINT vector write, address: {}, data: {}, size: {}", Long.toHexString(address),
                     Long.toHexString(data), size);

@@ -300,22 +300,38 @@ public class S32XMMREG implements Device {
             }
         }
         if (!skipWrite) {
-            int currentWord = Sh2Util.readBuffer(regArea, reg, Size.WORD);
-            regChanged = currentWord != value;
-            if (regChanged) {
-                if (reg < COMM0) {
-                    Sh2Util.writeBuffer(regArea, reg, value, size);
-                } else {
-                    //comm regs are shared
-                    Sh2Util.writeBuffer(sysRegsMd, reg, value, size);
-                    Sh2Util.writeBuffer(sysRegsSh2, reg, value, size);
-                }
-            }
+            regChanged = internalRegWriteCOMM(regArea, reg, value, size);
         }
         if (verbose && regChanged) {
             doLog(regArea, isSys, address, reg, value, size, false);
         }
 
+        return regChanged;
+    }
+
+    //COMM and other regs
+    private boolean internalRegWriteCOMM(final ByteBuffer regArea, int reg, int value, Size size) {
+        int currentWord = Sh2Util.readBuffer(regArea, reg, Size.WORD);
+        boolean regChanged = currentWord != value;
+        if (regChanged) {
+            switch (reg) {
+                case COMM0:
+                case COMM1:
+                case COMM2:
+                case COMM3:
+                case COMM4:
+                case COMM5:
+                case COMM6:
+                case COMM7:
+                    //comm regs are shared
+                    Sh2Util.writeBuffer(sysRegsMd, reg, value, size);
+                    Sh2Util.writeBuffer(sysRegsSh2, reg, value, size);
+                    break;
+                default:
+                    Sh2Util.writeBuffer(regArea, reg, value, size);
+                    break;
+            }
+        }
         return regChanged;
     }
 
@@ -339,9 +355,12 @@ public class S32XMMREG implements Device {
             //autoclear Int_control_reg
             if (intType == CMD_8) {
                 int bitPos = 1 << sh2Access.ordinal();
-                int val = Sh2Util.readBuffer(sysRegsMd, INT_CTRL_REG, Size.WORD) & (~bitPos);
-                handleIntControlWrite68k(INT_CTRL_REG, val, Size.WORD);
-                System.out.println(sh2Access + " auto clear " + intType);
+                int val = Sh2Util.readBuffer(sysRegsMd, INT_CTRL_REG, Size.WORD);
+                int newVal = val & (~bitPos);
+                handleIntControlWrite68k(INT_CTRL_REG, newVal, Size.WORD);
+                if (val != newVal) {
+                    System.out.println(sh2Access + " auto clear " + intType);
+                }
             }
         }
     }

@@ -66,7 +66,10 @@ public class Sh2Dict {
 
     public static final int BARAH = 0xFF40;
     public static final int BARAL = 0xFF42;
+    public static final int BBRA = 0xFF48;
+
     public static final int BARBH = 0xFF60;
+    public static final int BBRB = 0xFF68;
 
     public static final int DMA_DRCR0 = 0xFE71;
     public static final int DMA_DRCR1 = 0xFE72;
@@ -145,6 +148,8 @@ public class Sh2Dict {
         sh2RegNames[BARAH] = "BARAH";   //Break address register AH
         sh2RegNames[BARAL] = "BARAL";   //Break address register AL
         sh2RegNames[BARBH] = "BARBH";   //Break address register BH
+        sh2RegNames[BBRA] = "BBRA";   //Break bus cycle register A
+        sh2RegNames[BBRB] = "BBRB";   //Break bus cycle register B
     }
 
     public static void checkName(int reg) {
