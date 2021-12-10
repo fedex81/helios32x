@@ -74,9 +74,9 @@ public class S32xSharedRegsTest {
 
         checkCart(exp);
 
-        //cart removed, not supported
+        //cart removed
         s32XMMREG.setCart(0);
-        checkCart(exp);
+        checkCart(0);
     }
 
     @Test

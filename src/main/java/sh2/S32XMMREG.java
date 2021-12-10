@@ -6,7 +6,7 @@ import omegadrive.util.Size;
 import omegadrive.util.VideoMode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.S32xUtil.CpuDeviceAccess;
+import sh2.S32xUtil.*;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.vdp.MarsVdp;
@@ -18,6 +18,7 @@ import java.nio.ByteBuffer;
 
 import static sh2.IntC.Sh2Interrupt.*;
 import static sh2.S32xUtil.CpuDeviceAccess.*;
+import static sh2.S32xUtil.*;
 import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
 import static sh2.dict.S32xDict.*;
 
@@ -83,6 +84,7 @@ public class S32XMMREG implements Device {
     public ByteBuffer[] dramBanks = new ByteBuffer[2];
 
     public IntC interruptControl;
+    public DmaC dmaControl;
     private MarsVdp vdp;
     private S32xBus bus;
     private S32xDictLogContext logCtx;
@@ -124,10 +126,6 @@ public class S32XMMREG implements Device {
                 vdpContext.hCount = S32xUtil.readBuffer(sysRegsSh2, HCOUNT_REG, Size.WORD) & 0xFF;
                 interruptControl.setIntPending(MASTER, HINT_10, true);
                 interruptControl.setIntPending(SLAVE, HINT_10, true);
-                //TODO hack
-                interruptControl.setIntPending(SLAVE, PWM_6, true);
-                interruptControl.setIntPending(MASTER, PWM_6, true);
-                //TODO hack
             }
         }
         setPen(hBlankOn || vdpContext.vBlankOn ? 1 : 0);
@@ -228,6 +226,8 @@ public class S32XMMREG implements Device {
         //Both are automatically cleared if SH2 does not interrupt clear.
         else if (sh2Access == M68K && isSys && (reg == INT_CTRL_REG || reg == INT_CTRL_REG + 1)) {
             System.out.println(sh2Access + " INT_CTRL_REG" + reg + ", res: " + res);
+        } else if (isSys && reg >= DREQ_CTRL && reg <= DREQ_DEST_ADDR_L + 1) {
+            dmaControl.read(sh2Access, reg, size);
         }
         return res;
     }
@@ -281,21 +281,15 @@ public class S32XMMREG implements Device {
                 case CMD_INT_CLEAR:
                     handleIntClearWrite(sh2Access, regEven, value, size);
                     break;
-                case DREQ_CTRL:
-                    if (sh2Access == M68K) {
-                        if (size == Size.WORD || (size == Size.BYTE && reg != regEven)) {
-                            int prev = S32xUtil.readBuffer(sysRegsMd, DREQ_CTRL, Size.WORD);
-                            if (((prev & 4) == 0) && ((value & 4) > 0)) {
-                                LOG.info(sh2Access + " DMA on");
-                            }
-                            if ((prev & 1) != (value & 1)) {
-                                LOG.info(sh2Access + " DMA RV bit {} -> {}", prev & 1, value & 1);
-                            }
-                        }
-                    }
-                    break;
                 case FIFO_REG:
-                    LOG.info(sh2Access + " DMA FIFO write: {} {}", Integer.toHexString(value), size);
+                case DREQ_CTRL:
+                case DREQ_LEN:
+                case DREQ_SRC_ADDR_H:
+                case DREQ_SRC_ADDR_L:
+                case DREQ_DEST_ADDR_L:
+                case DREQ_DEST_ADDR_H:
+                    dmaControl.write(sh2Access, reg, value, size);
+                    skipWrite = true;
                     break;
             }
         }
@@ -324,8 +318,7 @@ public class S32XMMREG implements Device {
                 case COMM6:
                 case COMM7:
                     //comm regs are shared
-                    S32xUtil.writeBuffer(sysRegsMd, reg, value, size);
-                    S32xUtil.writeBuffer(sysRegsSh2, reg, value, size);
+                    writeBuffers(sysRegsMd, sysRegsSh2, reg, value, size);
                     break;
                 default:
                     S32xUtil.writeBuffer(regArea, reg, value, size);
@@ -400,15 +393,15 @@ public class S32XMMREG implements Device {
     }
 
     private boolean handleIntControlWrite68k(int reg, int value, Size size) {
-        int baseReg = reg & ~1;
-        int val = S32xUtil.readBuffer(sysRegsMd, baseReg, Size.WORD);
-        S32xUtil.writeBuffer(sysRegsMd, reg, value, size);
-        int newVal = S32xUtil.readBuffer(sysRegsMd, baseReg, Size.WORD);
-        boolean intm = (newVal & 1) > 0;
-        boolean ints = ((newVal >> 1) & 1) > 0;
-        interruptControl.setIntPending(MASTER, CMD_8, intm);
-        interruptControl.setIntPending(SLAVE, CMD_8, ints);
-        return newVal != val;
+        boolean changed = writeBufferHasChanged(sysRegsMd, reg, value, size);
+        if (changed) {
+            int newVal = readBuffer(sysRegsMd, INT_CTRL_REG + 1, Size.BYTE);
+            boolean intm = (newVal & 1) > 0;
+            boolean ints = ((newVal >> 1) & 1) > 0;
+            interruptControl.setIntPending(MASTER, CMD_8, intm);
+            interruptControl.setIntPending(SLAVE, CMD_8, ints);
+        }
+        return changed;
     }
 
     private boolean handleReg0Write(CpuDeviceAccess sh2Access, int reg, int value, Size size) {
@@ -491,37 +484,27 @@ public class S32XMMREG implements Device {
         return val != regVal;
     }
 
-    public void setInterruptControl(IntC interruptControl) {
-        this.interruptControl = interruptControl;
-    }
-
     public void setCart(int cart) {
         this.cart = cart;
-        int valM = interruptControl.readSh2IntMaskReg(MASTER, 0, Size.BYTE);
-        int valS = interruptControl.readSh2IntMaskReg(SLAVE, 0, Size.BYTE);
-        interruptControl.writeSh2IntMaskReg(MASTER, 0, valM | cart, Size.BYTE);
-        interruptControl.writeSh2IntMaskReg(SLAVE, 0, valS | cart, Size.BYTE);
+        ByteBuffer[] b = interruptControl.getSh2_int_mask_regs();
+        setBit(b[0], b[1], 0, 0, cart, Size.BYTE);
         LOG.info("Cart set to: " + cart);
     }
 
     private void setAdenSh2Reg(int aden) {
         this.aden = aden;
-        int valM = interruptControl.readSh2IntMaskReg(MASTER, 0, Size.BYTE);
-        int valS = interruptControl.readSh2IntMaskReg(SLAVE, 0, Size.BYTE);
-        interruptControl.writeSh2IntMaskReg(MASTER, 0, valM | (aden << 1), Size.BYTE);
-        interruptControl.writeSh2IntMaskReg(SLAVE, 0, valS | (aden << 1), Size.BYTE);
+        ByteBuffer[] b = interruptControl.getSh2_int_mask_regs();
+        setBit(b[0], b[1], 0, 1, aden, Size.BYTE);
     }
 
     private void setFmSh2Reg(int fm) {
-        CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
         this.fm = fm;
-        int valM = interruptControl.readSh2IntMaskReg(MASTER, 0, Size.BYTE) & 0x7F;
-        int valS = interruptControl.readSh2IntMaskReg(SLAVE, 0, Size.BYTE) & 0x7F;
+        ByteBuffer[] b = interruptControl.getSh2_int_mask_regs();
+        setBit(b[0], b[1], 0, 7, fm, Size.BYTE);
+
         int val68k = S32xUtil.readBuffer(sysRegsMd, 0, Size.BYTE) & 0x7F;
-        interruptControl.writeSh2IntMaskReg(MASTER, 0, valM | (fm << 7), Size.BYTE);
-        interruptControl.writeSh2IntMaskReg(SLAVE, 0, valS | (fm << 7), Size.BYTE);
         S32xUtil.writeBuffer(sysRegsMd, INT_MASK, val68k | (fm << 7), Size.BYTE);
-        System.out.println(sh2Access + " FM: " + fm);
+        System.out.println(BaseSystem.getAccessType() + " FM: " + fm);
     }
 
     private void setPen(int pen) {
@@ -563,5 +546,13 @@ public class S32XMMREG implements Device {
         int val = S32xUtil.readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD) & ~(P32XV_PAL | P32XV_240);
         S32xUtil.writeBuffer(vdpRegs, VDP_BITMAP_MODE, val | (pal * P32XV_PAL) | (v240 * P32XV_240), Size.WORD);
         vdp.updateVideoMode(video);
+    }
+
+    public void setDmaControl(DmaC dmac) {
+        this.dmaControl = dmac;
+    }
+
+    public void setInterruptControl(IntC interruptControl) {
+        this.interruptControl = interruptControl;
     }
 }

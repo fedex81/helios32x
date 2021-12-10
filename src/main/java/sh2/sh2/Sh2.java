@@ -47,8 +47,6 @@ public class Sh2 implements Device {
 	protected IMemory memory;
 	protected IntC interruptControl;
 
-	private int[][] iset = new int[2][0x10000];
-
 	public Sh2(IMemory memory, IntC intc) {
 		this.memory = memory;
 		this.interruptControl = intc;
@@ -104,7 +102,8 @@ public class Sh2 implements Device {
 		int vectorNum = 64 + (source_irq >> 1);
 
 		ctx.PC = memory.read32i(ctx.VBR + (vectorNum << 2));
-		ctx.cycles -= 13;
+		//5 + 3 mem accesses
+		ctx.cycles -= 5;
 	}
 
 	//push to stack

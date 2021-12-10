@@ -77,6 +77,7 @@ public class Sh2Launcher {
         ctx.memory.bios[MASTER.ordinal()] = ctx.biosHolder.getBiosData(MASTER);
         ctx.memory.bios[SLAVE.ordinal()] = ctx.biosHolder.getBiosData(SLAVE);
         ctx.intc = new IntC();
+        ctx.dmac = new DmaC(ctx.bus, ctx.s32XMMREG);
         ctx.sh2 = (ctx.masterCtx.debug || ctx.slaveCtx.debug) ?
                 new Sh2(ctx.memory, ctx.intc) : new Sh2Debug(ctx.memory, ctx.intc);
         ctx.initContext();
@@ -90,6 +91,7 @@ public class Sh2Launcher {
         public Sh2Memory memory;
         public Sh2 sh2;
         public IntC intc;
+        public DmaC dmac;
         public S32XMMREG s32XMMREG;
         public ByteBuffer rom;
         public MarsVdp marsVdp;
@@ -97,6 +99,7 @@ public class Sh2Launcher {
         public void initContext() {
             bus.attachDevice(sh2).attachDevice(s32XMMREG);
             s32XMMREG.setInterruptControl(intc);
+            s32XMMREG.setDmaControl(dmac);
             bus.setBios68k(biosHolder.getBiosData(M68K));
             bus.setRom(rom);
             bus.masterCtx = masterCtx;

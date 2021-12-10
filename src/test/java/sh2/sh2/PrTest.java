@@ -22,7 +22,6 @@ public class PrTest {
         sh2.setCtx(ctx);
     }
 
-    //System.out.println(Sh2Helper.getInstString(ctx, code))
     @Test
     public void testPR() {
         testPRInternal(0xFFFF_1111);

@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.IMemory;
 import sh2.IntC;
+import sh2.S32xUtil;
 
 /**
  * Federico Berti
@@ -16,12 +17,32 @@ public class Sh2Debug extends Sh2 {
 
     enum DebugMode {INST_ONLY, NEW_INST_ONLY, STATE}
 
+    private static final int PC_AREAS = 0x100;
+    private static final int PC_AREA_SIZE = 0x4_0000;
+    private static final int PC_AREA_MASK = PC_AREA_SIZE - 1;
+
     private DebugMode debugMode = DebugMode.NEW_INST_ONLY;
-    private int[][] pcVisited = new int[2][0x1000_0000];
+
+    //00_00_0000 - 00_00_4000 BOOT ROM
+    //06_00_0000 - 06_04_0000 RAM
+    //02_00_0000 - 02_04_0000 ROM
+    private int[][] pcVisitedMaster = new int[PC_AREAS][];
+    private int[][] pcVisitedSlave = new int[PC_AREAS][];
 
     public Sh2Debug(IMemory memory, IntC intc) {
         super(memory, intc);
         LOG.warn("Sh2 cpu: creating debug instance");
+        init();
+    }
+
+    @Override
+    public void init() {
+        pcVisitedMaster[0x0] = new int[PC_AREA_SIZE];
+        pcVisitedMaster[0x2] = new int[PC_AREA_SIZE];
+        pcVisitedMaster[0x6] = new int[PC_AREA_SIZE];
+        pcVisitedSlave[0x0] = new int[PC_AREA_SIZE];
+        pcVisitedSlave[0x2] = new int[PC_AREA_SIZE];
+        pcVisitedSlave[0x6] = new int[PC_AREA_SIZE];
     }
 
     protected void printDebugMaybe(Sh2Context ctx, int opcode) {
@@ -44,10 +65,10 @@ public class Sh2Debug extends Sh2 {
 
     private void printNewInst(Sh2Context ctx, int opcode) {
         final int c = ctx.cpuAccess.ordinal();
-        if (pcVisited[c][ctx.PC] == 0) {
+        int[][] pcv = ctx.cpuAccess == S32xUtil.CpuDeviceAccess.MASTER ? pcVisitedMaster : pcVisitedSlave;
+        if (pcv[ctx.PC >> 24][ctx.PC & PC_AREA_MASK]++ == 0) {
             String s = Sh2Helper.getInstString(ctx, opcode);
             System.out.println(s + " [NEW]");
         }
-        pcVisited[c][ctx.PC]++;
     }
 }

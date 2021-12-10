@@ -11,6 +11,19 @@ import java.nio.ByteBuffer;
  */
 public class S32xUtil {
 
+    public static void writeBuffers(ByteBuffer b1, ByteBuffer b2, int pos, int value, Size size) {
+        writeBuffer(b1, pos, value, size);
+        writeBuffer(b2, pos, value, size);
+    }
+
+    public static boolean writeBufferHasChanged(ByteBuffer b, int pos, int value, Size size) {
+        int baseReg = pos & ~1;
+        int val = S32xUtil.readBuffer(b, baseReg, Size.WORD);
+        S32xUtil.writeBuffer(b, pos, value, size);
+        int newVal = S32xUtil.readBuffer(b, baseReg, Size.WORD);
+        return newVal != val;
+    }
+
     public static void writeBuffer(ByteBuffer b, int pos, int value, Size size) {
         switch (size) {
             case BYTE:
@@ -41,6 +54,27 @@ public class S32xUtil {
                 return 0xFF;
         }
     }
+
+    public static void setBit(ByteBuffer b1, ByteBuffer b2, int pos, int bitPos, int bitValue, Size size) {
+        setBit(b1, pos, bitPos, bitValue, size);
+        setBit(b2, pos, bitPos, bitValue, size);
+    }
+
+    public static boolean setBit(ByteBuffer b, int pos, int bitPos, int bitValue, Size size) {
+        int val = readBuffer(b, pos, size);
+        //clear bit and then set it
+        int newVal = (val & ~(1 << bitPos)) | (bitValue << bitPos);
+        if (val != newVal) {
+            writeBuffer(b, pos, newVal, size);
+            return true;
+        }
+        return false;
+    }
+
+    public static String toHexString(ByteBuffer b, int pos, Size size) {
+        return Integer.toHexString(readBuffer(b, pos, size));
+    }
+
 
     public enum CpuDeviceAccess {
         MASTER, SLAVE, M68K;

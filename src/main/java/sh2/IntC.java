@@ -127,6 +127,10 @@ public class IntC {
         return DISABLE_INT ? 0 : this.interruptLevel[sh2Access.ordinal()];
     }
 
+    public ByteBuffer[] getSh2_int_mask_regs() {
+        return sh2_int_mask;
+    }
+
     private void logInfo(String action, int sh2, int ipt) {
         if (verbose) {
             LOG.info("{}: {} {} valid (unmasked): {}, pending: {}, willTrigger: {}, intLevel: {}",
