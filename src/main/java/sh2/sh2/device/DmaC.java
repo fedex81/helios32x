@@ -1,10 +1,13 @@
-package sh2;
+package sh2.sh2.device;
 
 import omegadrive.util.Size;
 import omegadrive.vdp.md.VdpFifo;
 import omegadrive.vdp.model.GenesisVdpProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.S32XMMREG;
+import sh2.S32xBus;
+import sh2.S32xUtil;
 import sh2.S32xUtil.*;
 
 import java.nio.ByteBuffer;
@@ -115,7 +118,7 @@ public class DmaC {
             case FIFO_REG:
                 if (dmaOn) {
                     if (!fifo.isFull()) {
-                        fifo.push(GenesisVdpProvider.VramMode.vramWrite, 0, (int) (value & size.getMask()));
+                        fifo.push(GenesisVdpProvider.VramMode.vramWrite, 0, value);
                         updateFifoState();
                     } else {
                         LOG.error("DMA Fifo full, discarding data");

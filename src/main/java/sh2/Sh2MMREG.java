@@ -4,6 +4,8 @@ import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.S32xUtil.CpuDeviceAccess;
+import sh2.sh2.device.DivUnit;
+import sh2.sh2.device.SerialCommInterface;
 
 import java.nio.ByteBuffer;
 import java.util.stream.IntStream;
@@ -27,11 +29,16 @@ public class Sh2MMREG {
     private ByteBuffer regs = ByteBuffer.allocateDirect(SH2_REG_SIZE);
     private ByteBuffer data_array = ByteBuffer.allocateDirect(DATA_ARRAY_SIZE); // cache (can be used as RAM)
 
+    private SerialCommInterface sci;
+    private DivUnit divUnit;
+
     private CpuDeviceAccess sh2Access;
-    private static final boolean verbose = false;
+    private static final boolean verbose = true;
 
     public Sh2MMREG(CpuDeviceAccess sh2Access) {
         this.sh2Access = sh2Access;
+        this.sci = new SerialCommInterface(sh2Access, regs);
+        this.divUnit = new DivUnit(sh2Access, regs);
         reset();
     }
 
@@ -49,10 +56,36 @@ public class Sh2MMREG {
         }
         checkName(reg);
         S32xUtil.writeBuffer(regs, reg & SH2_REG_MASK, value, size);
-        if (reg == DVDNTL) {
-            div64Dsp();
-        } else if (reg == DVDNT) {
-            div32Dsp(value, size);
+        regWrite(reg, value, size);
+    }
+
+    private void regWrite(int reg, int value, Size size) {
+        int regEven = reg & ~1;
+        switch (regEven) {
+            case DVDNTL:
+            case DVDNTH:
+            case DVCR:
+            case DVDNT:
+            case DVDNTUH:
+            case DVDNTUL:
+                divUnit.write(reg, value, size);
+                break;
+            case DMA_CHCR0:
+            case DMA_CHCR1:
+                int val1 = S32xUtil.readBuffer(regs, reg & SH2_REG_MASK, Size.LONG);
+                if ((val1 & 4) > 0) {
+                    LOG.error("{} Interrupt request on DMA complete not supported", sh2Access);
+                }
+                break;
+            case SCI_BRR:
+            case SCI_RDR:
+            case SCI_SCR:
+            case SCI_SSR:
+            case SCI_TDR:
+            case SCI_SMR:
+                sci.write(reg, value, size);
+                break;
+
         }
     }
 
@@ -65,57 +98,12 @@ public class Sh2MMREG {
         return res;
     }
 
-    //64/32 -> 32 only
-    //TODO 39 cycles, overflow handling?
-    private void div64Dsp() {
-        long dh = regs.getInt(DVDNTH & 0xFF);
-        long dl = regs.getInt(DVDNTL & 0xFF);
-        long dvd = ((dh << 32) & 0xffffffff_ffffffffL) | (dl & 0xffffffffL);
-        int dvsr = regs.getInt(DVSR & 0xFF);
-        if (dvsr == 0) {
-            LOG.error("divisor is 0!");
-            return;
-        }
-        long quotL = dvd / dvsr;
-        int quot = (int) quotL;
-        int rem = (int) (dvd - quot * dvsr);
-        if (quot != quotL) {
-            String format = "div overflow, dvd: %16X, dvsr: %08X, quotLong: %16X, quot32: %08x, rem: %08X";
-            System.out.println(String.format(format, dvd, dvsr, quotL, quot, rem));
-        }
-        regs.putInt(DVDNTH & 0xFF, rem);
-        regs.putInt(DVDNTUH & 0xFF, rem);
-        regs.putInt(DVDNTL & 0xFF, quot);
-        regs.putInt(DVDNTUL & 0xFF, quot);
-//        BaseSystem.addCpuDelay(39);
-    }
-
-    //32/32 -> 32
-    //TODO 39 cycles, overflow handling?
-    private void div32Dsp(int value, Size size) {
-        long d = value;
-        S32xUtil.writeBuffer(regs, DVDNTH & 0xFF, (int) (d >> 32), size); //sign extend MSB into DVDNTH
-        S32xUtil.writeBuffer(regs, DVDNTL & 0xFF, value, size);
-        int dvd = regs.getInt(DVDNT & 0xFF);
-        int dvsr = regs.getInt(DVSR & 0xFF);
-        if (dvsr == 0) {
-            LOG.error("divisor is 0!");
-            return;
-        }
-        int quot = dvd / dvsr;
-        int rem = (int) (dvd - quot * dvsr);
-        regs.putInt(DVDNTH & 0xFF, rem);
-        regs.putInt(DVDNT & 0xFF, quot);
-//        BaseSystem.addCpuDelay(39);
-    }
-
     public void reset() {
         //from picodrive
         IntStream.range(0, regs.capacity()).forEach(i -> regs.put(i, (byte) 0));
-        S32xUtil.writeBuffer(regs, BRR & 0xFF, 0xFF, Size.BYTE);
-        S32xUtil.writeBuffer(regs, TDR & 0xFF, 0xFF, Size.BYTE);
-        S32xUtil.writeBuffer(regs, SSR & 0xFF, 0x84, Size.BYTE);
-        S32xUtil.writeBuffer(regs, TIER & 0xFF, 0x11, Size.BYTE);
-        S32xUtil.writeBuffer(regs, TOCR & 0xFF, 0x17, Size.BYTE);
+        sci.reset();
+        divUnit.reset();
+        S32xUtil.writeBuffer(regs, TIER & SH2_REG_MASK, 0x11, Size.BYTE);
+        S32xUtil.writeBuffer(regs, TOCR & SH2_REG_MASK, 0x17, Size.BYTE);
     }
 }

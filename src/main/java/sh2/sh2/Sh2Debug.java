@@ -3,8 +3,8 @@ package sh2.sh2;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.IMemory;
-import sh2.IntC;
 import sh2.S32xUtil;
+import sh2.sh2.device.IntC;
 
 /**
  * Federico Berti
@@ -15,7 +15,7 @@ public class Sh2Debug extends Sh2 {
 
     private static final Logger LOG = LogManager.getLogger(Sh2Debug.class.getSimpleName());
 
-    enum DebugMode {INST_ONLY, NEW_INST_ONLY, STATE}
+    enum DebugMode {NONE, INST_ONLY, NEW_INST_ONLY, STATE}
 
     private static final int PC_AREAS = 0x100;
     private static final int PC_AREA_SIZE = 0x4_0000;

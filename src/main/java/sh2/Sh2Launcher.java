@@ -6,6 +6,8 @@ import omegadrive.util.Util;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Debug;
+import sh2.sh2.device.DmaC;
+import sh2.sh2.device.IntC;
 import sh2.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
@@ -35,15 +37,22 @@ public class Sh2Launcher {
      * 68k writes 'OK  ' on comm reg but sh2 is not answering
      * <p>
      * rom06: DVDNT 32/32 div
+     * testc2: SCI and DMA
+     * rom36: check div
+     * <p>
+     * testc1, manual test
+     * if(currentPC == 0x00880982){
+     * m68k.setPC(0x00880b32);
+     * }
      */
     static String romName = "res/roms/testc1.32x";
 
     private static void initProps() {
         System.setProperty("helios.headless", "false");
         System.setProperty("helios.fullSpeed", "false");
-        System.setProperty("helios.enable.sound", "true");
-        System.setProperty("68k.debug", "false");
-        System.setProperty("32x.show.vdp.debug.viewer", "true");
+        System.setProperty("helios.enable.sound", "false");
+        System.setProperty("68k.debug", "true");
+        System.setProperty("32x.show.vdp.debug.viewer", "false");
     }
 
     public static void main(String[] args) {

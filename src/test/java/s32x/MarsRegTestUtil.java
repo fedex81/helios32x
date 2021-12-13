@@ -2,9 +2,9 @@ package s32x;
 
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
-import sh2.IntC;
 import sh2.S32XMMREG;
 import sh2.dict.S32xDict;
+import sh2.sh2.device.IntC;
 
 /**
  * Federico Berti

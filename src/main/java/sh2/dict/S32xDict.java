@@ -187,7 +187,7 @@ public class S32xDict {
 
     public static void detectRegAccess(S32xDictLogContext logCtx, int address, int value, Size size) {
         String sformat = "%s %s %s, %s(%X), %4X %s %s";
-        final String evenOdd = (address & 1) == 0 ? "E" : "O";
+        final String evenOdd = (address & 1) == 0 ? "EVEN" : "ODD";
         String type = logCtx.read ? "R" : "W";
         int reg = (address & 0xFF) & ~1;
         String s = null;
@@ -215,9 +215,14 @@ public class S32xDict {
         } else {
             switch (reg) {
                 case INT_MASK:
-                    s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][reg],
-                            "[RESET: " + ((value & 3) >> 1) + ", ADEN: " + (value & 1) + "]", value & 3,
-                            value, size.name(), evenOdd);
+                    if (logCtx.sh2Access == M68K) {
+                        s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][reg],
+                                "[RESET: " + ((value & 3) >> 1) + ", ADEN: " + (value & 1) + "]", value & 3,
+                                value, size.name(), evenOdd);
+                    } else {
+                        s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][reg], "", value,
+                                value, size.name(), evenOdd);
+                    }
                     break;
                 case BANK_SET_REG:
                     s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][reg],

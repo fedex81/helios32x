@@ -6,9 +6,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import sh2.IntC;
 import sh2.S32XMMREG;
 import sh2.S32xUtil;
+import sh2.sh2.device.IntC;
 
 import static s32x.MarsRegTestUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.*;

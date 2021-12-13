@@ -24,12 +24,13 @@ public class Sh2Dict {
     public static final int CAS_L2_OFFSET_32 = 0x8888;
     public static final int CAS_L3_OFFSET_32 = 0x88C8;
 
-    public static final int SMR = 0xFE00;
-    public static final int BRR = 0xFE01;
-    public static final int SCR = 0xFE02;
-    public static final int TDR = 0xFE03;
-    public static final int SSR = 0xFE04;
-    public static final int RDR = 0xFE05;
+    //serial comm intf
+    public static final int SCI_SMR = 0xFE00;
+    public static final int SCI_BRR = 0xFE01;
+    public static final int SCI_SCR = 0xFE02;
+    public static final int SCI_TDR = 0xFE03;
+    public static final int SCI_SSR = 0xFE04;
+    public static final int SCI_RDR = 0xFE05;
 
     public static final int TIER = 0xFE10;
     public static final int FTCSR = 0xFE11;
@@ -54,6 +55,8 @@ public class Sh2Dict {
     public static final int BCR2 = 0xFFE4;
     public static final int WCR = 0xFFE8;
     public static final int MCR = 0xFFEC;
+
+    //div unit
     public static final int DVSR = 0xFF00;
     public static final int DVDNT = 0xFF04;
     public static final int DVCR = 0xFF08;
@@ -71,6 +74,7 @@ public class Sh2Dict {
     public static final int BARBH = 0xFF60;
     public static final int BBRB = 0xFF68;
 
+    //dma controller
     public static final int DMA_DRCR0 = 0xFE71;
     public static final int DMA_DRCR1 = 0xFE72;
     public static final int DMA_SAR0 = 0xFF80;
@@ -110,12 +114,12 @@ public class Sh2Dict {
         sh2RegNames[FTCSR] = "FTCSR"; //Free-running timer control/status register (FTCSR)
         sh2RegNames[FRCL] = "FRCL";//Free-running counter LOW (FRC)
         sh2RegNames[FRCH] = "FRCH";//Free-running counter HIGH (FRC)
-        sh2RegNames[SMR] = "SCI_SMR";//Serial mode register
-        sh2RegNames[SCR] = "SCI_SCR";//Serial control register
-        sh2RegNames[TDR] = "SCI_TDR";//Transmit data register
-        sh2RegNames[SSR] = "SCI_SSR";//Serial status register
-        sh2RegNames[RDR] = "SCI_RDR";//Receive data register
-        sh2RegNames[BRR] = "SCI_BRR";//Bit rate register
+        sh2RegNames[SCI_SMR] = "SCI_SMR";//Serial mode register
+        sh2RegNames[SCI_SCR] = "SCI_SCR";//Serial control register
+        sh2RegNames[SCI_TDR] = "SCI_TDR";//Transmit data register
+        sh2RegNames[SCI_SSR] = "SCI_SSR";//Serial status register
+        sh2RegNames[SCI_RDR] = "SCI_RDR";//Receive data register
+        sh2RegNames[SCI_BRR] = "SCI_BRR";//Bit rate register
 
         sh2RegNames[IPRA] = "IPRA";//Interrupt priority level setting register A
         sh2RegNames[IPRB] = "IPRB";//Interrupt priority level setting register B

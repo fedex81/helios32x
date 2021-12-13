@@ -3,11 +3,11 @@ package s32x;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import sh2.IntC;
-import sh2.IntC.Sh2Interrupt;
+import sh2.sh2.device.IntC;
+import sh2.sh2.device.IntC.Sh2Interrupt;
 
-import static sh2.IntC.Sh2Interrupt.*;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
+import static sh2.sh2.device.IntC.Sh2Interrupt.*;
 
 /**
  * Federico Berti

@@ -1,15 +1,16 @@
-package sh2;
+package sh2.sh2.device;
 
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.S32xUtil;
 import sh2.S32xUtil.CpuDeviceAccess;
 
 import java.nio.ByteBuffer;
 
-import static sh2.IntC.Sh2Interrupt.*;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
+import static sh2.sh2.device.IntC.Sh2Interrupt.*;
 
 /**
  * Federico Berti

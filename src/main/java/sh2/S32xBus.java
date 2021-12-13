@@ -78,15 +78,18 @@ public class S32xBus extends GenesisBus {
     @Override
     public long read(long address, Size size) {
         address &= 0xFF_FFFFF;
+        long res = 0;
         if (s32XMMREG.aden > 0) {
-            return readAdapterEnOn((int) address, size);
+            res = readAdapterEnOn((int) address, size);
         } else {
-            return readAdapterEnOff((int) address, size);
+            res = readAdapterEnOff((int) address, size);
         }
+        return res & size.getMask();
     }
 
     @Override
     public void write(long address, long data, Size size) {
+        data &= size.getMask();
         address &= 0xFF_FFFFF;
         if (verboseMd) {
             LOG.info("Write address: {}, data: {}, size: {}", Long.toHexString(address),
@@ -210,7 +213,7 @@ public class S32xBus extends GenesisBus {
         if (size != Size.LONG) {
             s32XMMREG.write(address, data, size);
         } else {
-            s32XMMREG.write(address, data >> 16, Size.WORD);
+            s32XMMREG.write(address, (data >> 16) & 0xFFFF, Size.WORD);
             s32XMMREG.write(address + 2, data & 0xFFFF, Size.WORD);
         }
     }
@@ -220,7 +223,7 @@ public class S32xBus extends GenesisBus {
             return s32XMMREG.read(address, size);
         } else {
             int res = s32XMMREG.read(address, Size.WORD) << 16;
-            return res | s32XMMREG.read(address + 2, Size.WORD);
+            return res | (s32XMMREG.read(address + 2, Size.WORD) & 0xFFFF);
         }
     }
 

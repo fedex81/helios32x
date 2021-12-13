@@ -4,7 +4,7 @@ package sh2.sh2;
 import omegadrive.Device;
 import omegadrive.system.BaseSystem;
 import sh2.IMemory;
-import sh2.IntC;
+import sh2.sh2.device.IntC;
 
 /*
  *  Revision 1 -  port the code from Dcemu and use information provided by dark||raziel (done)

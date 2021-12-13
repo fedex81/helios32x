@@ -1,6 +1,8 @@
 package sh2;
 
 import omegadrive.util.Size;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.nio.ByteBuffer;
 
@@ -11,12 +13,19 @@ import java.nio.ByteBuffer;
  */
 public class S32xUtil {
 
+    private static final Logger LOG = LogManager.getLogger(S32xUtil.class.getSimpleName());
+
     public static void writeBuffers(ByteBuffer b1, ByteBuffer b2, int pos, int value, Size size) {
         writeBuffer(b1, pos, value, size);
         writeBuffer(b2, pos, value, size);
     }
 
     public static boolean writeBufferHasChanged(ByteBuffer b, int pos, int value, Size size) {
+        if (size == Size.LONG) {
+            LOG.error("Unable to handle LONG writes, reg: {}, value: {}", Integer.toHexString(pos),
+                    Integer.toHexString(value));
+            throw new RuntimeException("Unable to handle LONG writes, reg: " + Integer.toHexString(pos));
+        }
         int baseReg = pos & ~1;
         int val = S32xUtil.readBuffer(b, baseReg, Size.WORD);
         S32xUtil.writeBuffer(b, pos, value, size);

@@ -127,11 +127,12 @@ public final class Sh2Memory implements IMemory {
 			throw new RuntimeException(sh2Access + ", read : " + size + " " + Integer.toHexString(address));
 		}
 		S32xMemAccessDelay.addReadCpuDelay(deviceAccessType);
-		return res;
+		return (int) (res & size.getMask());
 	}
 
 	private void write(int address, int val, Size size) {
 		S32xUtil.CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
+		val &= size.getMask();
 		if (address >= S32XMMREG.START_32X_SYSREG && address < S32XMMREG.END_32X_COLPAL) {
 			s32XMMREG.write(address, val, size);
 		} else if (address >= S32XMMREG.START_32X_SYSREG_CACHE && address < S32XMMREG.END_32X_COLPAL_CACHE) {
