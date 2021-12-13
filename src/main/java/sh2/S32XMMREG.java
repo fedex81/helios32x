@@ -65,8 +65,11 @@ public class S32XMMREG implements Device {
 
     private static final boolean verbose = false, verboseRead = false;
 
-    //0 = no cart, 1 = otherwise
-    private int cart = 0;
+    private static final int CART_INSERTED = 0;
+    private static final int CART_NOT_INSERTED = 0;
+
+    //0 = cart inserted, 1 = otherwise
+    private int cart = CART_INSERTED;
     //0 = md access, 1 = sh2 access
     private int fm = 0;
     //0 = disabled, 1 = 32x enabled
@@ -484,11 +487,11 @@ public class S32XMMREG implements Device {
         return val != regVal;
     }
 
-    public void setCart(int cart) {
-        this.cart = cart;
+    public void setCart(int cartSize) {
+        this.cart = (cartSize > 0) ? CART_INSERTED : CART_NOT_INSERTED;
         ByteBuffer[] b = interruptControl.getSh2_int_mask_regs();
         setBit(b[0], b[1], 0, 0, cart, Size.BYTE);
-        LOG.info("Cart set to: " + cart);
+        LOG.info("Cart set to {}inserted: {}", (cart > 0 ? "not " : ""), cart);
     }
 
     private void setAdenSh2Reg(int aden) {

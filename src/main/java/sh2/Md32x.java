@@ -80,6 +80,12 @@ public class Md32x extends Genesis {
 
     //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
     protected final void runSh2(int counter) {
+        //TODO Sh2s will start at the next vblank, not immediately
+        if (ctx.s32XMMREG.aden == 0) {
+            nextMSh2Cycle = 1;
+            nextSSh2Cycle = 1;
+            return;
+        }
         if (nextMSh2Cycle == counter) {
             setAccessType(S32xUtil.CpuDeviceAccess.MASTER);
             sh2.run(masterCtx);

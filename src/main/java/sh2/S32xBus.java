@@ -72,7 +72,7 @@ public class S32xBus extends GenesisBus {
         rom = b;
         romSize = rom.capacity();
         romMask = (int) Math.pow(2, Util.log2(romSize) + 1) - 1;
-        s32XMMREG.setCart(romSize > 0 ? 1 : 0);
+        s32XMMREG.setCart(romSize);
     }
 
     @Override
