@@ -11,6 +11,9 @@ import sh2.vdp.MarsVdp;
 
 import java.util.Optional;
 
+import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
+import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
+
 /**
  * Federico Berti
  * <p>
@@ -31,7 +34,7 @@ public class Md32x extends Genesis {
         SH2_CYCLE_RATIO = 3; //23.01/7.67 = 3
     }
 
-    private int nextMSh2Cycle = 1, nextSSh2Cycle = 1;
+    private int nextMSh2Cycle = 0, nextSSh2Cycle = 0;
 
     private Sh2Launcher.Sh2LaunchContext ctx;
     private Sh2 sh2;
@@ -50,6 +53,8 @@ public class Md32x extends Genesis {
         slaveCtx = ctx.slaveCtx;
         sh2 = ctx.sh2;
         marsVdp = ctx.marsVdp;
+        //aden 0 -> cycle = 0 = not running
+        nextSSh2Cycle = nextMSh2Cycle = ctx.s32XMMREG.aden & 1;
         super.initAfterRomLoad(); //needs to be last
     }
 
@@ -80,19 +85,13 @@ public class Md32x extends Genesis {
 
     //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
     protected final void runSh2(int counter) {
-        //TODO Sh2s will start at the next vblank, not immediately
-        if (ctx.s32XMMREG.aden == 0) {
-            nextMSh2Cycle = 1;
-            nextSSh2Cycle = 1;
-            return;
-        }
         if (nextMSh2Cycle == counter) {
-            setAccessType(S32xUtil.CpuDeviceAccess.MASTER);
+            setAccessType(MASTER);
             sh2.run(masterCtx);
             nextMSh2Cycle += (masterCtx.cycles_ran + resetCpuDelay()) / SH2_CYCLE_RATIO;
         }
         if (nextSSh2Cycle == counter) {
-            setAccessType(S32xUtil.CpuDeviceAccess.SLAVE);
+            setAccessType(SLAVE);
             sh2.run(slaveCtx);
             nextSSh2Cycle += (slaveCtx.cycles_ran + resetCpuDelay()) / SH2_CYCLE_RATIO;
         }
@@ -123,5 +122,7 @@ public class Md32x extends Genesis {
         super.resetCycleCounters(counter);
         nextMSh2Cycle = Math.max(1, nextMSh2Cycle - counter);
         nextSSh2Cycle = Math.max(1, nextMSh2Cycle - counter);
+        //NOTE Sh2s will only start at the next vblank, not immediately when aden switches
+        nextSSh2Cycle = nextMSh2Cycle = ctx.s32XMMREG.aden & 1;
     }
 }

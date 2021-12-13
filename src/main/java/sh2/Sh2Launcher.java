@@ -33,9 +33,6 @@ public class Sh2Launcher {
 //    static String mdBiosName = "32x_hbrew_bios_g.bin";
 
     /**
-     * test1.bin
-     * 68k writes 'OK  ' on comm reg but sh2 is not answering
-     * <p>
      * rom06: DVDNT 32/32 div
      * testc2: SCI and DMA
      * rom36: check div

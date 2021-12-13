@@ -14,6 +14,9 @@ public class Sh2Dict {
 
     private static final Logger LOG = LogManager.getLogger(Sh2Dict.class.getSimpleName());
 
+    /**
+     * MASTER SH2 mmreg unknown reg: fe80
+     */
     private static int REG_NAME_SIZE = 0x10000;
     public static String[] sh2RegNames = new String[REG_NAME_SIZE];
 

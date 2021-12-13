@@ -10,6 +10,8 @@ import sh2.sh2.device.SerialCommInterface;
 import java.nio.ByteBuffer;
 import java.util.stream.IntStream;
 
+import static sh2.S32xUtil.readBuffer;
+import static sh2.S32xUtil.writeBuffer;
 import static sh2.dict.Sh2Dict.*;
 
 /**
@@ -33,7 +35,7 @@ public class Sh2MMREG {
     private DivUnit divUnit;
 
     private CpuDeviceAccess sh2Access;
-    private static final boolean verbose = true;
+    private static final boolean verbose = false;
 
     public Sh2MMREG(CpuDeviceAccess sh2Access) {
         this.sh2Access = sh2Access;
@@ -43,11 +45,11 @@ public class Sh2MMREG {
     }
 
     public void writeCache(int address, int value, Size size) {
-        S32xUtil.writeBuffer(data_array, address & DATA_ARRAY_MASK, value, size);
+        writeBuffer(data_array, address & DATA_ARRAY_MASK, value, size);
     }
 
     public int readCache(int address, Size size) {
-        return S32xUtil.readBuffer(data_array, address & DATA_ARRAY_MASK, size);
+        return readBuffer(data_array, address & DATA_ARRAY_MASK, size);
     }
 
     public void write(int reg, int value, Size size) {
@@ -55,7 +57,7 @@ public class Sh2MMREG {
             logAccess("write", reg, value, size);
         }
         checkName(reg);
-        S32xUtil.writeBuffer(regs, reg & SH2_REG_MASK, value, size);
+        writeBuffer(regs, reg & SH2_REG_MASK, value, size);
         regWrite(reg, value, size);
     }
 
@@ -72,7 +74,7 @@ public class Sh2MMREG {
                 break;
             case DMA_CHCR0:
             case DMA_CHCR1:
-                int val1 = S32xUtil.readBuffer(regs, reg & SH2_REG_MASK, Size.LONG);
+                int val1 = readBuffer(regs, reg & SH2_REG_MASK, Size.LONG);
                 if ((val1 & 4) > 0) {
                     LOG.error("{} Interrupt request on DMA complete not supported", sh2Access);
                 }
@@ -90,7 +92,7 @@ public class Sh2MMREG {
     }
 
     public int read(int reg, Size size) {
-        int res = S32xUtil.readBuffer(regs, reg & SH2_REG_MASK, size);
+        int res = readBuffer(regs, reg & SH2_REG_MASK, size);
         if (verbose) {
             logAccess("read", reg, res, size);
         }
@@ -103,7 +105,7 @@ public class Sh2MMREG {
         IntStream.range(0, regs.capacity()).forEach(i -> regs.put(i, (byte) 0));
         sci.reset();
         divUnit.reset();
-        S32xUtil.writeBuffer(regs, TIER & SH2_REG_MASK, 0x11, Size.BYTE);
-        S32xUtil.writeBuffer(regs, TOCR & SH2_REG_MASK, 0x17, Size.BYTE);
+        writeBuffer(regs, TIER & SH2_REG_MASK, 0x11, Size.BYTE);
+        writeBuffer(regs, TOCR & SH2_REG_MASK, 0x17, Size.BYTE);
     }
 }

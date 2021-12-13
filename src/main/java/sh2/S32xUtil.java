@@ -27,9 +27,9 @@ public class S32xUtil {
             throw new RuntimeException("Unable to handle LONG writes, reg: " + Integer.toHexString(pos));
         }
         int baseReg = pos & ~1;
-        int val = S32xUtil.readBuffer(b, baseReg, Size.WORD);
-        S32xUtil.writeBuffer(b, pos, value, size);
-        int newVal = S32xUtil.readBuffer(b, baseReg, Size.WORD);
+        int val = readBuffer(b, baseReg, Size.WORD);
+        writeBuffer(b, pos, value, size);
+        int newVal = readBuffer(b, baseReg, Size.WORD);
         return newVal != val;
     }
 

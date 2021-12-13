@@ -5,6 +5,7 @@ import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xMemAccessDelay;
 
 import java.nio.ByteBuffer;
@@ -13,6 +14,8 @@ import java.nio.ShortBuffer;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
+import static sh2.S32xUtil.readBuffer;
+import static sh2.S32xUtil.writeBuffer;
 
 public final class Sh2Memory implements IMemory {
 
@@ -79,30 +82,30 @@ public final class Sh2Memory implements IMemory {
 	}
 
 	private int read(int address, Size size) {
-		S32xUtil.CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
+		CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
 		int res = 0;
 		if (address >= 0 && address < BOOT_ROM_SIZE) {
-			res = S32xUtil.readBuffer(bios[sh2Access.ordinal()], address, size);
+			res = readBuffer(bios[sh2Access.ordinal()], address, size);
 			deviceAccessType = S32xMemAccessDelay.BOOT_ROM;
 		} else if (address >= START_ROM && address < END_ROM) {
 			address &= romMask;
 			address = address > romSize - 1 ? address - (romSize) : address;
-			res = S32xUtil.readBuffer(rom, address & romMask, size);
+			res = readBuffer(rom, address & romMask, size);
 			deviceAccessType = S32xMemAccessDelay.ROM;
 		} else if (address >= START_ROM_CACHE && address < END_ROM_CACHE) {
 			address &= romMask;
 			address = address > romSize - 1 ? address - (romSize) : address;
-			res = S32xUtil.readBuffer(rom, address & romMask, size);
+			res = readBuffer(rom, address & romMask, size);
 			deviceAccessType = S32xMemAccessDelay.ROM;
 		} else if (address >= S32XMMREG.START_32X_SYSREG_CACHE && address < S32XMMREG.END_32X_COLPAL_CACHE) {
 			res = s32XMMREG.read(address, size);
 		} else if (address >= S32XMMREG.START_32X_SYSREG && address < S32XMMREG.END_32X_COLPAL) {
 			res = s32XMMREG.read(address, size);
 		} else if (address >= START_SDRAM && address < END_SDRAM) {
-			res = S32xUtil.readBuffer(sdram, address & SDRAM_MASK, size);
+			res = readBuffer(sdram, address & SDRAM_MASK, size);
 			deviceAccessType = S32xMemAccessDelay.SDRAM;
 		} else if (address >= START_SDRAM_CACHE && address < END_SDRAM_CACHE) {
-			res = S32xUtil.readBuffer(sdram, address & SDRAM_MASK, size);
+			res = readBuffer(sdram, address & SDRAM_MASK, size);
 			deviceAccessType = S32xMemAccessDelay.SDRAM;
 		} else if (address >= S32XMMREG.START_DRAM && address < S32XMMREG.END_DRAM) {
 			res = s32XMMREG.read(address, size);
@@ -131,7 +134,7 @@ public final class Sh2Memory implements IMemory {
 	}
 
 	private void write(int address, int val, Size size) {
-		S32xUtil.CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
+		CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
 		val &= size.getMask();
 		if (address >= S32XMMREG.START_32X_SYSREG && address < S32XMMREG.END_32X_COLPAL) {
 			s32XMMREG.write(address, val, size);
@@ -142,10 +145,10 @@ public final class Sh2Memory implements IMemory {
 		} else if (address >= S32XMMREG.START_DRAM && address < S32XMMREG.END_DRAM) {
 			s32XMMREG.write(address, val, size);
 		} else if (address >= START_SDRAM && address < END_SDRAM) {
-			S32xUtil.writeBuffer(sdram, address & SDRAM_MASK, val, size);
+			writeBuffer(sdram, address & SDRAM_MASK, val, size);
 			deviceAccessType = S32xMemAccessDelay.SDRAM;
 		} else if (address >= START_SDRAM_CACHE && address < END_SDRAM_CACHE) {
-			S32xUtil.writeBuffer(sdram, address & SDRAM_MASK, val, size);
+			writeBuffer(sdram, address & SDRAM_MASK, val, size);
 			deviceAccessType = S32xMemAccessDelay.SDRAM;
 		} else if (address >= S32XMMREG.START_OVER_IMAGE && address < S32XMMREG.END_OVER_IMAGE) {
 			s32XMMREG.write(address, val, size);

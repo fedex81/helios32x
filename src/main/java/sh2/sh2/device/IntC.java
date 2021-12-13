@@ -3,13 +3,14 @@ package sh2.sh2.device;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.S32xUtil;
 import sh2.S32xUtil.CpuDeviceAccess;
 
 import java.nio.ByteBuffer;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
+import static sh2.S32xUtil.readBuffer;
+import static sh2.S32xUtil.writeBuffer;
 import static sh2.sh2.device.IntC.Sh2Interrupt.*;
 
 /**
@@ -70,11 +71,11 @@ public class IntC {
     }
 
     public int readSh2IntMaskReg(CpuDeviceAccess sh2Access, int pos, Size size) {
-        return S32xUtil.readBuffer(sh2_int_mask[sh2Access.ordinal()], pos, size);
+        return readBuffer(sh2_int_mask[sh2Access.ordinal()], pos, size);
     }
 
     public void writeSh2IntMaskReg(CpuDeviceAccess sh2Access, int reg, int value, Size size) {
-        S32xUtil.writeBuffer(sh2_int_mask[sh2Access.ordinal()], reg, value, size);
+        writeBuffer(sh2_int_mask[sh2Access.ordinal()], reg, value, size);
         int newVal = readSh2IntMaskReg(sh2Access, 0, Size.WORD);
         setIntsMasked(sh2Access, newVal);
     }

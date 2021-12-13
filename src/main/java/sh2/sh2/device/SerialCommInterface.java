@@ -4,12 +4,12 @@ import omegadrive.Device;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.S32xUtil;
 import sh2.S32xUtil.CpuDeviceAccess;
 
 import java.nio.ByteBuffer;
 
 import static sh2.S32xUtil.readBuffer;
+import static sh2.S32xUtil.writeBuffer;
 import static sh2.Sh2MMREG.SH2_REG_MASK;
 import static sh2.dict.Sh2Dict.*;
 
@@ -69,7 +69,7 @@ public class SerialCommInterface implements Device {
                 if ((value & 3) > 0) {
                     LOG.info(cpu + " " + sh2RegNames[reg] + " CKE (clock): {}", value & 3);
                     if ((value & 3) != 2) {
-                        LOG.error("Unsupported");
+                        LOG.error(" CKE (clock) unsupported! {}", value & 3);
                     }
                 }
                 break;
@@ -88,11 +88,11 @@ public class SerialCommInterface implements Device {
 
     @Override
     public void reset() {
-        S32xUtil.writeBuffer(regs, SCI_SMR & SH2_REG_MASK, 0, Size.BYTE);
-        S32xUtil.writeBuffer(regs, SCI_BRR & SH2_REG_MASK, 0xFF, Size.BYTE);
-        S32xUtil.writeBuffer(regs, SCI_SCR & SH2_REG_MASK, 0, Size.BYTE);
-        S32xUtil.writeBuffer(regs, SCI_TDR & SH2_REG_MASK, 0xFF, Size.BYTE);
-        S32xUtil.writeBuffer(regs, SCI_SSR & SH2_REG_MASK, 0x84, Size.BYTE);
-        S32xUtil.writeBuffer(regs, SCI_RDR & SH2_REG_MASK, 0, Size.BYTE);
+        writeBuffer(regs, SCI_SMR & SH2_REG_MASK, 0, Size.BYTE);
+        writeBuffer(regs, SCI_BRR & SH2_REG_MASK, 0xFF, Size.BYTE);
+        writeBuffer(regs, SCI_SCR & SH2_REG_MASK, 0, Size.BYTE);
+        writeBuffer(regs, SCI_TDR & SH2_REG_MASK, 0xFF, Size.BYTE);
+        writeBuffer(regs, SCI_SSR & SH2_REG_MASK, 0x84, Size.BYTE);
+        writeBuffer(regs, SCI_RDR & SH2_REG_MASK, 0, Size.BYTE);
     }
 }

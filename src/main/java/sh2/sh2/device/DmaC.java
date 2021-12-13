@@ -7,7 +7,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.S32XMMREG;
 import sh2.S32xBus;
-import sh2.S32xUtil;
 import sh2.S32xUtil.*;
 
 import java.nio.ByteBuffer;
@@ -46,10 +45,10 @@ public class DmaC {
     }
 
     public int read(CpuDeviceAccess cpu, int reg, Size size) {
-        if (size == Size.LONG) {
-            LOG.error("{} DMA read {}: {}", cpu, s32xRegNames[cpu.ordinal()][reg & ~1], size);
-            throw new RuntimeException();
-        }
+//        if (size == Size.LONG) {
+//            LOG.error("{} DMA read {}: {}", cpu, s32xRegNames[cpu.ordinal()][reg & ~1], size);
+//            throw new RuntimeException();
+//        }
         int res = (int) size.getMask();
         switch (cpu) {
             case M68K:
@@ -96,7 +95,7 @@ public class DmaC {
         switch (regEven) {
             case DREQ_CTRL:
                 if (size == Size.WORD || (size == Size.BYTE && reg != regEven)) {
-                    int prev = S32xUtil.readBuffer(sysRegsMd, DREQ_CTRL, Size.WORD);
+                    int prev = readBuffer(sysRegsMd, DREQ_CTRL, Size.WORD);
                     int rv = value & 1;
                     if ((prev & 1) != rv) {
                         LOG.info(M68K + " DMA RV bit {} -> {}", prev & 1, rv);
@@ -110,9 +109,9 @@ public class DmaC {
                     } else if ((prev & 4) == (value & 4)) {
                         LOG.info("Ignoring DMA 68S rewrite: " + (value & 4));
                     }
-                    S32xUtil.writeBuffer(sysRegsMd, reg, value, size);
-                    int lsb = S32xUtil.readBuffer(sysRegsMd, DREQ_CTRL + 1, Size.BYTE);
-                    S32xUtil.writeBuffer(sysRegsSh2, DMAC_CTRL + 1, lsb & 7, Size.BYTE);
+                    writeBuffer(sysRegsMd, reg, value, size);
+                    int lsb = readBuffer(sysRegsMd, DREQ_CTRL + 1, Size.BYTE);
+                    writeBuffer(sysRegsSh2, DMAC_CTRL + 1, lsb & 7, Size.BYTE);
                 }
                 break;
             case FIFO_REG:
@@ -130,14 +129,23 @@ public class DmaC {
                     LOG.error("DMA off");
                 }
                 break;
+            case DREQ_DEST_ADDR_H:
+            case DREQ_DEST_ADDR_L:
+            case DREQ_SRC_ADDR_H:
+            case DREQ_SRC_ADDR_L:
+            case DREQ_LEN:
+                writeBuffer(sysRegsMd, reg, value, size);
+                writeBuffer(sysRegsSh2, reg, value, size);
+                break;
+
         }
-        S32xUtil.writeBuffer(sysRegsMd, reg, value, size);
+        writeBuffer(sysRegsMd, reg, value, size);
     }
 
     private void dmaEnd() {
         updateFifoState();
 
-        int value = S32xUtil.readBuffer(sysRegsMd, DREQ_CTRL, Size.WORD) & ~(M68K_68S_BIT_MASK);
+        int value = readBuffer(sysRegsMd, DREQ_CTRL, Size.WORD) & ~(M68K_68S_BIT_MASK);
         writeBuffer(sysRegsMd, DREQ_LEN, value, Size.WORD);
     }
 
@@ -148,16 +156,16 @@ public class DmaC {
     }
 
     private int dmaOneStep() {
-        int srcAddress = S32xUtil.readBuffer(sysRegsMd, DREQ_SRC_ADDR_H, Size.LONG);
-        int destAddress = S32xUtil.readBuffer(sysRegsMd, DREQ_DEST_ADDR_H, Size.LONG);
-        int len = S32xUtil.readBuffer(sysRegsMd, DREQ_LEN, Size.WORD);
+        int srcAddress = readBuffer(sysRegsMd, DREQ_SRC_ADDR_H, Size.LONG);
+        int destAddress = readBuffer(sysRegsMd, DREQ_DEST_ADDR_H, Size.LONG);
+        int len = readBuffer(sysRegsMd, DREQ_LEN, Size.WORD);
         int currDestAddr = destAddress;
         while (!fifo.isEmpty()) {
             long val = fifo.pop().data;
             bus.write(currDestAddr, val, Size.WORD);
             currDestAddr += 2;
         }
-        S32xUtil.writeBuffer(sysRegsMd, DREQ_DEST_ADDR_H, currDestAddr, Size.LONG);
+        writeBuffer(sysRegsMd, DREQ_DEST_ADDR_H, currDestAddr, Size.LONG);
         len = (len - 4) & 0xFFFF;
         if (len == 0) {
             dmaEnd();
@@ -181,15 +189,15 @@ public class DmaC {
     }
 
     private int read68k(int reg, Size size) {
-        return S32xUtil.readBuffer(sysRegsMd, reg, size);
+        return readBuffer(sysRegsMd, reg, size);
     }
 
 
     private int readSh2(int reg, Size size) {
         int regEven = reg & ~1;
         if (regEven == DMAC_CTRL) {
-            return S32xUtil.readBuffer(sysRegsSh2, reg, size);
+            return readBuffer(sysRegsSh2, reg, size);
         }
-        return S32xUtil.readBuffer(sysRegsMd, reg, size);
+        return readBuffer(sysRegsMd, reg, size);
     }
 }

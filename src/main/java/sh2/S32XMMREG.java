@@ -103,9 +103,9 @@ public class S32XMMREG implements Device {
     @Override
     public void init() {
         vdpContext = new MarsVdpContext();
-        S32xUtil.writeBuffer(sysRegsMd, ADAPTER_CTRL, P32XS_REN | P32XS_nRES, Size.WORD); //from Picodrive
-        S32xUtil.writeBuffer(vdpRegs, VDP_BITMAP_MODE, pal * P32XV_PAL, Size.WORD);
-        S32xUtil.writeBuffer(vdpRegs, FBCR, (vdpContext.vBlankOn ? 1 : 0) * P32XV_VBLK | (pen * P32XV_PEN), Size.WORD);
+        writeBuffer(sysRegsMd, ADAPTER_CTRL, P32XS_REN | P32XS_nRES, Size.WORD); //from Picodrive
+        writeBuffer(vdpRegs, VDP_BITMAP_MODE, pal * P32XV_PAL, Size.WORD);
+        writeBuffer(vdpRegs, FBCR, (vdpContext.vBlankOn ? 1 : 0) * P32XV_VBLK | (pen * P32XV_PEN), Size.WORD);
         dramBanks[0] = ByteBuffer.allocateDirect(DRAM_SIZE);
         dramBanks[1] = ByteBuffer.allocateDirect(DRAM_SIZE);
         vdp = MarsVdpImpl.createInstance(vdpContext, dramBanks, colorPalette);
@@ -122,13 +122,13 @@ public class S32XMMREG implements Device {
 
     public void setHBlankOn(boolean hBlankOn) {
         vdpContext.hBlankOn = hBlankOn;
-        int val = S32xUtil.readBuffer(vdpRegs, FBCR, Size.WORD);
+        int val = readBuffer(vdpRegs, FBCR, Size.WORD);
         val = (hBlankOn ? 1 : 0) << 14 | (val & 0xBFFF);
-        S32xUtil.writeBuffer(vdpRegs, FBCR, val, Size.WORD);
+        writeBuffer(vdpRegs, FBCR, val, Size.WORD);
         if (hBlankOn) {
-            int hCnt = S32xUtil.readBuffer(sysRegsSh2, HCOUNT_REG, Size.WORD);
+            int hCnt = readBuffer(sysRegsSh2, HCOUNT_REG, Size.WORD);
             if (--vdpContext.hCount < 0) {
-                vdpContext.hCount = S32xUtil.readBuffer(sysRegsSh2, HCOUNT_REG, Size.WORD) & 0xFF;
+                vdpContext.hCount = readBuffer(sysRegsSh2, HCOUNT_REG, Size.WORD) & 0xFF;
                 interruptControl.setIntPending(MASTER, HINT_10, true);
                 interruptControl.setIntPending(SLAVE, HINT_10, true);
             }
@@ -139,16 +139,16 @@ public class S32XMMREG implements Device {
 
     public void setVBlankOn(boolean vBlankOn) {
         vdpContext.vBlankOn = vBlankOn;
-        int val = S32xUtil.readBuffer(vdpRegs, FBCR, Size.WORD);
+        int val = readBuffer(vdpRegs, FBCR, Size.WORD);
         val = (vBlankOn ? 1 : 0) << 15 | (val & 0x7FFF);
-        S32xUtil.writeBuffer(vdpRegs, FBCR, val, Size.WORD);
+        writeBuffer(vdpRegs, FBCR, val, Size.WORD);
         if (vBlankOn) {
-            vdpContext.screenShift = S32xUtil.readBuffer(vdpRegs, SSCR, Size.WORD) & 1;
+            vdpContext.screenShift = readBuffer(vdpRegs, SSCR, Size.WORD) & 1;
             vdp.draw(vdpContext);
             int currentFb = val & 1;
             if (currentFb != vdpContext.fsLatch) {
                 int newVal = ((val & 0xFFFE) | vdpContext.fsLatch);
-                S32xUtil.writeBuffer(vdpRegs, FBCR, newVal, Size.WORD);
+                writeBuffer(vdpRegs, FBCR, newVal, Size.WORD);
                 updateFrameBuffer(newVal);
 //                System.out.println("##### VBLANK, D" + frameBufferDisplay + "W" + frameBufferWritable + ", fsLatch: " + fsLatch + ", VB: " + vBlankOn);
             }
@@ -167,7 +167,7 @@ public class S32XMMREG implements Device {
             switch (size) {
                 case WORD:
                 case LONG:
-                    S32xUtil.writeBuffer(colorPalette, address & S32X_COLPAL_MASK, value, size);
+                    writeBuffer(colorPalette, address & S32X_COLPAL_MASK, value, size);
                     break;
                 default:
                     LOG.error(BaseSystem.getAccessType() + " write, unable to access colorPalette as " + size);
@@ -178,9 +178,9 @@ public class S32XMMREG implements Device {
             if (size == Size.BYTE && value == 0) { //value =0 on byte access is ignored
                 return;
             }
-            S32xUtil.writeBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, value, size);
+            writeBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, value, size);
         } else if (address >= START_OVER_IMAGE_CACHE && address < END_OVER_IMAGE_CACHE) {
-            S32xUtil.writeBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, value, size);
+            writeBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, value, size);
         } else {
             throw new RuntimeException();
         }
@@ -194,15 +194,15 @@ public class S32XMMREG implements Device {
             res = handleRegRead(address, size);
         } else if (address >= START_32X_COLPAL_CACHE && address < END_32X_COLPAL_CACHE) {
             if (size == Size.WORD) {
-                res = S32xUtil.readBuffer(colorPalette, address & S32X_COLPAL_MASK, size);
+                res = readBuffer(colorPalette, address & S32X_COLPAL_MASK, size);
             } else {
                 LOG.error(BaseSystem.getAccessType() + " read, unable to access colorPalette as " + size);
             }
             deviceAccessType = S32xMemAccessDelay.PALETTE;
         } else if (address >= START_DRAM_CACHE && address < END_DRAM_CACHE) {
-            res = S32xUtil.readBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, size);
+            res = readBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, size);
         } else if (address >= START_OVER_IMAGE_CACHE && address < END_OVER_IMAGE_CACHE) {
-            res = S32xUtil.readBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, size);
+            res = readBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, size);
         } else {
             throw new RuntimeException();
         }
@@ -213,7 +213,7 @@ public class S32XMMREG implements Device {
     private int handleRegRead(int address, Size size) {
         CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
         int reg = address & S32X_MMREG_MASK;
-        if (size == Size.LONG && reg < COMM0) {
+        if (size == Size.LONG && reg < COMM0 && reg != DREQ_DEST_ADDR_H && reg != DREQ_SRC_ADDR_H) {
             throw new RuntimeException("unsupported 32 bit access: " + address);
         }
         boolean isSys = address < END_32X_SYSREG_CACHE;
@@ -222,7 +222,7 @@ public class S32XMMREG implements Device {
         if (verboseRead) {
             doLog(regArea, isSys, address, reg, -1, size, true);
         }
-        int res = S32xUtil.readBuffer(regArea, reg, size);
+        int res = readBuffer(regArea, reg, size);
         if (sh2Access != M68K && isSys && reg < INT_CTRL_REG) {
             res = interruptControl.readSh2IntMaskReg(sh2Access, reg, size);
         }
@@ -309,7 +309,7 @@ public class S32XMMREG implements Device {
 
     //COMM and other regs
     private boolean internalRegWriteCOMM(final ByteBuffer regArea, int reg, int value, Size size) {
-        int currentVal = S32xUtil.readBuffer(regArea, reg, size);
+        int currentVal = readBuffer(regArea, reg, size);
         boolean regChanged = currentVal != value;
         if (regChanged) {
             switch (reg) {
@@ -325,7 +325,7 @@ public class S32XMMREG implements Device {
                     writeBuffers(sysRegsMd, sysRegsSh2, reg, value, size);
                     break;
                 default:
-                    S32xUtil.writeBuffer(regArea, reg, value, size);
+                    writeBuffer(regArea, reg, value, size);
                     break;
             }
         }
@@ -351,7 +351,7 @@ public class S32XMMREG implements Device {
             interruptControl.clearInterrupt(sh2Access, intType);
             //autoclear Int_control_reg too
             if (intType == CMD_8) {
-                int newVal = (S32xUtil.readBuffer(sysRegsMd, INT_CTRL_REG, Size.WORD)) & ~(1 << sh2Access.ordinal());
+                int newVal = (readBuffer(sysRegsMd, INT_CTRL_REG, Size.WORD)) & ~(1 << sh2Access.ordinal());
                 boolean change = handleIntControlWrite68k(INT_CTRL_REG, newVal, Size.WORD);
                 if (change) {
                     LOG.info(sh2Access + " auto clear " + intType);
@@ -408,10 +408,10 @@ public class S32XMMREG implements Device {
     }
 
     private boolean handleAdapterControlRegWrite68k(int reg, int value, Size size) {
-        int val = S32xUtil.readBuffer(sysRegsMd, ADAPTER_CTRL, Size.WORD);
-        S32xUtil.writeBuffer(sysRegsMd, reg, value, size);
+        int val = readBuffer(sysRegsMd, ADAPTER_CTRL, Size.WORD);
+        writeBuffer(sysRegsMd, reg, value, size);
 
-        int newVal = S32xUtil.readBuffer(sysRegsMd, ADAPTER_CTRL, Size.WORD) | P32XS_REN; //force REN
+        int newVal = readBuffer(sysRegsMd, ADAPTER_CTRL, Size.WORD) | P32XS_REN; //force REN
         if (aden > 0 && (newVal & 1) == 0) {
             System.out.println("#### Disabling ADEN not allowed");
             newVal |= 1;
@@ -428,7 +428,7 @@ public class S32XMMREG implements Device {
             //TODO this breaks test2
 //                bus.resetSh2();
         }
-        S32xUtil.writeBuffer(sysRegsMd, ADAPTER_CTRL, newVal, Size.WORD);
+        writeBuffer(sysRegsMd, ADAPTER_CTRL, newVal, Size.WORD);
         setAdenSh2Reg(newVal & 1); //sh2 side read-only
         updateFmShared(newVal); //sh2 side r/w too
         return val != newVal;
@@ -451,20 +451,20 @@ public class S32XMMREG implements Device {
     }
 
     private boolean handleBitmapModeWrite(int reg, int value, Size size) {
-        int val = S32xUtil.readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD);
-        S32xUtil.writeBuffer(vdpRegs, reg, value, size);
-        int newVal = S32xUtil.readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD) & ~(P32XV_PAL | P32XV_240);
+        int val = readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD);
+        writeBuffer(vdpRegs, reg, value, size);
+        int newVal = readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD) & ~(P32XV_PAL | P32XV_240);
         int v240 = pal == 0 && vdpContext.videoMode.isV30() ? 1 : 0;
         newVal = newVal | (pal * P32XV_PAL) | (v240 * P32XV_240);
-        S32xUtil.writeBuffer(vdpRegs, VDP_BITMAP_MODE, newVal, Size.WORD);
+        writeBuffer(vdpRegs, VDP_BITMAP_MODE, newVal, Size.WORD);
         vdpContext.bitmapMode = BitmapMode.vals[newVal & 3];
         return val != newVal;
     }
 
     private boolean handleFBCRWrite(int reg, int value, Size size) {
-        int val = S32xUtil.readBuffer(vdpRegs, FBCR, Size.WORD);
-        S32xUtil.writeBuffer(vdpRegs, reg, value, size);
-        int val1 = S32xUtil.readBuffer(vdpRegs, FBCR, Size.WORD);
+        int val = readBuffer(vdpRegs, FBCR, Size.WORD);
+        writeBuffer(vdpRegs, reg, value, size);
+        int val1 = readBuffer(vdpRegs, FBCR, Size.WORD);
         int regVal = 0;
         if (vdpContext.vBlankOn || vdpContext.bitmapMode == BitmapMode.BLANK) {
             regVal = (val & 0xFFFC) | (val1 & 3);
@@ -473,7 +473,7 @@ public class S32XMMREG implements Device {
             //during display the register always shows the current frameBuffer being displayed
             regVal = (val & 0xFFFD) | (val1 & 2);
         }
-        S32xUtil.writeBuffer(vdpRegs, FBCR, regVal, Size.WORD);
+        writeBuffer(vdpRegs, FBCR, regVal, Size.WORD);
         vdpContext.fsLatch = val1 & 1;
 //            System.out.println("###### FBCR write: D" + frameBufferDisplay + "W" + frameBufferWritable + ", fsLatch: " + fsLatch + ", VB: " + vBlankOn);
         return val != regVal;
@@ -502,8 +502,8 @@ public class S32XMMREG implements Device {
 
     private void setPen(int pen) {
         this.pen = pen;
-        int val = (pen << 5) | (S32xUtil.readBuffer(vdpRegs, FBCR, Size.BYTE) & 0xDF);
-        S32xUtil.writeBuffer(vdpRegs, FBCR, val, Size.BYTE);
+        int val = (pen << 5) | (readBuffer(vdpRegs, FBCR, Size.BYTE) & 0xDF);
+        writeBuffer(vdpRegs, FBCR, val, Size.BYTE);
     }
 
     private void updateFrameBuffer(int val) {
@@ -512,9 +512,9 @@ public class S32XMMREG implements Device {
     }
 
     private void runAutoFill(int data) {
-        S32xUtil.writeBuffer(vdpRegs, AFDR, data, Size.WORD);
-        int startAddr = S32xUtil.readBuffer(vdpRegs, AFSAR, Size.WORD);
-        int len = S32xUtil.readBuffer(vdpRegs, AFLR, Size.WORD) & 0xFF;
+        writeBuffer(vdpRegs, AFDR, data, Size.WORD);
+        int startAddr = readBuffer(vdpRegs, AFSAR, Size.WORD);
+        int len = readBuffer(vdpRegs, AFLR, Size.WORD) & 0xFF;
         runAutoFillInternal(dramBanks[vdpContext.frameBufferWritable], startAddr, data, len);
     }
 
@@ -526,18 +526,18 @@ public class S32XMMREG implements Device {
         len = len == 0 ? 0xFF : len;
         final int dataWord = (data << 8) | data;
         do {
-            S32xUtil.writeBuffer(buffer, (addrFixed + addrVariable) << 1, dataWord, Size.WORD);
+            writeBuffer(buffer, (addrFixed + addrVariable) << 1, dataWord, Size.WORD);
             addrVariable = (addrVariable + 1) & 0xFF;
             len--;
         } while (len > 0);
-        S32xUtil.writeBuffer(vdpRegs, AFSAR, addrFixed + addrVariable, Size.WORD);
+        writeBuffer(vdpRegs, AFSAR, addrFixed + addrVariable, Size.WORD);
     }
 
     public void updateVideoMode(VideoMode video) {
         pal = video.isPal() ? 0 : 1;
         int v240 = video.isPal() && video.isV30() ? 1 : 0;
-        int val = S32xUtil.readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD) & ~(P32XV_PAL | P32XV_240);
-        S32xUtil.writeBuffer(vdpRegs, VDP_BITMAP_MODE, val | (pal * P32XV_PAL) | (v240 * P32XV_240), Size.WORD);
+        int val = readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD) & ~(P32XV_PAL | P32XV_240);
+        writeBuffer(vdpRegs, VDP_BITMAP_MODE, val | (pal * P32XV_PAL) | (v240 * P32XV_240), Size.WORD);
         vdp.updateVideoMode(video);
     }
 
