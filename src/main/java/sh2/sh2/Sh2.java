@@ -581,14 +581,6 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	public static void main(String[] args) {
-		int rm = 0x1111_8000;
-		int rn = 0xFFFF_2222;
-
-		int re = ((rm & 0xffff) << 16) | ((rn & 0xffff0000) >>> 16);
-		System.out.println(Integer.toHexString(re));
-	}
-
 	protected final void ADD(int code) {
 		int m = RM(code);
 		int n = RN(code);
@@ -1417,10 +1409,14 @@ public class Sh2 implements Device {
 
 	protected final void TSTI(int code) {
 		int i = ((code >> 0) & 0xff);
-
-		if ((ctx.registers[0] & i) != 0)
+//		int prevT = ctx.SR & flagT;
+		if ((ctx.registers[0] & i) == 0)
 			ctx.SR |= flagT;
 		else ctx.SR &= (~flagT);
+
+//		System.out.println("#### R0: " + Integer.toHexString(ctx.registers[0]) +
+//				", imm: " + Integer.toHexString(i) + ", res: " + Integer.toHexString(ctx.registers[0] & i)
+//				+ ", prevT: "+prevT+", T: " + (ctx.SR & flagT));
 
 		ctx.cycles--;
 		ctx.PC += 2;

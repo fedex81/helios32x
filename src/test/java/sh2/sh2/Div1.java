@@ -1,9 +1,7 @@
 package sh2.sh2;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import sh2.S32xUtil;
 
 import static sh2.sh2.Sh2.*;
 
@@ -12,17 +10,7 @@ import static sh2.sh2.Sh2.*;
  * <p>
  * Copyright 2021
  */
-public class Div1 {
-
-    private Sh2Context ctx;
-    private Sh2 sh2;
-
-    @BeforeEach
-    public void b4() {
-        ctx = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
-        sh2 = new Sh2(null, null);
-        sh2.setCtx(ctx);
-    }
+public class Div1 extends Sh2BaseTest {
 
     /**
      * Sequence taken from
