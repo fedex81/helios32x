@@ -34,9 +34,17 @@ public class DmaC {
 
     private final ByteBuffer sysRegsMd, sysRegsSh2;
     private final S32xBus bus;
-    private final VdpFifo fifo = new VdpFifo();
+    private final DmaFifo fifo = new DmaFifo();
 
     private boolean dmaOn = false;
+
+    static class DmaFifo extends VdpFifo {
+        void clear() {
+            while (!isEmpty()) {
+                pop();
+            }
+        }
+    }
 
     public DmaC(S32xBus bus, S32XMMREG s32XMMREG) {
         this.sysRegsMd = s32XMMREG.sysRegsMd;
