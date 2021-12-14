@@ -67,8 +67,8 @@ public class S32XMMREG implements Device {
 
     private static final boolean verbose = false, verboseRead = false;
 
-    private static final int CART_INSERTED = 0;
-    private static final int CART_NOT_INSERTED = 1;
+    public static final int CART_INSERTED = 0;
+    public static final int CART_NOT_INSERTED = 1;
 
     //0 = cart inserted, 1 = otherwise
     private int cart = CART_NOT_INSERTED;

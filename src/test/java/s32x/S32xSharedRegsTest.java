@@ -11,6 +11,8 @@ import sh2.S32xUtil;
 import sh2.sh2.device.IntC;
 
 import static s32x.MarsRegTestUtil.*;
+import static sh2.S32XMMREG.CART_INSERTED;
+import static sh2.S32XMMREG.CART_NOT_INSERTED;
 import static sh2.S32xUtil.CpuDeviceAccess.*;
 
 /**
@@ -64,19 +66,19 @@ public class S32xSharedRegsTest {
 
     @Test
     public void testCart() {
+        int cartSize = 0x100;
         //defaults to 0
-        checkCart(0);
+        checkCart(CART_INSERTED);
 
         //cart inserted
-        int cart = 1;
-        s32XMMREG.setCart(cart);
-        int exp = cart << 8;
+        s32XMMREG.setCart(cartSize);
+        int exp = CART_INSERTED << 8;
 
         checkCart(exp);
 
-        //cart removed
+        //cart removed, size = 0
         s32XMMREG.setCart(0);
-        checkCart(0);
+        checkCart(CART_NOT_INSERTED << 8);
     }
 
     @Test
