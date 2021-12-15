@@ -17,6 +17,8 @@ import static sh2.sh2.device.IntC.Sh2Interrupt.*;
  * Federico Berti
  * <p>
  * Copyright 2021
+ * <p>
+ * TODO this should handle MASTER or SLAVE, not both
  */
 public class IntC {
 

@@ -15,6 +15,8 @@ public class S32xUtil {
 
     private static final Logger LOG = LogManager.getLogger(S32xUtil.class.getSimpleName());
 
+    public enum DebugMode {NONE, INST_ONLY, NEW_INST_ONLY, STATE}
+
     public static void writeBuffers(ByteBuffer b1, ByteBuffer b2, int pos, int value, Size size) {
         writeBuffer(b1, pos, value, size);
         writeBuffer(b2, pos, value, size);
@@ -78,6 +80,10 @@ public class S32xUtil {
             return true;
         }
         return false;
+    }
+
+    public static String th(int pos) {
+        return Integer.toHexString(pos);
     }
 
     public static String toHexString(ByteBuffer b, int pos, Size size) {

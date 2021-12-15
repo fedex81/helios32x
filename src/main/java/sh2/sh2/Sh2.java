@@ -4,6 +4,7 @@ package sh2.sh2;
 import omegadrive.Device;
 import omegadrive.system.BaseSystem;
 import sh2.IMemory;
+import sh2.sh2.device.DmaC;
 import sh2.sh2.device.IntC;
 
 /*
@@ -2137,6 +2138,7 @@ public class Sh2 implements Device {
 				System.exit(1);
 			}
 			acceptInterrupts(ctx);
+			DmaC.runDma(ctx.cpuAccess);
 		}
 		ctx.cycles_ran = burstCycles - ctx.cycles;
 		ctx.cycles = burstCycles;

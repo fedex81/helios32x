@@ -5,7 +5,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.sh2.device.DivUnit;
+import sh2.sh2.device.DmaC;
 import sh2.sh2.device.SerialCommInterface;
+import sh2.sh2.device.Sh2DeviceHelper;
 
 import java.nio.ByteBuffer;
 import java.util.stream.IntStream;
@@ -33,14 +35,19 @@ public class Sh2MMREG {
 
     private SerialCommInterface sci;
     private DivUnit divUnit;
+    private DmaC dmaC;
 
     private CpuDeviceAccess sh2Access;
     private static final boolean verbose = false;
 
     public Sh2MMREG(CpuDeviceAccess sh2Access) {
         this.sh2Access = sh2Access;
-        this.sci = new SerialCommInterface(sh2Access, regs);
-        this.divUnit = new DivUnit(sh2Access, regs);
+    }
+
+    public void init(Sh2DeviceHelper.Sh2DeviceContext ctx) {
+        this.dmaC = ctx.dmaC;
+        this.divUnit = ctx.divUnit;
+        this.sci = ctx.sci;
         reset();
     }
 
@@ -74,10 +81,20 @@ public class Sh2MMREG {
                 break;
             case DMA_CHCR0:
             case DMA_CHCR1:
+            case DMA_SAR0:
+            case DMA_SAR1:
+            case DMA_DAR0:
+            case DMA_DAR1:
+            case DMA_DRCR0:
+            case DMA_DRCR1:
+            case DMA_TCR0:
+            case DMA_TCR1:
+            case DMAOR:
                 int val1 = readBuffer(regs, reg & SH2_REG_MASK, Size.LONG);
                 if ((val1 & 4) > 0) {
                     LOG.error("{} Interrupt request on DMA complete not supported", sh2Access);
                 }
+                dmaC.write(sh2Access, reg, value, size);
                 break;
             case SCI_BRR:
             case SCI_RDR:
@@ -98,6 +115,10 @@ public class Sh2MMREG {
         }
         checkName(reg);
         return res;
+    }
+
+    public ByteBuffer getRegs() {
+        return regs;
     }
 
     public void reset() {

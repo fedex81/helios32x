@@ -170,6 +170,10 @@ public final class Sh2Memory implements IMemory {
 		S32xMemAccessDelay.addWriteCpuDelay(deviceAccessType);
 	}
 
+	public Sh2MMREG getSh2MMREGS(CpuDeviceAccess cpu) {
+		return sh2MMREGS[cpu.ordinal()];
+	}
+
 	@Override
 	public void resetSh2() {
 		sh2MMREGS[MASTER.ordinal()].reset();

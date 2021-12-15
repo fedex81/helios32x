@@ -1,19 +1,19 @@
 package sh2.sh2.device;
 
 import omegadrive.util.Size;
-import omegadrive.vdp.md.VdpFifo;
-import omegadrive.vdp.model.GenesisVdpProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.S32XMMREG;
-import sh2.S32xBus;
+import sh2.DmaFifo68k;
+import sh2.IMemory;
 import sh2.S32xUtil.*;
+import sh2.Sh2MMREG;
+import sh2.dict.Sh2Dict;
 
 import java.nio.ByteBuffer;
 
-import static sh2.S32xUtil.CpuDeviceAccess.M68K;
+import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.*;
-import static sh2.dict.S32xDict.*;
+import static sh2.dict.Sh2Dict.*;
 
 /**
  * Federico Berti
@@ -26,65 +26,36 @@ public class DmaC {
 
     private static final Logger LOG = LogManager.getLogger(DmaC.class.getSimpleName());
 
-    private static final int FIFO_REG_M68K = 0xA15100 + FIFO_REG;
-    private static final int M68K_FIFO_FULL_BIT = 7;
-    private static final int M68K_68S_BIT_MASK = 1 << 2;
-    private static final int SH2_FIFO_FULL_BIT = 15;
-    private static final int SH2_FIFO_EMPTY_BIT = 14;
+    private static final int SH2_CHCR_TRANSFER_END_BIT = 1;
 
-    private final ByteBuffer sysRegsMd, sysRegsSh2;
-    private final S32xBus bus;
-    private final DmaFifo fifo = new DmaFifo();
+    private final ByteBuffer regs;
 
-    private boolean dmaOn = false;
+    private final IMemory memory;
+    private final DmaFifo68k dma68k;
+    private final DmaFifo68k.DmaFifo fifo;
+    private final CpuDeviceAccess cpu;
+    private boolean dmaInProgress;
 
-    static class DmaFifo extends VdpFifo {
-        void clear() {
-            while (!isEmpty()) {
-                pop();
-            }
+    @Deprecated
+    private static DmaC masterDma, slaveDma;
+
+    public DmaC(CpuDeviceAccess cpu, IMemory memory, DmaFifo68k dma68k, ByteBuffer regs) {
+        this.cpu = cpu;
+        this.regs = regs;
+        this.memory = memory;
+        this.dma68k = dma68k;
+        this.fifo = dma68k.getFifo();
+        if (cpu == MASTER) {
+            masterDma = this;
+        } else {
+            slaveDma = this;
         }
     }
-
-    public DmaC(S32xBus bus, S32XMMREG s32XMMREG) {
-        this.sysRegsMd = s32XMMREG.sysRegsMd;
-        this.sysRegsSh2 = s32XMMREG.sysRegsSh2;
-        this.bus = bus;
-    }
-
-    public int read(CpuDeviceAccess cpu, int reg, Size size) {
-//        if (size == Size.LONG) {
-//            LOG.error("{} DMA read {}: {}", cpu, s32xRegNames[cpu.ordinal()][reg & ~1], size);
-//            throw new RuntimeException();
-//        }
-        int res = (int) size.getMask();
-        switch (cpu) {
-            case M68K:
-                res = read68k(reg, size);
-                break;
-            case MASTER:
-            case SLAVE:
-                res = readSh2(reg, size);
-                break;
-        }
-        LOG.info("{} DMA read {}: {} {}", cpu, s32xRegNames[cpu.ordinal()][reg & ~1],
-                Integer.toHexString(res), size);
-        return res;
-    }
-
 
     public void write(CpuDeviceAccess cpu, int reg, int value, Size size) {
-        LOG.info("{} DMA write {}: {} {}", cpu, s32xRegNames[cpu.ordinal()][reg & ~1],
+        LOG.info("{} DMA write {}: {} {}", cpu, sh2RegNames[reg & ~1],
                 Integer.toHexString(value), size);
-        if (size == Size.LONG) {
-            LOG.error("{} DMA write {}: {} {}", cpu, s32xRegNames[cpu.ordinal()][reg & ~1],
-                    Integer.toHexString(value), size);
-            throw new RuntimeException();
-        }
         switch (cpu) {
-            case M68K:
-                write68k(reg, value, size);
-                break;
             case MASTER:
             case SLAVE:
                 writeSh2(cpu, reg, value, size);
@@ -92,120 +63,78 @@ public class DmaC {
         }
     }
 
+    public static void runDma(CpuDeviceAccess cpu) {
+        DmaC dmac = cpu == MASTER ? masterDma : slaveDma;
+        if (dmac.dmaInProgress) {
+            dmac.dmaOneStep(0);
+        }
+    }
+
     private void writeSh2(CpuDeviceAccess cpu, int reg, int value, Size size) {
-        LOG.error("Invalid {} DMA write {}: {} {}", cpu, s32xRegNames[cpu.ordinal()][reg & ~1],
-                Integer.toHexString(value), size);
-        throw new RuntimeException();
-    }
-
-    private void write68k(int reg, int value, Size size) {
-        final int regEven = reg & ~1; //even
-        switch (regEven) {
-            case DREQ_CTRL:
-                if (size == Size.WORD || (size == Size.BYTE && reg != regEven)) {
-                    int prev = readBuffer(sysRegsMd, DREQ_CTRL, Size.WORD);
-                    int rv = value & 1;
-                    if ((prev & 1) != rv) {
-                        LOG.info(M68K + " DMA RV bit {} -> {}", prev & 1, rv);
-                    }
-                    if (((prev & 4) == 0) && ((value & 4) > 0)) {
-                        LOG.info(M68K + " DMA on");
-                        dmaOn = true;
-                    } else if (((prev & 4) > 0) && ((value & 4) == 0)) {
-                        LOG.info(M68K + " DMA off");
-                        stopDma();
-                    } else if ((prev & 4) == (value & 4)) {
-                        LOG.info("Ignoring DMA 68S rewrite: " + (value & 4));
-                    }
-                    writeBuffer(sysRegsMd, reg, value, size);
-                    int lsb = readBuffer(sysRegsMd, DREQ_CTRL + 1, Size.BYTE);
-                    writeBuffer(sysRegsSh2, DMAC_CTRL + 1, lsb & 7, Size.BYTE);
+//        int val1 = readBuffer(regs, reg & SH2_REG_MASK, Size.LONG);
+//        if ((val1 & 4) > 0) {
+//            LOG.error("{} Interrupt request on DMA complete not supported", sh2Access);
+//        }
+        switch (reg) {
+            case Sh2Dict.DMAOR:
+                if ((value & 1) == 1) {
+                    int conf = readBufferForChannel(0, DMA_CHCR0 + 2, Size.WORD);
+                    int destMode = conf >> 14;
+                    int scrMode = (conf >> 12) & 0x3;
+                    int transfSize = (conf >> 10) & 0x3;
+                    LOG.info("DMA setup: {}", th(conf));
+                    dmaInProgress = true;
+                    fourWordsLeft = 4;
+                    dmaOneStep(0);
                 }
                 break;
-            case FIFO_REG:
-                if (dmaOn) {
-                    if (!fifo.isFull()) {
-                        fifo.push(GenesisVdpProvider.VramMode.vramWrite, 0, value);
-                        updateFifoState();
-                    } else {
-                        LOG.error("DMA Fifo full, discarding data");
-                    }
-                    if (fifo.isFull()) {
-                        dmaOneStep();
-                    }
-                } else {
-                    LOG.error("DMA off");
-                }
-                break;
-            case DREQ_DEST_ADDR_H:
-            case DREQ_DEST_ADDR_L:
-            case DREQ_SRC_ADDR_H:
-            case DREQ_SRC_ADDR_L:
-            case DREQ_LEN:
-                writeBuffer(sysRegsMd, reg, value, size);
-                writeBuffer(sysRegsSh2, reg, value, size);
-                break;
-
-        }
-        writeBuffer(sysRegsMd, reg, value, size);
-    }
-
-    private void dmaEnd() {
-        updateFifoState();
-
-        int value = readBuffer(sysRegsMd, DREQ_CTRL, Size.WORD) & ~(M68K_68S_BIT_MASK);
-        writeBuffer(sysRegsMd, DREQ_LEN, value, Size.WORD);
-    }
-
-    private void stopDma() {
-        dmaOn = false;
-        fifo.clear();
-        dmaEnd();
-    }
-
-    private int dmaOneStep() {
-        int srcAddress = readBuffer(sysRegsMd, DREQ_SRC_ADDR_H, Size.LONG);
-        int destAddress = readBuffer(sysRegsMd, DREQ_DEST_ADDR_H, Size.LONG);
-        int len = readBuffer(sysRegsMd, DREQ_LEN, Size.WORD);
-        int currDestAddr = destAddress;
-        while (!fifo.isEmpty()) {
-            long val = fifo.pop().data;
-            bus.write(currDestAddr, val, Size.WORD);
-            currDestAddr += 2;
-        }
-        writeBuffer(sysRegsMd, DREQ_DEST_ADDR_H, currDestAddr, Size.LONG);
-        len = (len - 4) & 0xFFFF;
-        if (len == 0) {
-            dmaEnd();
-        }
-        writeBuffer(sysRegsMd, DREQ_LEN, len, Size.WORD);
-        updateFifoState();
-        return len;
-    }
-
-    private void updateFifoState() {
-        boolean changed = setBit(sysRegsMd, DREQ_CTRL, M68K_FIFO_FULL_BIT, fifo.isFull() ? 1 : 0, Size.WORD);
-        if (changed) {
-            setBit(sysRegsSh2, DMAC_CTRL, SH2_FIFO_FULL_BIT, fifo.isFull() ? 1 : 0, Size.WORD);
-            LOG.info("68k DMA Fifo FULL state changed: {}", toHexString(sysRegsMd, DREQ_CTRL, Size.WORD));
-            LOG.info("Sh2 DMA Fifo FULL state changed: {}", toHexString(sysRegsSh2, DMAC_CTRL, Size.WORD));
-        }
-        changed = setBit(sysRegsSh2, DMAC_CTRL, SH2_FIFO_EMPTY_BIT, fifo.isEmpty() ? 1 : 0, Size.WORD);
-        if (changed) {
-            LOG.info("Sh2 DMA Fifo empty state changed: {}", toHexString(sysRegsSh2, DMAC_CTRL, Size.WORD));
         }
     }
 
-    private int read68k(int reg, Size size) {
-        return readBuffer(sysRegsMd, reg, size);
+    private int fourWordsLeft;
+
+    private void dmaOneStep(int channel) {
+        int len = readBufferForChannel(channel, DMA_TCR0, Size.LONG);
+        boolean lessThanFourLeft = fourWordsLeft == 4 && len < fourWordsLeft;
+        boolean fifoFilling = !lessThanFourLeft && fourWordsLeft == 4 && !fifo.isFull();
+        if (fifoFilling || fifo.isEmpty()) {
+            return;
+        }
+        fourWordsLeft--;
+        int srcAddress = readBufferForChannel(channel, DMA_SAR0, Size.LONG);
+        int destAddress = readBufferForChannel(channel, DMA_DAR0, Size.LONG);
+        long val = fifo.pop().data;
+        memory.write16i(destAddress, (int) val);
+        LOG.info("DMA write, src: {}, dest: {}, val: {}, dmaLen: {}", th(srcAddress), th(destAddress),
+                th((int) val), th(len));
+        writeBufferForChannel(channel, DMA_DAR0, destAddress + 2, Size.LONG);
+        if (fourWordsLeft == 0 || lessThanFourLeft) {
+            dma68k.updateFifoState();
+            fourWordsLeft = 4;
+            len = len < fourWordsLeft ? len - 1 : (len - 4) & 0xFFFF;
+            if (len == 0) {
+                dmaEnd(channel);
+            }
+            writeBufferForChannel(channel, DMA_TCR0, len, Size.LONG);
+        }
     }
 
+    private void dmaEnd(int channel) {
+        dmaInProgress = false;
+        dma68k.dmaEnd();
+        setBitInt(channel, DMA_CHCR0 + 2, SH2_CHCR_TRANSFER_END_BIT, 1, Size.WORD);
+    }
 
-    private int readSh2(int reg, Size size) {
-        int regEven = reg & ~1;
-        if (regEven == DMAC_CTRL) {
-            return readBuffer(sysRegsSh2, reg, size);
-        }
-        return readBuffer(sysRegsMd, reg, size);
+    private void setBitInt(int channel, int reg, int bitPos, int bitVal, Size size) {
+        setBit(regs, (reg + (channel << 4)) & Sh2MMREG.SH2_REG_MASK, bitPos, bitVal, size);
+    }
+
+    //channel1 = +0x10
+    private int readBufferForChannel(int channel, int reg, Size size) {
+        return readBuffer(regs, (reg + (channel << 4)) & Sh2MMREG.SH2_REG_MASK, size);
+    }
+
+    private void writeBufferForChannel(int channel, int reg, int value, Size size) {
+        writeBuffer(regs, (reg + (channel << 4)) & Sh2MMREG.SH2_REG_MASK, value, size);
     }
 }

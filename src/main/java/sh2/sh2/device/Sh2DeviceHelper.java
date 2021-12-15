@@ -1,0 +1,38 @@
+package sh2.sh2.device;
+
+import sh2.DmaFifo68k;
+import sh2.IMemory;
+import sh2.S32xUtil.CpuDeviceAccess;
+import sh2.Sh2Launcher.Sh2LaunchContext;
+import sh2.Sh2MMREG;
+
+/**
+ * Federico Berti
+ * <p>
+ * Copyright 2021
+ */
+public class Sh2DeviceHelper {
+
+    public static class Sh2DeviceContext {
+        public CpuDeviceAccess cpu;
+        public IntC intC;
+        public DmaC dmaC;
+        public SerialCommInterface sci;
+        public DivUnit divUnit;
+    }
+
+    public static Sh2DeviceContext createDevices(CpuDeviceAccess cpu, Sh2LaunchContext ctx) {
+        return createDevices(cpu, ctx.memory, ctx.intc, ctx.dmaFifo68k, ctx.memory.getSh2MMREGS(cpu));
+    }
+
+    private static Sh2DeviceContext createDevices(CpuDeviceAccess cpu, IMemory memory, IntC intC,
+                                                  DmaFifo68k dmaFifo68k, Sh2MMREG sh2Regs) {
+        Sh2DeviceContext ctx = new Sh2DeviceContext();
+        ctx.cpu = cpu;
+        ctx.intC = intC;
+        ctx.dmaC = new DmaC(cpu, memory, dmaFifo68k, sh2Regs.getRegs());
+        ctx.sci = new SerialCommInterface(cpu, sh2Regs.getRegs());
+        ctx.divUnit = new DivUnit(cpu, sh2Regs.getRegs());
+        return ctx;
+    }
+}

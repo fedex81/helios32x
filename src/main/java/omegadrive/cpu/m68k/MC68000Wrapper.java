@@ -54,7 +54,7 @@ public class MC68000Wrapper implements M68kProvider {
     }
 
     public static MC68000Wrapper createInstance(GenesisBusProvider busProvider) {
-        return MC68000Helper.M68K_DEBUG ? new MC68000WrapperDebug(busProvider) : new MC68000Wrapper(busProvider);
+        return MC68000Helper.M68K_DEBUG ? new MC68000WrapperFastDebug(busProvider) : new MC68000Wrapper(busProvider);
     }
 
     @Override

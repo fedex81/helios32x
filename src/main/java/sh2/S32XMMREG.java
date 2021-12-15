@@ -9,7 +9,6 @@ import org.apache.logging.log4j.Logger;
 import sh2.S32xUtil.*;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
-import sh2.sh2.device.DmaC;
 import sh2.sh2.device.IntC;
 import sh2.vdp.MarsVdp;
 import sh2.vdp.MarsVdp.BitmapMode;
@@ -89,7 +88,7 @@ public class S32XMMREG implements Device {
     public ByteBuffer[] dramBanks = new ByteBuffer[2];
 
     public IntC interruptControl;
-    public DmaC dmaControl;
+    public DmaFifo68k dmaFifoControl;
     private MarsVdp vdp;
     private S32xBus bus;
     private S32xDictLogContext logCtx;
@@ -231,7 +230,7 @@ public class S32XMMREG implements Device {
         else if (sh2Access == M68K && isSys && (reg == INT_CTRL_REG || reg == INT_CTRL_REG + 1)) {
             LOG.info("{} READ INT_CTRL_REG, addr: {}, data: {}", sh2Access, Integer.toHexString(address), res);
         } else if (isSys && reg >= DREQ_CTRL && reg <= DREQ_DEST_ADDR_L + 1) {
-            res = dmaControl.read(sh2Access, reg, size);
+            res = dmaFifoControl.read(sh2Access, reg, size);
         }
         return res;
     }
@@ -292,7 +291,7 @@ public class S32XMMREG implements Device {
                 case DREQ_SRC_ADDR_L:
                 case DREQ_DEST_ADDR_L:
                 case DREQ_DEST_ADDR_H:
-                    dmaControl.write(sh2Access, reg, value, size);
+                    dmaFifoControl.write(sh2Access, reg, value, size);
                     skipWrite = true;
                     break;
             }
@@ -541,8 +540,8 @@ public class S32XMMREG implements Device {
         vdp.updateVideoMode(video);
     }
 
-    public void setDmaControl(DmaC dmac) {
-        this.dmaControl = dmac;
+    public void setDmaControl(DmaFifo68k dmaFifoControl) {
+        this.dmaFifoControl = dmaFifoControl;
     }
 
     public void setInterruptControl(IntC interruptControl) {
