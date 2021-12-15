@@ -4,7 +4,10 @@ import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import sh2.S32XMMREG;
 import sh2.dict.S32xDict;
-import sh2.sh2.device.IntC;
+import sh2.sh2.device.IntControl;
+
+import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
+import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 
 /**
  * Federico Berti
@@ -27,7 +30,7 @@ public class MarsRegTestUtil {
 
     public static S32XMMREG createInstance() {
         S32XMMREG s = new S32XMMREG();
-        s.setInterruptControl(new IntC());
+        s.setInterruptControl(new IntControl(MASTER), new IntControl(SLAVE));
         return s;
     }
 

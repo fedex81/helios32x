@@ -15,21 +15,21 @@ public class Sh2DeviceHelper {
 
     public static class Sh2DeviceContext {
         public CpuDeviceAccess cpu;
-        public IntC intC;
+        public IntControl intC;
         public DmaC dmaC;
         public SerialCommInterface sci;
         public DivUnit divUnit;
     }
 
     public static Sh2DeviceContext createDevices(CpuDeviceAccess cpu, Sh2LaunchContext ctx) {
-        return createDevices(cpu, ctx.memory, ctx.intc, ctx.dmaFifo68k, ctx.memory.getSh2MMREGS(cpu));
+        return createDevices(cpu, ctx.memory, ctx.dmaFifo68k, ctx.memory.getSh2MMREGS(cpu));
     }
 
-    private static Sh2DeviceContext createDevices(CpuDeviceAccess cpu, IMemory memory, IntC intC,
+    private static Sh2DeviceContext createDevices(CpuDeviceAccess cpu, IMemory memory,
                                                   DmaFifo68k dmaFifo68k, Sh2MMREG sh2Regs) {
         Sh2DeviceContext ctx = new Sh2DeviceContext();
         ctx.cpu = cpu;
-        ctx.intC = intC;
+        ctx.intC = new IntControl(cpu);
         ctx.dmaC = new DmaC(cpu, memory, dmaFifo68k, sh2Regs.getRegs());
         ctx.sci = new SerialCommInterface(cpu, sh2Regs.getRegs());
         ctx.divUnit = new DivUnit(cpu, sh2Regs.getRegs());

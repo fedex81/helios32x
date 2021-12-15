@@ -5,7 +5,6 @@ import org.apache.logging.log4j.Logger;
 import sh2.IMemory;
 import sh2.S32xUtil;
 import sh2.S32xUtil.DebugMode;
-import sh2.sh2.device.IntC;
 
 /**
  * Federico Berti
@@ -30,8 +29,8 @@ public class Sh2Debug extends Sh2 {
     private int[][] pcVisitedMaster = new int[PC_AREAS][];
     private int[][] pcVisitedSlave = new int[PC_AREAS][];
 
-    public Sh2Debug(IMemory memory, IntC intc) {
-        super(memory, intc);
+    public Sh2Debug(IMemory memory) {
+        super(memory);
         LOG.warn("Sh2 cpu: creating debug instance");
         init();
     }

@@ -11,7 +11,6 @@ import sh2.dict.Sh2Dict;
 
 import java.nio.ByteBuffer;
 
-import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.*;
 import static sh2.dict.Sh2Dict.*;
 
@@ -36,20 +35,12 @@ public class DmaC {
     private final CpuDeviceAccess cpu;
     private boolean dmaInProgress;
 
-    @Deprecated
-    private static DmaC masterDma, slaveDma;
-
     public DmaC(CpuDeviceAccess cpu, IMemory memory, DmaFifo68k dma68k, ByteBuffer regs) {
         this.cpu = cpu;
         this.regs = regs;
         this.memory = memory;
         this.dma68k = dma68k;
         this.fifo = dma68k.getFifo();
-        if (cpu == MASTER) {
-            masterDma = this;
-        } else {
-            slaveDma = this;
-        }
     }
 
     public void write(CpuDeviceAccess cpu, int reg, int value, Size size) {
@@ -63,10 +54,9 @@ public class DmaC {
         }
     }
 
-    public static void runDma(CpuDeviceAccess cpu) {
-        DmaC dmac = cpu == MASTER ? masterDma : slaveDma;
-        if (dmac.dmaInProgress) {
-            dmac.dmaOneStep(0);
+    public void dmaStep() {
+        if (dmaInProgress) {
+            dmaOneStep(0);
         }
     }
 

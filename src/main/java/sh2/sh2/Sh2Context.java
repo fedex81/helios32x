@@ -1,6 +1,8 @@
 package sh2.sh2;
 
 import sh2.S32xUtil;
+import sh2.sh2.device.DmaC;
+import sh2.sh2.device.IntControl;
 
 /**
  * Federico Berti
@@ -30,9 +32,12 @@ public class Sh2Context {
     public String sh2TypeCode;
     public boolean debug;
 
-    public Sh2Context(S32xUtil.CpuDeviceAccess sh2Access) {
+    public IntControl intC;
+    public DmaC dmaC;
+
+    public Sh2Context(S32xUtil.CpuDeviceAccess cpuAccess) {
         this.registers = new int[NUM_REG];
-        this.cpuAccess = sh2Access;
-        this.sh2TypeCode = sh2Access.name().substring(0, 1);
+        this.cpuAccess = cpuAccess;
+        this.sh2TypeCode = cpuAccess.name().substring(0, 1);
     }
 }

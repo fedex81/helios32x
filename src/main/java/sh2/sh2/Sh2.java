@@ -5,7 +5,6 @@ import omegadrive.Device;
 import omegadrive.system.BaseSystem;
 import sh2.IMemory;
 import sh2.sh2.device.DmaC;
-import sh2.sh2.device.IntC;
 
 /*
  *  Revision 1 -  port the code from Dcemu and use information provided by dark||raziel (done)
@@ -46,11 +45,9 @@ public class Sh2 implements Device {
 
 	private Sh2Context ctx;
 	protected IMemory memory;
-	protected IntC interruptControl;
 
-	public Sh2(IMemory memory, IntC intc) {
+	public Sh2(IMemory memory) {
 		this.memory = memory;
-		this.interruptControl = intc;
 	}
 
 	public static final int RN(int x) {
@@ -83,7 +80,7 @@ public class Sh2 implements Device {
 
 	private boolean acceptInterrupts(Sh2Context ctx) {
 		int mask = getIMASK();
-		int imask = interruptControl.getInterruptLevel(ctx.cpuAccess);
+		int imask = ctx.intC.getInterruptLevel();
 		if (imask > mask) {
 			processInterrupt(ctx, imask);
 			return true;
@@ -2127,6 +2124,7 @@ public class Sh2 implements Device {
 	public void run(final Sh2Context ctx) {
 		this.ctx = ctx;
 		int opcode;
+		final DmaC dmaC = ctx.dmaC;
 		for (; ctx.cycles >= 0; ) {
 			opcode = memory.read16i(ctx.PC);
 
@@ -2138,7 +2136,7 @@ public class Sh2 implements Device {
 				System.exit(1);
 			}
 			acceptInterrupts(ctx);
-			DmaC.runDma(ctx.cpuAccess);
+			dmaC.dmaStep();
 		}
 		ctx.cycles_ran = burstCycles - ctx.cycles;
 		ctx.cycles = burstCycles;

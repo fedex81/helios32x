@@ -8,7 +8,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.S32XMMREG;
 import sh2.S32xUtil;
-import sh2.sh2.device.IntC;
 
 import static s32x.MarsRegTestUtil.*;
 import static sh2.S32XMMREG.CART_INSERTED;
@@ -21,10 +20,6 @@ import static sh2.S32xUtil.CpuDeviceAccess.*;
  * Copyright 2021
  */
 public class S32xSharedRegsTest {
-
-    static {
-        IntC.DISABLE_INT = false;
-    }
 
     private S32XMMREG s32XMMREG;
 

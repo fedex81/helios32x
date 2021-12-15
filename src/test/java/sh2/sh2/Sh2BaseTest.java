@@ -15,7 +15,7 @@ public abstract class Sh2BaseTest {
 
     @BeforeEach
     public void before() {
-        sh2 = new Sh2(null, null);
+        sh2 = new Sh2(null);
         ctx = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
         sh2.setCtx(ctx);
     }
