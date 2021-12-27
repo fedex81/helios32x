@@ -1,7 +1,7 @@
 package sh2;
 
 import omegadrive.SystemLoader;
-import omegadrive.util.FileLoader;
+import omegadrive.util.FileUtil;
 import omegadrive.util.Util;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
@@ -77,7 +77,7 @@ public class Sh2Launcher {
         ctx.slaveCtx = new Sh2Context(SLAVE);
         ctx.biosHolder = initBios();
         ctx.bus = bus;
-        ctx.rom = ByteBuffer.wrap(FileLoader.readBinaryFile(romFile, ".32x"));
+        ctx.rom = ByteBuffer.wrap(FileUtil.readBinaryFile(romFile, ".32x"));
         ctx.s32XMMREG = new S32XMMREG();
         ctx.dmaFifo68k = new DmaFifo68k(ctx.s32XMMREG);
         ctx.memory = new Sh2Memory(ctx.s32XMMREG, ctx.rom);

@@ -21,7 +21,7 @@ package s32x;
 
 import omegadrive.SystemLoader;
 import omegadrive.system.SystemProvider;
-import omegadrive.util.FileLoader;
+import omegadrive.util.FileUtil;
 import omegadrive.util.Util;
 
 import java.io.File;
@@ -55,7 +55,7 @@ public class S32xAutomatedGameTester {
     private static int AUDIO_DELAY_MS = 25000;
 
     private static String romList = "";
-    private static List<String> blackList = FileLoader.readFileContent(Paths.get(resFolder.toAbsolutePath().toString()
+    private static List<String> blackList = FileUtil.readFileContent(Paths.get(resFolder.toAbsolutePath().toString()
             , "blacklist.txt"));
 
     private static Predicate<Path> testAllRomsPredicate = p ->
@@ -136,7 +136,7 @@ public class S32xAutomatedGameTester {
         SystemLoader systemLoader = SystemLoader.getInstance();
         SystemProvider system;
         for (Path rom : testRoms) {
-            String name = FileLoader.getFileName(rom);
+            String name = FileUtil.getFileName(rom);
             System.out.println(count++ + ": " + name);
             system = systemLoader.handleNewRomFile(rom);
             if (system == null) {

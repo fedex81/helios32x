@@ -1,6 +1,6 @@
 package sh2;
 
-import omegadrive.util.FileLoader;
+import omegadrive.util.FileUtil;
 import sh2.S32xUtil.CpuDeviceAccess;
 
 import java.nio.ByteBuffer;
@@ -28,9 +28,9 @@ public class BiosHolder {
         assert sh2s.toFile().exists();
         assert m68k.toFile().exists();
 
-        biosData[CpuDeviceAccess.MASTER.ordinal()] = ByteBuffer.wrap(FileLoader.readFileSafe(sh2m));
-        biosData[CpuDeviceAccess.SLAVE.ordinal()] = ByteBuffer.wrap(FileLoader.readFileSafe(sh2s));
-        biosData[CpuDeviceAccess.M68K.ordinal()] = ByteBuffer.wrap(FileLoader.readFileSafe(m68k));
+        biosData[CpuDeviceAccess.MASTER.ordinal()] = ByteBuffer.wrap(FileUtil.readFileSafe(sh2m));
+        biosData[CpuDeviceAccess.SLAVE.ordinal()] = ByteBuffer.wrap(FileUtil.readFileSafe(sh2s));
+        biosData[CpuDeviceAccess.M68K.ordinal()] = ByteBuffer.wrap(FileUtil.readFileSafe(m68k));
     }
 
     public ByteBuffer getBiosData(CpuDeviceAccess type) {

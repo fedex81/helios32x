@@ -1,6 +1,7 @@
 package sh2.sh2.device;
 
 import omegadrive.util.Size;
+import omegadrive.vdp.md.VdpFifo;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.DmaFifo68k;
@@ -31,7 +32,7 @@ public class DmaC {
 
     private final IMemory memory;
     private final DmaFifo68k dma68k;
-    private final DmaFifo68k.DmaFifo fifo;
+    private final VdpFifo fifo;
     private final CpuDeviceAccess cpu;
     private boolean dmaInProgress;
 

@@ -31,16 +31,8 @@ public class DmaFifo68k {
     private static final int SH2_FIFO_EMPTY_BIT = 14;
 
     private final ByteBuffer sysRegsMd, sysRegsSh2;
-    private final DmaFifo fifo = new DmaFifo();
+    private final VdpFifo fifo = VdpFifo.createInstance();
     private boolean dmaOn = false;
-
-    public static class DmaFifo extends VdpFifo {
-        void clear() {
-            while (!isEmpty()) {
-                pop();
-            }
-        }
-    }
 
     public DmaFifo68k(S32XMMREG s32XMMREG) {
         this.sysRegsMd = s32XMMREG.sysRegsMd;
@@ -172,7 +164,7 @@ public class DmaFifo68k {
         return readBuffer(sysRegsMd, reg, size);
     }
 
-    public DmaFifo getFifo() {
+    public VdpFifo getFifo() {
         return fifo;
     }
 }
