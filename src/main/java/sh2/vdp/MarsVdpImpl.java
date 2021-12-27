@@ -165,4 +165,9 @@ public class MarsVdpImpl implements MarsVdp {
     public MarsVdpRenderContext getMarsVdpRenderContext() {
         return renderContext;
     }
+
+    @Override
+    public void reset() {
+        view.reset();
+    }
 }

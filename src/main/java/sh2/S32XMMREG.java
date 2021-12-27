@@ -420,13 +420,13 @@ public class S32XMMREG implements Device {
         }
         //reset cancel
         if ((val & P32XS_nRES) == 0 && (newVal & P32XS_nRES) > 0) {
-            System.out.println(BaseSystem.getAccessType() + " Reset Cancel?");
+            LOG.info("{} Reset Cancel?", BaseSystem.getAccessType());
             //TODO this breaks test2
 //                bus.resetSh2();
         }
         //reset
         if ((val & P32XS_nRES) > 0 && (newVal & P32XS_nRES) == 0) {
-            System.out.println(BaseSystem.getAccessType() + " Reset?");
+            LOG.info("{} Reset?", BaseSystem.getAccessType());
             //TODO this breaks test2
 //                bus.resetSh2();
         }
@@ -506,7 +506,7 @@ public class S32XMMREG implements Device {
         setBit(interruptControls[0].getSh2_int_mask_regs(),
                 interruptControls[1].getSh2_int_mask_regs(), 0, 7, fm, Size.BYTE);
         setBit(sysRegsMd, ADAPTER_CTRL, 7, fm, Size.BYTE);
-        System.out.println(BaseSystem.getAccessType() + " FM: " + fm);
+        LOG.info("{} FM: {}", BaseSystem.getAccessType(), fm);
     }
 
     private void setPen(int pen) {

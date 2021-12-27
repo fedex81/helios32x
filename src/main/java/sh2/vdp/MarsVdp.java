@@ -1,5 +1,6 @@
 package sh2.vdp;
 
+import omegadrive.Device;
 import omegadrive.util.VideoMode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -11,7 +12,7 @@ import java.awt.*;
  * <p>
  * Copyright 2021
  */
-public interface MarsVdp {
+public interface MarsVdp extends Device {
 
     static final Logger LOG = LogManager.getLogger(MarsVdp.class.getSimpleName());
 

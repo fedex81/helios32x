@@ -1,0 +1,121 @@
+package s32x;
+
+import omegadrive.SystemLoader;
+import omegadrive.cpu.m68k.MC68000Helper;
+import omegadrive.cpu.m68k.MC68000WrapperDebug;
+import omegadrive.input.InputProvider;
+import omegadrive.system.BaseSystem;
+import omegadrive.system.SystemProvider;
+import omegadrive.util.Util;
+import omegadrive.vdp.md.GenesisVdp;
+import omegadrive.vdp.model.BaseVdpProvider;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Field;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Duration;
+
+/**
+ * Federico Berti
+ * <p>
+ * Copyright 2021
+ */
+@Disabled
+public class S32XPerformanceTest {
+
+    static Path testFilePath = Paths.get("./res/roms", "testc1.32x");
+    static int fps = 60;
+    protected int frameCnt = 0;
+    int sampleCnt = 0;
+    long last = 0;
+    int ignoreFramceCounter = 5; //warmup
+    long start = System.nanoTime();
+
+    @BeforeAll
+    public static void beforeTest() {
+        System.setProperty("helios.headless", "true");
+        System.setProperty("helios.fullSpeed", "true");
+        System.setProperty("helios.enable.sound", "false");
+        System.setProperty("68k.debug", "false");
+        System.setProperty("z80.debug", "false");
+//        System.setProperty("md.show.vdp.debug.viewer", "true");
+    }
+
+    protected static SystemProvider createTestProvider() {
+        InputProvider.bootstrap();
+        return SystemLoader.getInstance().handleNewRomFile(testFilePath);
+    }
+
+    private static void printFramePerf(long sampleCnt, long nowNs, long lastNs, long startNs, int frameCount) {
+        long lastTickMs = Duration.ofNanos(nowNs - lastNs).toMillis();
+        long totalMs = Duration.ofNanos(nowNs - startNs).toMillis();
+        String str = String.format("%d, lastSecRealMs: %d, lastFPS: %f, totalSecMs: %d, avgFPS: %f",
+                sampleCnt, lastTickMs, fps / (lastTickMs / 1000.0), totalMs, frameCount / (totalMs / 1000.0));
+        System.out.println(str);
+    }
+
+    @Test
+    public void testVdpPerf() {
+        SystemProvider system = createTestProvider();
+        createAndAddVdpListener(system);
+        Util.waitForever();
+    }
+
+    private void doStats() {
+        if (--ignoreFramceCounter >= 0) {
+            start = System.nanoTime();
+            last = start - 1;
+            return;
+        }
+        frameCnt++;
+        if (frameCnt % fps == 0) {
+            hitCounter(0, -1);
+            long now = System.nanoTime();
+
+            printFramePerf(sampleCnt, now, last, start, frameCnt);
+            last = now;
+            sampleCnt++;
+        }
+    }
+
+    private void hitCounter(int startFrame, int endFrame) {
+        if (!MC68000Helper.M68K_DEBUG) {
+            return;
+        }
+        if (MC68000WrapperDebug.countHits) {
+            MC68000WrapperDebug.dumpHitCounter();
+        }
+        if (sampleCnt == startFrame) {
+            MC68000WrapperDebug.countHits = true;
+        } else if (sampleCnt == endFrame) {
+            MC68000WrapperDebug.countHits = false;
+        }
+    }
+
+    protected GenesisVdp getVdpProvider(SystemProvider systemProvider) throws Exception {
+        BaseSystem system = (BaseSystem) systemProvider;
+        Field f = BaseSystem.class.getDeclaredField("vdp");
+        f.setAccessible(true);
+        return (GenesisVdp) f.get(system);
+    }
+
+    protected void createAndAddVdpListener(SystemProvider systemProvider) {
+        try {
+            BaseVdpProvider vdpProvider = getVdpProvider(systemProvider);
+            vdpProvider.addVdpEventListener(new BaseVdpProvider.VdpEventListener() {
+                @Override
+                public void onNewFrame() {
+                    fps = systemProvider.getRegion().getFps();
+                    doStats();
+                }
+            });
+        } catch (Exception e) {
+            System.err.println("Unable to collect stats");
+            e.printStackTrace();
+        }
+    }
+
+}

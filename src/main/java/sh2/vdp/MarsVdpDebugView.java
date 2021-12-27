@@ -1,5 +1,6 @@
 package sh2.vdp;
 
+import omegadrive.Device;
 import omegadrive.util.ImageUtil;
 import omegadrive.util.VideoMode;
 
@@ -16,7 +17,7 @@ import static sh2.vdp.MarsVdpDebugView.ImageType.*;
  * <p>
  * Copyright 2019
  */
-public interface MarsVdpDebugView {
+public interface MarsVdpDebugView extends Device {
 
     static MarsVdpDebugView NO_OP = new MarsVdpDebugView() {
         @Override
@@ -46,6 +47,7 @@ public interface MarsVdpDebugView {
 
         public static GraphicsDevice gd;
         static boolean isHeadless;
+        static Point lastLocation;
 
         static {
             isHeadless = GraphicsEnvironment.getLocalGraphicsEnvironment().isHeadlessInstance();
@@ -65,7 +67,8 @@ public interface MarsVdpDebugView {
         private final BufferedImage[] imageList = new BufferedImage[ImageType.values().length];
         private VideoMode videoMode = VideoMode.NTSCJ_H20_V18; //force an update later
 
-        private void init() {
+        @Override
+        public void init() {
             imageList[BUFF_0.ordinal()] = ImageUtil.createImage(gd, layerDim);
             imageList[BUFF_1.ordinal()] = ImageUtil.createImage(gd, layerDim);
             imageList[FULL.ordinal()] = ImageUtil.createImage(gd, layerDim);
@@ -82,6 +85,9 @@ public interface MarsVdpDebugView {
                 frame.add(panel);
                 frame.setMinimumSize(panel.getSize());
                 frame.setTitle("32x Vdp Debug Viewer");
+                if (lastLocation != null) {
+                    frame.setLocation(lastLocation);
+                }
                 frame.pack();
                 frame.setVisible(true);
             });
@@ -135,6 +141,15 @@ public interface MarsVdpDebugView {
             int[] imgDataFull = ImageUtil.getPixels(imageList[FULL.ordinal()]);
             System.arraycopy(rgb888, 0, imgData, 0, rgb888.length);
             System.arraycopy(rgb888, 0, imgDataFull, 0, rgb888.length);
+        }
+
+        @Override
+        public void reset() {
+            lastLocation = frame.getLocation();
+            frame.setVisible(false);
+            frame.removeAll();
+//            frame.dispose();
+            EventQueue.invokeLater(() -> frame.dispose());
         }
     }
 }

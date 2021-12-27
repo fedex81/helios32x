@@ -64,7 +64,7 @@ public final class Sh2Memory implements IMemory {
 		this.rom = rom;
 		romSize = rom.capacity();
 		romMask = (int) Math.pow(2, Util.log2(romSize) + 1) - 1;
-		System.out.println("Rom size: " + Integer.toHexString(romSize) + ", mask: " + Integer.toHexString(romMask));
+		LOG.info("Rom size: {}, mask: {}", Util.toHex(romSize), Util.toHex(romMask));
 	}
 
 	private Sh2Memory() {
@@ -127,7 +127,7 @@ public final class Sh2Memory implements IMemory {
 			res = sh2MMREGS[sh2Access.ordinal()].read(address & 0xFFFF, size);
 		} else {
 			LOG.error("{} read from addr: {}, {}", sh2Access, Integer.toHexString(address), size);
-			throw new RuntimeException(sh2Access + ", read : " + size + " " + Integer.toHexString(address));
+//			throw new RuntimeException(sh2Access + ", read : " + size + " " + Integer.toHexString(address));
 		}
 		S32xMemAccessDelay.addReadCpuDelay(deviceAccessType);
 		return (int) (res & size.getMask());
@@ -165,7 +165,7 @@ public final class Sh2Memory implements IMemory {
 		} else {
 			LOG.error("{} write to addr: {}, {} {}", sh2Access, Integer.toHexString(address),
 					Integer.toHexString(val), size);
-			throw new RuntimeException(sh2Access + ", write : " + size + " " + Integer.toHexString(address));
+//			throw new RuntimeException(sh2Access + ", write : " + size + " " + Integer.toHexString(address));
 		}
 		S32xMemAccessDelay.addWriteCpuDelay(deviceAccessType);
 	}

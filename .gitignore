@@ -4,6 +4,7 @@ out
 .idea
 sh4_code
 helios.prefs
+test_output.log
 
 # Project exclude paths
 /build/

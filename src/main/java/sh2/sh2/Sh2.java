@@ -3,8 +3,12 @@ package sh2.sh2;
 
 import omegadrive.Device;
 import omegadrive.system.BaseSystem;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import sh2.IMemory;
 import sh2.sh2.device.DmaC;
+
+import static omegadrive.util.Util.toHex;
 
 /*
  *  Revision 1 -  port the code from Dcemu and use information provided by dark||raziel (done)
@@ -32,6 +36,8 @@ import sh2.sh2.device.DmaC;
  *  simultaneous execution of instructions,etc..
  */
 public class Sh2 implements Device {
+
+	private final static Logger LOG = LogManager.getLogger(Sh2.class.getSimpleName());
 
 	public static final int flagT = 0x00000001;
 	public static final int flagS = 0x00000002;
@@ -73,9 +79,8 @@ public class Sh2 implements Device {
 		ctx.PC = memory.read32i(0);
 		ctx.SR = flagIMASK;
 		ctx.registers[15] = memory.read32i(4); //SP
-		System.out.println(ctx.cpuAccess + " SP: " + Integer.toHexString(ctx.registers[15]));
 		ctx.cycles = burstCycles;
-		System.out.println(ctx.cpuAccess + " reset");
+		LOG.info("{} Reset, PC: {}, SP: {}", ctx.cpuAccess, toHex(ctx.PC), toHex(ctx.registers[15]));
 	}
 
 	private boolean acceptInterrupts(Sh2Context ctx) {
@@ -2132,8 +2137,7 @@ public class Sh2 implements Device {
 				decode(opcode);
 			} catch (Exception e) {
 				Sh2Helper.printState(ctx, opcode);
-				e.printStackTrace();
-				System.exit(1);
+				throw e;
 			}
 			acceptInterrupts(ctx);
 			dmaC.dmaStep();

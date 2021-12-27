@@ -1,5 +1,6 @@
 package sh2;
 
+import omegadrive.Device;
 import omegadrive.bus.model.GenesisBusProvider;
 import omegadrive.system.Genesis;
 import omegadrive.ui.DisplayWindow;
@@ -107,7 +108,7 @@ public class Md32x extends Genesis {
         int mdDataLen = data.length;
         MarsVdp.MarsVdpRenderContext ctx = marsVdp.getMarsVdpRenderContext();
         if (ctx.vdpContext.priority == MarsVdp.VdpPriority.S32X) {
-            int[] marsData = ctx.screen;
+            int[] marsData = Optional.ofNullable(ctx.screen).orElse(new int[0]);
             if (mdDataLen == marsData.length) {
                 //TODO this just overwrites the MD buffer with the 32x buffer
                 data = marsData;
@@ -125,5 +126,12 @@ public class Md32x extends Genesis {
         nextSSh2Cycle = Math.max(1, nextMSh2Cycle - counter);
         //NOTE Sh2s will only start at the next vblank, not immediately when aden switches
         nextSSh2Cycle = nextMSh2Cycle = ctx.s32XMMREG.aden & 1;
+    }
+
+    @Override
+    protected void handleCloseRom() {
+        super.handleCloseRom();
+        tlData.remove();
+        Optional.ofNullable(marsVdp).ifPresent(Device::reset);
     }
 }
