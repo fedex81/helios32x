@@ -28,6 +28,7 @@ public class MarsVdpImpl implements MarsVdp {
 
     private MarsVdpDebugView view;
     private MarsVdpContext latestContext;
+    private MarsVdpRenderContext renderContext;
 
     static {
         MarsVdp.initBgrMapper();
@@ -40,6 +41,9 @@ public class MarsVdpImpl implements MarsVdp {
         v.frameBuffersWord[1] = frameBuffers[1].asShortBuffer();
         v.view = MarsVdpDebugView.createInstance();
         v.latestContext = vdpContext;
+        v.renderContext = new MarsVdpRenderContext();
+        v.renderContext.screen = v.buffer;
+        v.renderContext.vdpContext = vdpContext;
         v.updateVideoModeInternal(vdpContext.videoMode);
         return v;
     }
@@ -158,12 +162,7 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     @Override
-    public int[] getScreenDataLinear() {
-        return buffer;
-    }
-
-    @Override
-    public boolean isBlank() {
-        return latestContext.bitmapMode == BitmapMode.BLANK;
+    public MarsVdpRenderContext getMarsVdpRenderContext() {
+        return renderContext;
     }
 }

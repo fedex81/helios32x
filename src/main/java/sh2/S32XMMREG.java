@@ -22,6 +22,8 @@ import static sh2.S32xUtil.*;
 import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
 import static sh2.dict.S32xDict.*;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
+import static sh2.vdp.MarsVdp.VdpPriority.MD;
+import static sh2.vdp.MarsVdp.VdpPriority.S32X;
 
 /**
  * Federico Berti
@@ -453,12 +455,18 @@ public class S32XMMREG implements Device {
 
     private boolean handleBitmapModeWrite(int reg, int value, Size size) {
         int val = readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD);
+        int prevPrio = (val >> 7) & 1;
         writeBuffer(vdpRegs, reg, value, size);
         int newVal = readBuffer(vdpRegs, VDP_BITMAP_MODE, Size.WORD) & ~(P32XV_PAL | P32XV_240);
         int v240 = pal == 0 && vdpContext.videoMode.isV30() ? 1 : 0;
         newVal = newVal | (pal * P32XV_PAL) | (v240 * P32XV_240);
         writeBuffer(vdpRegs, VDP_BITMAP_MODE, newVal, Size.WORD);
         vdpContext.bitmapMode = BitmapMode.vals[newVal & 3];
+        int prio = (newVal >> 7) & 1;
+        if (prevPrio != prio) {
+            vdpContext.priority = prio == 0 ? MD : S32X;
+            LOG.info("Vdp priority: {} -> {}", prevPrio == 0 ? "MD" : "32x", vdpContext.priority);
+        }
         return val != newVal;
     }
 

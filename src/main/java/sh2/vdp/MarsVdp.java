@@ -28,11 +28,11 @@ public interface MarsVdp {
 
     void draw(MarsVdpContext context);
 
-    boolean isBlank();
-
     void updateVideoMode(VideoMode videoMode);
 
-    int[] getScreenDataLinear();
+    MarsVdpRenderContext getMarsVdpRenderContext();
+
+    public enum VdpPriority {MD, S32X}
 
     public enum BitmapMode {
         BLANK, PACKED_PX, DIRECT_COL, RUN_LEN;
@@ -42,11 +42,17 @@ public interface MarsVdp {
 
     public class MarsVdpContext {
         public BitmapMode bitmapMode = BitmapMode.BLANK;
+        public VdpPriority priority = VdpPriority.MD;
         public int screenShift = 0;
         public VideoMode videoMode = VideoMode.NTSCJ_H20_V18;
         public int fsLatch = 0, frameBufferDisplay = 0, frameBufferWritable = 1;
         public boolean hBlankOn, vBlankOn = true;
         public int hCount = 0;
+    }
+
+    public class MarsVdpRenderContext {
+        public int[] screen;
+        public MarsVdpContext vdpContext;
     }
 
     static void initBgrMapper() {
