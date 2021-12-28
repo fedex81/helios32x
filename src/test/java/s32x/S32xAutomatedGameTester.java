@@ -26,10 +26,8 @@ import omegadrive.util.Util;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileVisitOption;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.channels.FileChannel;
+import java.nio.file.*;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -41,12 +39,12 @@ import static omegadrive.system.SystemProvider.SystemEvent.CLOSE_ROM;
 
 public class S32xAutomatedGameTester {
 
-    static long RUN_DELAY_MS = 10_000;
+    static long RUN_DELAY_MS = 30_000;
 
     public static Path resFolder = Paths.get(new File(".").getAbsolutePath(),
             "src", "test", "resources");
 
-    private static String romFolder = "./res";
+    private static String romFolder = "./res/roms";
 
     private static boolean noIntro = true;
     private static String header = "rom;boot;sound";
@@ -161,10 +159,22 @@ public class S32xAutomatedGameTester {
             logFileLen = logFileLength(logFile);
             Util.sleep(750);
             long lenByte = logFileLength(logFile);
-            if (lenByte > 100 * 1024 * 1024) { //10Mbytes
-                System.out.println("Log file too big: " + lenByte);
+            if (lenByte > 10 * 1024 * 1024) { //10Mbytes
+                fileTooBig(logFile);
                 break;
             }
+        }
+    }
+
+    private void fileTooBig(File logFile) {
+        long lenByte = logFileLength(logFile);
+        System.out.println("Log file too big: " + lenByte);
+        try {
+            FileChannel.open(logFile.toPath(), StandardOpenOption.WRITE).truncate(0).close();
+            lenByte = logFileLength(logFile);
+            System.out.println("Truncating log file, size: " + lenByte);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 

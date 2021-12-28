@@ -3,6 +3,7 @@ package sh2.vdp;
 import omegadrive.util.VideoMode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.vdp.debug.MarsVdpDebugView;
 
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
@@ -30,6 +31,8 @@ public class MarsVdpImpl implements MarsVdp {
     private MarsVdpContext latestContext;
     private MarsVdpRenderContext renderContext;
 
+    private boolean wasBlankScreen = false;
+
     static {
         MarsVdp.initBgrMapper();
     }
@@ -52,7 +55,7 @@ public class MarsVdpImpl implements MarsVdp {
     public void draw(MarsVdpContext context) {
         switch (context.bitmapMode) {
             case BLANK:
-                Arrays.fill(buffer, 0, buffer.length, 0);
+                drawBlank();
                 break;
             case PACKED_PX:
                 drawPackedPixel(context);
@@ -66,6 +69,14 @@ public class MarsVdpImpl implements MarsVdp {
         }
         view.update(context, buffer);
         latestContext = context;
+    }
+
+    private void drawBlank() {
+        if (wasBlankScreen) {
+            return;
+        }
+        Arrays.fill(buffer, 0, buffer.length, 0);
+        wasBlankScreen = true;
     }
 
     //Mars Sample Program - Pharaoh
@@ -82,10 +93,11 @@ public class MarsVdpImpl implements MarsVdp {
             final int basePos = row * w;
             for (int col = 0; col < w; col++) {
                 int color555 = fbDataWords[basePos + col];
-                imgData[basePos + col] = bgr5toRgb8Mapper[color555 & 0xFFFF];
+                imgData[basePos + col] = getDirectColorWithPriority(color555 & 0xFFFF);
                 last = basePos + col;
             }
         }
+        wasBlankScreen = false;
     }
 
     private void drawRunLen(MarsVdpContext context) {
@@ -108,12 +120,13 @@ public class MarsVdpImpl implements MarsVdp {
                 int dotColorIdx = rl & 0xFF;
                 int dotLen = ((rl & 0xFF00) >> 8) + 1;
                 int nextLimit = col + dotLen;
-                int color = bgr5toRgb8Mapper[colorPaletteWords.get(dotColorIdx) & 0xFFFF];
+                int color = getColorWithPriority(dotColorIdx);
                 for (; col < nextLimit; col++) {
                     imgData[basePos + col] = color;
                 }
             } while (col < w);
         }
+        wasBlankScreen = false;
     }
 
     //32X Sample Program - Celtic - PWM Test
@@ -140,11 +153,25 @@ public class MarsVdpImpl implements MarsVdp {
             for (int col = 0, wordOffset = 0; col < w; col += 2, wordOffset++) {
                 final int palWordIdx1 = (fbDataWords[linePos + wordOffset] >> 8) & 0xFF;
                 final int palWordIdx2 = fbDataWords[linePos + wordOffset] & 0xFF;
-                imgData[basePos + col] = bgr5toRgb8Mapper[colorPaletteWords.get(palWordIdx1) & 0xFFFF];
-                imgData[basePos + col + 1] = bgr5toRgb8Mapper[colorPaletteWords.get(palWordIdx2) & 0xFFFF];
+                imgData[basePos + col] = getColorWithPriority(palWordIdx1);
+                imgData[basePos + col + 1] = getColorWithPriority(palWordIdx2);
                 last = basePos + col + 1;
             }
         }
+        wasBlankScreen = false;
+    }
+
+    //NOTE: encodes priority as the LSB (bit) of the word
+    private int getColorWithPriority(int palWordIdx) {
+        int palValue = colorPaletteWords.get(palWordIdx) & 0xFFFF;
+        return getDirectColorWithPriority(palValue);
+    }
+
+    private int getDirectColorWithPriority(int palValue) {
+        int prio = (palValue >> 15) & 1;
+        int color = bgr5toRgb8Mapper[palValue];
+        color = (color & ~1) | prio;
+        return color;
     }
 
     @Override
@@ -158,6 +185,7 @@ public class MarsVdpImpl implements MarsVdp {
 
     private void updateVideoModeInternal(VideoMode videoMode) {
         this.buffer = new int[videoMode.getDimension().width * videoMode.getDimension().height];
+        renderContext.screen = buffer;
         LOG.info("Updating videoMode, {} -> {}", latestContext.videoMode, videoMode);
     }
 

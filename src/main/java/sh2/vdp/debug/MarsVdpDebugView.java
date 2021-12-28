@@ -1,14 +1,15 @@
-package sh2.vdp;
+package sh2.vdp.debug;
 
 import omegadrive.Device;
 import omegadrive.util.ImageUtil;
 import omegadrive.util.VideoMode;
+import sh2.vdp.MarsVdp;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 
-import static sh2.vdp.MarsVdpDebugView.ImageType.*;
+import static sh2.vdp.debug.MarsVdpDebugView.ImageType.*;
 
 /**
  * VdpDebugView

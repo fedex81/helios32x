@@ -40,16 +40,20 @@ public class Sh2Launcher {
      * testc1, manual test
      * if(currentPC == 0x00880982){
      * m68k.setPC(0x00880b32);
+     * <p>
+     * sh2 tests here:
+     * https://github.com/j-core/jcore-cpu/tree/master/testrom/tests
      * }
      */
-    static String romName = "res/roms/testc1.32x";
+    static String romName = "res/roms/test2.32x";
 
     private static void initProps() {
         System.setProperty("helios.headless", "false");
         System.setProperty("helios.fullSpeed", "false");
         System.setProperty("helios.enable.sound", "false");
-        System.setProperty("68k.debug", "true");
-        System.setProperty("32x.show.vdp.debug.viewer", "false");
+        System.setProperty("68k.debug", "false");
+        System.setProperty("32x.show.vdp.debug.viewer", "true");
+        System.setProperty("md.show.vdp.debug.viewer", "true");
     }
 
     public static void main(String[] args) {

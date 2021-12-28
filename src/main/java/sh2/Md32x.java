@@ -9,11 +9,15 @@ import org.apache.logging.log4j.Logger;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.vdp.MarsVdp;
+import sh2.vdp.MarsVdp.MarsVdpRenderContext;
+import sh2.vdp.MarsVdp.VdpPriority;
+import sh2.vdp.debug.DebugVideoRenderContext;
 
 import java.util.Optional;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
+import static sh2.vdp.MarsVdp.VdpPriority.S32X;
 
 /**
  * Federico Berti
@@ -106,17 +110,23 @@ public class Md32x extends Genesis {
     @Override
     protected void doRendering(int[] data, Optional<String> stats) {
         int mdDataLen = data.length;
-        MarsVdp.MarsVdpRenderContext ctx = marsVdp.getMarsVdpRenderContext();
-        if (ctx.vdpContext.priority == MarsVdp.VdpPriority.S32X) {
-            int[] marsData = Optional.ofNullable(ctx.screen).orElse(new int[0]);
-            if (mdDataLen == marsData.length) {
-                //TODO this just overwrites the MD buffer with the 32x buffer
-                data = marsData;
-            } else {
-                //bootstrap, 32x not ready
+        MarsVdpRenderContext ctx = marsVdp.getMarsVdpRenderContext();
+        int[] marsData = Optional.ofNullable(ctx.screen).orElse(new int[0]);
+        int[] fg = data;
+        boolean dump = false;
+        if (mdDataLen == marsData.length) {
+            VdpPriority p = ctx.vdpContext.priority;
+            if (dump) {
+                DebugVideoRenderContext.dumpData(ctx, data);
+            }
+            fg = p == S32X ? marsData : data;
+            int[] bg = p == S32X ? data : marsData;
+            for (int i = 0; i < fg.length; i++) {
+                boolean throughBit = (marsData[i] & 1) > 0;
+                fg[i] = fg[i] == 0 || (throughBit && bg[i] > 0) ? bg[i] : fg[i];
             }
         }
-        renderScreenLinearInternal(data, stats);
+        renderScreenLinearInternal(fg, stats);
     }
 
     @Override
