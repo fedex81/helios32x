@@ -65,7 +65,6 @@ public class S32xAutomatedGameTester {
         System.setProperty("helios.enable.sound", "false");
         System.setProperty("helios.fps", "true");
         System.setProperty("68k.stop.on.exception", "true");
-        System.setProperty("32x.show.vdp.debug.viewer", "true");
         System.setProperty("md.show.vdp.debug.viewer", "true");
         new File(System.getProperty("md.sram.folder")).mkdirs();
     }

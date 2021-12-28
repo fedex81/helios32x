@@ -4,6 +4,7 @@ import omegadrive.Device;
 import omegadrive.bus.model.GenesisBusProvider;
 import omegadrive.system.Genesis;
 import omegadrive.ui.DisplayWindow;
+import omegadrive.vdp.md.GenesisVdp;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.sh2.Sh2;
@@ -60,6 +61,7 @@ public class Md32x extends Genesis {
         marsVdp = ctx.marsVdp;
         //aden 0 -> cycle = 0 = not running
         nextSSh2Cycle = nextMSh2Cycle = ctx.s32XMMREG.aden & 1;
+        marsVdp.updateDebugView(((GenesisVdp) vdp).getDebugViewer());
         super.initAfterRomLoad(); //needs to be last
     }
 

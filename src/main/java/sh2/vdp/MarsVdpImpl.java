@@ -1,6 +1,8 @@
 package sh2.vdp;
 
 import omegadrive.util.VideoMode;
+import omegadrive.vdp.util.UpdatableViewer;
+import omegadrive.vdp.util.VdpDebugView;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.vdp.debug.MarsVdpDebugView;
@@ -192,6 +194,13 @@ public class MarsVdpImpl implements MarsVdp {
     @Override
     public MarsVdpRenderContext getMarsVdpRenderContext() {
         return renderContext;
+    }
+
+    @Override
+    public void updateDebugView(UpdatableViewer debugView) {
+        if (debugView instanceof VdpDebugView) {
+            ((VdpDebugView) debugView).setAdditionalPanel(view.getPanel());
+        }
     }
 
     @Override

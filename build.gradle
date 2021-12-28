@@ -2,6 +2,10 @@ plugins {
     id 'java'
 }
 
+compileJava {
+    options.release = 11
+}
+
 def dateString = getDate()
 group 'com.fbdev.helios'
 

@@ -30,6 +30,10 @@ public interface MarsVdpDebugView extends Device {
 
     void update(MarsVdp.MarsVdpContext context, int[] buffer);
 
+    default JPanel getPanel() {
+        return null;
+    }
+
     public static MarsVdpDebugView createInstance() {
         return MarsVdpDebugViewImpl.DEBUG_VIEWER_ENABLED ? new MarsVdpDebugViewImpl() : NO_OP;
     }
@@ -40,7 +44,7 @@ public interface MarsVdpDebugView extends Device {
 
         static {
             DEBUG_VIEWER_ENABLED =
-                    Boolean.parseBoolean(System.getProperty("32x.show.vdp.debug.viewer", "false"));
+                    Boolean.parseBoolean(System.getProperty("md.show.vdp.debug.viewer", "false"));
             if (DEBUG_VIEWER_ENABLED) {
 //                LOG.info("Debug viewer enabled");
             }
@@ -62,7 +66,6 @@ public interface MarsVdpDebugView extends Device {
         private static final int PANEL_WIDTH = 320;
         private static final Dimension layerDim = new Dimension(PANEL_WIDTH, PANEL_HEIGHT);
 
-        private JFrame frame;
         private JPanel panel;
         private final ImageIcon[] imgIcons = new ImageIcon[ImageType.values().length];
         private final BufferedImage[] imageList = new BufferedImage[ImageType.values().length];
@@ -73,25 +76,16 @@ public interface MarsVdpDebugView extends Device {
             imageList[BUFF_0.ordinal()] = ImageUtil.createImage(gd, layerDim);
             imageList[BUFF_1.ordinal()] = ImageUtil.createImage(gd, layerDim);
             imageList[FULL.ordinal()] = ImageUtil.createImage(gd, layerDim);
-            SwingUtilities.invokeLater(() -> {
-                this.frame = new JFrame();
-                this.panel = new JPanel();
-                JComponent p0 = createComponent(BUFF_0);
-                JComponent p1 = createComponent(BUFF_1);
-                JComponent p2 = createComponent(FULL);
-                panel.add(p0);
-                panel.add(p1);
-                panel.add(p2);
-                panel.setSize(new Dimension(PANEL_WIDTH * 2, (int) (PANEL_HEIGHT * 1.2)));
-                frame.add(panel);
-                frame.setMinimumSize(panel.getSize());
-                frame.setTitle("32x Vdp Debug Viewer");
-                if (lastLocation != null) {
-                    frame.setLocation(lastLocation);
-                }
-                frame.pack();
-                frame.setVisible(true);
-            });
+            this.panel = new JPanel();
+            JComponent p0 = createComponent(BUFF_0);
+            JComponent p1 = createComponent(BUFF_1);
+            JComponent p2 = createComponent(FULL);
+            panel.add(p0);
+            panel.add(p1);
+            panel.add(p2);
+            Dimension d = new Dimension((int) (PANEL_WIDTH * 3.1), (int) (PANEL_HEIGHT * 1.01));
+            panel.setMaximumSize(d);
+            panel.setBackground(Color.BLACK);
         }
 
         protected MarsVdpDebugViewImpl() {
@@ -104,17 +98,17 @@ public interface MarsVdpDebugView extends Device {
             JPanel pnl = new JPanel();
             BoxLayout bl = new BoxLayout(pnl, BoxLayout.Y_AXIS);
             pnl.setLayout(bl);
-            JLabel title = new JLabel(type.toString());
+            JLabel title = new JLabel("32X " + type.toString());
+            title.setForeground(Color.WHITE);
             JLabel lbl = new JLabel(imgIcons[num]);
             pnl.add(title);
             pnl.add(lbl);
+            pnl.setBackground(Color.BLACK);
+            pnl.setBorder(BorderFactory.createLineBorder(Color.WHITE));
             return pnl;
         }
 
         private void updateVideoMode(VideoMode videoMode) {
-            if (videoMode.equals(this.videoMode)) {
-                return;
-            }
             imageList[0] = ImageUtil.createImage(gd, videoMode.getDimension());
             imageList[1] = ImageUtil.createImage(gd, videoMode.getDimension());
             imageList[2] = ImageUtil.createImage(gd, videoMode.getDimension());
@@ -122,15 +116,12 @@ public interface MarsVdpDebugView extends Device {
             imgIcons[1].setImage(imageList[1]);
             imgIcons[2].setImage(imageList[2]);
             this.videoMode = videoMode;
-            frame.invalidate();
-            frame.pack();
-            frame.repaint();
         }
 
         @Override
         public void update(MarsVdp.MarsVdpContext context, int[] rgb888) {
-            if (videoMode != this.videoMode) {
-                updateVideoMode(videoMode);
+            if (context.videoMode != this.videoMode) {
+                updateVideoMode(context.videoMode);
             }
             copyToImages(context.frameBufferDisplay, rgb888);
             panel.repaint();
@@ -145,12 +136,8 @@ public interface MarsVdpDebugView extends Device {
         }
 
         @Override
-        public void reset() {
-            lastLocation = frame.getLocation();
-            frame.setVisible(false);
-            frame.removeAll();
-//            frame.dispose();
-            EventQueue.invokeLater(() -> frame.dispose());
+        public JPanel getPanel() {
+            return panel;
         }
     }
 }

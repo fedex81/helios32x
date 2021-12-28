@@ -2,6 +2,7 @@ package sh2.vdp;
 
 import omegadrive.Device;
 import omegadrive.util.VideoMode;
+import omegadrive.vdp.util.UpdatableViewer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -32,6 +33,8 @@ public interface MarsVdp extends Device {
     void updateVideoMode(VideoMode videoMode);
 
     MarsVdpRenderContext getMarsVdpRenderContext();
+
+    void updateDebugView(UpdatableViewer debugView);
 
     public enum VdpPriority {MD, S32X}
 
