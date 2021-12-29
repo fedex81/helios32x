@@ -6,7 +6,6 @@ import omegadrive.util.Size;
 import omegadrive.util.VideoMode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.S32xUtil.*;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.sh2.device.IntControl;
@@ -17,8 +16,8 @@ import sh2.vdp.MarsVdpImpl;
 
 import java.nio.ByteBuffer;
 
-import static sh2.S32xUtil.CpuDeviceAccess.M68K;
 import static sh2.S32xUtil.*;
+import static sh2.S32xUtil.CpuDeviceAccess.M68K;
 import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
 import static sh2.dict.S32xDict.*;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
@@ -356,7 +355,7 @@ public class S32XMMREG implements Device {
                 int newVal = (readBuffer(sysRegsMd, INT_CTRL_REG, Size.WORD)) & ~(1 << sh2Access.ordinal());
                 boolean change = handleIntControlWrite68k(INT_CTRL_REG, newVal, Size.WORD);
                 if (change) {
-                    LOG.info(sh2Access + " auto clear " + intType);
+                    LOG.debug("{} auto clear {}", sh2Access, intType);
                 }
             }
         } else {

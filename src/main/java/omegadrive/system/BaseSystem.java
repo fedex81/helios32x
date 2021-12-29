@@ -100,9 +100,6 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
 
         public final void addCpuDelay(int delay) {
             cpuDelay[accessType.ordinal()] += delay;
-            if (cpuDelay[accessType.ordinal()] > 150) {
-                System.out.println("here");
-            }
         }
 
         public final int resetCpuDelay() {

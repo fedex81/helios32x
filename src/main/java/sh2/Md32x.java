@@ -34,7 +34,7 @@ public class Md32x extends Genesis {
     protected final static int SH2_CYCLE_RATIO;
 
     static {
-        SH2_CYCLES_PER_STEP = 3;
+        SH2_CYCLES_PER_STEP = 3; //24;
         Sh2.burstCycles = SH2_CYCLES_PER_STEP;
         //3 cycles @ 23Mhz = 1 cycle @ 7.67
         SH2_CYCLE_RATIO = 3; //23.01/7.67 = 3
@@ -95,12 +95,12 @@ public class Md32x extends Genesis {
         if (nextMSh2Cycle == counter) {
             setAccessType(MASTER);
             sh2.run(masterCtx);
-            nextMSh2Cycle += (masterCtx.cycles_ran + resetCpuDelay()) / SH2_CYCLE_RATIO;
+            nextMSh2Cycle += ((masterCtx.cycles_ran + resetCpuDelay()) * 5) >> 4; //5/16 ~= 1/3
         }
         if (nextSSh2Cycle == counter) {
             setAccessType(SLAVE);
             sh2.run(slaveCtx);
-            nextSSh2Cycle += (slaveCtx.cycles_ran + resetCpuDelay()) / SH2_CYCLE_RATIO;
+            nextSSh2Cycle += ((slaveCtx.cycles_ran + resetCpuDelay()) * 5) >> 4;
         }
     }
 

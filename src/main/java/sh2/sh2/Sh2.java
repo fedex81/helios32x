@@ -83,26 +83,25 @@ public class Sh2 implements Device {
 		LOG.info("{} Reset, PC: {}, SP: {}", ctx.cpuAccess, toHex(ctx.PC), toHex(ctx.registers[15]));
 	}
 
-	private boolean acceptInterrupts(Sh2Context ctx) {
-		int mask = getIMASK();
-		int imask = ctx.intC.getInterruptLevel();
-		if (imask > mask) {
-			processInterrupt(ctx, imask);
+	private boolean acceptInterrupts() {
+		int level = ctx.intC.getInterruptLevel();
+		if (level > getIMASK()) {
+			processInterrupt(ctx, level);
 			return true;
 		}
 		return false;
 	}
 
-	private void processInterrupt(Sh2Context ctx, int source_irq) {
-//		System.out.println(ctx.sh2Access + " Interrupt processed: " + source_irq);
+	private void processInterrupt(final Sh2Context ctx, final int level) {
+//		System.out.println(ctx.sh2Access + " Interrupt processed: " + level);
 		BaseSystem.setAccessType(ctx.cpuAccess);
 		push(ctx.SR);
 		push(ctx.PC); //stores the next inst to be executed
 		//SR 7-4
 		ctx.SR &= 0xF0F;
-		ctx.SR |= (source_irq << 4);
+		ctx.SR |= (level << 4);
 
-		int vectorNum = 64 + (source_irq >> 1);
+		int vectorNum = 64 + (level >> 1);
 
 		ctx.PC = memory.read32i(ctx.VBR + (vectorNum << 2));
 		//5 + 3 mem accesses
@@ -2131,15 +2130,8 @@ public class Sh2 implements Device {
 		int opcode;
 		final DmaC dmaC = ctx.dmaC;
 		for (; ctx.cycles >= 0; ) {
-			opcode = memory.read16i(ctx.PC);
-
-			try {
-				decode(opcode);
-			} catch (Exception e) {
-				Sh2Helper.printState(ctx, opcode);
-				throw e;
-			}
-			acceptInterrupts(ctx);
+			decode(memory.read16i(ctx.PC));
+			acceptInterrupts();
 			dmaC.dmaStep();
 		}
 		ctx.cycles_ran = burstCycles - ctx.cycles;
