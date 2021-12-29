@@ -1,10 +1,14 @@
 package sh2.sh2;
 
+import com.google.common.collect.ImmutableSet;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.IMemory;
 import sh2.S32xUtil;
 import sh2.S32xUtil.DebugMode;
+
+import java.util.Arrays;
+import java.util.Set;
 
 /**
  * Federico Berti
@@ -19,15 +23,18 @@ public class Sh2Debug extends Sh2 {
     private static final int PC_AREA_SIZE = 0x4_0000;
     private static final int PC_AREA_MASK = PC_AREA_SIZE - 1;
 
-    private DebugMode debugMode = DebugMode.INST_ONLY;
+    private DebugMode debugMode = DebugMode.NEW_INST_ONLY;
 
-    //TODO RAM could change
     //00_00_0000 - 00_00_4000 BOOT ROM
     //06_00_0000 - 06_04_0000 RAM
     //02_00_0000 - 02_04_0000 ROM
     //C0_00_0000 - C0_01_0000 CACHE AREA
+    static final int[] areas = {0, 2, 6, 0xC0};
     private int[][] pcVisitedMaster = new int[PC_AREAS][];
     private int[][] pcVisitedSlave = new int[PC_AREAS][];
+    private int[][] opcodesMaster = new int[PC_AREAS][];
+    private int[][] opcodesSlave = new int[PC_AREAS][];
+    private Set<Object> arraySet = ImmutableSet.of(pcVisitedMaster, pcVisitedSlave, opcodesMaster, opcodesSlave);
 
     public Sh2Debug(IMemory memory) {
         super(memory);
@@ -37,14 +44,9 @@ public class Sh2Debug extends Sh2 {
 
     @Override
     public void init() {
-        pcVisitedMaster[0x0] = new int[PC_AREA_SIZE];
-        pcVisitedMaster[0x2] = new int[PC_AREA_SIZE];
-        pcVisitedMaster[0x6] = new int[PC_AREA_SIZE];
-        pcVisitedMaster[0xC0] = new int[PC_AREA_SIZE];
-        pcVisitedSlave[0x0] = new int[PC_AREA_SIZE];
-        pcVisitedSlave[0x2] = new int[PC_AREA_SIZE];
-        pcVisitedSlave[0x6] = new int[PC_AREA_SIZE];
-        pcVisitedSlave[0xC0] = new int[PC_AREA_SIZE];
+        for (Object o : arraySet) {
+            Arrays.stream(areas).forEach(idx -> ((int[][]) o)[idx] = new int[PC_AREA_SIZE]);
+        }
     }
 
     protected void printDebugMaybe(Sh2Context ctx, int opcode) {
@@ -66,11 +68,24 @@ public class Sh2Debug extends Sh2 {
     }
 
     private void printNewInst(Sh2Context ctx, int opcode) {
+        final int pc = ctx.PC;
         final int c = ctx.cpuAccess.ordinal();
-        int[][] pcv = ctx.cpuAccess == S32xUtil.CpuDeviceAccess.MASTER ? pcVisitedMaster : pcVisitedSlave;
-        if (pcv[ctx.PC >> 24][ctx.PC & PC_AREA_MASK]++ == 0) {
-            String s = Sh2Helper.getInstString(ctx, opcode);
-            System.out.println(s + " [NEW]");
+        int[][] pcv1 = ctx.cpuAccess == S32xUtil.CpuDeviceAccess.MASTER ? pcVisitedMaster : pcVisitedSlave;
+        int[][] opv1 = ctx.cpuAccess == S32xUtil.CpuDeviceAccess.MASTER ? opcodesMaster : opcodesSlave;
+        final int[] pcv = pcv1[pc >> 24];
+        final int[] opc = opv1[pc >> 24];
+        final int prevOpcode = opc[pc & PC_AREA_MASK];
+
+        String val = " [NEW]";
+        if (prevOpcode == 0) {
+            opc[pc & PC_AREA_MASK] = opcode;
+            pcv[pc & PC_AREA_MASK] = 1;
+            LOG.info("{}{}", Sh2Helper.getInstString(ctx, opcode), val);
+        } else if (prevOpcode != opcode) {
+            opc[pc & PC_AREA_MASK] = opcode;
+            pcv[pc & PC_AREA_MASK] = 1;
+            val = " [NEW-R]";
+            LOG.info("{}{}", Sh2Helper.getInstString(ctx, opcode), val);
         }
     }
 }

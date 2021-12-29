@@ -132,7 +132,7 @@ public class Sh2 implements Device {
 
 	protected final void UNKNOWN(int instruction) {
 		Sh2Helper.printState(ctx, instruction);
-		throw new RuntimeException("Unknown inst: " + Integer.toHexString(instruction));
+		throw new RuntimeException(ctx.sh2TypeCode + " Unknown inst: " + Integer.toHexString(instruction));
 	}
 
 	protected final void MOVI(int code) {

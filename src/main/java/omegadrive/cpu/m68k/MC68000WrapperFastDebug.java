@@ -19,11 +19,15 @@
 
 package omegadrive.cpu.m68k;
 
+import com.google.common.collect.ImmutableSet;
 import omegadrive.bus.model.GenesisBusProvider;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.S32xUtil.DebugMode;
+
+import java.util.Arrays;
+import java.util.Set;
 
 public class MC68000WrapperFastDebug extends MC68000Wrapper {
 
@@ -34,13 +38,15 @@ public class MC68000WrapperFastDebug extends MC68000Wrapper {
     private static final int PC_AREA_SIZE = 0x10_0000;
     private static final int PC_AREA_MASK = PC_AREA_SIZE - 1;
 
-    private DebugMode debugMode = DebugMode.NONE;
+    private DebugMode debugMode = DebugMode.NEW_INST_ONLY;
 
     //NOTE RAM could change, ROM as well due to banking
     //00_0000 - 00_4000 ROM
     //FF_0000 - FF_FFFF RAM
+    static final int[] areas = {0, 1, 2, 3, 8, 9, 0xF};
     private int[][] pcVisited = new int[PC_AREAS][];
     private int[][] opcodes = new int[PC_AREAS][];
+    private Set<Object> arraySet = ImmutableSet.of(pcVisited, opcodes);
 
     public MC68000WrapperFastDebug(GenesisBusProvider busProvider) {
         super(busProvider);
@@ -49,20 +55,9 @@ public class MC68000WrapperFastDebug extends MC68000Wrapper {
 
     @Override
     public void init() {
-        pcVisited[0x0] = new int[PC_AREA_SIZE];
-        pcVisited[0x1] = new int[PC_AREA_SIZE];
-        pcVisited[0x2] = new int[PC_AREA_SIZE];
-        pcVisited[0x3] = new int[PC_AREA_SIZE];
-        pcVisited[0x8] = new int[PC_AREA_SIZE];
-        pcVisited[0x9] = new int[PC_AREA_SIZE];
-        pcVisited[0xF] = new int[PC_AREA_SIZE];
-        opcodes[0x0] = new int[PC_AREA_SIZE];
-        opcodes[0x1] = new int[PC_AREA_SIZE];
-        opcodes[0x2] = new int[PC_AREA_SIZE];
-        opcodes[0x3] = new int[PC_AREA_SIZE];
-        opcodes[0x8] = new int[PC_AREA_SIZE];
-        opcodes[0x9] = new int[PC_AREA_SIZE];
-        opcodes[0xF] = new int[PC_AREA_SIZE];
+        for (Object o : arraySet) {
+            Arrays.stream(areas).forEach(idx -> ((int[][]) o)[idx] = new int[PC_AREA_SIZE]);
+        }
     }
 
     @Override
@@ -119,20 +114,21 @@ public class MC68000WrapperFastDebug extends MC68000Wrapper {
         }
     }
 
-    private void printNewInst(int PC) {
-        final int area = PC >> 20;
+    private void printNewInst(int pc) {
+        pc &= 0xFF_FFFF;
+        final int area = pc >> 20;
         final int[] pcv = pcVisited[area];
         final int[] opc = opcodes[area];
-        final int opcode = addressSpace.internalReadWord(PC);
-        final int prevOpcode = opc[PC & PC_AREA_MASK];
+        final int opcode = addressSpace.internalReadWord(pc);
+        final int prevOpcode = opc[pc & PC_AREA_MASK];
         String val = " [NEW]";
         if (prevOpcode == 0) {
-            opc[PC & PC_AREA_MASK] = opcode;
-            pcv[PC & PC_AREA_MASK] = 1;
+            opc[pc & PC_AREA_MASK] = opcode;
+            pcv[pc & PC_AREA_MASK] = 1;
             LOG.info("{}{}", MC68000Helper.dumpOp(m68k), val);
         } else if (prevOpcode != opcode) {
-            opc[PC & PC_AREA_MASK] = opcode;
-            pcv[PC & PC_AREA_MASK] = 1;
+            opc[pc & PC_AREA_MASK] = opcode;
+            pcv[pc & PC_AREA_MASK] = 1;
             val = " [NEW-R]";
             LOG.info("{}{}", MC68000Helper.dumpOp(m68k), val);
         }
