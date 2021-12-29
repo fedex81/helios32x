@@ -16,6 +16,7 @@ import sh2.vdp.MarsVdpImpl;
 
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.toHex;
 import static sh2.S32xUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.M68K;
 import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
@@ -176,11 +177,24 @@ public class S32XMMREG implements Device {
             }
             deviceAccessType = S32xMemAccessDelay.PALETTE;
         } else if (address >= START_DRAM_CACHE && address < END_DRAM_CACHE) {
-            if (size == Size.BYTE && value == 0) { //value =0 on byte access is ignored
+            if (size == Size.BYTE && value == 0) { //value =0 on byte is ignored
                 return;
             }
             writeBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, value, size);
         } else if (address >= START_OVER_IMAGE_CACHE && address < END_OVER_IMAGE_CACHE) {
+            if (value == 0) { //value =0 on {byte,word} is ignored
+                return;
+            }
+            //TODO word 0x0011, should only write one byte (0x11)
+            // and word 0x2200, should only write one byte (0x22)
+            //see Space Harrier, brutal
+            if (size == Size.WORD && ((value & 0xFF00) == value || (value & 0xFF) == value)) {
+                LOG.error("Check overImage write: {} {}", toHex(value), size);
+                int bval = (value & 0xFF00) == value ? (value & 0xFF00) >> 8 : value & 0xFF;
+                int baddr = (value & 0xFF00) == value ? address : address + 1;
+                writeBuffer(dramBanks[vdpContext.frameBufferWritable], baddr & DRAM_MASK, bval, Size.BYTE);
+                return;
+            }
             writeBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, value, size);
         } else {
             throw new RuntimeException();
@@ -226,11 +240,6 @@ public class S32XMMREG implements Device {
         int res = readBuffer(regArea, reg, size);
         if (sh2Access != M68K && isSys && reg < INT_CTRL_REG) {
             res = interruptControls[sh2Access.ordinal()].readSh2IntMaskReg(reg, size);
-        }
-        //TODO autoClear int reg?
-        //Both are automatically cleared if SH2 does not interrupt clear.
-        else if (sh2Access == M68K && isSys && (reg == INT_CTRL_REG || reg == INT_CTRL_REG + 1)) {
-            LOG.info("{} READ INT_CTRL_REG, addr: {}, data: {}", sh2Access, Integer.toHexString(address), res);
         } else if (isSys && reg >= DREQ_CTRL && reg <= DREQ_DEST_ADDR_L + 1) {
             res = dmaFifoControl.read(sh2Access, reg, size);
         }
@@ -537,7 +546,7 @@ public class S32XMMREG implements Device {
             writeBuffer(buffer, (addrFixed + addrVariable) << 1, dataWord, Size.WORD);
             addrVariable = (addrVariable + 1) & 0xFF;
             len--;
-        } while (len > 0);
+        } while (len >= 0);
         writeBuffer(vdpRegs, AFSAR, addrFixed + addrVariable, Size.WORD);
     }
 

@@ -52,8 +52,7 @@ public class Sh2Launcher {
         System.setProperty("helios.fullSpeed", "false");
         System.setProperty("helios.enable.sound", "false");
         System.setProperty("68k.debug", "false");
-        System.setProperty("32x.show.vdp.debug.viewer", "true");
-        System.setProperty("md.show.vdp.debug.viewer", "true");
+        System.setProperty("md.show.vdp.debug.viewer", "false");
     }
 
     public static void main(String[] args) {
