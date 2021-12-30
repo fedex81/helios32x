@@ -36,8 +36,6 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-//TODO fix
-@Disabled
 public class VdpRenderCompareFileTest extends VdpRenderCompareTest {
 
     static List<String> ignoredTests = ImmutableList.<String>of();
@@ -73,7 +71,7 @@ public class VdpRenderCompareFileTest extends VdpRenderCompareTest {
     @Disabled
     @Test
     public void testCompare() {
-        Path saveFile = Paths.get(baseDataFolderName, "subterr_01.gsh");
-        super.testCompareFile(saveFile, false);
+        Path saveFile = Paths.get(baseDataFolderName, "gsier_01.dat.zip");
+        super.testCompareFile(saveFile, true);
     }
 }

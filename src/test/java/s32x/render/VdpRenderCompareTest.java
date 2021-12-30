@@ -19,10 +19,15 @@
 
 package s32x.render;
 
+import com.google.common.io.Files;
+import omegadrive.util.FileUtil;
 import omegadrive.util.Util;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import s32x.util.TestFileUtil;
+import sh2.Md32x;
+import sh2.vdp.MarsVdp;
+import sh2.vdp.debug.DebugVideoRenderContext;
 
 import javax.swing.*;
 import java.awt.*;
@@ -32,6 +37,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import static s32x.util.TestRenderUtil.*;
+import static s32x.util.TestRenderUtil.S32xRenderType.*;
 
 @Disabled
 public class VdpRenderCompareTest {
@@ -86,23 +92,36 @@ public class VdpRenderCompareTest {
         return ok;
     }
 
-    private void testOverwriteBaselineImage(Path saveFile) {
-        Image i = runVdpAndSaveRender(saveFile);
-        saveToFile(compareFolder, saveFile.getFileName().toString(), IMG_EXT, i);
+    private void testOverwriteBaselineImage(Path datFile) {
+        Image[] i = toImages(datFile);
+        String fileName = Files.getNameWithoutExtension(datFile.getFileName().toString());
+        for (S32xRenderType type : S32xRenderType.values()) {
+            saveToFile(compareFolder, fileName, type, IMG_EXT, i[type.ordinal()]);
+        }
     }
 
-    protected boolean testCompareOne(Path saveFile) {
-        Image i = runVdpAndSaveRender(saveFile);
-        BufferedImage actual = convertToBufferedImage(i);
-        return testCompareOne(saveFile.getFileName().toString(), actual);
+    protected boolean testCompareOne(Path datFile) {
+        Image[] i = toImages(datFile);
+        boolean ok = true;
+        String fileName = Files.getNameWithoutExtension(datFile.getFileName().toString());
+        for (S32xRenderType type : S32xRenderType.values()) {
+            BufferedImage actual = convertToBufferedImage(i[type.ordinal()]);
+            ok &= testCompareOne(fileName + "_" + type.name(), actual);
+        }
+        return ok;
     }
 
-    //TODO
-    protected Image runVdpAndSaveRender(Path saveFile) {
-//        GenesisVdpProvider vdpProvider = prepareVdp(saveFile);
-//        MdVdpTestUtil.runToStartFrame(vdpProvider);
-//        return saveRenderToImage(screenData, vdpProvider.getVideoMode());
-        return null;
+    protected Image[] toImages(Path datFile) {
+        Image[] img = new Image[3];
+        byte[] data = FileUtil.readBinaryFile(datFile, "dat");
+        Object o = Util.deserializeObject(data, 0, data.length);
+        DebugVideoRenderContext dvrc = (DebugVideoRenderContext) o;
+        MarsVdp.MarsVdpRenderContext vrc = DebugVideoRenderContext.toMarsVdpRenderContext(dvrc);
+        img[MD.ordinal()] = saveRenderToImage(dvrc.mdData, dvrc.videoMode);
+        img[S32X.ordinal()] = saveRenderToImage(dvrc.s32xData, dvrc.videoMode);
+        int[] screen = Md32x.doRendering(dvrc.mdData, vrc);
+        img[FULL.ordinal()] = saveRenderToImage(screen, dvrc.videoMode);
+        return img;
     }
 
     protected boolean testCompareOne(String saveName, BufferedImage actual) {
