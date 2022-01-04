@@ -26,7 +26,7 @@ public class MarsVdpImpl implements MarsVdp {
 
     private ShortBuffer[] frameBuffersWord = new ShortBuffer[NUM_FB];
     private ShortBuffer colorPaletteWords;
-    private short[] fbDataWords = new short[(DRAM_SIZE - LINE_TABLE_BYTES) >> 1];
+    private short[] fbDataWords = new short[DRAM_SIZE >> 1];
     private int[] lineTableWords = new int[LINE_TABLE_WORDS];
 
     private MarsVdpDebugView view;
@@ -82,38 +82,42 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     //Mars Sample Program - Pharaoh
+    //space harrier intro screen
     private void drawDirectColor(MarsVdpContext context) {
         final int w = context.videoMode.getDimension().width;
         final ShortBuffer b = frameBuffersWord[context.frameBufferDisplay];
         final int[] imgData = buffer;
-        b.position(LINE_TABLE_WORDS);
+        populateLineTable(b);
+        b.position(0);
         b.get(fbDataWords);
         final short[] fb = fbDataWords;
+//        final int centerDcHalfShift = w * ((256 - context.videoMode.getDimension().height) >> 1);
 
-        int last = 0;
         for (int row = 0; row < DIRECT_COLOR_LINES; row++) {
-            final int basePos = row * w;
+            final int linePos = lineTableWords[row] + context.screenShift;
+            final int fbBasePos = row * w;
             for (int col = 0; col < w; col++) {
-                int color555 = fbDataWords[basePos + col];
-                imgData[basePos + col] = getDirectColorWithPriority(color555 & 0xFFFF);
-                last = basePos + col;
+                imgData[fbBasePos + col] = getDirectColorWithPriority(fb[linePos + col] & 0xFFFF);
             }
         }
         wasBlankScreen = false;
     }
 
+    //space harrier sega intro
     private void drawRunLen(MarsVdpContext context) {
         final int h = context.videoMode.getDimension().height;
         final int w = context.videoMode.getDimension().width;
         final ShortBuffer b = frameBuffersWord[context.frameBufferDisplay];
         final int[] imgData = buffer;
-        b.position(LINE_TABLE_WORDS);
+        populateLineTable(b);
+        b.position(0);
         b.get(fbDataWords);
 
-        int nextWord = 0;
         for (int row = 0; row < h; row++) {
             int col = 0;
             final int basePos = row * w;
+            final int linePos = lineTableWords[row];
+            int nextWord = linePos;
             if (basePos >= fbDataWords.length) {
                 break;
             }
@@ -135,13 +139,9 @@ public class MarsVdpImpl implements MarsVdp {
     void drawPackedPixel(MarsVdpContext context) {
         final ShortBuffer b = frameBuffersWord[context.frameBufferDisplay];
         final int[] imgData = buffer;
+        populateLineTable(b);
 
         b.position(0);
-        for (int i = 0; i < lineTableWords.length; i++) {
-            lineTableWords[i] = b.get() & 0xFFFF;
-        }
-
-        b.position(LINE_TABLE_WORDS);
         b.get(fbDataWords);
 
         int last = 0;
@@ -149,8 +149,7 @@ public class MarsVdpImpl implements MarsVdp {
         final int w = context.videoMode.getDimension().width;
 
         for (int row = 0; row < h; row++) {
-            //TODO why 64???
-            final int linePos = lineTableWords[row] + context.screenShift + 64;
+            final int linePos = lineTableWords[row] + context.screenShift;
             final int basePos = row * w;
             for (int col = 0, wordOffset = 0; col < w; col += 2, wordOffset++) {
                 final int palWordIdx1 = (fbDataWords[linePos + wordOffset] >> 8) & 0xFF;
@@ -161,6 +160,13 @@ public class MarsVdpImpl implements MarsVdp {
             }
         }
         wasBlankScreen = false;
+    }
+
+    private void populateLineTable(final ShortBuffer b) {
+        b.position(0);
+        for (int i = 0; i < lineTableWords.length; i++) {
+            lineTableWords[i] = b.get() & 0xFFFF;
+        }
     }
 
     //NOTE: encodes priority as the LSB (bit) of the word

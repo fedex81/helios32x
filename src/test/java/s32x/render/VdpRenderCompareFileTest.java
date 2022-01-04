@@ -22,7 +22,7 @@ package s32x.render;
 import com.google.common.collect.ImmutableList;
 import omegadrive.util.Util;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -50,10 +50,11 @@ public class VdpRenderCompareFileTest extends VdpRenderCompareTest {
         return Arrays.stream(files).filter(validFile).map(f -> f.getName()).sorted();
     }
 
-    @BeforeEach
-    public void beforeTest() {
+    @BeforeAll
+    public static void beforeTest() {
         System.setProperty("helios.headless", "true");
         System.setProperty("md.show.vdp.debug.viewer", "false");
+        System.out.println(baseDataFolderName);
     }
 
     @ParameterizedTest
@@ -72,7 +73,7 @@ public class VdpRenderCompareFileTest extends VdpRenderCompareTest {
     @Disabled
     @Test
     public void testCompare() {
-        Path saveFile = Paths.get(baseDataFolderName, "gsier_01.dat.zip");
+        Path saveFile = Paths.get(baseDataFolderName, "bthorn_01.dat.zip");
         super.testCompareFile(saveFile, true);
     }
 }
