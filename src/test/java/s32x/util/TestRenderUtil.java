@@ -77,8 +77,10 @@ public class TestRenderUtil {
 
     public static BufferedImage getImage(VideoMode videoMode) {
         Dimension d = videoMode.getDimension();
-        BufferedImage bi = gd.getDefaultConfiguration().createCompatibleImage(d.width, d.height);
-        return bi;
+        if (gd != null) {
+            return gd.getDefaultConfiguration().createCompatibleImage(d.width, d.height);
+        }
+        return new BufferedImage(d.width, d.height, BufferedImage.TYPE_INT_RGB);
     }
 
     public static BufferedImage saveRenderToImage(int[] data, VideoMode videoMode) {

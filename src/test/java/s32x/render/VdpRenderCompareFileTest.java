@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-@Disabled("TODO fails in github")
 public class VdpRenderCompareFileTest extends VdpRenderCompareTest {
 
     static List<String> ignoredTests = ImmutableList.<String>of();
