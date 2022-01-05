@@ -4,7 +4,6 @@ import omegadrive.util.Util;
 import omegadrive.util.VideoMode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.Md32x;
 import sh2.vdp.MarsVdp;
 
 import java.io.IOException;
@@ -22,7 +21,7 @@ import java.nio.file.attribute.FileAttribute;
 //NOTE, do not move or change, tests depend on it
 public class DebugVideoRenderContext implements Serializable {
 
-    private static final transient Logger LOG = LogManager.getLogger(Md32x.class.getSimpleName());
+    private static final transient Logger LOG = LogManager.getLogger(DebugVideoRenderContext.class.getSimpleName());
 
     private static final long serialVersionUID = -2583260195705611811L;
     public MarsVdp.VdpPriority priority;
@@ -30,7 +29,8 @@ public class DebugVideoRenderContext implements Serializable {
     public int[] mdData;
     public int[] s32xData;
 
-    public static void dumpData(MarsVdp.MarsVdpRenderContext ctx, int[] mdData) {
+    //dumpCompositeData, ie Md + 32x
+    public static void dumpCompositeData(MarsVdp.MarsVdpRenderContext ctx, int[] mdData) {
         DebugVideoRenderContext vrc = new DebugVideoRenderContext();
         vrc.priority = ctx.vdpContext.priority;
         vrc.mdData = mdData;

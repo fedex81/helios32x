@@ -40,10 +40,15 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     public static MarsVdp createInstance(MarsVdpContext vdpContext, ByteBuffer[] frameBuffers, ByteBuffer colorPalette) {
+        return createInstance(vdpContext, frameBuffers[0].asShortBuffer(), frameBuffers[1].asShortBuffer(),
+                colorPalette.asShortBuffer());
+    }
+
+    public static MarsVdp createInstance(MarsVdpContext vdpContext, ShortBuffer frameBuffer0, ShortBuffer frameBuffer1, ShortBuffer colorPalette) {
         MarsVdpImpl v = new MarsVdpImpl();
-        v.colorPaletteWords = colorPalette.asShortBuffer();
-        v.frameBuffersWord[0] = frameBuffers[0].asShortBuffer();
-        v.frameBuffersWord[1] = frameBuffers[1].asShortBuffer();
+        v.colorPaletteWords = colorPalette;
+        v.frameBuffersWord[0] = frameBuffer0;
+        v.frameBuffersWord[1] = frameBuffer1;
         v.view = MarsVdpDebugView.createInstance();
         v.latestContext = vdpContext;
         v.renderContext = new MarsVdpRenderContext();
@@ -207,6 +212,26 @@ public class MarsVdpImpl implements MarsVdp {
         if (debugView instanceof VdpDebugView) {
             ((VdpDebugView) debugView).setAdditionalPanel(view.getPanel());
         }
+    }
+
+    @Override
+    public void dumpMarsData() {
+        DebugMarsVdpRenderContext d = new DebugMarsVdpRenderContext();
+        d.renderContext = getMarsVdpRenderContext();
+        frameBuffersWord[0].position(0);
+        frameBuffersWord[1].position(0);
+        d.frameBuffer0 = new short[frameBuffersWord[0].capacity()];
+        d.frameBuffer1 = new short[frameBuffersWord[1].capacity()];
+        frameBuffersWord[0].get(d.frameBuffer0);
+        frameBuffersWord[1].get(d.frameBuffer1);
+
+        colorPaletteWords.position(0);
+        d.palette = new short[colorPaletteWords.capacity()];
+        colorPaletteWords.get(d.palette);
+        //NOTE needs to redraw as the buffer and the context might be out of sync
+        draw(d.renderContext.vdpContext);
+        d.renderContext.screen = buffer;
+        MarsVdp.storeMarsData(d);
     }
 
     @Override

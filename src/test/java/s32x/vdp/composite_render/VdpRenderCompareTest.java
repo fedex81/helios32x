@@ -17,43 +17,51 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package s32x.render;
+package s32x.vdp.composite_render;
 
-import com.google.common.io.Files;
-import omegadrive.util.FileUtil;
 import omegadrive.util.Util;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import s32x.util.TestFileUtil;
-import sh2.Md32x;
-import sh2.vdp.MarsVdp;
-import sh2.vdp.debug.DebugVideoRenderContext;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
+import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.stream.Stream;
 
 import static s32x.util.TestRenderUtil.*;
-import static s32x.util.TestRenderUtil.S32xRenderType.*;
 
 @Disabled
-public class VdpRenderCompareTest {
+public abstract class VdpRenderCompareTest {
 
     protected static boolean SHOW_IMAGES_ON_FAILURE = true;
     public static String IMG_EXT = "bmp";
     public static String DOT_EXT = "." + IMG_EXT + ".zip";
 
-    public static Path baseDataFolder = Paths.get(new File(".").getAbsolutePath(),
-            "src", "test", "resources", "render");
-    static String baseDataFolderName = baseDataFolder.toAbsolutePath().toString();
-    private static Path compareFolderPath = Paths.get(baseDataFolderName, "compare");
-    protected static String compareFolder = compareFolderPath.toAbsolutePath().toString();
+    private Path compareFolderPath = Paths.get(getBaseDataFolderName(), "compare");
+    protected String compareFolder = compareFolderPath.toAbsolutePath().toString();
     private BufferedImage diffImage;
 
+    protected abstract Path getBaseDataFolder();
+
+    protected static Stream<String> getFileProvider(Path baseDataFolder) {
+        System.out.println(baseDataFolder.toAbsolutePath());
+        File[] files = baseDataFolder.toFile().listFiles();
+        return Arrays.stream(files).filter(File::isFile).map(f -> f.getName()).sorted();
+    }
+
+    protected String getBaseDataFolderName() {
+        return getBaseDataFolder().toAbsolutePath().toString();
+    }
+
     protected void testCompareFile(Path file, boolean overwrite) {
+        Assertions.assertTrue(file.toFile().exists(), "Missing " + file.toAbsolutePath());
         if (overwrite) {
             testOverwriteBaselineImage(file);
         }
@@ -92,36 +100,27 @@ public class VdpRenderCompareTest {
         return ok;
     }
 
-    private void testOverwriteBaselineImage(Path datFile) {
-        Image[] i = toImages(datFile);
-        String fileName = Files.getNameWithoutExtension(datFile.getFileName().toString());
-        for (S32xRenderType type : S32xRenderType.values()) {
-            saveToFile(compareFolder, fileName, type, IMG_EXT, i[type.ordinal()]);
-        }
-    }
+    protected abstract void testOverwriteBaselineImage(Path datFile);
 
-    protected boolean testCompareOne(Path datFile) {
-        Image[] i = toImages(datFile);
-        boolean ok = true;
-        String fileName = Files.getNameWithoutExtension(datFile.getFileName().toString());
-        for (S32xRenderType type : S32xRenderType.values()) {
-            BufferedImage actual = convertToBufferedImage(i[type.ordinal()]);
-            ok &= testCompareOne(fileName + "_" + type.name(), actual);
-        }
-        return ok;
-    }
+    protected abstract boolean testCompareOne(Path datFile);
 
-    protected Image[] toImages(Path datFile) {
-        Image[] img = new Image[3];
-        byte[] data = FileUtil.readBinaryFile(datFile, "dat");
-        Object o = Util.deserializeObject(data, 0, data.length);
-        DebugVideoRenderContext dvrc = (DebugVideoRenderContext) o;
-        MarsVdp.MarsVdpRenderContext vrc = DebugVideoRenderContext.toMarsVdpRenderContext(dvrc);
-        img[MD.ordinal()] = saveRenderToImage(dvrc.mdData, dvrc.videoMode);
-        img[S32X.ordinal()] = saveRenderToImage(dvrc.s32xData, dvrc.videoMode);
-        int[] screen = Md32x.doRendering(dvrc.mdData, vrc);
-        img[FULL.ordinal()] = saveRenderToImage(screen, dvrc.videoMode);
-        return img;
+    private final static Logger LOG = LogManager.getLogger(Util.class.getSimpleName());
+
+    public static Serializable deserializeObject(byte[] data, int offset, int len) {
+        if (data == null || data.length == 0 || offset < 0 || len > data.length) {
+            LOG.error("Unable to deserialize object of len: {}", data != null ? data.length : "null");
+            return null;
+        }
+        Serializable res = null;
+        try (
+                ByteArrayInputStream bis = new ByteArrayInputStream(data, offset, len);
+                ObjectInput in = new ObjectInputStream(bis)
+        ) {
+            res = (Serializable) in.readObject();
+        } catch (Exception e) {
+            LOG.error("Unable to deserialize object of len: {}, {}", data.length, e.getMessage());
+        }
+        return res;
     }
 
     protected boolean testCompareOne(String saveName, BufferedImage actual) {

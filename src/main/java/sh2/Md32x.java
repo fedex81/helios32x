@@ -111,7 +111,15 @@ public class Md32x extends Genesis {
 
     @Override
     protected void doRendering(int[] data, Optional<String> stats) {
-        int[] fg = doRendering(data, marsVdp.getMarsVdpRenderContext());
+        MarsVdpRenderContext ctx = marsVdp.getMarsVdpRenderContext();
+        boolean dumpComposite = false, dumpMars = false;
+        if (dumpComposite) {
+            DebugVideoRenderContext.dumpCompositeData(ctx, data);
+        }
+        if (dumpMars) {
+            marsVdp.dumpMarsData();
+        }
+        int[] fg = doRendering(data, ctx);
         renderScreenLinearInternal(fg, stats);
     }
 
@@ -119,12 +127,8 @@ public class Md32x extends Genesis {
         int mdDataLen = data.length;
         int[] marsData = Optional.ofNullable(ctx.screen).orElse(new int[0]);
         int[] fg = data;
-        boolean dump = false;
         if (mdDataLen == marsData.length) {
             VdpPriority p = ctx.vdpContext.priority;
-            if (dump) {
-                DebugVideoRenderContext.dumpData(ctx, data);
-            }
             fg = p == S32X ? marsData : data;
             int[] bg = p == S32X ? data : marsData;
             for (int i = 0; i < fg.length; i++) {

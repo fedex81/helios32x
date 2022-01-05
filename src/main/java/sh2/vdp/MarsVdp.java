@@ -1,12 +1,19 @@
 package sh2.vdp;
 
 import omegadrive.Device;
+import omegadrive.util.Util;
 import omegadrive.util.VideoMode;
 import omegadrive.vdp.util.UpdatableViewer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.awt.*;
+import java.io.IOException;
+import java.io.Serializable;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileAttribute;
 
 /**
  * Federico Berti
@@ -36,6 +43,10 @@ public interface MarsVdp extends Device {
 
     void updateDebugView(UpdatableViewer debugView);
 
+    default void dumpMarsData() {
+        throw new UnsupportedOperationException();
+    }
+
     public enum VdpPriority {MD, S32X}
 
     public enum BitmapMode {
@@ -44,7 +55,10 @@ public interface MarsVdp extends Device {
         public static BitmapMode[] vals = BitmapMode.values();
     }
 
-    public class MarsVdpContext {
+    //NOTE, do not move or change, tests depend on it
+    public class MarsVdpContext implements Serializable {
+        private static final long serialVersionUID = -5808119960311023889L;
+
         public BitmapMode bitmapMode = BitmapMode.BLANK;
         public VdpPriority priority = VdpPriority.MD;
         public int screenShift = 0;
@@ -52,11 +66,40 @@ public interface MarsVdp extends Device {
         public int fsLatch = 0, frameBufferDisplay = 0, frameBufferWritable = 1;
         public boolean hBlankOn, vBlankOn = true;
         public int hCount = 0;
+
+        @Override
+        public String toString() {
+            return "MarsVdpContext{" +
+                    "bitmapMode=" + bitmapMode +
+                    ", priority=" + priority +
+                    ", screenShift=" + screenShift +
+                    ", videoMode=" + videoMode +
+                    ", fsLatch=" + fsLatch +
+                    ", frameBufferDisplay=" + frameBufferDisplay +
+                    ", frameBufferWritable=" + frameBufferWritable +
+                    ", hBlankOn=" + hBlankOn +
+                    ", vBlankOn=" + vBlankOn +
+                    ", hCount=" + hCount +
+                    '}';
+        }
     }
 
-    public class MarsVdpRenderContext {
+    //NOTE, do not move or change, tests depend on it
+    public class MarsVdpRenderContext implements Serializable {
+        private static final long serialVersionUID = 6079468834587022465L;
+
         public int[] screen;
         public MarsVdpContext vdpContext;
+    }
+
+    //NOTE, do not move or change, tests depend on it
+    public class DebugMarsVdpRenderContext implements Serializable {
+        private static final long serialVersionUID = 6600715540292231809L;
+
+        public MarsVdpRenderContext renderContext;
+        public short[] frameBuffer0;
+        public short[] frameBuffer1;
+        public short[] palette;
     }
 
     static void initBgrMapper() {
@@ -65,6 +108,16 @@ public interface MarsVdp extends Device {
             int g = ((i >> 5) & 0x1F) << 3;
             int r = ((i >> 0) & 0x1F) << 3;
             bgr5toRgb8Mapper[i] = (r << 16) | (g << 8) | b;
+        }
+    }
+
+    static void storeMarsData(MarsVdp.DebugMarsVdpRenderContext ctx) {
+        try {
+            Path f = Files.createTempFile("mvrc_", ".dat", new FileAttribute[0]);
+            Files.write(f, Util.serializeObject(ctx), StandardOpenOption.WRITE);
+            LOG.info("File written: {}", f.toAbsolutePath());
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 }
