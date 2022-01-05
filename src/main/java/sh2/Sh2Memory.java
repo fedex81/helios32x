@@ -1,6 +1,5 @@
 package sh2;
 
-import omegadrive.system.BaseSystem;
 import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.apache.logging.log4j.LogManager;
@@ -82,7 +81,7 @@ public final class Sh2Memory implements IMemory {
 	}
 
 	private int read(int address, Size size) {
-		CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
+		CpuDeviceAccess sh2Access = Md32x.getAccessType();
 		int res = 0;
 		if (address >= 0 && address < BOOT_ROM_SIZE) {
 			res = readBuffer(bios[sh2Access.ordinal()], address, size);
@@ -134,7 +133,7 @@ public final class Sh2Memory implements IMemory {
 	}
 
 	private void write(int address, int val, Size size) {
-		CpuDeviceAccess sh2Access = BaseSystem.getAccessType();
+		CpuDeviceAccess sh2Access = Md32x.getAccessType();
 		val &= size.getMask();
 		if (address >= S32XMMREG.START_32X_SYSREG && address < S32XMMREG.END_32X_COLPAL) {
 			s32XMMREG.write(address, val, size);

@@ -14,10 +14,10 @@ import sh2.vdp.MarsVdp.MarsVdpRenderContext;
 import sh2.vdp.MarsVdp.VdpPriority;
 import sh2.vdp.debug.DebugVideoRenderContext;
 
+import java.nio.file.Path;
 import java.util.Optional;
 
-import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
-import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
+import static sh2.S32xUtil.CpuDeviceAccess.*;
 import static sh2.vdp.MarsVdp.VdpPriority.S32X;
 
 /**
@@ -32,6 +32,7 @@ public class Md32x extends Genesis {
     //23.01Mhz NTSC
     protected final static int SH2_CYCLES_PER_STEP;
     protected final static int SH2_CYCLE_RATIO;
+    private static TLData tlData;
 
     static {
         SH2_CYCLES_PER_STEP = 128; //24;
@@ -39,6 +40,52 @@ public class Md32x extends Genesis {
         //3 cycles @ 23Mhz = 1 cycle @ 7.67
         SH2_CYCLE_RATIO = 3; //23.01/7.67 = 3
 //        System.setProperty("68k.debug", "true");
+    }
+
+    static class TLData {
+        S32xUtil.CpuDeviceAccess accessType = MASTER;
+        int accType = accessType.ordinal();
+        int[] cpuDelay = new int[vals.length];
+
+        public final void addCpuDelay(int delay) {
+            cpuDelay[accType] += delay;
+        }
+
+        public final int resetCpuDelay() {
+            int res = cpuDelay[accType];
+            cpuDelay[accType] = 0;
+            return res;
+        }
+
+        protected void setAccessType(S32xUtil.CpuDeviceAccess accessType) {
+            this.accessType = accessType;
+            accType = accessType.ordinal();
+        }
+
+        protected S32xUtil.CpuDeviceAccess getAccessType() {
+            return accessType;
+        }
+    }
+
+    public static void addCpuDelay(int delay) {
+        tlData.addCpuDelay(delay);
+    }
+
+    public static int resetCpuDelay() {
+        return tlData.resetCpuDelay();
+    }
+
+    public static void setAccessType(S32xUtil.CpuDeviceAccess access) {
+        tlData.setAccessType(access);
+    }
+
+    public static S32xUtil.CpuDeviceAccess getAccessType() {
+        return tlData.getAccessType();
+    }
+
+    //test only
+    public static void initTlData() {
+        tlData = new TLData();
     }
 
     private int nextMSh2Cycle = 0, nextSSh2Cycle = 0;
@@ -151,7 +198,13 @@ public class Md32x extends Genesis {
     @Override
     protected void handleCloseRom() {
         super.handleCloseRom();
-        tlData.remove();
         Optional.ofNullable(marsVdp).ifPresent(Device::reset);
+        tlData = null;
+    }
+
+    @Override
+    public void handleNewRom(Path file) {
+        super.handleNewRom(file);
+        initTlData();
     }
 }

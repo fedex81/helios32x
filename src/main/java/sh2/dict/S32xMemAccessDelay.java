@@ -1,6 +1,6 @@
 package sh2.dict;
 
-import omegadrive.system.BaseSystem;
+import sh2.Md32x;
 
 import static sh2.S32xUtil.CpuDeviceAccess.*;
 
@@ -64,10 +64,10 @@ public class S32xMemAccessDelay {
     }
 
     public static void addReadCpuDelay(int deviceType) {
-        BaseSystem.addCpuDelay(readDelays[BaseSystem.getAccessType().ordinal()][deviceType]);
+        Md32x.addCpuDelay(readDelays[Md32x.getAccessType().ordinal()][deviceType]);
     }
 
     public static void addWriteCpuDelay(int deviceType) {
-        BaseSystem.addCpuDelay(readDelays[BaseSystem.getAccessType().ordinal()][deviceType]);
+        Md32x.addCpuDelay(readDelays[Md32x.getAccessType().ordinal()][deviceType]);
     }
 }

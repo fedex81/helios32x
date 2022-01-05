@@ -2,6 +2,7 @@ package s32x;
 
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
+import sh2.Md32x;
 import sh2.S32XMMREG;
 import sh2.dict.S32xDict;
 import sh2.sh2.device.IntControl;
@@ -31,6 +32,7 @@ public class MarsRegTestUtil {
     public static S32XMMREG createInstance() {
         S32XMMREG s = new S32XMMREG();
         s.setInterruptControl(new IntControl(MASTER), new IntControl(SLAVE));
+        Md32x.initTlData();
         return s;
     }
 

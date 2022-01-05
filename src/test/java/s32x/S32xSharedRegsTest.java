@@ -1,11 +1,11 @@
 package s32x;
 
-import omegadrive.system.BaseSystem;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import sh2.Md32x;
 import sh2.S32XMMREG;
 import sh2.S32xUtil;
 
@@ -148,12 +148,12 @@ public class S32xSharedRegsTest {
     }
 
     private int read(S32xUtil.CpuDeviceAccess sh2Access, int reg, Size size) {
-        BaseSystem.setAccessType(sh2Access);
+        Md32x.setAccessType(sh2Access);
         return s32XMMREG.read(reg, size);
     }
 
     private void write(S32xUtil.CpuDeviceAccess sh2Access, int reg, int value, Size size) {
-        BaseSystem.setAccessType(sh2Access);
+        Md32x.setAccessType(sh2Access);
         s32XMMREG.write(reg, value, size);
     }
 }

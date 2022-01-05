@@ -35,7 +35,6 @@ import omegadrive.util.*;
 import omegadrive.vdp.model.BaseVdpProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.S32xUtil.CpuDeviceAccess;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -43,9 +42,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
-
-import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
-import static sh2.S32xUtil.CpuDeviceAccess.values;
 
 public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemProvider, SystemProvider.NewFrameListener {
 
@@ -92,52 +88,6 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
 
     static {
         fullThrottle = Boolean.parseBoolean(System.getProperty("helios.fullSpeed", "false"));
-    }
-
-    public static class TLData {
-        CpuDeviceAccess accessType = MASTER;
-        int[] cpuDelay = new int[values().length];
-
-        public final void addCpuDelay(int delay) {
-            cpuDelay[accessType.ordinal()] += delay;
-        }
-
-        public final int resetCpuDelay() {
-            int res = cpuDelay[accessType.ordinal()];
-            cpuDelay[accessType.ordinal()] = 0;
-            return res;
-        }
-
-        protected void setAccessType(CpuDeviceAccess accessType) {
-            this.accessType = accessType;
-        }
-
-        protected CpuDeviceAccess getAccessType() {
-            return accessType;
-        }
-    }
-
-    protected static final ThreadLocal<TLData> tlData = new ThreadLocal<>() {
-        @Override
-        protected TLData initialValue() {
-            return new TLData();
-        }
-    };
-
-    public static void addCpuDelay(int delay) {
-        tlData.get().addCpuDelay(delay);
-    }
-
-    protected static int resetCpuDelay() {
-        return tlData.get().resetCpuDelay();
-    }
-
-    public static void setAccessType(CpuDeviceAccess access) {
-        tlData.get().setAccessType(access);
-    }
-
-    public static CpuDeviceAccess getAccessType() {
-        return tlData.get().getAccessType();
     }
 
     protected abstract void loop();

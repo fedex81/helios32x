@@ -142,8 +142,8 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
             boolean canRun = !cpu.isStopped() && isRunning;
             int cycleDelay = 1;
             if (canRun) {
-                setAccessType(M68K);
-                cycleDelay = cpu.runInstruction() + resetCpuDelay();
+                Md32x.setAccessType(M68K);
+                cycleDelay = cpu.runInstruction() + Md32x.resetCpuDelay();
             }
             //interrupts are processed after the current instruction
             //TODO check: interrupt shouldnt be processed when 68k is frozen but are

@@ -1,9 +1,9 @@
 package sh2.dict;
 
-import omegadrive.system.BaseSystem;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.Md32x;
 
 /**
  * Federico Berti
@@ -161,12 +161,12 @@ public class Sh2Dict {
 
     public static void checkName(int reg) {
         if (sh2RegNames[reg] == null) {
-            LOG.info("{} SH2 mmreg unknown reg: {}", BaseSystem.getAccessType(), Integer.toHexString(reg));
+            LOG.info("{} SH2 mmreg unknown reg: {}", Md32x.getAccessType(), Integer.toHexString(reg));
         }
     }
 
     public static void logAccess(String type, int reg, int value, Size size) {
-        String s = BaseSystem.getAccessType() + " SH2 reg " + type + " " +
+        String s = Md32x.getAccessType() + " SH2 reg " + type + " " +
                 size + ", (" + sh2RegNames[reg] + ") " + Integer.toHexString(reg) + ": " +
                 Integer.toHexString(value);
         LOG.info(s);
