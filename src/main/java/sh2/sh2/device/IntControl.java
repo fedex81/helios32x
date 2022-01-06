@@ -6,6 +6,7 @@ import org.apache.logging.log4j.Logger;
 import sh2.S32xUtil.CpuDeviceAccess;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 import static sh2.S32xUtil.readBuffer;
 import static sh2.S32xUtil.writeBuffer;
@@ -44,7 +45,13 @@ public class IntControl {
     public IntControl(CpuDeviceAccess cpu) {
         sh2_int_mask = ByteBuffer.allocateDirect(2);
         this.cpu = cpu;
+        intc[cpu.ordinal()] = this;
+        Arrays.fill(intValid, true);
+        setIntsMasked(0);
     }
+
+    //hack
+    public static final IntControl[] intc = new IntControl[2];
 
     private void setIntMasked(int ipt, boolean isValid) {
         boolean val = this.intValid[ipt];
@@ -103,7 +110,7 @@ public class IntControl {
     private void resetInterruptLevel() {
         boolean[] ints = this.intTrigger;
         int newLevel = 0;
-        for (int i = VRES_14.ordinal(); i > NONE_5.ordinal(); i--) {
+        for (int i = NMI_16.ordinal(); i >= NONE_0.ordinal(); i--) {
             if (ints[i]) {
                 newLevel = i;
                 break;
@@ -125,6 +132,13 @@ public class IntControl {
 
     public int getInterruptLevel() {
         return interruptLevel;
+    }
+
+    public int getVectorNumber() {
+        if (interruptLevel == NONE_15.ordinal()) {
+            return 72; //TODO hack, should use IPRA/B
+        }
+        return 64 + (interruptLevel >> 1);
     }
 
     public ByteBuffer getSh2_int_mask_regs() {

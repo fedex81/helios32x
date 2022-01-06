@@ -80,7 +80,8 @@ public final class Sh2Memory implements IMemory {
 		sh2MMREGS[SLAVE.ordinal()] = new Sh2MMREG(SLAVE);
 	}
 
-	private int read(int address, Size size) {
+	@Override
+	public int read(int address, Size size) {
 		CpuDeviceAccess sh2Access = Md32x.getAccessType();
 		int res = 0;
 		if (address >= 0 && address < BOOT_ROM_SIZE) {
@@ -132,7 +133,8 @@ public final class Sh2Memory implements IMemory {
 		return (int) (res & size.getMask());
 	}
 
-	private void write(int address, int val, Size size) {
+	@Override
+	public void write(int address, int val, Size size) {
 		CpuDeviceAccess sh2Access = Md32x.getAccessType();
 		val &= size.getMask();
 		if (address >= S32XMMREG.START_32X_SYSREG && address < S32XMMREG.END_32X_COLPAL) {

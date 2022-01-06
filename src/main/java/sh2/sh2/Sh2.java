@@ -101,8 +101,7 @@ public class Sh2 implements Device {
 		ctx.SR &= 0xF0F;
 		ctx.SR |= (level << 4);
 
-		int vectorNum = 64 + (level >> 1);
-
+		int vectorNum = ctx.intC.getVectorNumber();
 		ctx.PC = memory.read32i(ctx.VBR + (vectorNum << 2));
 		//5 + 3 mem accesses
 		ctx.cycles -= 5;

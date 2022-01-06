@@ -90,10 +90,8 @@ public class Sh2MMREG {
             case DMA_TCR0:
             case DMA_TCR1:
             case DMAOR:
-                int val1 = readBuffer(regs, reg & SH2_REG_MASK, Size.LONG);
-                if ((val1 & 4) > 0) {
-                    LOG.error("{} Interrupt request on DMA complete not supported", sh2Access);
-                }
+            case VRCDMA0:
+            case VRCDMA1:
                 dmaC.write(sh2Access, reg, value, size);
                 break;
             case SCI_BRR:
