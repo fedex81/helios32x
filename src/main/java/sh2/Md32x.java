@@ -174,13 +174,23 @@ public class Md32x extends Genesis {
         int mdDataLen = data.length;
         int[] marsData = Optional.ofNullable(ctx.screen).orElse(new int[0]);
         int[] fg = data;
+        boolean dump = false;
         if (mdDataLen == marsData.length) {
             VdpPriority p = ctx.vdpContext.priority;
             fg = p == S32X ? marsData : data;
             int[] bg = p == S32X ? data : marsData;
             for (int i = 0; i < fg.length; i++) {
                 boolean throughBit = (marsData[i] & 1) > 0;
-                fg[i] = fg[i] == 0 || (throughBit && bg[i] > 0) ? bg[i] : fg[i];
+                boolean bgBlanking = p == S32X ? (data[i] & 1) > 0 : (marsData[i] >> 1) == 0;
+                boolean fgBlanking = p == S32X ? (marsData[i] >> 1) == 0 : (data[i] & 1) > 0;
+//                if(dump) {
+//                    String s = i + "," + p + "," + (throughBit ? 1 : 0) + "," + (fgBlanking ? 1 : 0) + (bgBlanking ? 1 : 0) + ","
+//                            + "," + data[i] + "," + marsData[i];
+//                    fg[i] = fgBlanking || (throughBit && !bgBlanking) ? bg[i] : fg[i];
+//                    System.out.println(s + "," + fg[i]);
+//                } else {
+                fg[i] = fgBlanking || (throughBit && !bgBlanking) ? bg[i] : fg[i];
+//                }
             }
         }
         return fg;

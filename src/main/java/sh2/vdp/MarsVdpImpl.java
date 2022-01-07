@@ -149,7 +149,6 @@ public class MarsVdpImpl implements MarsVdp {
         b.position(0);
         b.get(fbDataWords);
 
-        int last = 0;
         final int h = context.videoMode.getDimension().height;
         final int w = context.videoMode.getDimension().width;
 
@@ -161,7 +160,6 @@ public class MarsVdpImpl implements MarsVdp {
                 final int palWordIdx2 = fbDataWords[linePos + wordOffset] & 0xFF;
                 imgData[basePos + col] = getColorWithPriority(palWordIdx1);
                 imgData[basePos + col + 1] = getColorWithPriority(palWordIdx2);
-                last = basePos + col + 1;
             }
         }
         wasBlankScreen = false;
@@ -183,8 +181,7 @@ public class MarsVdpImpl implements MarsVdp {
     private int getDirectColorWithPriority(int palValue) {
         int prio = (palValue >> 15) & 1;
         int color = bgr5toRgb8Mapper[palValue];
-        color = (color & ~1) | prio;
-        return color;
+        return (color & ~1) | prio;
     }
 
     @Override
