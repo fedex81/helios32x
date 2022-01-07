@@ -3,7 +3,6 @@ package sh2.sh2.device;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.S32xUtil.*;
 import sh2.dict.Sh2Dict;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 
@@ -68,14 +67,10 @@ public class IntControl {
     }
 
     private void init() {
-        intc[cpu.ordinal()] = this;
         Arrays.fill(intValid, true);
         setIntsMasked(0);
         Arrays.stream(Sh2DeviceType.values()).forEach(d -> sh2DeviceInt.put(d, 0));
     }
-
-    //hack
-    public static final IntControl[] intc = new IntControl[2];
 
     public void write(Sh2Dict.RegSpec regSpec, int value, Size size) {
         int val = 0;

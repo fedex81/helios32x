@@ -30,6 +30,7 @@ public class DmaC {
 
     private final ByteBuffer regs;
 
+    private final IntControl intControl;
     private final IMemory memory;
     private final DmaFifo68k dma68k;
     private final VdpFifo fifo;
@@ -37,11 +38,12 @@ public class DmaC {
     private final DmaChannelSetup[] dmaChannelSetup;
     private boolean oneDmaInProgress = false;
 
-    public DmaC(CpuDeviceAccess cpu, IMemory memory, DmaFifo68k dma68k, ByteBuffer regs) {
+    public DmaC(CpuDeviceAccess cpu, IntControl intControl, IMemory memory, DmaFifo68k dma68k, ByteBuffer regs) {
         this.cpu = cpu;
         this.regs = regs;
         this.memory = memory;
         this.dma68k = dma68k;
+        this.intControl = intControl;
         this.fifo = dma68k.getFifo();
         this.dmaChannelSetup = new DmaChannelSetup[]{DmaHelper.createChannel(0), DmaHelper.createChannel(1)};
     }
@@ -185,7 +187,7 @@ public class DmaC {
             if (normal) {
                 setBitInt(c.channel, DMA_CHCR0.addr + 2, SH2_CHCR_TRANSFER_END_BIT, 1, Size.WORD);
                 if (c.chcr_intEn) {
-                    IntControl.intc[cpu.ordinal()].setDmaIntPending(c.channel, true);
+                    intControl.setDmaIntPending(c.channel, true);
                 }
             }
             LOG.info("DMA stop, aborted: {}, {}", !normal, c);
