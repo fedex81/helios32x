@@ -4,6 +4,7 @@ import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import sh2.Md32x;
 import sh2.S32XMMREG;
+import sh2.S32xUtil;
 import sh2.dict.S32xDict;
 import sh2.sh2.device.IntControl;
 
@@ -31,9 +32,13 @@ public class MarsRegTestUtil {
 
     public static S32XMMREG createInstance() {
         S32XMMREG s = new S32XMMREG();
-        s.setInterruptControl(new IntControl(MASTER), new IntControl(SLAVE));
+        s.setInterruptControl(createIntC(MASTER), createIntC(SLAVE));
         Md32x.initTlData();
         return s;
+    }
+
+    public static IntControl createIntC(S32xUtil.CpuDeviceAccess cpuDeviceAccess) {
+        return new IntControl(cpuDeviceAccess, null);
     }
 
     public static void assertFrameBufferDisplay(S32XMMREG s32XMMREG, int num) {

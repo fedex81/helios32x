@@ -1,15 +1,14 @@
 package sh2;
 
+import com.google.common.collect.Maps;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.S32xUtil.CpuDeviceAccess;
-import sh2.sh2.device.DivUnit;
-import sh2.sh2.device.DmaC;
-import sh2.sh2.device.SerialCommInterface;
-import sh2.sh2.device.Sh2DeviceHelper;
+import sh2.sh2.device.*;
 
 import java.nio.ByteBuffer;
+import java.util.Map;
 import java.util.stream.IntStream;
 
 import static sh2.S32xUtil.readBuffer;
@@ -27,15 +26,18 @@ public class Sh2MMREG {
 
     public static final int DATA_ARRAY_SIZE = 0x1000;
     public static final int DATA_ARRAY_MASK = DATA_ARRAY_SIZE - 1;
-    public static final int SH2_REG_SIZE = 0x1000;
+    public static final int SH2_REG_SIZE = 0x200;
     public static final int SH2_REG_MASK = SH2_REG_SIZE - 1;
 
     private ByteBuffer regs = ByteBuffer.allocateDirect(SH2_REG_SIZE);
     private ByteBuffer data_array = ByteBuffer.allocateDirect(DATA_ARRAY_SIZE); // cache (can be used as RAM)
 
+    private final Map<Integer, Integer> dramModeRegs = Maps.newHashMap(dramModeRegsSpec);
+
     private SerialCommInterface sci;
     private DivUnit divUnit;
     private DmaC dmaC;
+    private IntControl intC;
 
     private CpuDeviceAccess sh2Access;
     private static final boolean verbose = false;
@@ -48,6 +50,7 @@ public class Sh2MMREG {
         this.dmaC = ctx.dmaC;
         this.divUnit = ctx.divUnit;
         this.sci = ctx.sci;
+        this.intC = ctx.intC;
         reset();
     }
 
@@ -69,40 +72,49 @@ public class Sh2MMREG {
     }
 
     private void regWrite(int reg, int value, Size size) {
-        int regEven = reg & ~1;
-        switch (regEven) {
-            case DVDNTL:
-            case DVDNTH:
-            case DVCR:
-            case DVDNT:
-            case DVDNTUH:
-            case DVDNTUL:
-                divUnit.write(reg, value, size);
+        RegSpec regSpec = sh2RegMapping[reg & SH2_REG_MASK];
+        if (regSpec == null) {
+            LOG.error("{} reg {} not mapped to a device", sh2Access, regSpec.name);
+        }
+        switch (sh2RegDeviceMapping[reg & SH2_REG_MASK]) {
+            case DIV:
+                divUnit.write(regSpec, value, size);
                 break;
-            case DMA_CHCR0:
-            case DMA_CHCR1:
-            case DMA_SAR0:
-            case DMA_SAR1:
-            case DMA_DAR0:
-            case DMA_DAR1:
-            case DMA_DRCR0:
-            case DMA_DRCR1:
-            case DMA_TCR0:
-            case DMA_TCR1:
-            case DMAOR:
-            case VRCDMA0:
-            case VRCDMA1:
-                dmaC.write(sh2Access, reg, value, size);
+            case DMA:
+                dmaC.write(sh2Access, regSpec, value, size);
                 break;
-            case SCI_BRR:
-            case SCI_RDR:
-            case SCI_SCR:
-            case SCI_SSR:
-            case SCI_TDR:
-            case SCI_SMR:
-                sci.write(reg, value, size);
+            case SCI:
+                sci.write(regSpec, value, size);
                 break;
+            case INTC:
+                intC.write(regSpec, value, size);
+                break;
+            case NONE:
+            default:
+                break; //do nothing
+        }
+    }
 
+    public int readDramMode(int reg, Size size) {
+        int res = dramModeRegs.getOrDefault(reg, -1);
+        if (verbose) {
+            logAccess("read", reg, res, size);
+        }
+        if (res < 0) {
+            LOG.error("Unexpected dram mode reg read: {} {}", reg, size);
+            res = 0;
+        }
+        return res;
+    }
+
+    public void writeDramMode(int reg, int value, Size size) {
+        if (verbose) {
+            logAccess("write", reg, value, size);
+        }
+        if (dramModeRegs.containsKey(reg)) {
+            dramModeRegs.put(reg, value);
+        } else {
+            LOG.error("Unexpected dram mode reg write: {}, {} {}", reg, value, size);
         }
     }
 
@@ -124,7 +136,7 @@ public class Sh2MMREG {
         IntStream.range(0, regs.capacity()).forEach(i -> regs.put(i, (byte) 0));
         sci.reset();
         divUnit.reset();
-        writeBuffer(regs, TIER & SH2_REG_MASK, 0x11, Size.BYTE);
-        writeBuffer(regs, TOCR & SH2_REG_MASK, 0x17, Size.BYTE);
+        writeBuffer(regs, RegSpec.FRT_TIER.addr, 0x11, Size.BYTE);
+        writeBuffer(regs, RegSpec.FRT_TOCR.addr, 0x17, Size.BYTE);
     }
 }

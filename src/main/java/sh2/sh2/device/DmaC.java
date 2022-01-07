@@ -12,8 +12,8 @@ import sh2.sh2.device.DmaHelper.DmaChannelSetup;
 import java.nio.ByteBuffer;
 
 import static sh2.S32xUtil.*;
-import static sh2.dict.Sh2Dict.*;
-import static sh2.sh2.device.IntControl.Sh2Interrupt.NONE_15;
+import static sh2.dict.Sh2Dict.RegSpec;
+import static sh2.dict.Sh2Dict.RegSpec.*;
 
 /**
  * Federico Berti
@@ -46,13 +46,13 @@ public class DmaC {
         this.dmaChannelSetup = new DmaChannelSetup[]{DmaHelper.createChannel(0), DmaHelper.createChannel(1)};
     }
 
-    public void write(CpuDeviceAccess cpu, int reg, int value, Size size) {
-        LOG.info("{} DMA write {}: {} {}", cpu, sh2RegNames[reg & ~1],
+    public void write(CpuDeviceAccess cpu, RegSpec regSpec, int value, Size size) {
+        LOG.info("{} DMA write {}: {} {}", cpu, regSpec.name,
                 Integer.toHexString(value), size);
         switch (cpu) {
             case MASTER:
             case SLAVE:
-                writeSh2(cpu, reg, value, size);
+                writeSh2(cpu, regSpec, value, size);
                 break;
         }
     }
@@ -68,13 +68,13 @@ public class DmaC {
         }
     }
 
-    private void writeSh2(CpuDeviceAccess cpu, int reg, int value, Size size) {
-        switch (reg) {
+    private void writeSh2(CpuDeviceAccess cpu, RegSpec regSpec, int value, Size size) {
+        switch (regSpec) {
             case DMA_CHCR0:
             case DMA_CHCR1:
-                handleChannelControlWrite(reg, value);
+                handleChannelControlWrite(regSpec.addr, value);
                 break;
-            case DMAOR:
+            case DMA_DMAOR:
                 handleOperationRegWrite(value);
                 break;
         }
@@ -112,7 +112,7 @@ public class DmaC {
             if (!chan.dmaInProgress) {
                 chan.dmaInProgress = true;
                 updateOneDmaInProgress();
-                DmaHelper.updateFifoDma(chan, readBufferForChannel(chan.channel, DMA_SAR0, Size.LONG));
+                DmaHelper.updateFifoDma(chan, readBufferForChannel(chan.channel, DMA_SAR0.addr, Size.LONG));
                 chan.fourWordsLeft = 4;
                 LOG.info("DMA start: " + chan);
                 if (chan.fifoDma && chan.chcr_transferSize != DmaHelper.DmaTransferSize.WORD) {
@@ -133,21 +133,21 @@ public class DmaC {
 
     //TODO should dmaFifo handle transferSize != WORD? probably not
     private void dmaFifo(DmaChannelSetup c) {
-        int len = readBufferForChannel(c.channel, DMA_TCR0, Size.LONG);
+        int len = readBufferForChannel(c.channel, DMA_TCR0.addr, Size.LONG);
         boolean lessThanFourLeft = c.fourWordsLeft == 4 && len < c.fourWordsLeft;
         boolean fifoFilling = !lessThanFourLeft && c.fourWordsLeft == 4 && !fifo.isFull();
         if (c.fifoDma && (fifoFilling || fifo.isEmpty())) {
             return;
         }
         c.fourWordsLeft--;
-        int srcAddress = readBufferForChannel(c.channel, DMA_SAR0, Size.LONG);
-        int destAddress = readBufferForChannel(c.channel, DMA_DAR0, Size.LONG);
+        int srcAddress = readBufferForChannel(c.channel, DMA_SAR0.addr, Size.LONG);
+        int destAddress = readBufferForChannel(c.channel, DMA_DAR0.addr, Size.LONG);
         long val = fifo.pop().data;
         memory.write16i(destAddress, (int) val);
         LOG.info("DMA write, src: {}, dest: {}, val: {}, dmaLen: {}", th(srcAddress), th(destAddress),
                 th((int) val), th(len));
-        writeBufferForChannel(c.channel, DMA_DAR0, destAddress + c.destDelta, Size.LONG);
-        writeBufferForChannel(c.channel, DMA_SAR0, srcAddress + c.srcDelta, Size.LONG);
+        writeBufferForChannel(c.channel, DMA_DAR0.addr, destAddress + c.destDelta, Size.LONG);
+        writeBufferForChannel(c.channel, DMA_SAR0.addr, srcAddress + c.srcDelta, Size.LONG);
         if (c.fourWordsLeft == 0 || lessThanFourLeft) {
             dma68k.updateFifoState();
             c.fourWordsLeft = 4;
@@ -155,25 +155,25 @@ public class DmaC {
             if (len == 0) {
                 dmaEnd(c, true);
             }
-            writeBufferForChannel(c.channel, DMA_TCR0, len, Size.LONG);
+            writeBufferForChannel(c.channel, DMA_TCR0.addr, len, Size.LONG);
         }
     }
 
     private void dmaSh2(DmaChannelSetup c) {
-        int len = readBufferForChannel(c.channel, DMA_TCR0, Size.LONG);
-        int srcAddress = readBufferForChannel(c.channel, DMA_SAR0, Size.LONG);
-        int destAddress = readBufferForChannel(c.channel, DMA_DAR0, Size.LONG);
+        int len = readBufferForChannel(c.channel, DMA_TCR0.addr, Size.LONG);
+        int srcAddress = readBufferForChannel(c.channel, DMA_SAR0.addr, Size.LONG);
+        int destAddress = readBufferForChannel(c.channel, DMA_DAR0.addr, Size.LONG);
         int val = memory.read(srcAddress, c.trnSize);
         memory.write(destAddress, val, c.trnSize);
-        writeBufferForChannel(c.channel, DMA_DAR0, destAddress + c.destDelta, Size.LONG);
-        writeBufferForChannel(c.channel, DMA_SAR0, srcAddress + c.srcDelta, Size.LONG);
+        writeBufferForChannel(c.channel, DMA_DAR0.addr, destAddress + c.destDelta, Size.LONG);
+        writeBufferForChannel(c.channel, DMA_SAR0.addr, srcAddress + c.srcDelta, Size.LONG);
         len = (len - 1) & 0xFFFF;
         LOG.info("DMA write, src: {}, dest: {}, val: {}, dmaLen: {}", th(srcAddress), th(destAddress),
                 th((int) val), th(len));
         if (len == 0) {
             dmaEnd(c, true);
         }
-        writeBufferForChannel(c.channel, DMA_TCR0, len, Size.LONG);
+        writeBufferForChannel(c.channel, DMA_TCR0.addr, len, Size.LONG);
     }
 
     private void dmaEnd(DmaChannelSetup c, boolean normal) {
@@ -183,11 +183,9 @@ public class DmaC {
             dma68k.dmaEnd();
             //transfer ended normally, ie. TCR = 0
             if (normal) {
-                setBitInt(c.channel, DMA_CHCR0 + 2, SH2_CHCR_TRANSFER_END_BIT, 1, Size.WORD);
+                setBitInt(c.channel, DMA_CHCR0.addr + 2, SH2_CHCR_TRANSFER_END_BIT, 1, Size.WORD);
                 if (c.chcr_intEn) {
-                    int vector = readVcrDma(c.channel);
-                    IntControl.intc[cpu.ordinal()].setIntPending(NONE_15, true);
-                    LOG.info("{} DMA interrupt: {}, vector: {}", cpu, NONE_15, vector);
+                    IntControl.intc[cpu.ordinal()].setDmaIntPending(c.channel, true);
                 }
             }
             LOG.info("DMA stop, aborted: {}, {}", !normal, c);
@@ -203,7 +201,7 @@ public class DmaC {
     }
 
     private int readVcrDma(int channel) {
-        return readBuffer(regs, (VRCDMA0 + (channel << 3)) & Sh2MMREG.SH2_REG_MASK, Size.LONG) & 0xFF;
+        return readBuffer(regs, (DMA_VRCDMA0.addr + (channel << 3)) & Sh2MMREG.SH2_REG_MASK, Size.LONG) & 0xFF;
     }
 
     //channel1 = +0x10

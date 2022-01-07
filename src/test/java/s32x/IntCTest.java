@@ -22,8 +22,8 @@ public class IntCTest {
 
     @BeforeEach
     public void before() {
-        mInt = new IntControl(MASTER);
-        sInt = new IntControl(SLAVE);
+        mInt = MarsRegTestUtil.createIntC(MASTER);
+        sInt = MarsRegTestUtil.createIntC(SLAVE);
     }
 
     @Test

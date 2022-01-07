@@ -13,6 +13,8 @@ import sh2.Sh2MMREG;
  */
 public class Sh2DeviceHelper {
 
+    public enum Sh2DeviceType {NONE, UBC, FRT, BSC, DMA, INTC, DIV, SCI, WDT}
+
     public static class Sh2DeviceContext {
         public CpuDeviceAccess cpu;
         public IntControl intC;
@@ -29,7 +31,7 @@ public class Sh2DeviceHelper {
                                                   DmaFifo68k dmaFifo68k, Sh2MMREG sh2Regs) {
         Sh2DeviceContext ctx = new Sh2DeviceContext();
         ctx.cpu = cpu;
-        ctx.intC = new IntControl(cpu);
+        ctx.intC = new IntControl(cpu, sh2Regs.getRegs());
         ctx.dmaC = new DmaC(cpu, memory, dmaFifo68k, sh2Regs.getRegs());
         ctx.sci = new SerialCommInterface(cpu, sh2Regs.getRegs());
         ctx.divUnit = new DivUnit(cpu, sh2Regs.getRegs());

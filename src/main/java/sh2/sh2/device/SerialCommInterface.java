@@ -10,8 +10,8 @@ import java.nio.ByteBuffer;
 
 import static sh2.S32xUtil.readBuffer;
 import static sh2.S32xUtil.writeBuffer;
-import static sh2.Sh2MMREG.SH2_REG_MASK;
-import static sh2.dict.Sh2Dict.*;
+import static sh2.dict.Sh2Dict.RegSpec;
+import static sh2.dict.Sh2Dict.RegSpec.*;
 
 /**
  * SCI
@@ -33,41 +33,41 @@ public class SerialCommInterface implements Device {
         this.regs = regs;
     }
 
-    public int read(int reg, Size size) {
+    public int read(RegSpec regSpec, Size size) {
         if (size != Size.BYTE) {
-            LOG.error("{} SCI read {}: {}", cpu, sh2RegNames[reg], size);
+            LOG.error("{} SCI read {}: {}", cpu, regSpec.name, size);
             throw new RuntimeException();
         }
         int res = (int) size.getMask();
-        LOG.info("{} SCI read {}: {} {}", cpu, sh2RegNames[reg],
+        LOG.info("{} SCI read {}: {} {}", cpu, regSpec.name,
                 Integer.toHexString(res), size);
         return res;
     }
 
-    public void write(int reg, int value, Size size) {
+    public void write(RegSpec regSpec, int value, Size size) {
         if (size != Size.BYTE) {
-            LOG.error("{} SCI write {}: {} {}", cpu, sh2RegNames[reg],
+            LOG.error("{} SCI write {}: {} {}", cpu, regSpec.name,
                     Integer.toHexString(value), size);
             throw new RuntimeException();
         }
-        LOG.info("{} SCI write {}: {} {}", cpu, sh2RegNames[reg],
+        LOG.info("{} SCI write {}: {} {}", cpu, regSpec.name,
                 Integer.toHexString(value), size);
-        switch (reg) {
+        switch (regSpec) {
             case SCI_SCR:
                 if ((value & 8) > 0) {
-                    LOG.info(cpu + " " + sh2RegNames[reg] + " MPIE enabled");
+                    LOG.info(cpu + " " + regSpec.name + " MPIE enabled");
                 }
                 if ((value & 4) > 0) {
-                    LOG.info(cpu + " " + sh2RegNames[reg] + " TEIE (tx) enabled");
+                    LOG.info(cpu + " " + regSpec.name + " TEIE (tx) enabled");
                 }
                 if ((value & 0x10) > 0) {
-                    LOG.info(cpu + " " + sh2RegNames[reg] + " RE (rx) enabled");
+                    LOG.info(cpu + " " + regSpec.name + " RE (rx) enabled");
                 }
                 if ((value & 0x20) > 0) {
-                    LOG.info(cpu + " " + sh2RegNames[reg] + " TE (tx) enabled");
+                    LOG.info(cpu + " " + regSpec.name + " TE (tx) enabled");
                 }
                 if ((value & 3) > 0) {
-                    LOG.info(cpu + " " + sh2RegNames[reg] + " CKE (clock): {}", value & 3);
+                    LOG.info(cpu + " " + regSpec.name + " CKE (clock): {}", value & 3);
                     if ((value & 3) != 2) {
                         LOG.error(" CKE (clock) unsupported! {}", value & 3);
                     }
@@ -75,24 +75,24 @@ public class SerialCommInterface implements Device {
                 break;
             case SCI_SSR:
                 if ((value & 0x80) == 0) {
-                    LOG.info("{} {} TDRE valid data, TDR: {}", cpu, sh2RegNames[reg],
-                            readBuffer(regs, SCI_TDR & SH2_REG_MASK, Size.BYTE));
+                    LOG.info("{} {} TDRE valid data, TDR: {}", cpu, regSpec.name,
+                            readBuffer(regs, SCI_TDR.addr, Size.BYTE));
                 }
                 break;
             case SCI_SMR:
                 String s = (value & 0x80) == 0 ? "a" : "clock ";
-                LOG.info("{} {} communication mode: {}", cpu, sh2RegNames[reg], s + "sync");
+                LOG.info("{} {} communication mode: {}", cpu, regSpec.name, s + "sync");
                 break;
         }
     }
 
     @Override
     public void reset() {
-        writeBuffer(regs, SCI_SMR & SH2_REG_MASK, 0, Size.BYTE);
-        writeBuffer(regs, SCI_BRR & SH2_REG_MASK, 0xFF, Size.BYTE);
-        writeBuffer(regs, SCI_SCR & SH2_REG_MASK, 0, Size.BYTE);
-        writeBuffer(regs, SCI_TDR & SH2_REG_MASK, 0xFF, Size.BYTE);
-        writeBuffer(regs, SCI_SSR & SH2_REG_MASK, 0x84, Size.BYTE);
-        writeBuffer(regs, SCI_RDR & SH2_REG_MASK, 0, Size.BYTE);
+        writeBuffer(regs, SCI_SMR.addr, 0, Size.BYTE);
+        writeBuffer(regs, SCI_BRR.addr, 0xFF, Size.BYTE);
+        writeBuffer(regs, SCI_SCR.addr, 0, Size.BYTE);
+        writeBuffer(regs, SCI_TDR.addr, 0xFF, Size.BYTE);
+        writeBuffer(regs, SCI_SSR.addr, 0x84, Size.BYTE);
+        writeBuffer(regs, SCI_RDR.addr, 0, Size.BYTE);
     }
 }

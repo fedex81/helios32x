@@ -124,7 +124,7 @@ public final class Sh2Memory implements IMemory {
 		} else if ((address & START_ONCHIP_MOD) == START_ONCHIP_MOD) {
 			res = sh2MMREGS[sh2Access.ordinal()].read(address & 0xFFFF, size);
 		} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
-			res = sh2MMREGS[sh2Access.ordinal()].read(address & 0xFFFF, size);
+			res = sh2MMREGS[sh2Access.ordinal()].readDramMode(address & 0xFFFF, size);
 		} else {
 			LOG.error("{} read from addr: {}, {}", sh2Access, Integer.toHexString(address), size);
 //			throw new RuntimeException(sh2Access + ", read : " + size + " " + Integer.toHexString(address));
@@ -162,7 +162,7 @@ public final class Sh2Memory implements IMemory {
 		} else if ((address & START_ONCHIP_MOD) == START_ONCHIP_MOD) {
 			sh2MMREGS[sh2Access.ordinal()].write(address & 0xFFFF, val, size);
 		} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
-			sh2MMREGS[sh2Access.ordinal()].write(address & 0xFFFF, val, size);
+			sh2MMREGS[sh2Access.ordinal()].writeDramMode(address & 0xFFFF, val, size);
 		} else {
 			LOG.error("{} write to addr: {}, {} {}", sh2Access, Integer.toHexString(address),
 					Integer.toHexString(val), size);

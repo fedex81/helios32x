@@ -11,7 +11,7 @@ import static sh2.dict.S32xDict.FIFO_REG;
  */
 public class DmaHelper {
 
-    private static final int FIFO_REG_SH2 = 0x2000_0000 + FIFO_REG;
+    private static final int FIFO_REG_SH2 = 0x2000_4000 + FIFO_REG;
 
     private final static DmaSrcDestMode[] modeVals = DmaSrcDestMode.values();
     private final static DmaTransferSize[] trnVals = DmaTransferSize.values();
@@ -94,11 +94,16 @@ public class DmaHelper {
                     "channel=" + channel +
                     ", chcr_dmaEn=" + chcr_dmaEn +
                     ", dmaor_dme=" + dmaor_dme +
+                    ", chcr_intEn=" + chcr_intEn +
                     ", chcr_destMode=" + chcr_destMode +
                     ", chcr_srcMode=" + chcr_srcMode +
                     ", chcr_transferSize=" + chcr_transferSize +
                     ", fourWordsLeft=" + fourWordsLeft +
                     ", dmaInProgress=" + dmaInProgress +
+                    ", fifoDma=" + fifoDma +
+                    ", srcDelta=" + srcDelta +
+                    ", destDelta=" + destDelta +
+                    ", trnSize=" + trnSize +
                     '}';
         }
     }
