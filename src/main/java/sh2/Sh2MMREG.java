@@ -73,9 +73,6 @@ public class Sh2MMREG {
 
     private void regWrite(int reg, int value, Size size) {
         RegSpec regSpec = sh2RegMapping[reg & SH2_REG_MASK];
-        if (regSpec == null) {
-            LOG.error("{} reg {} not mapped to a device", sh2Access, regSpec.name);
-        }
         switch (sh2RegDeviceMapping[reg & SH2_REG_MASK]) {
             case DIV:
                 divUnit.write(regSpec, value, size);

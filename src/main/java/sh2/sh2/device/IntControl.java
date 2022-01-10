@@ -175,6 +175,10 @@ public class IntControl {
         logInfo("CLEAR", ipt);
     }
 
+    public void clearCurrentInterrupt() {
+        clearInterrupt(interruptLevel);
+    }
+
     public int getInterruptLevel() {
         return interruptLevel;
     }
@@ -199,7 +203,7 @@ public class IntControl {
             case DMA:
                 int vn = readBuffer(regs, INTC_VCRDMA0.addr + (dmaChannelInt << 3), Size.LONG) & 0xFF;
                 LOG.info("{} DMA{} interrupt exec: {}, vector: {}", cpu, dmaChannelInt, interruptLevel, th(vn));
-                clearInterrupt(interruptLevel);//TODO check
+                //clearInterrupt(interruptLevel);//TODO check
                 return vn;
             case NONE:
                 break;

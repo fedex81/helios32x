@@ -4,7 +4,7 @@ import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.S32xUtil.CpuDeviceAccess;
+import sh2.S32xUtil.*;
 import sh2.dict.S32xMemAccessDelay;
 
 import java.nio.ByteBuffer;
@@ -13,8 +13,7 @@ import java.nio.ShortBuffer;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
-import static sh2.S32xUtil.readBuffer;
-import static sh2.S32xUtil.writeBuffer;
+import static sh2.S32xUtil.*;
 
 public final class Sh2Memory implements IMemory {
 
@@ -27,6 +26,7 @@ public final class Sh2Memory implements IMemory {
 	private static final int ROM_MASK = MAX_ROM_SIZE - 1;
 
 	public static final int CACHE_THROUGH_OFFSET = 0x2000_0000;
+	public static final int CACHE_PURGE_OFFSET = 0x4000_0000;
 
 	public static final int START_SDRAM_CACHE = 0x600_0000;
 	public static final int START_SDRAM = CACHE_THROUGH_OFFSET + START_SDRAM_CACHE;
@@ -127,7 +127,6 @@ public final class Sh2Memory implements IMemory {
 			res = sh2MMREGS[sh2Access.ordinal()].readDramMode(address & 0xFFFF, size);
 		} else {
 			LOG.error("{} read from addr: {}, {}", sh2Access, Integer.toHexString(address), size);
-//			throw new RuntimeException(sh2Access + ", read : " + size + " " + Integer.toHexString(address));
 		}
 		S32xMemAccessDelay.addReadCpuDelay(deviceAccessType);
 		return (int) (res & size.getMask());
@@ -163,10 +162,11 @@ public final class Sh2Memory implements IMemory {
 			sh2MMREGS[sh2Access.ordinal()].write(address & 0xFFFF, val, size);
 		} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
 			sh2MMREGS[sh2Access.ordinal()].writeDramMode(address & 0xFFFF, val, size);
+		} else if ((address & CACHE_PURGE_OFFSET) == CACHE_PURGE_OFFSET) { //cache purge
+			LOG.debug("Cache purge: {}", th(address));
 		} else {
 			LOG.error("{} write to addr: {}, {} {}", sh2Access, Integer.toHexString(address),
 					Integer.toHexString(val), size);
-//			throw new RuntimeException(sh2Access + ", write : " + size + " " + Integer.toHexString(address));
 		}
 		S32xMemAccessDelay.addWriteCpuDelay(deviceAccessType);
 	}

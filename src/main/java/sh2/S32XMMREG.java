@@ -15,7 +15,6 @@ import sh2.vdp.MarsVdpImpl;
 
 import java.nio.ByteBuffer;
 
-import static omegadrive.util.Util.toHex;
 import static sh2.S32xUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.M68K;
 import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
@@ -181,20 +180,8 @@ public class S32XMMREG implements Device {
             }
             writeBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, value, size);
         } else if (address >= START_OVER_IMAGE_CACHE && address < END_OVER_IMAGE_CACHE) {
-            if (value == 0) { //value =0 on {byte,word} is ignored
-                return;
-            }
-            //TODO word 0x0011, should only write one byte (0x11)
-            // and word 0x2200, should only write one byte (0x22)
-            //see Space Harrier, brutal
-            if (size == Size.WORD && ((value & 0xFF00) == value || (value & 0xFF) == value)) {
-                LOG.error("Check overImage write: {} {}", toHex(value), size);
-                int bval = (value & 0xFF00) == value ? (value & 0xFF00) >> 8 : value & 0xFF;
-                int baddr = (value & 0xFF00) == value ? address : address + 1;
-                writeBuffer(dramBanks[vdpContext.frameBufferWritable], baddr & DRAM_MASK, bval, Size.BYTE);
-                return;
-            }
-            writeBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, value, size);
+            //see Space Harrier, brutal, doom resurrection
+            writeFrameBufferOver(address, value, size);
         } else {
             throw new RuntimeException();
         }
@@ -351,6 +338,35 @@ public class S32XMMREG implements Device {
         checkName(logCtx.sh2Access, address, size);
         S32xDict.logAccess(logCtx, address, value, size, reg);
         S32xDict.detectRegAccess(logCtx, address, value, size);
+    }
+
+    private void writeFrameBufferOver(int address, int value, Size size) {
+        if (value == 0) {
+            return;
+        }
+        switch (size) {
+            case WORD:
+                writeFrameBufferByte(address, (value >> 8) & 0xFF);
+                writeFrameBufferByte(address + 1, value & 0xFF);
+                break;
+            case BYTE:
+                //guaranteed not be zero
+                writeFrameBufferByte(address, value);
+                break;
+            case LONG:
+//                LOG.error("Unexpected writeFrameBufferOver: {}", size);
+                writeFrameBufferByte(address, (value >> 24) & 0xFF);
+                writeFrameBufferByte(address + 1, (value >> 16) & 0xFF);
+                writeFrameBufferByte(address + 2, (value >> 8) & 0xFF);
+                writeFrameBufferByte(address + 3, (value >> 0) & 0xFF);
+                break;
+        }
+    }
+
+    private void writeFrameBufferByte(int address, int value) {
+        if (value != 0) {
+            writeBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, value, Size.BYTE);
+        }
     }
 
     private void handleIntClearWrite(CpuDeviceAccess sh2Access, int regEven, int value, Size size) {

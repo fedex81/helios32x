@@ -9,6 +9,7 @@ import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 
 import java.util.Map;
 
+import static sh2.S32xUtil.th;
 import static sh2.Sh2MMREG.SH2_REG_MASK;
 import static sh2.Sh2MMREG.SH2_REG_SIZE;
 
@@ -44,6 +45,9 @@ public class Sh2Dict {
         FRT_TOCR(0xFE17, "FRT_TOCR", Size.BYTE), //Timer output compare control register (TOCR)
         FRT_ICR_H(0xFE18, "FRT_ICR_H", Size.BYTE), //Input capture register H
         FRT_ICR_L(0xFE19, "FRT_ICR_L", Size.BYTE), //Input capture register L
+
+        //watchdog timer
+        WDT_WTCSR(0xFE80, "WDT_WTCSR", Size.WORD), //Watchdog timer control/status register or Watchdog timer counter
 
         //interrupt controller
         INTC_IPRA(0xFEE2, "INTC_IPRA", Size.WORD), //Interrupt priority level setting register A
@@ -146,14 +150,13 @@ public class Sh2Dict {
 
     public static void checkName(int reg) {
         if (sh2RegMapping[reg & SH2_REG_MASK] == null) {
-            LOG.info("{} SH2 mmreg unknown reg: {}", Md32x.getAccessType(), Integer.toHexString(reg));
+            LOG.warn("{} SH2 mmreg unknown reg: {}", Md32x.getAccessType(), th(reg));
         }
     }
 
     public static void logAccess(String type, int reg, int value, Size size) {
         String s = Md32x.getAccessType() + " SH2 reg " + type + " " +
-                size + ", (" + sh2RegMapping[reg & SH2_REG_MASK] + ") " + Integer.toHexString(reg) + ": " +
-                Integer.toHexString(value);
+                size + ", (" + sh2RegMapping[reg & SH2_REG_MASK] + ") " + th(reg) + ": " + th(value);
         LOG.info(s);
     }
 }

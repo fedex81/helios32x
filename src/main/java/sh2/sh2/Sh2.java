@@ -1790,7 +1790,6 @@ public class Sh2 implements Device {
 		//NOTE: docs say this should be +4, are they wrong ??
 		ctx.PC = ctx.registers[n];
 		delaySlot(ctx.PR + 2);
-
 		ctx.cycles -= 2;
 	}
 
@@ -1808,6 +1807,8 @@ public class Sh2 implements Device {
 		ctx.SR = pop() & SR_MASK;
 		delaySlot(prevPc + 2);
 		ctx.cycles -= 5;
+		//TODO check this
+		ctx.intC.clearCurrentInterrupt();
 	}
 
 	private void delaySlot(int pc) {

@@ -118,7 +118,7 @@ public class DmaC {
                 chan.fourWordsLeft = 4;
                 LOG.info("DMA start: " + chan);
                 if (chan.fifoDma && chan.chcr_transferSize != DmaHelper.DmaTransferSize.WORD) {
-                    LOG.error("Unhandled transfer size {}", chan.chcr_transferSize);
+                    LOG.error("{} Unhandled transfer size {}", cpu, chan.chcr_transferSize);
                 }
                 dmaOneStep(chan);
             }
@@ -146,7 +146,7 @@ public class DmaC {
         int destAddress = readBufferForChannel(c.channel, DMA_DAR0.addr, Size.LONG);
         long val = fifo.pop().data;
         memory.write16i(destAddress, (int) val);
-        LOG.info("DMA write, src: {}, dest: {}, val: {}, dmaLen: {}", th(srcAddress), th(destAddress),
+        LOG.info("{} DMA write, src: {}, dest: {}, val: {}, dmaLen: {}", cpu, th(srcAddress), th(destAddress),
                 th((int) val), th(len));
         writeBufferForChannel(c.channel, DMA_DAR0.addr, destAddress + c.destDelta, Size.LONG);
         writeBufferForChannel(c.channel, DMA_SAR0.addr, srcAddress + c.srcDelta, Size.LONG);
@@ -190,7 +190,7 @@ public class DmaC {
                     intControl.setDmaIntPending(c.channel, true);
                 }
             }
-            LOG.info("DMA stop, aborted: {}, {}", !normal, c);
+            LOG.info("{} DMA stop, aborted: {}, {}", cpu, !normal, c);
         }
     }
 
