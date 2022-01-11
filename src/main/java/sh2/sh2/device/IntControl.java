@@ -132,12 +132,12 @@ public class IntControl {
         setIntPending(interrupt.ordinal(), isPending);
     }
 
-    public void setDmaIntPending(int channel, boolean isPending) {
-        int dmaLevel = sh2DeviceInt.get(Sh2DeviceType.DMA);
-        if (dmaLevel > 0) {
-            setIntPending(dmaLevel, isPending);
+    public void setExternalIntPending(Sh2DeviceType deviceType, int channel, boolean isPending) {
+        int level = sh2DeviceInt.get(deviceType);
+        if (level > 0) {
+            setIntPending(level, isPending);
             dmaChannelInt = channel;
-            LOG.info("{} DMA{} interrupt pending: {}", cpu, channel, dmaLevel);
+            LOG.info("{} {}{} interrupt pending: {}", cpu, deviceType, channel, level);
         }
     }
 
@@ -207,19 +207,24 @@ public class IntControl {
                 break;
             }
         }
+        int vn = -1;
         switch (deviceType) {
             case DMA:
-                int vn = readBuffer(regs, INTC_VCRDMA0.addr + (dmaChannelInt << 3), Size.LONG) & 0xFF;
+                vn = readBuffer(regs, INTC_VCRDMA0.addr + (dmaChannelInt << 3), Size.LONG) & 0xFF;
                 LOG.info("{} DMA{} interrupt exec: {}, vector: {}", cpu, dmaChannelInt, interruptLevel, th(vn));
                 //clearInterrupt(interruptLevel);//TODO check
-                return vn;
+                break;
+            case WDT:
+                vn = readBuffer(regs, INTC_VCRWDT.addr, Size.BYTE) & 0xFF;
+                LOG.info("{} WDT interrupt exec: {}, vector: {}", cpu, interruptLevel, th(vn));
+                break;
             case NONE:
                 break;
             default:
                 LOG.error("{} Unhandled interrupt for device: {}, level: {}", cpu, deviceType, interruptLevel);
                 break;
         }
-        return -1;
+        return vn;
     }
 
     public ByteBuffer getSh2_int_mask_regs() {

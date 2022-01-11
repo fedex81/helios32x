@@ -1,8 +1,7 @@
 package sh2.sh2;
 
 import sh2.S32xUtil;
-import sh2.sh2.device.DmaC;
-import sh2.sh2.device.IntControl;
+import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceContext;
 
 /**
  * Federico Berti
@@ -32,8 +31,7 @@ public class Sh2Context {
     public String sh2TypeCode;
     public boolean debug;
 
-    public IntControl intC;
-    public DmaC dmaC;
+    public Sh2DeviceContext devices;
 
     public Sh2Context(S32xUtil.CpuDeviceAccess cpuAccess) {
         this.registers = new int[NUM_REG];

@@ -6,7 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
-import sh2.sh2.device.DmaC;
+import sh2.Sh2MMREG;
 
 import static omegadrive.util.Util.toHex;
 
@@ -84,7 +84,7 @@ public class Sh2 implements Device {
 	}
 
 	private boolean acceptInterrupts() {
-		int level = ctx.intC.getInterruptLevel();
+		int level = ctx.devices.intC.getInterruptLevel();
 		if (level > getIMASK()) {
 			processInterrupt(ctx, level);
 			return true;
@@ -101,7 +101,7 @@ public class Sh2 implements Device {
 		ctx.SR &= 0xF0F;
 		ctx.SR |= (level << 4);
 
-		int vectorNum = ctx.intC.getVectorNumber();
+		int vectorNum = ctx.devices.intC.getVectorNumber();
 		ctx.PC = memory.read32i(ctx.VBR + (vectorNum << 2));
 		//5 + 3 mem accesses
 		ctx.cycles -= 5;
@@ -1808,7 +1808,7 @@ public class Sh2 implements Device {
 		delaySlot(prevPc + 2);
 		ctx.cycles -= 5;
 		//TODO check this
-		ctx.intC.clearCurrentInterrupt();
+		ctx.devices.intC.clearCurrentInterrupt();
 	}
 
 	private void delaySlot(int pc) {
@@ -2128,11 +2128,11 @@ public class Sh2 implements Device {
 	public void run(final Sh2Context ctx) {
 		this.ctx = ctx;
 		int opcode;
-		final DmaC dmaC = ctx.dmaC;
+		final Sh2MMREG sh2MMREG = ctx.devices.sh2MMREG;
 		for (; ctx.cycles >= 0; ) {
 			decode(memory.read16i(ctx.PC));
 			acceptInterrupts();
-			dmaC.dmaStep();
+			sh2MMREG.deviceStep();
 		}
 		ctx.cycles_ran = burstCycles - ctx.cycles;
 		ctx.cycles = burstCycles;

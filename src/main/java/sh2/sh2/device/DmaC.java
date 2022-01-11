@@ -14,6 +14,7 @@ import java.nio.ByteBuffer;
 import static sh2.S32xUtil.*;
 import static sh2.dict.Sh2Dict.RegSpec;
 import static sh2.dict.Sh2Dict.RegSpec.*;
+import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DMA;
 
 /**
  * Federico Berti
@@ -189,7 +190,7 @@ public class DmaC {
             if (normal) {
                 setBitInt(c.channel, DMA_CHCR0.addr + 2, SH2_CHCR_TRANSFER_END_BIT, 1, Size.WORD);
                 if (c.chcr_intEn) {
-                    intControl.setDmaIntPending(c.channel, true);
+                    intControl.setExternalIntPending(DMA, c.channel, true);
                 }
             }
             if (verbose) LOG.info("{} DMA stop, aborted: {}, {}", cpu, !normal, c);

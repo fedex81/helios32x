@@ -77,10 +77,8 @@ public class Sh2Launcher {
         ctx.sDevCtx = Sh2DeviceHelper.createDevices(SLAVE, ctx);
         ctx.sh2 = (ctx.masterCtx.debug || ctx.slaveCtx.debug) ?
                 new Sh2(ctx.memory) : new Sh2Debug(ctx.memory);
-        ctx.masterCtx.intC = ctx.mDevCtx.intC;
-        ctx.slaveCtx.intC = ctx.sDevCtx.intC;
-        ctx.masterCtx.dmaC = ctx.mDevCtx.dmaC;
-        ctx.slaveCtx.dmaC = ctx.sDevCtx.dmaC;
+        ctx.masterCtx.devices = ctx.mDevCtx;
+        ctx.slaveCtx.devices = ctx.sDevCtx;
         ctx.initContext();
         return ctx;
     }
@@ -101,7 +99,7 @@ public class Sh2Launcher {
             bus.attachDevice(sh2).attachDevice(s32XMMREG);
             memory.getSh2MMREGS(MASTER).init(mDevCtx);
             memory.getSh2MMREGS(SLAVE).init(sDevCtx);
-            s32XMMREG.setInterruptControl(masterCtx.intC, slaveCtx.intC);
+            s32XMMREG.setInterruptControl(mDevCtx.intC, sDevCtx.intC);
             s32XMMREG.setDmaControl(dmaFifo68k);
             bus.setBios68k(biosHolder.getBiosData(M68K));
             bus.setRom(rom);

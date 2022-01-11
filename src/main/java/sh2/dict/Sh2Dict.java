@@ -47,7 +47,9 @@ public class Sh2Dict {
         FRT_ICR_L(0xFE19, "FRT_ICR_L", Size.BYTE), //Input capture register L
 
         //watchdog timer
-        WDT_WTCSR(0xFE80, "WDT_WTCSR", Size.WORD), //Watchdog timer control/status register or Watchdog timer counter
+        WDT_WTCSR(0xFE80, "WDT_WTCSR", Size.BYTE), //Watchdog timer control/status register
+        WDT_WTCNT(0xFE81, "WDT_WTCNT", Size.BYTE), //Watchdog timer counter
+        WDT_RSTCSR(0xFE82, "WDT_RSTCSR", Size.WORD), //Reset control/status register
 
         //interrupt controller
         INTC_IPRA(0xFEE2, "INTC_IPRA", Size.WORD), //Interrupt priority level setting register A

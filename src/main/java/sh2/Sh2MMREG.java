@@ -37,7 +37,8 @@ public class Sh2MMREG {
     private SerialCommInterface sci;
     private DivUnit divUnit;
     private DmaC dmaC;
-    private IntControl intC;
+    public IntControl intC;
+    private WatchdogTimer wdt;
 
     private CpuDeviceAccess sh2Access;
     private static final boolean verbose = false;
@@ -51,6 +52,7 @@ public class Sh2MMREG {
         this.divUnit = ctx.divUnit;
         this.sci = ctx.sci;
         this.intC = ctx.intC;
+        this.wdt = ctx.wdt;
         reset();
     }
 
@@ -67,7 +69,6 @@ public class Sh2MMREG {
             logAccess("write", reg, value, size);
         }
         checkName(reg);
-        writeBuffer(regs, reg & SH2_REG_MASK, value, size);
         regWrite(reg, value, size);
     }
 
@@ -75,17 +76,23 @@ public class Sh2MMREG {
         RegSpec regSpec = sh2RegMapping[reg & SH2_REG_MASK];
         switch (sh2RegDeviceMapping[reg & SH2_REG_MASK]) {
             case DIV:
+                writeBuffer(regs, reg & SH2_REG_MASK, value, size);
                 divUnit.write(regSpec, value, size);
                 break;
             case DMA:
+                writeBuffer(regs, reg & SH2_REG_MASK, value, size);
                 dmaC.write(sh2Access, regSpec, value, size);
                 break;
             case SCI:
+                writeBuffer(regs, reg & SH2_REG_MASK, value, size);
                 sci.write(regSpec, value, size);
                 break;
             case INTC:
+                writeBuffer(regs, reg & SH2_REG_MASK, value, size);
                 intC.write(regSpec, value, size);
                 break;
+            case WDT:
+                wdt.write(regSpec, value, size);
             case NONE:
             default:
                 break; //do nothing
@@ -116,7 +123,17 @@ public class Sh2MMREG {
     }
 
     public int read(int reg, Size size) {
-        int res = readBuffer(regs, reg & SH2_REG_MASK, size);
+        int res = 0;
+        switch (sh2RegDeviceMapping[reg & SH2_REG_MASK]) {
+            case WDT:
+                RegSpec regSpec = sh2RegMapping[reg & SH2_REG_MASK];
+                wdt.read(regSpec, size); //TODO debug
+                res = readBuffer(regs, reg & SH2_REG_MASK, size);
+                break;
+            default:
+                res = readBuffer(regs, reg & SH2_REG_MASK, size);
+                break;
+        }
         if (verbose) {
             logAccess("read", reg, res, size);
         }
@@ -133,7 +150,13 @@ public class Sh2MMREG {
         IntStream.range(0, regs.capacity()).forEach(i -> regs.put(i, (byte) 0));
         sci.reset();
         divUnit.reset();
+        wdt.reset();
         writeBuffer(regs, RegSpec.FRT_TIER.addr, 0x11, Size.BYTE);
         writeBuffer(regs, RegSpec.FRT_TOCR.addr, 0x17, Size.BYTE);
+    }
+
+    public void deviceStep() {
+        dmaC.dmaStep();
+        wdt.step();
     }
 }

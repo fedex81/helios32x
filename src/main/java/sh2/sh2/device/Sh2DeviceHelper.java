@@ -21,6 +21,8 @@ public class Sh2DeviceHelper {
         public DmaC dmaC;
         public SerialCommInterface sci;
         public DivUnit divUnit;
+        public WatchdogTimer wdt;
+        public Sh2MMREG sh2MMREG;
     }
 
     public static Sh2DeviceContext createDevices(CpuDeviceAccess cpu, Sh2LaunchContext ctx) {
@@ -31,10 +33,12 @@ public class Sh2DeviceHelper {
                                                   DmaFifo68k dmaFifo68k, Sh2MMREG sh2Regs) {
         Sh2DeviceContext ctx = new Sh2DeviceContext();
         ctx.cpu = cpu;
+        ctx.sh2MMREG = sh2Regs;
         ctx.intC = new IntControl(cpu, sh2Regs.getRegs());
         ctx.dmaC = new DmaC(cpu, ctx.intC, memory, dmaFifo68k, sh2Regs.getRegs());
         ctx.sci = new SerialCommInterface(cpu, sh2Regs.getRegs());
         ctx.divUnit = new DivUnit(cpu, sh2Regs.getRegs());
+        ctx.wdt = new WatchdogTimer(cpu, ctx.intC, sh2Regs.getRegs());
         return ctx;
     }
 }
