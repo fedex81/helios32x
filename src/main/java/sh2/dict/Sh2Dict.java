@@ -4,7 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.Md32x;
+import sh2.Md32xRuntimeData;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 
 import java.util.Map;
@@ -150,12 +150,12 @@ public class Sh2Dict {
 
     public static void checkName(int reg) {
         if (sh2RegMapping[reg & SH2_REG_MASK] == null) {
-            LOG.warn("{} SH2 mmreg unknown reg: {}", Md32x.getAccessType(), th(reg));
+            LOG.warn("{} SH2 mmreg unknown reg: {}", Md32xRuntimeData.getAccessTypeExt(), th(reg));
         }
     }
 
     public static void logAccess(String type, int reg, int value, Size size) {
-        String s = Md32x.getAccessType() + " SH2 reg " + type + " " +
+        String s = Md32xRuntimeData.getAccessTypeExt() + " SH2 reg " + type + " " +
                 size + ", (" + sh2RegMapping[reg & SH2_REG_MASK] + ") " + th(reg) + ": " + th(value);
         LOG.info(s);
     }

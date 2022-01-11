@@ -170,7 +170,7 @@ public class S32XMMREG implements Device {
                     writeBuffer(colorPalette, address & S32X_COLPAL_MASK, value, size);
                     break;
                 default:
-                    LOG.error(Md32x.getAccessType() + " write, unable to access colorPalette as " + size);
+                    LOG.error(Md32xRuntimeData.getAccessTypeExt() + " write, unable to access colorPalette as " + size);
                     break;
             }
             deviceAccessType = S32xMemAccessDelay.PALETTE;
@@ -197,7 +197,7 @@ public class S32XMMREG implements Device {
             if (size == Size.WORD) {
                 res = readBuffer(colorPalette, address & S32X_COLPAL_MASK, size);
             } else {
-                LOG.error(Md32x.getAccessType() + " read, unable to access colorPalette as " + size);
+                LOG.error(Md32xRuntimeData.getAccessTypeExt() + " read, unable to access colorPalette as " + size);
             }
             deviceAccessType = S32xMemAccessDelay.PALETTE;
         } else if (address >= START_DRAM_CACHE && address < END_DRAM_CACHE) {
@@ -212,7 +212,7 @@ public class S32XMMREG implements Device {
     }
 
     private int handleRegRead(int address, Size size) {
-        CpuDeviceAccess sh2Access = Md32x.getAccessType();
+        CpuDeviceAccess sh2Access = Md32xRuntimeData.getAccessTypeExt();
         int reg = address & S32X_MMREG_MASK;
         if (size == Size.LONG && reg < COMM0 && reg != DREQ_DEST_ADDR_H && reg != DREQ_SRC_ADDR_H) {
             throw new RuntimeException("unsupported 32 bit access: " + address);
@@ -233,7 +233,7 @@ public class S32XMMREG implements Device {
     }
 
     private boolean handleRegWrite(int address, int value, Size size) {
-        CpuDeviceAccess sh2Access = Md32x.getAccessType();
+        CpuDeviceAccess sh2Access = Md32xRuntimeData.getAccessTypeExt();
         boolean skipWrite = false;
         boolean regChanged = false;
         int reg = address & S32X_MMREG_MASK;
@@ -329,7 +329,7 @@ public class S32XMMREG implements Device {
     }
 
     private void doLog(ByteBuffer regArea, boolean isSys, int address, int reg, int value, Size size, boolean read) {
-        logCtx.sh2Access = Md32x.getAccessType();
+        logCtx.sh2Access = Md32xRuntimeData.getAccessTypeExt();
         logCtx.regArea = regArea;
         logCtx.isSys = isSys;
         logCtx.read = read;
@@ -443,13 +443,13 @@ public class S32XMMREG implements Device {
         }
         //reset cancel
         if ((val & P32XS_nRES) == 0 && (newVal & P32XS_nRES) > 0) {
-            LOG.info("{} Reset Cancel?", Md32x.getAccessType());
+            LOG.info("{} Reset Cancel?", Md32xRuntimeData.getAccessTypeExt());
             //TODO this breaks test2
 //                bus.resetSh2();
         }
         //reset
         if ((val & P32XS_nRES) > 0 && (newVal & P32XS_nRES) == 0) {
-            LOG.info("{} Reset?", Md32x.getAccessType());
+            LOG.info("{} Reset?", Md32xRuntimeData.getAccessTypeExt());
             //TODO this breaks test2
 //                bus.resetSh2();
         }
@@ -529,7 +529,7 @@ public class S32XMMREG implements Device {
         setBit(interruptControls[0].getSh2_int_mask_regs(),
                 interruptControls[1].getSh2_int_mask_regs(), 0, 7, fm, Size.BYTE);
         setBit(sysRegsMd, ADAPTER_CTRL, 7, fm, Size.BYTE);
-        LOG.info("{} FM: {}", Md32x.getAccessType(), fm);
+        LOG.info("{} FM: {}", Md32xRuntimeData.getAccessTypeExt(), fm);
     }
 
     private void setPen(int pen) {

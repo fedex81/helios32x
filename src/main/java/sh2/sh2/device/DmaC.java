@@ -27,6 +27,7 @@ public class DmaC {
     private static final Logger LOG = LogManager.getLogger(DmaC.class.getSimpleName());
 
     private static final int SH2_CHCR_TRANSFER_END_BIT = 1;
+    private static final boolean verbose = false;
 
     private final ByteBuffer regs;
 
@@ -49,7 +50,7 @@ public class DmaC {
     }
 
     public void write(CpuDeviceAccess cpu, RegSpec regSpec, int value, Size size) {
-        LOG.info("{} DMA write {}: {} {}", cpu, regSpec.name,
+        if (verbose) LOG.info("{} DMA write {}: {} {}", cpu, regSpec.name,
                 Integer.toHexString(value), size);
         switch (cpu) {
             case MASTER:
@@ -116,7 +117,7 @@ public class DmaC {
                 updateOneDmaInProgress();
                 DmaHelper.updateFifoDma(chan, readBufferForChannel(chan.channel, DMA_SAR0.addr, Size.LONG));
                 chan.fourWordsLeft = 4;
-                LOG.info("DMA start: " + chan);
+                if (verbose) LOG.info("DMA start: {}", chan);
                 if (chan.fifoDma && chan.chcr_transferSize != DmaHelper.DmaTransferSize.WORD) {
                     LOG.error("{} Unhandled transfer size {}", cpu, chan.chcr_transferSize);
                 }
@@ -146,8 +147,9 @@ public class DmaC {
         int destAddress = readBufferForChannel(c.channel, DMA_DAR0.addr, Size.LONG);
         long val = fifo.pop().data;
         memory.write16i(destAddress, (int) val);
-        LOG.info("{} DMA write, src: {}, dest: {}, val: {}, dmaLen: {}", cpu, th(srcAddress), th(destAddress),
-                th((int) val), th(len));
+        if (verbose)
+            LOG.info("{} DMA FIFO write, src: {}, dest: {}, val: {}, dmaLen: {}", cpu, th(srcAddress), th(destAddress),
+                    th((int) val), th(len));
         writeBufferForChannel(c.channel, DMA_DAR0.addr, destAddress + c.destDelta, Size.LONG);
         writeBufferForChannel(c.channel, DMA_SAR0.addr, srcAddress + c.srcDelta, Size.LONG);
         if (c.fourWordsLeft == 0 || lessThanFourLeft) {
@@ -170,7 +172,7 @@ public class DmaC {
         writeBufferForChannel(c.channel, DMA_DAR0.addr, destAddress + c.destDelta, Size.LONG);
         writeBufferForChannel(c.channel, DMA_SAR0.addr, srcAddress + c.srcDelta, Size.LONG);
         len = (len - 1) & 0xFFFF;
-        LOG.info("DMA write, src: {}, dest: {}, val: {}, dmaLen: {}", th(srcAddress), th(destAddress),
+        if (verbose) LOG.info("DMA write, src: {}, dest: {}, val: {}, dmaLen: {}", th(srcAddress), th(destAddress),
                 th((int) val), th(len));
         if (len == 0) {
             dmaEnd(c, true);
@@ -190,7 +192,7 @@ public class DmaC {
                     intControl.setDmaIntPending(c.channel, true);
                 }
             }
-            LOG.info("{} DMA stop, aborted: {}, {}", cpu, !normal, c);
+            if (verbose) LOG.info("{} DMA stop, aborted: {}, {}", cpu, !normal, c);
         }
     }
 

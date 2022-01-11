@@ -1,6 +1,6 @@
 package sh2.dict;
 
-import sh2.Md32x;
+import sh2.Md32xRuntimeData;
 
 import static sh2.S32xUtil.CpuDeviceAccess.*;
 
@@ -22,8 +22,8 @@ public class S32xMemAccessDelay {
     public static final int[][] readDelays, writeDelays;
 
     static {
-        readDelays = new int[vals.length][7];
-        writeDelays = new int[vals.length][7];
+        readDelays = new int[cdaValues.length][7];
+        writeDelays = new int[cdaValues.length][7];
 
         readDelays[M68K.ordinal()][ROM] = 3; //[0,5]
         readDelays[M68K.ordinal()][FRAME_BUFFER] = 3; //[2,4]
@@ -64,10 +64,10 @@ public class S32xMemAccessDelay {
     }
 
     public static void addReadCpuDelay(int deviceType) {
-        Md32x.addCpuDelay(readDelays[Md32x.getAccessType().ordinal()][deviceType]);
+        Md32xRuntimeData.addCpuDelayExt(readDelays, deviceType);
     }
 
     public static void addWriteCpuDelay(int deviceType) {
-        Md32x.addCpuDelay(readDelays[Md32x.getAccessType().ordinal()][deviceType]);
+        Md32xRuntimeData.addCpuDelayExt(writeDelays, deviceType);
     }
 }

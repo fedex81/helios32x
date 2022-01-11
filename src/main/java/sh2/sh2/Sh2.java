@@ -5,7 +5,7 @@ import omegadrive.Device;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.IMemory;
-import sh2.Md32x;
+import sh2.Md32xRuntimeData;
 import sh2.sh2.device.DmaC;
 
 import static omegadrive.util.Util.toHex;
@@ -74,7 +74,7 @@ public class Sh2 implements Device {
 	}
 
 	public void reset(Sh2Context ctx) {
-		Md32x.setAccessType(ctx.cpuAccess);
+		Md32xRuntimeData.setAccessTypeExt(ctx.cpuAccess);
 		ctx.VBR = 0;
 		ctx.PC = memory.read32i(0);
 		ctx.SR = flagIMASK;
@@ -93,8 +93,8 @@ public class Sh2 implements Device {
 	}
 
 	private void processInterrupt(final Sh2Context ctx, final int level) {
-//		System.out.println(ctx.sh2Access + " Interrupt processed: " + level);
-		Md32x.setAccessType(ctx.cpuAccess);
+//		System.out.println(ctx.cpuAccess + " Interrupt processed: " + level);
+		Md32xRuntimeData.setAccessTypeExt(ctx.cpuAccess);
 		push(ctx.SR);
 		push(ctx.PC); //stores the next inst to be executed
 		//SR 7-4

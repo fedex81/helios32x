@@ -42,6 +42,7 @@ import omegadrive.vdp.model.GenesisVdpProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.Md32x;
+import sh2.Md32xRuntimeData;
 
 import static sh2.S32xUtil.CpuDeviceAccess.M68K;
 
@@ -142,8 +143,8 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
             boolean canRun = !cpu.isStopped() && isRunning;
             int cycleDelay = 1;
             if (canRun) {
-                Md32x.setAccessType(M68K);
-                cycleDelay = cpu.runInstruction() + Md32x.resetCpuDelay();
+                Md32xRuntimeData.setAccessTypeExt(M68K);
+                cycleDelay = cpu.runInstruction() + Md32xRuntimeData.resetCpuDelayExt();
             }
             //interrupts are processed after the current instruction
             //TODO check: interrupt shouldnt be processed when 68k is frozen but are

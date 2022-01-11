@@ -94,6 +94,6 @@ public class S32xUtil {
     public enum CpuDeviceAccess {
         MASTER, SLAVE, M68K;
 
-        public static final CpuDeviceAccess[] vals = CpuDeviceAccess.values();
+        public static final CpuDeviceAccess[] cdaValues = CpuDeviceAccess.values();
     }
 }

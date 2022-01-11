@@ -29,8 +29,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import s32x.util.TestRenderUtil;
-import sh2.Md32x;
 import sh2.vdp.MarsVdp;
+import sh2.vdp.MarsVdpImpl;
 import sh2.vdp.debug.DebugVideoRenderContext;
 
 import java.awt.*;
@@ -114,7 +114,7 @@ public class VdpRenderCompareFileTest extends VdpRenderCompareTest {
         MarsVdp.MarsVdpRenderContext vrc = DebugVideoRenderContext.toMarsVdpRenderContext(dvrc);
         img[MD.ordinal()] = saveRenderToImage(dvrc.mdData, dvrc.videoMode);
         img[S32X.ordinal()] = saveRenderToImage(dvrc.s32xData, dvrc.videoMode);
-        int[] screen = Md32x.doRendering(dvrc.mdData, vrc);
+        int[] screen = MarsVdpImpl.doCompositeRendering(dvrc.mdData, vrc);
         img[FULL.ordinal()] = saveRenderToImage(screen, dvrc.videoMode);
         return img;
     }

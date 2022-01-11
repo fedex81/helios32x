@@ -11,14 +11,14 @@ import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.vdp.MarsVdp;
 import sh2.vdp.MarsVdp.MarsVdpRenderContext;
-import sh2.vdp.MarsVdp.VdpPriority;
+import sh2.vdp.MarsVdpImpl;
 import sh2.vdp.debug.DebugVideoRenderContext;
 
 import java.nio.file.Path;
 import java.util.Optional;
 
-import static sh2.S32xUtil.CpuDeviceAccess.*;
-import static sh2.vdp.MarsVdp.VdpPriority.S32X;
+import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
+import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 
 /**
  * Federico Berti
@@ -32,60 +32,14 @@ public class Md32x extends Genesis {
     //23.01Mhz NTSC
     protected final static int SH2_CYCLES_PER_STEP;
     protected final static int SH2_CYCLE_RATIO;
-    private static TLData tlData;
+    private Md32xRuntimeData rt;
 
     static {
-        SH2_CYCLES_PER_STEP = 128; //24;
+        SH2_CYCLES_PER_STEP = 1024; //24;
         Sh2.burstCycles = SH2_CYCLES_PER_STEP;
         //3 cycles @ 23Mhz = 1 cycle @ 7.67
         SH2_CYCLE_RATIO = 3; //23.01/7.67 = 3
 //        System.setProperty("68k.debug", "true");
-    }
-
-    static class TLData {
-        S32xUtil.CpuDeviceAccess accessType = MASTER;
-        int accType = accessType.ordinal();
-        int[] cpuDelay = new int[vals.length];
-
-        public final void addCpuDelay(int delay) {
-            cpuDelay[accType] += delay;
-        }
-
-        public final int resetCpuDelay() {
-            int res = cpuDelay[accType];
-            cpuDelay[accType] = 0;
-            return res;
-        }
-
-        protected void setAccessType(S32xUtil.CpuDeviceAccess accessType) {
-            this.accessType = accessType;
-            accType = accessType.ordinal();
-        }
-
-        protected S32xUtil.CpuDeviceAccess getAccessType() {
-            return accessType;
-        }
-    }
-
-    public static void addCpuDelay(int delay) {
-        tlData.addCpuDelay(delay);
-    }
-
-    public static int resetCpuDelay() {
-        return tlData.resetCpuDelay();
-    }
-
-    public static void setAccessType(S32xUtil.CpuDeviceAccess access) {
-        tlData.setAccessType(access);
-    }
-
-    public static S32xUtil.CpuDeviceAccess getAccessType() {
-        return tlData.getAccessType();
-    }
-
-    //test only
-    public static void initTlData() {
-        tlData = new TLData();
     }
 
     private int nextMSh2Cycle = 0, nextSSh2Cycle = 0;
@@ -140,14 +94,14 @@ public class Md32x extends Genesis {
     //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
     protected final void runSh2(int counter) {
         if (nextMSh2Cycle == counter) {
-            setAccessType(MASTER);
+            rt.setAccessType(MASTER);
             sh2.run(masterCtx);
-            nextMSh2Cycle += ((masterCtx.cycles_ran + resetCpuDelay()) * 5) >> 4; //5/16 ~= 1/3
+            nextMSh2Cycle += ((masterCtx.cycles_ran + rt.resetCpuDelay()) * 5) >> 5; //5/16 ~= 1/3
         }
         if (nextSSh2Cycle == counter) {
-            setAccessType(SLAVE);
+            rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
-            nextSSh2Cycle += ((slaveCtx.cycles_ran + resetCpuDelay()) * 5) >> 4;
+            nextSSh2Cycle += ((slaveCtx.cycles_ran + rt.resetCpuDelay()) * 5) >> 5;
         }
     }
 
@@ -166,34 +120,8 @@ public class Md32x extends Genesis {
         if (dumpMars) {
             marsVdp.dumpMarsData();
         }
-        int[] fg = doRendering(data, ctx);
+        int[] fg = MarsVdpImpl.doCompositeRendering(data, ctx);
         renderScreenLinearInternal(fg, stats);
-    }
-
-    public static int[] doRendering(int[] data, MarsVdpRenderContext ctx) {
-        int mdDataLen = data.length;
-        int[] marsData = Optional.ofNullable(ctx.screen).orElse(new int[0]);
-        int[] fg = data;
-        boolean dump = false;
-        if (mdDataLen == marsData.length) {
-            VdpPriority p = ctx.vdpContext.priority;
-            fg = p == S32X ? marsData : data;
-            int[] bg = p == S32X ? data : marsData;
-            for (int i = 0; i < fg.length; i++) {
-                boolean throughBit = (marsData[i] & 1) > 0;
-                boolean bgBlanking = p == S32X ? (data[i] & 1) > 0 : (marsData[i] >> 1) == 0;
-                boolean fgBlanking = p == S32X ? (marsData[i] >> 1) == 0 : (data[i] & 1) > 0;
-//                if(dump) {
-//                    String s = i + "," + p + "," + (throughBit ? 1 : 0) + "," + (fgBlanking ? 1 : 0) + (bgBlanking ? 1 : 0) + ","
-//                            + "," + data[i] + "," + marsData[i];
-//                    fg[i] = fgBlanking || (throughBit && !bgBlanking) ? bg[i] : fg[i];
-//                    System.out.println(s + "," + fg[i]);
-//                } else {
-                fg[i] = fgBlanking || (throughBit && !bgBlanking) ? bg[i] : fg[i];
-//                }
-            }
-        }
-        return fg;
     }
 
     @Override
@@ -209,12 +137,12 @@ public class Md32x extends Genesis {
     protected void handleCloseRom() {
         super.handleCloseRom();
         Optional.ofNullable(marsVdp).ifPresent(Device::reset);
-        tlData = null;
+        Md32xRuntimeData.releaseInstance();
     }
 
     @Override
     public void handleNewRom(Path file) {
         super.handleNewRom(file);
-        initTlData();
+        rt = Md32xRuntimeData.newInstance();
     }
 }

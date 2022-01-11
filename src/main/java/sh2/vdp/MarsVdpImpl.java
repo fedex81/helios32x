@@ -10,8 +10,10 @@ import sh2.vdp.debug.MarsVdpDebugView;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
 import java.util.Arrays;
+import java.util.Optional;
 
 import static sh2.S32XMMREG.DRAM_SIZE;
+import static sh2.vdp.MarsVdp.VdpPriority.S32X;
 
 /**
  * Federico Berti
@@ -163,6 +165,32 @@ public class MarsVdpImpl implements MarsVdp {
             }
         }
         wasBlankScreen = false;
+    }
+
+    public static int[] doCompositeRendering(int[] mdData, MarsVdpRenderContext ctx) {
+        int mdDataLen = mdData.length;
+        int[] marsData = Optional.ofNullable(ctx.screen).orElse(new int[0]);
+        int[] fg = mdData;
+        boolean dump = false;
+        if (mdDataLen == marsData.length) {
+            VdpPriority p = ctx.vdpContext.priority;
+            fg = p == S32X ? marsData : mdData;
+            int[] bg = p == S32X ? mdData : marsData;
+            for (int i = 0; i < fg.length; i++) {
+                boolean throughBit = (marsData[i] & 1) > 0;
+                boolean bgBlanking = p == S32X ? (mdData[i] & 1) > 0 : (marsData[i] >> 1) == 0;
+                boolean fgBlanking = p == S32X ? (marsData[i] >> 1) == 0 : (mdData[i] & 1) > 0;
+//                if(dump) {
+//                    String s = i + "," + p + "," + (throughBit ? 1 : 0) + "," + (fgBlanking ? 1 : 0) + (bgBlanking ? 1 : 0) + ","
+//                            + "," + data[i] + "," + marsData[i];
+//                    fg[i] = fgBlanking || (throughBit && !bgBlanking) ? bg[i] : fg[i];
+//                    System.out.println(s + "," + fg[i]);
+//                } else {
+                fg[i] = fgBlanking || (throughBit && !bgBlanking) ? bg[i] : fg[i];
+//                }
+            }
+        }
+        return fg;
     }
 
     private void populateLineTable(final ShortBuffer b) {

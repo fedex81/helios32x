@@ -32,19 +32,6 @@ public class Sh2Launcher {
 //    static String slaveBiosName = "32x_hbrew_bios_s.bin";
 //    static String mdBiosName = "32x_hbrew_bios_g.bin";
 
-    /**
-     * rom06: DVDNT 32/32 div
-     * testc2: SCI and DMA
-     * rom36: check div
-     * <p>
-     * testc1, manual test
-     * if(currentPC == 0x00880982){
-     * m68k.setPC(0x00880b32);
-     * <p>
-     * sh2 tests here:
-     * https://github.com/j-core/jcore-cpu/tree/master/testrom/tests
-     * }
-     */
     static String romName = "res/roms/test2.32x";
 
     private static void initProps() {
@@ -80,7 +67,7 @@ public class Sh2Launcher {
         ctx.slaveCtx = new Sh2Context(SLAVE);
         ctx.biosHolder = initBios();
         ctx.bus = bus;
-        ctx.rom = ByteBuffer.wrap(FileUtil.readBinaryFile(romFile, ".32x"));
+        ctx.rom = ByteBuffer.wrap(FileUtil.readBinaryFile(romFile, SystemLoader.s32xBinaryTypes));
         ctx.s32XMMREG = new S32XMMREG();
         ctx.dmaFifo68k = new DmaFifo68k(ctx.s32XMMREG);
         ctx.memory = new Sh2Memory(ctx.s32XMMREG, ctx.rom);

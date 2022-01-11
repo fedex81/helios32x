@@ -4,16 +4,15 @@ import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.S32xUtil.*;
 import sh2.dict.S32xMemAccessDelay;
 
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 
+import static sh2.S32xUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
-import static sh2.S32xUtil.*;
 
 public final class Sh2Memory implements IMemory {
 
@@ -82,10 +81,10 @@ public final class Sh2Memory implements IMemory {
 
 	@Override
 	public int read(int address, Size size) {
-		CpuDeviceAccess sh2Access = Md32x.getAccessType();
+		CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
 		int res = 0;
 		if (address >= 0 && address < BOOT_ROM_SIZE) {
-			res = readBuffer(bios[sh2Access.ordinal()], address, size);
+			res = readBuffer(bios[cpuAccess.ordinal()], address, size);
 			deviceAccessType = S32xMemAccessDelay.BOOT_ROM;
 		} else if (address >= START_ROM && address < END_ROM) {
 			address &= romMask;
@@ -120,13 +119,13 @@ public final class Sh2Memory implements IMemory {
 			res = s32XMMREG.read(address, size);
 			deviceAccessType = S32xMemAccessDelay.FRAME_BUFFER;
 		} else if ((address & 0xfffff000) == START_DATA_ARRAY) {
-			res = sh2MMREGS[sh2Access.ordinal()].readCache(address, size);
+			res = sh2MMREGS[cpuAccess.ordinal()].readCache(address, size);
 		} else if ((address & START_ONCHIP_MOD) == START_ONCHIP_MOD) {
-			res = sh2MMREGS[sh2Access.ordinal()].read(address & 0xFFFF, size);
+			res = sh2MMREGS[cpuAccess.ordinal()].read(address & 0xFFFF, size);
 		} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
-			res = sh2MMREGS[sh2Access.ordinal()].readDramMode(address & 0xFFFF, size);
+			res = sh2MMREGS[cpuAccess.ordinal()].readDramMode(address & 0xFFFF, size);
 		} else {
-			LOG.error("{} read from addr: {}, {}", sh2Access, Integer.toHexString(address), size);
+			LOG.error("{} read from addr: {}, {}", cpuAccess, Integer.toHexString(address), size);
 		}
 		S32xMemAccessDelay.addReadCpuDelay(deviceAccessType);
 		return (int) (res & size.getMask());
@@ -134,7 +133,7 @@ public final class Sh2Memory implements IMemory {
 
 	@Override
 	public void write(int address, int val, Size size) {
-		CpuDeviceAccess sh2Access = Md32x.getAccessType();
+		CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
 		val &= size.getMask();
 		if (address >= S32XMMREG.START_32X_SYSREG && address < S32XMMREG.END_32X_COLPAL) {
 			s32XMMREG.write(address, val, size);
@@ -157,15 +156,15 @@ public final class Sh2Memory implements IMemory {
 			s32XMMREG.write(address, val, size);
 			deviceAccessType = S32xMemAccessDelay.FRAME_BUFFER;
 		} else if ((address & 0xfffff000) == START_DATA_ARRAY) {
-			sh2MMREGS[sh2Access.ordinal()].writeCache(address, val, size);
+			sh2MMREGS[cpuAccess.ordinal()].writeCache(address, val, size);
 		} else if ((address & START_ONCHIP_MOD) == START_ONCHIP_MOD) {
-			sh2MMREGS[sh2Access.ordinal()].write(address & 0xFFFF, val, size);
+			sh2MMREGS[cpuAccess.ordinal()].write(address & 0xFFFF, val, size);
 		} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
-			sh2MMREGS[sh2Access.ordinal()].writeDramMode(address & 0xFFFF, val, size);
+			sh2MMREGS[cpuAccess.ordinal()].writeDramMode(address & 0xFFFF, val, size);
 		} else if ((address & CACHE_PURGE_OFFSET) == CACHE_PURGE_OFFSET) { //cache purge
 			LOG.debug("Cache purge: {}", th(address));
 		} else {
-			LOG.error("{} write to addr: {}, {} {}", sh2Access, Integer.toHexString(address),
+			LOG.error("{} write to addr: {}, {} {}", cpuAccess, Integer.toHexString(address),
 					Integer.toHexString(val), size);
 		}
 		S32xMemAccessDelay.addWriteCpuDelay(deviceAccessType);
