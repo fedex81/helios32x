@@ -83,11 +83,18 @@ public class Sh2 implements Device {
 		LOG.info("{} Reset, PC: {}, SP: {}", ctx.cpuAccess, toHex(ctx.PC), toHex(ctx.registers[15]));
 	}
 
+	private boolean intClearNext = false;
+
 	private boolean acceptInterrupts() {
 		int level = ctx.devices.intC.getInterruptLevel();
 		if (level > getIMASK()) {
 			processInterrupt(ctx, level);
+			intClearNext = true;
 			return true;
+			//TODO hack, see DoomRes1.5 and Zaxxon motherbase
+		} else if (intClearNext) {
+			ctx.devices.intC.clearCurrentInterrupt();
+			intClearNext = false;
 		}
 		return false;
 	}
@@ -1807,8 +1814,6 @@ public class Sh2 implements Device {
 		ctx.SR = pop() & SR_MASK;
 		delaySlot(prevPc + 2);
 		ctx.cycles -= 5;
-		//TODO check this
-		ctx.devices.intC.clearCurrentInterrupt();
 	}
 
 	private void delaySlot(int pc) {
@@ -2131,8 +2136,8 @@ public class Sh2 implements Device {
 		final Sh2MMREG sh2MMREG = ctx.devices.sh2MMREG;
 		for (; ctx.cycles >= 0; ) {
 			decode(memory.read16i(ctx.PC));
-			acceptInterrupts();
 			sh2MMREG.deviceStep();
+			if (acceptInterrupts()) break;
 		}
 		ctx.cycles_ran = burstCycles - ctx.cycles;
 		ctx.cycles = burstCycles;
