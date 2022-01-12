@@ -75,6 +75,7 @@ public class IntControl implements Sh2Device {
 
     public void write(RegSpec regSpec, int value, Size size) {
         int val = 0;
+        writeBuffer(regs, regSpec.addr, value, size);
         switch (regSpec) {
             case INTC_IPRA:
                 val = readBuffer(regs, regSpec.addr, Size.WORD);

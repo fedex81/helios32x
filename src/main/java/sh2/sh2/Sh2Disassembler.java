@@ -1,4 +1,4 @@
-package sh2;
+package sh2.sh2;
 
 public class Sh2Disassembler {
 

@@ -51,9 +51,10 @@ public class DmaC implements Sh2Device {
         this.dmaChannelSetup = new DmaChannelSetup[]{DmaHelper.createChannel(0), DmaHelper.createChannel(1)};
     }
 
-    public void write(CpuDeviceAccess cpu, RegSpec regSpec, int value, Size size) {
+    public void write(RegSpec regSpec, int value, Size size) {
         if (verbose) LOG.info("{} DMA write {}: {} {}", cpu, regSpec.name,
                 Integer.toHexString(value), size);
+        writeBuffer(regs, regSpec.addr, value, size);
         switch (cpu) {
             case MASTER:
             case SLAVE:

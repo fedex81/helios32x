@@ -51,6 +51,7 @@ public class SerialCommInterface implements Sh2Device {
         }
         LOG.info("{} SCI write {}: {} {}", cpu, regSpec.name,
                 Integer.toHexString(value), size);
+        writeBuffer(regs, regSpec.addr, value, size);
         switch (regSpec) {
             case SCI_SCR:
                 if ((value & 8) > 0) {

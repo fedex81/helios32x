@@ -76,19 +76,15 @@ public class Sh2MMREG {
         RegSpec regSpec = sh2RegMapping[reg & SH2_REG_MASK];
         switch (sh2RegDeviceMapping[reg & SH2_REG_MASK]) {
             case DIV:
-                writeBuffer(regs, reg & SH2_REG_MASK, value, size);
                 divUnit.write(regSpec, value, size);
                 break;
             case DMA:
-                writeBuffer(regs, reg & SH2_REG_MASK, value, size);
-                dmaC.write(sh2Access, regSpec, value, size);
+                dmaC.write(regSpec, value, size);
                 break;
             case SCI:
-                writeBuffer(regs, reg & SH2_REG_MASK, value, size);
                 sci.write(regSpec, value, size);
                 break;
             case INTC:
-                writeBuffer(regs, reg & SH2_REG_MASK, value, size);
                 intC.write(regSpec, value, size);
                 break;
             case WDT:
@@ -97,11 +93,11 @@ public class Sh2MMREG {
             case FRT:
             case BSC:
             case UBC:
-//                logAccess("write", reg, value, size);
-                break;
             case NONE:
             default:
-                break; //do nothing
+                //logAccess("write", reg, value, size);
+                writeBuffer(regs, reg & SH2_REG_MASK, value, size);
+                break;
         }
     }
 

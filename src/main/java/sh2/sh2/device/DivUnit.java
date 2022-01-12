@@ -46,6 +46,7 @@ public class DivUnit implements Sh2Device {
     }
 
     public void write(RegSpec reg, int value, Size size) {
+        writeBuffer(regs, reg.addr, value, size);
         switch (reg) {
             case DIV_DVDNTL:
                 div64Dsp();

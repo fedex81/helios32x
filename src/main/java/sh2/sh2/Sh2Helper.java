@@ -1,7 +1,5 @@
 package sh2.sh2;
 
-import sh2.Sh2Disassembler;
-
 /**
  * Federico Berti
  * <p>
