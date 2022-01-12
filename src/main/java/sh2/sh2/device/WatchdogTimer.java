@@ -52,6 +52,8 @@ public class WatchdogTimer implements Sh2Device {
     //overflowPeriod = 256*1/WDT_CLK = 45.57 ms
     private static final int[] clockDivs = {2, 64, 128, 256, 512, 1024, 4096, 8192};
 
+    private static final boolean verbose = false;
+
     private ByteBuffer regs;
     private S32xUtil.CpuDeviceAccess cpu;
     private IntControl intControl;
@@ -116,14 +118,14 @@ public class WatchdogTimer implements Sh2Device {
         int msb = value >> 8;
         switch (msb) {
             case WRITE_MSB_A5:
-                LOG.info("{} WDT write {}: {} {}", cpu, WDT_WTCSR.name,
-                        Integer.toHexString(value), Size.WORD);
+                if (verbose) LOG.info("{} WDT write {}: {} {}", cpu, WDT_WTCSR.name,
+                        th(value), Size.WORD);
                 writeBuffer(regs, WTCSR_ADDR_READ, value & 0xFF, Size.BYTE);
                 handleTimerEnable(value);
                 break;
             case WRITE_MSB_5A:
-                LOG.info("{} WDT write {}: {} {}", cpu, WDT_WTCNT.name,
-                        Integer.toHexString(value), Size.WORD);
+                if (verbose) LOG.info("{} WDT write {}: {} {}", cpu, WDT_WTCNT.name,
+                        th(value), Size.WORD);
                 writeBuffer(regs, WTCNT_ADDR_READ, value & 0xFF, Size.BYTE);
                 break;
             default:
@@ -137,7 +139,7 @@ public class WatchdogTimer implements Sh2Device {
         wdtTimerEnable = ((value >> TME_BIT_POS) & 1) > 0;
         clockDivider = clockDivs[value & 7];
         sh2TicksToNextWdtClock = clockDivider;
-        LOG.info("WDT timer mode: {}, timer enable: {}, clock div: {}, overflow: {}",
+        if (verbose) LOG.info("WDT timer mode: {}, timer enable: {}, clock div: {}, overflow: {}",
                 timerMode, wdtTimerEnable, clockDivider, (value >> 7) & 1);
         if (!wdtTimerEnable) {
             writeBuffer(regs, WTCNT_ADDR_READ, 0, Size.BYTE);

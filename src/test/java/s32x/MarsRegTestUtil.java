@@ -5,11 +5,11 @@ import org.junit.jupiter.api.Assertions;
 import sh2.Md32xRuntimeData;
 import sh2.S32XMMREG;
 import sh2.S32xUtil;
-import sh2.dict.S32xDict;
 import sh2.sh2.device.IntControl;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
+import static sh2.dict.S32xDict.RegSpecS32x.*;
 
 /**
  * Federico Berti
@@ -19,12 +19,12 @@ import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 public class MarsRegTestUtil {
 
     public static final int VDP_REG_OFFSET = 0x100;
-    public static final int FBCR_OFFSET = 0x4000 + VDP_REG_OFFSET + S32xDict.FBCR;
-    public static final int BITMAP_MODE_OFFSET = 0x4000 + VDP_REG_OFFSET + S32xDict.VDP_BITMAP_MODE;
-    public static final int INT_MASK = 0x4000 + S32xDict.INT_MASK;
+    public static final int FBCR_OFFSET = 0x4000 + VDP_REG_OFFSET + FBCR.addr;
+    public static final int BITMAP_MODE_OFFSET = 0x4000 + VDP_REG_OFFSET + VDP_BITMAP_MODE.addr;
+    public static final int INT_MASK = 0x4000 + SH2_INT_MASK.addr;
     public static final int AD_CTRL = INT_MASK;
-    public static int AFLEN_OFFSET = 0x4000 + VDP_REG_OFFSET + S32xDict.AFLR;
-    public static int AFSAR_OFFSET = 0x4000 + VDP_REG_OFFSET + S32xDict.AFSAR;
+    public static int AFLEN_OFFSET = 0x4000 + VDP_REG_OFFSET + AFLR.addr;
+    public static int AFSAR_OFFSET = 0x4000 + VDP_REG_OFFSET + AFSAR.addr;
 
     static {
         System.setProperty("32x.show.vdp.debug.viewer", "false");

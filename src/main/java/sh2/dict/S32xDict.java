@@ -8,8 +8,10 @@ import sh2.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
 
-import static sh2.S32xUtil.CpuDeviceAccess.M68K;
-import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
+import static sh2.S32xUtil.CpuDeviceAccess.*;
+import static sh2.S32xUtil.th;
+import static sh2.dict.S32xDict.S32xRegCpuType.*;
+import static sh2.dict.S32xDict.S32xRegType.*;
 
 /**
  * Federico Berti
@@ -19,6 +21,110 @@ import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 public class S32xDict {
 
     private static final Logger LOG = LogManager.getLogger(S32xDict.class.getSimpleName());
+
+    public static final int S32X_REG_SIZE = 0x200;
+    public static final int S32X_REG_MASK = S32X_REG_SIZE - 1;
+    public static final int S32X_VDP_REG_MASK = 0xFF;
+
+    public enum S32xRegCpuType {REG_M68K, REG_SH2, REG_BOTH}
+
+    public enum S32xRegType {NONE, VDP, PWM, SYS, COMM}
+
+    public static S32xRegType[] s32xRegTypeMapping = new S32xRegType[S32X_REG_SIZE];
+    public static RegSpecS32x[][] s32xRegMapping = new RegSpecS32x[S32xRegCpuType.values().length][S32X_REG_SIZE];
+
+    private static S32xRegCpuType[] cpuToRegTypeMapper =
+            new S32xRegCpuType[S32xRegCpuType.values().length];
+
+    static {
+        cpuToRegTypeMapper[MASTER.ordinal()] = REG_SH2;
+        cpuToRegTypeMapper[SLAVE.ordinal()] = REG_SH2;
+        cpuToRegTypeMapper[M68K.ordinal()] = REG_M68K;
+    }
+
+    public enum RegSpecS32x {
+        SH2_INT_MASK(SYS, 0, "SH2_INT_MASK", Size.WORD),   //Interrupt Mask
+        SH2_STBY_CHANGE(SYS, 2, "SH2_STBY_CHANGE", Size.WORD),   //StandBy Changer Register
+        SH2_HCOUNT_REG(SYS, 4, "SH2_HCOUNT_REG", Size.WORD), //H Count Register
+        SH2_DREQ_CTRL(SYS, 6, "SH2_DREQ_CTRL", Size.WORD), //DREQ Control Reg.
+        SH2_DREQ_SRC_ADDR_H(SYS, 8, "SH2_DREQ_SRC_ADDR_H", Size.WORD),
+        SH2_DREQ_SRC_ADDR_L(SYS, 0xA, "SH2_DREQ_SRC_ADDR_L", Size.WORD),
+        SH2_DREQ_DEST_ADDR_H(SYS, 0xC, "SH2_DREQ_DEST_ADDR_H", Size.WORD),
+        SH2_DREQ_DEST_ADDR_L(SYS, 0xE, "SH2_DREQ_DEST_ADDR_L", Size.WORD),
+        SH2_DREQ_LEN(SYS, 0x10, "SH2_DREQ_LEN", Size.WORD),
+        SH2_FIFO_REG(SYS, 0x12, "SH2_FIFO_REG", Size.WORD),
+        SH2_VRES_INT_CLEAR(SYS, 0x14, "SH2_VRES_INT_CLEAR", Size.WORD),//VRES Interrupt Clear Register
+        SH2_VINT_CLEAR(SYS, 0x16, "SH2_VINT_CLEAR", Size.WORD),
+        SH2_HINT_CLEAR(SYS, 0x18, "SH2_HINT_CLEAR", Size.WORD),
+        SH2_CMD_INT_CLEAR(SYS, 0x1A, "SH2_CMD_INT_CLEAR", Size.WORD),
+        SH2_PWM_INT_CLEAR(SYS, 0x1C, "SH2_PWM_INT_CLEAR", Size.WORD),
+
+        M68K_ADAPTER_CTRL(SYS, 0, "M68K_ADAPTER_CTRL", Size.WORD),
+        M68K_INT_CTRL(SYS, 2, "M68K_INT_CTRL", Size.WORD),  //Interrupt Control Register
+        M68K_BANK_SET(SYS, 4, "M68K_BANK_SET", Size.WORD),  //Bank Set Register
+        M68K_DMAC_CTRL(SYS, 6, "M68K_DMAC_CTRL", Size.WORD), //Transfers Data to SH2 DMAC
+        M68K_DREQ_SRC_ADDR_H(SYS, 8, "M68K_DREQ_SRC_ADDR_H", Size.WORD),
+        M68K_DREQ_SRC_ADDR_L(SYS, 0xA, "M68K_DREQ_SRC_ADDR_L", Size.WORD),
+        M68K_DREQ_DEST_ADDR_H(SYS, 0xC, "M68K_DREQ_DEST_ADDR_H", Size.WORD),
+        M68K_DREQ_DEST_ADDR_L(SYS, 0xE, "M68K_DREQ_DEST_ADDR_L", Size.WORD),
+        M68K_DREQ_LEN(SYS, 0x10, "M68K_DREQ_LEN", Size.WORD),
+        M68K_FIFO_REG(SYS, 0x12, "M68K_FIFO_REG", Size.WORD),
+        M68K_SEGA_TV(SYS, 0x1A, "M68K_SEGA_TV", Size.WORD),
+
+        COMM0(COMM, 0x20, "COMM0", Size.WORD),
+        COMM1(COMM, 0x22, "COMM1", Size.WORD),
+        COMM2(COMM, 0x24, "COMM2", Size.WORD),
+        COMM3(COMM, 0x26, "COMM3", Size.WORD),
+        COMM4(COMM, 0x28, "COMM4", Size.WORD),
+        COMM5(COMM, 0x2A, "COMM5", Size.WORD),
+        COMM6(COMM, 0x2C, "COMM6", Size.WORD),
+        COMM7(COMM, 0x2E, "COMM7", Size.WORD),
+
+        PWM_CTRL(PWM, 0x30, "PWM_CTRL", Size.WORD),
+        PWM_FS(PWM, 0x32, "PWM_FS", Size.WORD), //PWM Cycle Register
+        PWM_LCH_PW(PWM, 0x34, "PWM_LCH_PW", Size.WORD), //PWM Left channel Pulse Width Reg
+        PWM_RCH_PW(PWM, 0x36, "PWM_RCH_PW", Size.WORD), //PWM Right channel Pulse Width Reg
+        PWM_MONO(PWM, 0x38, "PWM_MONO", Size.WORD), //PWM Mono Pulse Width Reg
+
+        VDP_BITMAP_MODE(VDP, 0x100, "VDP_BITMAP_MODE", Size.WORD),
+        SSCR(VDP, 0x102, "SSCR", Size.WORD), //Screen Shift Control Register
+        AFLR(VDP, 0x104, "AFLR", Size.WORD), //Auto Fill Length Register
+        AFSAR(VDP, 0x106, "AFSAR", Size.WORD), //Auto Fill Start Address Register
+        AFDR(VDP, 0x108, "AFDR", Size.WORD), //Auto Fill Data Register
+        FBCR(VDP, 0x10A, "FBCR", Size.WORD), //Frame Buffer Control Register
+        ;
+
+        public final S32xRegCpuType regCpuType;
+        public final S32xRegType deviceType;
+        public final int fullAddress, addr;
+        public final String name;
+        public final Size size;
+        public final int deviceAccessTypeDelay;
+
+        private RegSpecS32x(S32xRegType deviceType, int addr, String name, Size size) {
+            this.fullAddress = addr;
+            this.addr = addr & (deviceType != VDP ? S32X_REG_MASK : S32X_VDP_REG_MASK);
+            this.name = name;
+            this.size = size;
+            this.deviceType = deviceType;
+            this.deviceAccessTypeDelay = deviceType == VDP ? S32xMemAccessDelay.VDP_REG : S32xMemAccessDelay.SYS_REG;
+            this.regCpuType = deviceType == COMM || deviceType == PWM || deviceType == VDP ? S32xRegCpuType.REG_BOTH :
+                    S32xRegCpuType.valueOf("REG_" + name.split("_")[0]);
+            init();
+        }
+
+        private void init() {
+            int addrLen = Math.max(1, size.ordinal() << 1);
+            for (int i = fullAddress; i < fullAddress + addrLen; i++) {
+                s32xRegMapping[regCpuType.ordinal()][i] = this;
+                s32xRegTypeMapping[i] = deviceType;
+                if (regCpuType == S32xRegCpuType.REG_BOTH) {
+                    s32xRegMapping[REG_M68K.ordinal()][i] = this;
+                    s32xRegMapping[REG_SH2.ordinal()][i] = this;
+                }
+            }
+        }
+    }
 
     public static final int P32XS_FM = (1 << 15);
     public static final int P32XS_nCART = (1 << 8);
@@ -40,220 +146,94 @@ public class S32xDict {
     public static final int P32XV_nFEN = (1 << 1);
     public static final int P32XV_FS = (1 << 0);
 
-    public static String[][] s32xRegNames = new String[3][0x200];
-
-    public static final int INT_MASK = 0;
-    public static final int ADAPTER_CTRL = 0;
-    public static final int INT_CTRL_REG = 2; //Interrupt Control Register
-    public static final int STBY_CHANGE_REG = 2; //StandBy Changer Register
-    public static final int BANK_SET_REG = 4; //Bank Set Register
-    public static final int HCOUNT_REG = 4; //H Count Register
-    public static final int DREQ_CTRL = 6;//DREQ Control Reg.
-    public static final int DMAC_CTRL = 6;//Transfers Data to SH2 DMAC
-    public static final int DREQ_SRC_ADDR_H = 8;//DREQ Source Address Reg.
-    public static final int DREQ_SRC_ADDR_L = 0xA;//DREQ Source Address Reg.
-    public static final int DREQ_DEST_ADDR_H = 0xC;//DREQ Destination Address High
-    public static final int DREQ_DEST_ADDR_L = 0xE;//DREQ Destination Address Low
-    public static final int DREQ_LEN = 0x10;//DREQ Length Reg.
-    public static final int FIFO_REG = 0x12;//FIFO Reg.
-
-    public static final int VRES_INT_CLEAR = 0x14;//VRES Interrupt Clear Register
-    public static final int VINT_CLEAR = 0x16;
-    public static final int HINT_CLEAR = 0x18;
-    public static final int CMD_INT_CLEAR = 0x1A;
-    public static final int SEGA_TV = 0x1A;
-    public static final int PWM_INT_CLEAR = 0x1C;
-    public static final int COMM0 = 0x20;
-    public static final int COMM1 = 0x22;
-    public static final int COMM2 = 0x24;
-    public static final int COMM3 = 0x26;
-    public static final int COMM4 = 0x28;
-    public static final int COMM5 = 0x2A;
-    public static final int COMM6 = 0x2C;
-    public static final int COMM7 = 0x2E;
-
-    public static final int PWM_CTRL = 0x30;//PWM Control
-    public static final int PWM_FS = 0x32;//PWM fs Reg.
-    public static final int PWM_LCH_PW = 0x34;//PWM Left channel Pulse Width Reg
-    public static final int PWM_RCH_PW = 0x36;//PWM Right channel Pulse Width Reg
-    public static final int PWM_MONO = 0x38;//PWM Mono Reg.
-
-    public static final int VDP_BITMAP_MODE = 0;
-    public static final int SSCR = 0x2; //Screen Shift Control Register
-    public static final int AFLR = 0x4; //Auto Fill Length Register
-    public static final int AFSAR = 0x6; //Auto Fill Start Address Register
-    public static final int AFDR = 0x8; //Auto Fill Data Register
-    public static final int FBCR = 0xA; //Frame Buffer Control Register
-
-    static {
-        //sh2
-        s32xRegNames[MASTER.ordinal()][INT_MASK] = "INT_MASK";
-        s32xRegNames[MASTER.ordinal()][STBY_CHANGE_REG] = "STBY_CHANGE_REG";
-        s32xRegNames[MASTER.ordinal()][HCOUNT_REG] = "HCOUNT_REG";
-        s32xRegNames[MASTER.ordinal()][DREQ_CTRL] = "DREQ_CTRL";
-        s32xRegNames[MASTER.ordinal()][DREQ_SRC_ADDR_H] = "DREQ_SRC_ADDR_HIGH";
-        s32xRegNames[MASTER.ordinal()][DREQ_SRC_ADDR_L] = "DREQ_SRC_ADDR_LOW";
-        s32xRegNames[MASTER.ordinal()][DREQ_DEST_ADDR_H] = "DREQ_DEST_ADDR_HIGH";
-        s32xRegNames[MASTER.ordinal()][DREQ_DEST_ADDR_L] = "DREQ_DEST_ADDR_LOW";
-        s32xRegNames[MASTER.ordinal()][DREQ_LEN] = "DREQ_LEN";
-        s32xRegNames[MASTER.ordinal()][FIFO_REG] = "FIFO_REG";
-        s32xRegNames[MASTER.ordinal()][PWM_CTRL] = "PWM_CTRL";
-        s32xRegNames[MASTER.ordinal()][PWM_FS] = "PWM_FS";
-        s32xRegNames[MASTER.ordinal()][PWM_LCH_PW] = "PWM_LCH_PW";
-        s32xRegNames[MASTER.ordinal()][PWM_RCH_PW] = "PWM_RCH_PW";
-        s32xRegNames[MASTER.ordinal()][PWM_MONO] = "PWM_MONO";
-        s32xRegNames[MASTER.ordinal()][VRES_INT_CLEAR] = "VRES_INT_CLEAR";
-        s32xRegNames[MASTER.ordinal()][VINT_CLEAR] = "VINT_CLEAR";
-        s32xRegNames[MASTER.ordinal()][HINT_CLEAR] = "HINT_CLEAR";
-        s32xRegNames[MASTER.ordinal()][CMD_INT_CLEAR] = "CMD_INT_CLEAR";
-        s32xRegNames[MASTER.ordinal()][PWM_INT_CLEAR] = "PWM_INT_CLEAR";
-        //TODO supposed to be byte/word but bios reads/writes longs from comm0
-        s32xRegNames[MASTER.ordinal()][COMM0] = "COMM0";
-        s32xRegNames[MASTER.ordinal()][COMM1] = "COMM1";
-        s32xRegNames[MASTER.ordinal()][COMM2] = "COMM2";
-        s32xRegNames[MASTER.ordinal()][COMM3] = "COMM3";
-        s32xRegNames[MASTER.ordinal()][COMM4] = "COMM4";
-        s32xRegNames[MASTER.ordinal()][COMM5] = "COMM5";
-        s32xRegNames[MASTER.ordinal()][COMM6] = "COMM6";
-        s32xRegNames[MASTER.ordinal()][COMM7] = "COMM7";
-        //vdp regs
-        s32xRegNames[MASTER.ordinal()][VDP_BITMAP_MODE + 0x100] = "VDP_BITMAP_MODE";
-        s32xRegNames[MASTER.ordinal()][FBCR + 0x100] = "FBCR"; //Frame Buffer Control Register
-        s32xRegNames[MASTER.ordinal()][AFLR + 0x100] = "AFLR";//Auto Fill Length Register
-        s32xRegNames[MASTER.ordinal()][SSCR + 0x100] = "SSCR";//Screen Shift Control Register
-        s32xRegNames[MASTER.ordinal()][AFSAR + 0x100] = "AFSAR";//Auto Fill Start Address Register
-        s32xRegNames[MASTER.ordinal()][AFDR + 0x100] = "AFDR"; //Auto Fill Data Register
-
-        //68k
-        s32xRegNames[M68K.ordinal()][ADAPTER_CTRL] = "ADAPTER_CTRL";
-        s32xRegNames[M68K.ordinal()][INT_CTRL_REG] = "INT_CTRL_REG";
-        s32xRegNames[M68K.ordinal()][BANK_SET_REG] = "BANK_SET_REG";
-        s32xRegNames[M68K.ordinal()][DMAC_CTRL] = "DMAC_CTRL";
-        s32xRegNames[M68K.ordinal()][DREQ_SRC_ADDR_H] = "DREQ_SRC_ADDR_HIGH";
-        s32xRegNames[M68K.ordinal()][DREQ_SRC_ADDR_L] = "DREQ_SRC_ADDR_LOW";
-        s32xRegNames[M68K.ordinal()][DREQ_DEST_ADDR_H] = "DREQ_DEST_ADDR_HIGH";
-        s32xRegNames[M68K.ordinal()][DREQ_DEST_ADDR_L] = "DREQ_DEST_ADDR_LOW";
-        s32xRegNames[M68K.ordinal()][DREQ_LEN] = "DREQ_LEN";
-        s32xRegNames[M68K.ordinal()][FIFO_REG] = "FIFO_REG";
-        s32xRegNames[M68K.ordinal()][PWM_CTRL] = "PWM_CTRL";
-        s32xRegNames[M68K.ordinal()][PWM_FS] = "PWM_FS";
-        s32xRegNames[M68K.ordinal()][PWM_LCH_PW] = "PWM_LCH_PW";
-        s32xRegNames[M68K.ordinal()][PWM_RCH_PW] = "PWM_RCH_PW";
-        s32xRegNames[M68K.ordinal()][PWM_MONO] = "PWM_MONO";
-        s32xRegNames[M68K.ordinal()][SEGA_TV] = "SEGA_TV";
-        //TODO supposed to be byte/word but bios reads/writes longs from comm0
-        s32xRegNames[M68K.ordinal()][COMM0] = "COMM0";
-        s32xRegNames[M68K.ordinal()][COMM1] = "COMM1";
-        s32xRegNames[M68K.ordinal()][COMM2] = "COMM2";
-        s32xRegNames[M68K.ordinal()][COMM3] = "COMM3";
-        s32xRegNames[M68K.ordinal()][COMM4] = "COMM4";
-        s32xRegNames[M68K.ordinal()][COMM5] = "COMM5";
-        s32xRegNames[M68K.ordinal()][COMM6] = "COMM6";
-        s32xRegNames[M68K.ordinal()][COMM7] = "COMM7";
-        //vdp regs
-        s32xRegNames[M68K.ordinal()][VDP_BITMAP_MODE + 0x100] = "VDP_BITMAP_MODE";
-        s32xRegNames[M68K.ordinal()][FBCR + 0x100] = "FBCR"; //Frame Buffer Control Register
-        s32xRegNames[M68K.ordinal()][AFLR + 0x100] = "AFLR";//Auto Fill Length Register
-        s32xRegNames[M68K.ordinal()][SSCR + 0x100] = "SSCR";//Screen Shift Control Register
-        s32xRegNames[M68K.ordinal()][AFSAR + 0x100] = "AFSAR";//Auto Fill Start Address Register
-        s32xRegNames[M68K.ordinal()][AFDR + 0x100] = "AFDR"; //Auto Fill Data Register
-    }
-
     public static class S32xDictLogContext {
         public S32xUtil.CpuDeviceAccess sh2Access;
         public ByteBuffer regArea;
-        public boolean isSys;
+        public RegSpecS32x regSpec;
         public int fbD, fbW;
         public boolean read;
     }
 
-    public static void checkName(S32xUtil.CpuDeviceAccess sh2Access, int address, Size size) {
-        int reg = (address & 0xFFF) & ~1;
-        int rns = sh2Access == M68K ? M68K.ordinal() : MASTER.ordinal();
-        if (s32xRegNames[rns][reg] == null) {
-            System.out.println(sh2Access + " 32X mmreg unknown reg: " +
-                    Integer.toHexString(reg) + ", address: " + Integer.toHexString(address));
+    public static void checkName(S32xUtil.CpuDeviceAccess sh2Access, RegSpecS32x regSpec, int address, Size size) {
+        if (regSpec == null) {
+            LOG.warn("{} 32X mmreg unknown reg: {} {}", sh2Access, th(address), size);
         }
     }
 
-    public static void logAccess(S32xDictLogContext logCtx, int address, int value, Size size, int reg) {
-        reg &= ~1;
-        String type = logCtx.read ? "read" : "write";
-        int rns = logCtx.sh2Access == M68K ? M68K.ordinal() : MASTER.ordinal();
-        String str = (logCtx.sh2Access + " 32X reg " + type + " " +
-                size + ", (" + s32xRegNames[rns][logCtx.isSys ? reg : reg + 0x100] + ") " + Integer.toHexString(address) +
-                (!logCtx.read ? ": " + Integer.toHexString(value) : ""));
-        LOG.info(str);
+    public static void logAccess(S32xDictLogContext logCtx, int address, int value, Size size) {
+        LOG.info("{} 32x reg {} {} ({}) {} {}", logCtx.sh2Access, logCtx.read ? "read" : "write",
+                size, logCtx.regSpec.name, th(address), !logCtx.read ? ": " + th(value) : "");
     }
 
     public static void detectRegAccess(S32xDictLogContext logCtx, int address, int value, Size size) {
         String sformat = "%s %s %s, %s(%X), %4X %s %s";
         final String evenOdd = (address & 1) == 0 ? "EVEN" : "ODD";
         String type = logCtx.read ? "R" : "W";
-        int reg = (address & 0xFF) & ~1;
+        RegSpecS32x regSpec = logCtx.regSpec;
         String s = null;
-        int currentWord = S32xUtil.readBuffer(logCtx.regArea, reg, Size.WORD);
+        int currentWord = S32xUtil.readBuffer(logCtx.regArea, regSpec.addr, Size.WORD);
         value = logCtx.read ? currentWord : value;
-        int rns = logCtx.sh2Access == M68K ? M68K.ordinal() : MASTER.ordinal();
-        if (!logCtx.isSys) {
-            final int regNamePos = reg + 0x100;
-            switch (reg) {
-                case VDP_BITMAP_MODE:
-                    s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][regNamePos],
-                            MarsVdp.BitmapMode.vals[value & 3].name(), value & 3, value, size.name(), evenOdd);
-                    break;
-                case FBCR:
-                    String s1 = "D" + logCtx.fbD + "W" + logCtx.fbW +
-                            "|H" + ((value >> 14) & 1) + "V" + ((value >> 15) & 1);
-                    s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][regNamePos],
-                            s1, value & 3, value, size.name(), evenOdd);
-                    break;
-                default:
-                    s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][regNamePos],
-                            "", value, value, size.name(), evenOdd);
-                    break;
-            }
-        } else {
-            switch (reg) {
-                case INT_MASK:
-                    if (logCtx.sh2Access == M68K) {
-                        s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][reg],
-                                "[RESET: " + ((value & 3) >> 1) + ", ADEN: " + (value & 1) + "]", value & 3,
-                                value, size.name(), evenOdd);
-                    } else {
-                        s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][reg], "", value,
-                                value, size.name(), evenOdd);
-                    }
-                    break;
-                case BANK_SET_REG:
-                    s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][reg],
-                            "", value & 3, value, size.name(), evenOdd);
-                    break;
-                case COMM0:
-                case COMM1:
-                case COMM2:
-                case COMM3:
-                case COMM4:
-                case COMM5:
-                case COMM6:
-                case COMM7:
-                    if (logCtx.read) {
-                        return;
-                    }
-                    int valueMem = S32xUtil.readBuffer(logCtx.regArea, reg, Size.LONG);
-                    String s1 = decodeComm(valueMem);
-                    s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][reg],
-                            s1, value, valueMem, size.name(), evenOdd);
-                    break;
-                default:
-                    s = String.format(sformat, logCtx.sh2Access.toString(), type, s32xRegNames[rns][reg], "",
-                            value, value, size.name(), evenOdd);
-                    break;
-            }
+        switch (regSpec) {
+            case VDP_BITMAP_MODE:
+                s = String.format(sformat, logCtx.sh2Access.toString(), type, regSpec.name,
+                        MarsVdp.BitmapMode.vals[value & 3].name(), value & 3, value, size.name(), evenOdd);
+                break;
+            case FBCR:
+                String s1 = "D" + logCtx.fbD + "W" + logCtx.fbW +
+                        "|H" + ((value >> 14) & 1) + "V" + ((value >> 15) & 1);
+                s = String.format(sformat, logCtx.sh2Access.toString(), type, regSpec.name,
+                        s1, value & 3, value, size.name(), evenOdd);
+                break;
+            case SH2_INT_MASK:
+                if (logCtx.sh2Access == S32xUtil.CpuDeviceAccess.M68K) {
+                    s = String.format(sformat, logCtx.sh2Access, type, regSpec.name,
+                            "[RESET: " + ((value & 3) >> 1) + ", ADEN: " + (value & 1) + "]", value & 3,
+                            value, size.name(), evenOdd);
+                } else {
+                    s = String.format(sformat, logCtx.sh2Access.toString(), type, regSpec.name, "", value,
+                            value, size.name(), evenOdd);
+                }
+                break;
+            case M68K_BANK_SET:
+                s = String.format(sformat, logCtx.sh2Access.toString(), type, regSpec.name,
+                        "", value & 3, value, size.name(), evenOdd);
+                break;
+            case COMM0:
+            case COMM1:
+            case COMM2:
+            case COMM3:
+            case COMM4:
+            case COMM5:
+            case COMM6:
+            case COMM7:
+                if (logCtx.read) {
+                    return;
+                }
+                int valueMem = S32xUtil.readBuffer(logCtx.regArea, address & S32X_REG_MASK, Size.LONG);
+                String s2 = decodeComm(valueMem);
+                s = String.format(sformat, logCtx.sh2Access.toString(), type, regSpec.name,
+                        s2, value, valueMem, size.name(), evenOdd);
+                break;
+            default:
+                s = String.format(sformat, logCtx.sh2Access.toString(), type, regSpec.name,
+                        "", value, value, size.name(), evenOdd);
+                break;
         }
         if (s != null) {
             LOG.info(s);
         }
+    }
+
+    public static RegSpecS32x getRegSpec(S32xUtil.CpuDeviceAccess cpu, int address) {
+        RegSpecS32x r = s32xRegMapping[REG_BOTH.ordinal()][address & S32X_REG_MASK];
+        if (r != null) {
+            return r;
+        }
+        r = s32xRegMapping[cpuToRegTypeMapper[cpu.ordinal()].ordinal()][address & S32X_REG_MASK];
+        if (r == null) {
+            LOG.error("{} unknown register at address: {}", cpu, th(address));
+        }
+        return r;
     }
 
     public static String decodeComm(int valueMem) {

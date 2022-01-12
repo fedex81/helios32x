@@ -34,8 +34,9 @@ public class Md32x extends Genesis {
     protected final static int SH2_CYCLE_RATIO;
     private Md32xRuntimeData rt;
 
+    //TODO StarWars Arcade doesnt boot when SH2_CYCLES_PER_STEP=3
     static {
-        SH2_CYCLES_PER_STEP = 1024; //24;
+        SH2_CYCLES_PER_STEP = 24; //24;
         Sh2.burstCycles = SH2_CYCLES_PER_STEP;
         //3 cycles @ 23Mhz = 1 cycle @ 7.67
         SH2_CYCLE_RATIO = 3; //23.01/7.67 = 3

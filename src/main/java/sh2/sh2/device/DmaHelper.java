@@ -2,7 +2,7 @@ package sh2.sh2.device;
 
 import omegadrive.util.Size;
 
-import static sh2.dict.S32xDict.FIFO_REG;
+import static sh2.dict.S32xDict.RegSpecS32x.SH2_FIFO_REG;
 
 /**
  * Federico Berti
@@ -11,7 +11,7 @@ import static sh2.dict.S32xDict.FIFO_REG;
  */
 public class DmaHelper {
 
-    private static final int FIFO_REG_SH2 = 0x2000_4000 + FIFO_REG;
+    private static final int FIFO_REG_SH2 = 0x2000_4000 + SH2_FIFO_REG.addr;
 
     private final static DmaSrcDestMode[] modeVals = DmaSrcDestMode.values();
     private final static DmaTransferSize[] trnVals = DmaTransferSize.values();

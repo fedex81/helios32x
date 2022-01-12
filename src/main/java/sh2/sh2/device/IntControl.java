@@ -139,7 +139,7 @@ public class IntControl implements Sh2Device {
         if (level > 0) {
             setIntPending(level, isPending);
             dmaChannelInt = channel;
-            LOG.info("{} {}{} interrupt pending: {}", cpu, deviceType, channel, level);
+            if (verbose) LOG.info("{} {}{} interrupt pending: {}", cpu, deviceType, channel, level);
         }
     }
 
@@ -213,12 +213,13 @@ public class IntControl implements Sh2Device {
         switch (deviceType) {
             case DMA:
                 vn = readBuffer(regs, INTC_VCRDMA0.addr + (dmaChannelInt << 3), Size.LONG) & 0xFF;
-                LOG.info("{} DMA{} interrupt exec: {}, vector: {}", cpu, dmaChannelInt, interruptLevel, th(vn));
+                if (verbose)
+                    LOG.info("{} DMA{} interrupt exec: {}, vector: {}", cpu, dmaChannelInt, interruptLevel, th(vn));
                 //clearInterrupt(interruptLevel);//TODO check
                 break;
             case WDT:
                 vn = readBuffer(regs, INTC_VCRWDT.addr, Size.BYTE) & 0xFF;
-                LOG.info("{} WDT interrupt exec: {}, vector: {}", cpu, interruptLevel, th(vn));
+                if (verbose) LOG.info("{} WDT interrupt exec: {}, vector: {}", cpu, interruptLevel, th(vn));
                 break;
             case NONE:
                 break;
