@@ -93,6 +93,12 @@ public class Sh2MMREG {
                 break;
             case WDT:
                 wdt.write(regSpec, value, size);
+                break;
+            case FRT:
+            case BSC:
+            case UBC:
+//                logAccess("write", reg, value, size);
+                break;
             case NONE:
             default:
                 break; //do nothing
@@ -156,7 +162,7 @@ public class Sh2MMREG {
     }
 
     public void deviceStep() {
-        dmaC.dmaStep();
+        dmaC.step();
         wdt.step();
     }
 }

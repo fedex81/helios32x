@@ -1,11 +1,11 @@
 package sh2.sh2.device;
 
-import omegadrive.Device;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.S32xUtil;
 import sh2.dict.Sh2Dict;
+import sh2.sh2.device.Sh2DeviceHelper.Sh2Device;
 
 import java.nio.ByteBuffer;
 
@@ -30,7 +30,7 @@ import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.WDT;
  * 2. Read by byte access. The correct value cannot be read by word or longword access.
  * 3. Only 0 can be written in bit 7 to clear the flag.
  */
-public class WatchdogTimer implements Device {
+public class WatchdogTimer implements Sh2Device {
 
     private static final Logger LOG = LogManager.getLogger(WatchdogTimer.class.getSimpleName());
 
@@ -144,7 +144,8 @@ public class WatchdogTimer implements Device {
         }
     }
 
-    public boolean step() {
+    @Override
+    public void step() {
         if (wdtTimerEnable) {
             if (--sh2TicksToNextWdtClock == 0) {
                 sh2TicksToNextWdtClock = clockDivider;
@@ -152,11 +153,9 @@ public class WatchdogTimer implements Device {
                 if (cnt == 0) { //overflow
                     setBit(regs, WTCSR_ADDR_READ, 7, 1, Size.BYTE);
                     intControl.setExternalIntPending(WDT, 0, true);
-                    return true;
                 }
             }
         }
-        return false;
     }
 
     private int increaseCount() {

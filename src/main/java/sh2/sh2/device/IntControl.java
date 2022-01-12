@@ -4,6 +4,7 @@ import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.dict.Sh2Dict.RegSpec;
+import sh2.sh2.device.Sh2DeviceHelper.Sh2Device;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 
 import java.nio.ByteBuffer;
@@ -21,10 +22,9 @@ import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
  * Copyright 2021
  * <p>
  */
-public class IntControl {
+public class IntControl implements Sh2Device {
 
     private static final Logger LOG = LogManager.getLogger(IntControl.class.getSimpleName());
-
 
     public enum Sh2Interrupt {
         NONE_0(0), NONE_1(0), NONE_2(0), NONE_3(0), NONE_4(0), NONE_5(0),
@@ -66,7 +66,8 @@ public class IntControl {
         init();
     }
 
-    private void init() {
+    @Override
+    public void init() {
         Arrays.fill(intValid, true);
         setIntsMasked(0);
         Arrays.stream(Sh2DeviceType.values()).forEach(d -> sh2DeviceInt.put(d, 0));

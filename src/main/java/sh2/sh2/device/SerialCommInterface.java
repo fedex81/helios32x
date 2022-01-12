@@ -1,10 +1,10 @@
 package sh2.sh2.device;
 
-import omegadrive.Device;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.S32xUtil.CpuDeviceAccess;
+import sh2.sh2.device.Sh2DeviceHelper.Sh2Device;
 
 import java.nio.ByteBuffer;
 
@@ -20,11 +20,10 @@ import static sh2.dict.Sh2Dict.RegSpec.*;
  * <p>
  * Copyright 2021
  */
-public class SerialCommInterface implements Device {
+public class SerialCommInterface implements Sh2Device {
 
     private static final Logger LOG = LogManager.getLogger(SerialCommInterface.class.getSimpleName());
 
-    //    private final S32xBus bus;
     private ByteBuffer regs;
     private CpuDeviceAccess cpu;
 

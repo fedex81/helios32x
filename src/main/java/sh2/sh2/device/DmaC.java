@@ -8,6 +8,7 @@ import sh2.DmaFifo68k;
 import sh2.IMemory;
 import sh2.Sh2MMREG;
 import sh2.sh2.device.DmaHelper.DmaChannelSetup;
+import sh2.sh2.device.Sh2DeviceHelper.Sh2Device;
 
 import java.nio.ByteBuffer;
 
@@ -23,7 +24,7 @@ import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DMA;
  * <p>
  * 32X Hardware Manual Supplement 1/2,  Chaotix, Primal Rage, and Virtua Racing
  */
-public class DmaC {
+public class DmaC implements Sh2Device {
 
     private static final Logger LOG = LogManager.getLogger(DmaC.class.getSimpleName());
 
@@ -61,7 +62,8 @@ public class DmaC {
         }
     }
 
-    public void dmaStep() {
+    @Override
+    public void step() {
         if (!oneDmaInProgress) {
             return;
         }
