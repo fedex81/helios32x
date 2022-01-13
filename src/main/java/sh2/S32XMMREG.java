@@ -22,6 +22,7 @@ import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
 import static sh2.dict.S32xDict.*;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
 import static sh2.dict.S32xDict.S32xRegType.COMM;
+import static sh2.dict.S32xDict.S32xRegType.VDP;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
 import static sh2.vdp.MarsVdp.VdpPriority.MD;
 import static sh2.vdp.MarsVdp.VdpPriority.S32X;
@@ -301,8 +302,22 @@ public class S32XMMREG implements Device {
         return regChanged;
     }
 
-    //TODO stellar assault access 4104h LONG
     private boolean handleVdpRegWrite(RegSpecS32x regSpec, int reg, int value, Size size) {
+        switch (size) {
+            case WORD:
+            case BYTE:
+                return handleVdpRegWriteInternal(regSpec, reg, value, size);
+            case LONG:
+                RegSpecS32x regSpec2 = getRegSpec(regSpec.regCpuType, regSpec.fullAddress + 2);
+                boolean res = handleVdpRegWriteInternal(regSpec, reg, value >> 16, Size.WORD);
+                res |= handleVdpRegWriteInternal(regSpec2, reg + 2, value & 0xFFFF, Size.WORD);
+                return res;
+        }
+        return false;
+    }
+
+
+    private boolean handleVdpRegWriteInternal(RegSpecS32x regSpec, int reg, int value, Size size) {
         boolean regChanged = false;
         switch (regSpec) {
             case VDP_BITMAP_MODE:
@@ -601,7 +616,7 @@ public class S32XMMREG implements Device {
 
     private int readBufferInt(RegSpecS32x reg, int address, Size size) {
         address &= S32X_REG_MASK;
-        if (reg.deviceType == S32xRegType.VDP) {
+        if (reg.deviceType == VDP) {
             return readBuffer(vdpRegs, address & S32X_VDP_REG_MASK, size);
         }
         switch (reg.regCpuType) {
@@ -621,7 +636,7 @@ public class S32XMMREG implements Device {
 
     private void writeBufferInt(RegSpecS32x reg, int address, int value, Size size) {
         address &= S32X_REG_MASK;
-        if (reg.deviceType == S32xRegType.VDP) {
+        if (reg.deviceType == VDP) {
             writeBuffer(vdpRegs, address & S32X_VDP_REG_MASK, value, size);
             return;
         }
@@ -641,7 +656,7 @@ public class S32XMMREG implements Device {
     }
 
     private void checkWriteLongAccess(RegSpecS32x regSpec, int reg, Size size) {
-        if (regSpec.deviceType != COMM && size == Size.LONG) {
+        if (regSpec.deviceType != COMM && regSpec.deviceType != VDP && size == Size.LONG) {
             LOG.error("unsupported 32 bit access, reg: {} {}", regSpec.name, th(reg));
             throw new RuntimeException("unsupported 32 bit access, reg: " + th(reg));
         }

@@ -109,7 +109,6 @@ public class S32xDict {
             this.size = size;
             this.deviceType = deviceType;
             this.deviceAccessTypeDelay = deviceType == VDP ? S32xMemAccessDelay.VDP_REG : S32xMemAccessDelay.SYS_REG;
-            System.out.println(name);
             this.regCpuType = deviceType == NONE || deviceType == COMM || deviceType == PWM || deviceType == VDP ? S32xRegCpuType.REG_BOTH :
                     S32xRegCpuType.valueOf("REG_" + name.split("_")[0]);
             init();
@@ -227,6 +226,14 @@ public class S32xDict {
         if (s != null) {
             LOG.info(s);
         }
+    }
+
+    public static RegSpecS32x getRegSpec(S32xRegCpuType regCpuType, int address) {
+        RegSpecS32x r = s32xRegMapping[regCpuType.ordinal()][address & S32X_REG_MASK];
+        if (r == null) {
+            LOG.error("{} unknown register at address: {}", regCpuType, th(address));
+        }
+        return r;
     }
 
     public static RegSpecS32x getRegSpec(S32xUtil.CpuDeviceAccess cpu, int address) {
