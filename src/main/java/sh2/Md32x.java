@@ -7,6 +7,7 @@ import omegadrive.ui.DisplayWindow;
 import omegadrive.vdp.md.GenesisVdp;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.MarsLauncherHelper.Sh2LaunchContext;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.vdp.MarsVdp;
@@ -45,7 +46,7 @@ public class Md32x extends Genesis {
 
     private int nextMSh2Cycle = 0, nextSSh2Cycle = 0;
 
-    private Sh2Launcher.Sh2LaunchContext ctx;
+    private Sh2LaunchContext ctx;
     private Sh2 sh2;
     private Sh2Context masterCtx, slaveCtx;
     private MarsVdp marsVdp;
@@ -56,8 +57,8 @@ public class Md32x extends Genesis {
 
     @Override
     protected void initAfterRomLoad() {
-        BiosHolder biosHolder = Sh2Launcher.initBios();
-        ctx = Sh2Launcher.setupRom((S32xBus) bus, this.romFile);
+        BiosHolder biosHolder = MarsLauncherHelper.initBios();
+        ctx = MarsLauncherHelper.setupRom((S32xBus) bus, this.romFile);
         masterCtx = ctx.masterCtx;
         slaveCtx = ctx.slaveCtx;
         sh2 = ctx.sh2;

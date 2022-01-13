@@ -7,6 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
+import sh2.pwm.Pwm;
 import sh2.sh2.device.IntControl;
 import sh2.vdp.MarsVdp;
 import sh2.vdp.MarsVdp.BitmapMode;
@@ -20,6 +21,7 @@ import static sh2.S32xUtil.CpuDeviceAccess.M68K;
 import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
 import static sh2.dict.S32xDict.*;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
+import static sh2.dict.S32xDict.S32xRegType.COMM;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
 import static sh2.vdp.MarsVdp.VdpPriority.MD;
 import static sh2.vdp.MarsVdp.VdpPriority.S32X;
@@ -89,6 +91,7 @@ public class S32XMMREG implements Device {
     public ByteBuffer[] dramBanks = new ByteBuffer[2];
 
     public IntControl[] interruptControls;
+    public Pwm pwm;
     public DmaFifo68k dmaFifoControl;
     private MarsVdp vdp;
     private S32xBus bus;
@@ -110,7 +113,6 @@ public class S32XMMREG implements Device {
         dramBanks[1] = ByteBuffer.allocateDirect(DRAM_SIZE);
         vdp = MarsVdpImpl.createInstance(vdpContext, dramBanks, colorPalette);
         logCtx = new S32xDictLogContext();
-        interruptControls = new IntControl[2];
     }
 
     public void setBus(S32xBus bus) {
@@ -224,108 +226,112 @@ public class S32XMMREG implements Device {
             doLog(cpu, regSpec, address, -1, size, true);
         }
         int res = readBufferInt(regSpec, address, size);
-        if (regSpec.regCpuType != S32xRegCpuType.REG_M68K && regSpec == SH2_INT_MASK) {
+        if (regSpec == SH2_INT_MASK) {
             res = interruptControls[cpu.ordinal()].readSh2IntMaskReg(address & S32X_REG_MASK, size);
-        } else if (regSpec.deviceType == S32xRegType.SYS
-                && regSpec.addr >= SH2_DREQ_CTRL.addr && regSpec.addr <= SH2_DREQ_DEST_ADDR_L.addr + 1) {
+        } else if (regSpec.deviceType == S32xRegType.DMA) {
             res = dmaFifoControl.read(regSpec, cpu, address & S32X_REG_MASK, size);
         }
         return res;
     }
 
     private boolean handleRegWrite(int address, int value, Size size) {
-        CpuDeviceAccess cpu = Md32xRuntimeData.getAccessTypeExt();
-        RegSpecS32x regSpec = S32xDict.getRegSpec(cpu, address);
-        if (regSpec == null) {
-            LOG.error("{} unable to handle write, addr: {}, {} {}", cpu, th(address), th(value), size);
-            return false;
-        }
-        boolean skipWrite = false;
+        final int reg = address & S32X_MMREG_MASK;
+        final CpuDeviceAccess cpu = Md32xRuntimeData.getAccessTypeExt();
+        final RegSpecS32x regSpec = S32xDict.getRegSpec(cpu, address);
         boolean regChanged = false;
-        int reg = address & S32X_MMREG_MASK;
-        //TODO stellar assault access 4104h LONG
-        if (size == Size.LONG && reg < COMM0.addr) {
-            throw new RuntimeException("unsupported 32 bit access, reg: " + th(address));
-        }
-        deviceAccessType = regSpec.deviceAccessTypeDelay;
-        boolean logAccess = false;
 
+        checkWriteLongAccess(regSpec, reg, size);
+        deviceAccessType = regSpec.deviceAccessTypeDelay;
+
+        switch (regSpec.deviceType) {
+            case VDP:
+                regChanged = handleVdpRegWrite(regSpec, reg, value, size);
+                break;
+            case PWM:
+                pwm.write(cpu, regSpec, value, size);
+                break;
+            case COMM:
+                regChanged = handleCommRegWrite(regSpec, reg, value, size);
+                break;
+            case SYS:
+                regChanged = handleSysRegWrite(cpu, regSpec, reg, value, size);
+                break;
+            case DMA:
+                dmaFifoControl.write(regSpec, cpu, reg, value, size);
+                break;
+            default:
+                LOG.error("{} unexpected write, addr: {}, {} {}", cpu, th(address), th(value), size);
+                writeBufferInt(regSpec, reg, value, size);
+                regChanged = true;
+                break;
+        }
+        if (verbose && regChanged) {
+            doLog(cpu, regSpec, address, value, size, false);
+        }
+        return regChanged;
+    }
+
+    private boolean handleSysRegWrite(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value, Size size) {
+        boolean regChanged = false;
         switch (regSpec) {
-            case VDP_BITMAP_MODE:
-                regChanged = handleBitmapModeWrite(reg, value, size);
-                skipWrite = true;
-                break;
-            case FBCR:
-                regChanged = handleFBCRWrite(reg, value, size);
-                skipWrite = true;
-                break;
-            case AFDR:
-                runAutoFill(value);
-                skipWrite = true;
-                break;
             case SH2_INT_MASK:
             case M68K_ADAPTER_CTRL:
                 regChanged = handleReg0Write(cpu, reg, value, size);
-                skipWrite = true;
                 break;
             case SH2_STBY_CHANGE:
             case M68K_INT_CTRL:
                 regChanged = handleReg2Write(cpu, reg, value, size);
-                skipWrite = true;
                 break;
             case SH2_HCOUNT_REG:
             case M68K_BANK_SET:
                 regChanged = handleReg4Write(cpu, reg, value, size);
-                skipWrite = true;
                 break;
             case SH2_VINT_CLEAR:
             case SH2_HINT_CLEAR:
             case SH2_PWM_INT_CLEAR:
             case SH2_CMD_INT_CLEAR:
                 handleIntClearWrite(cpu, regSpec.addr, value, size);
+                regChanged = true;
                 break;
-            case SH2_FIFO_REG:
-            case SH2_DREQ_CTRL:
-            case SH2_DREQ_LEN:
-            case SH2_DREQ_SRC_ADDR_H:
-            case SH2_DREQ_SRC_ADDR_L:
-            case SH2_DREQ_DEST_ADDR_L:
-            case SH2_DREQ_DEST_ADDR_H:
-                dmaFifoControl.write(regSpec, cpu, reg, value, size);
-                skipWrite = true;
+            default:
+                LOG.error("{} unexpected write, addr: {}, {} {}", cpu, th(reg), th(value), size);
+                writeBufferInt(regSpec, reg, value, size);
                 break;
         }
-        if (!skipWrite) {
-            regChanged = internalRegWriteCOMM(regSpec, reg, value, size);
-        }
-        if (verbose && regChanged) {
-            doLog(cpu, regSpec, address, value, size, false);
-        }
-
         return regChanged;
     }
 
-    //COMM and other regs
-    private boolean internalRegWriteCOMM(final RegSpecS32x regSpec, int reg, int value, Size size) {
+    //TODO stellar assault access 4104h LONG
+    private boolean handleVdpRegWrite(RegSpecS32x regSpec, int reg, int value, Size size) {
+        boolean regChanged = false;
+        switch (regSpec) {
+            case VDP_BITMAP_MODE:
+                regChanged = handleBitmapModeWrite(reg, value, size);
+                break;
+            case FBCR:
+                regChanged = handleFBCRWrite(reg, value, size);
+                break;
+            case AFDR:
+                runAutoFill(value);
+                regChanged = true;
+                break;
+            default:
+                int res = readBufferInt(regSpec, reg, size);
+                if (res != value) {
+                    writeBufferInt(regSpec, reg, value, size);
+                    regChanged = true;
+                }
+                break;
+        }
+        return regChanged;
+    }
+
+    private boolean handleCommRegWrite(final RegSpecS32x regSpec, int reg, int value, Size size) {
         int currentVal = readBufferInt(regSpec, reg, size);
         boolean regChanged = currentVal != value;
         if (regChanged) {
-            switch (regSpec) {
-                case COMM0:
-                case COMM1:
-                case COMM2:
-                case COMM3:
-                case COMM4:
-                case COMM5:
-                case COMM6:
-                case COMM7:
-                    //comm regs are shared
-                    writeBuffers(sysRegsMd, sysRegsSh2, reg, value, size);
-                    break;
-                default:
-                    writeBufferInt(regSpec, reg, value, size);
-                    break;
-            }
+            //comm regs are shared
+            writeBuffers(sysRegsMd, sysRegsSh2, reg, value, size);
         }
         return regChanged;
     }
@@ -585,56 +591,59 @@ public class S32XMMREG implements Device {
         this.interruptControls = interruptControls;
     }
 
+    public void setPwm(Pwm pwm) {
+        this.pwm = pwm;
+    }
+
     private int readWordFromBuffer(RegSpecS32x reg) {
         return readBufferInt(reg, reg.addr, Size.WORD);
     }
 
     private int readBufferInt(RegSpecS32x reg, int address, Size size) {
         address &= S32X_REG_MASK;
-        switch (reg.deviceType) {
-            case VDP:
-                return readBuffer(vdpRegs, address & S32X_VDP_REG_MASK, size);
-            default:
-                switch (reg.regCpuType) {
-                    case REG_BOTH:
-                    case REG_M68K:
-                        return readBuffer(sysRegsMd, address, size);
-                    case REG_SH2:
-                        return readBuffer(sysRegsSh2, address, size);
-                }
+        if (reg.deviceType == S32xRegType.VDP) {
+            return readBuffer(vdpRegs, address & S32X_VDP_REG_MASK, size);
+        }
+        switch (reg.regCpuType) {
+            case REG_BOTH:
+            case REG_M68K:
+                return readBuffer(sysRegsMd, address, size);
+            case REG_SH2:
+                return readBuffer(sysRegsSh2, address, size);
         }
         LOG.error("Unable to read buffer: {}, addr: {} {}", reg.name, th(address), size);
         return (int) size.getMask();
     }
 
     private void writeBufferWord(RegSpecS32x reg, int value) {
-        try {
-            writeBufferInt(reg, reg.addr, value, Size.WORD);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        writeBufferInt(reg, reg.addr, value, Size.WORD);
     }
 
     private void writeBufferInt(RegSpecS32x reg, int address, int value, Size size) {
         address &= S32X_REG_MASK;
-        switch (reg.deviceType) {
-            case VDP:
-                writeBuffer(vdpRegs, address & S32X_VDP_REG_MASK, value, size);
+        if (reg.deviceType == S32xRegType.VDP) {
+            writeBuffer(vdpRegs, address & S32X_VDP_REG_MASK, value, size);
+            return;
+        }
+        switch (reg.regCpuType) {
+            case REG_BOTH:
+                writeBuffer(sysRegsMd, address, value, size);
+                writeBuffer(sysRegsSh2, address, value, size);
                 return;
-            default:
-                switch (reg.regCpuType) {
-                    case REG_BOTH:
-                        writeBuffer(sysRegsMd, address, value, size);
-                        writeBuffer(sysRegsSh2, address, value, size);
-                        return;
-                    case REG_M68K:
-                        writeBuffer(sysRegsMd, address, value, size);
-                        return;
-                    case REG_SH2:
-                        writeBuffer(sysRegsSh2, address, value, size);
-                        return;
-                }
+            case REG_M68K:
+                writeBuffer(sysRegsMd, address, value, size);
+                return;
+            case REG_SH2:
+                writeBuffer(sysRegsSh2, address, value, size);
+                return;
         }
         LOG.error("Unable to write buffer: {}, addr: {}, value: {} {}", reg.name, th(address), th(value), size);
+    }
+
+    private void checkWriteLongAccess(RegSpecS32x regSpec, int reg, Size size) {
+        if (regSpec.deviceType != COMM && size == Size.LONG) {
+            LOG.error("unsupported 32 bit access, reg: {} {}", regSpec.name, th(reg));
+            throw new RuntimeException("unsupported 32 bit access, reg: " + th(reg));
+        }
     }
 }

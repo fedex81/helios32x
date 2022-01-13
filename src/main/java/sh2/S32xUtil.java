@@ -1,5 +1,6 @@
 package sh2;
 
+import omegadrive.Device;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,6 +17,11 @@ public class S32xUtil {
     private static final Logger LOG = LogManager.getLogger(S32xUtil.class.getSimpleName());
 
     public enum DebugMode {NONE, INST_ONLY, NEW_INST_ONLY, STATE}
+
+    public static interface StepDevice extends Device {
+        public default void step() {
+        } //DO NOTHING
+    }
 
     public static void writeBuffers(ByteBuffer b1, ByteBuffer b2, int pos, int value, Size size) {
         writeBuffer(b1, pos, value, size);

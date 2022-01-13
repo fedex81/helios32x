@@ -1,10 +1,9 @@
 package sh2.sh2.device;
 
-import omegadrive.Device;
 import sh2.DmaFifo68k;
 import sh2.IMemory;
+import sh2.MarsLauncherHelper.Sh2LaunchContext;
 import sh2.S32xUtil.CpuDeviceAccess;
-import sh2.Sh2Launcher.Sh2LaunchContext;
 import sh2.Sh2MMREG;
 
 /**
@@ -15,11 +14,6 @@ import sh2.Sh2MMREG;
 public class Sh2DeviceHelper {
 
     public enum Sh2DeviceType {NONE, UBC, FRT, BSC, DMA, INTC, DIV, SCI, WDT}
-
-    public static interface Sh2Device extends Device {
-        public default void step() {
-        } //DO NOTHING
-    }
 
     public static class Sh2DeviceContext {
         public CpuDeviceAccess cpu;

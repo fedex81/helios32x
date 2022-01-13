@@ -5,7 +5,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.S32xUtil;
 import sh2.dict.Sh2Dict;
-import sh2.sh2.device.Sh2DeviceHelper.Sh2Device;
 
 import java.nio.ByteBuffer;
 
@@ -30,7 +29,7 @@ import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.WDT;
  * 2. Read by byte access. The correct value cannot be read by word or longword access.
  * 3. Only 0 can be written in bit 7 to clear the flag.
  */
-public class WatchdogTimer implements Sh2Device {
+public class WatchdogTimer implements StepDevice {
 
     private static final Logger LOG = LogManager.getLogger(WatchdogTimer.class.getSimpleName());
 

@@ -4,7 +4,6 @@ import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.dict.Sh2Dict.RegSpec;
-import sh2.sh2.device.Sh2DeviceHelper.Sh2Device;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 
 import java.nio.ByteBuffer;
@@ -22,7 +21,7 @@ import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
  * Copyright 2021
  * <p>
  */
-public class IntControl implements Sh2Device {
+public class IntControl implements StepDevice {
 
     private static final Logger LOG = LogManager.getLogger(IntControl.class.getSimpleName());
 
