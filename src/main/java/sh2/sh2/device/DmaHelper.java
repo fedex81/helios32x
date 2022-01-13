@@ -1,6 +1,8 @@
 package sh2.sh2.device;
 
 import omegadrive.util.Size;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import static sh2.dict.S32xDict.RegSpecS32x.SH2_FIFO_REG;
 
@@ -10,6 +12,8 @@ import static sh2.dict.S32xDict.RegSpecS32x.SH2_FIFO_REG;
  * Copyright 2022
  */
 public class DmaHelper {
+
+    private static final Logger LOG = LogManager.getLogger(DmaHelper.class.getSimpleName());
 
     private static final int FIFO_REG_SH2 = 0x2000_4000 + SH2_FIFO_REG.addr;
 
@@ -56,10 +60,13 @@ public class DmaHelper {
         c.chcr_transferSize = trnVals[(chcr >> 10) & 0x3];
         c.srcDelta = getAddressDelta(c.chcr_srcMode, c.chcr_transferSize, true);
         c.destDelta = getAddressDelta(c.chcr_destMode, c.chcr_transferSize, false);
-        c.trnSize = Size.values()[c.chcr_transferSize.ordinal()];
+        //TODO Sangokushi
         if (c.chcr_transferSize == DmaTransferSize.BYTE_16) {
-
+            c.chcr_transferSize = DmaTransferSize.LONG;
+            LOG.error("DMA transfer size not supported: {}, using instead: {}",
+                    DmaTransferSize.BYTE_16, c.chcr_transferSize);
         }
+        c.trnSize = Size.values()[c.chcr_transferSize.ordinal()];
     }
 
     public static void updateFifoDma(DmaChannelSetup chan, int srcAddress) {

@@ -243,8 +243,9 @@ public class S32XMMREG implements Device {
         boolean skipWrite = false;
         boolean regChanged = false;
         int reg = address & S32X_MMREG_MASK;
+        //TODO stellar assault access 4104h LONG
         if (size == Size.LONG && reg < COMM0.addr) {
-            throw new RuntimeException("unsupported 32 bit access, reg: " + address);
+            throw new RuntimeException("unsupported 32 bit access, reg: " + th(address));
         }
         deviceAccessType = regSpec.deviceAccessTypeDelay;
         boolean logAccess = false;

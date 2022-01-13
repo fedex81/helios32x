@@ -4,15 +4,14 @@ import com.google.common.collect.Maps;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.S32xUtil.CpuDeviceAccess;
+import sh2.S32xUtil.*;
 import sh2.sh2.device.*;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.stream.IntStream;
 
-import static sh2.S32xUtil.readBuffer;
-import static sh2.S32xUtil.writeBuffer;
+import static sh2.S32xUtil.*;
 import static sh2.dict.Sh2Dict.*;
 
 /**
@@ -40,11 +39,11 @@ public class Sh2MMREG {
     public IntControl intC;
     private WatchdogTimer wdt;
 
-    private CpuDeviceAccess sh2Access;
+    private CpuDeviceAccess cpu;
     private static final boolean verbose = false;
 
     public Sh2MMREG(CpuDeviceAccess sh2Access) {
-        this.sh2Access = sh2Access;
+        this.cpu = sh2Access;
     }
 
     public void init(Sh2DeviceHelper.Sh2DeviceContext ctx) {
@@ -74,6 +73,11 @@ public class Sh2MMREG {
 
     private void regWrite(int reg, int value, Size size) {
         RegSpec regSpec = sh2RegMapping[reg & SH2_REG_MASK];
+        if (regSpec == null) {
+            LOG.error("{} unknown reg write {}: {} {}", cpu, th(reg), th(value), size);
+            writeBuffer(regs, reg & SH2_REG_MASK, value, size);
+            return;
+        }
         switch (sh2RegDeviceMapping[reg & SH2_REG_MASK]) {
             case DIV:
                 divUnit.write(regSpec, value, size);
@@ -125,17 +129,7 @@ public class Sh2MMREG {
     }
 
     public int read(int reg, Size size) {
-        int res = 0;
-        switch (sh2RegDeviceMapping[reg & SH2_REG_MASK]) {
-            case WDT:
-                RegSpec regSpec = sh2RegMapping[reg & SH2_REG_MASK];
-                wdt.read(regSpec, size); //TODO debug
-                res = readBuffer(regs, reg & SH2_REG_MASK, size);
-                break;
-            default:
-                res = readBuffer(regs, reg & SH2_REG_MASK, size);
-                break;
-        }
+        int res = readBuffer(regs, reg & SH2_REG_MASK, size);
         if (verbose) {
             logAccess("read", reg, res, size);
         }
