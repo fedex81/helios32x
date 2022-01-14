@@ -3,6 +3,8 @@ package sh2.sh2;
 import sh2.S32xUtil;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceContext;
 
+import java.util.Arrays;
+
 /**
  * Federico Berti
  * <p>
@@ -20,6 +22,7 @@ public class Sh2Context {
     public int GBR, VBR, SR;
     public int MACH, MACL, PR;
     public int PC;
+    public int delayPC;
 
     /*
      * defines the number of cycles we can ran before stopping the interpreter
@@ -29,6 +32,7 @@ public class Sh2Context {
 
     public S32xUtil.CpuDeviceAccess cpuAccess;
     public String sh2TypeCode;
+    public boolean delaySlot;
     public boolean debug;
 
     public Sh2DeviceContext devices;
@@ -37,5 +41,26 @@ public class Sh2Context {
         this.registers = new int[NUM_REG];
         this.cpuAccess = cpuAccess;
         this.sh2TypeCode = cpuAccess.name().substring(0, 1);
+    }
+
+    @Override
+    public String toString() {
+        return "Sh2Context{" +
+                "registers=" + Arrays.toString(registers) +
+                ", GBR=" + GBR +
+                ", VBR=" + VBR +
+                ", SR=" + SR +
+                ", MACH=" + MACH +
+                ", MACL=" + MACL +
+                ", PR=" + PR +
+                ", PC=" + PC +
+                ", delayPC=" + delayPC +
+                ", cycles=" + cycles +
+                ", cycles_ran=" + cycles_ran +
+                ", cpuAccess=" + cpuAccess +
+                ", sh2TypeCode='" + sh2TypeCode + '\'' +
+                ", delaySlot=" + delaySlot +
+                ", debug=" + debug +
+                '}';
     }
 }

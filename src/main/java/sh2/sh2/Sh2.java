@@ -9,6 +9,8 @@ import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
 
 import static omegadrive.util.Util.toHex;
+import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
+import static sh2.S32xUtil.th;
 
 /*
  *  Revision 1 -  port the code from Dcemu and use information provided by dark||raziel (done)
@@ -535,10 +537,15 @@ public class Sh2 implements Device {
 	protected final void MOVA(int code) {
 		int d = (code & 0x000000ff);
 
-		ctx.registers[0] = ((ctx.PC & 0xfffffffc) + 4 + (d << 2));
+		ctx.registers[0] = ((ctx.PC + 4) & 0xfffffffc) + (d << 2);
 
 		ctx.cycles--;
 		ctx.PC += 2;
+		//If this instruction is placed immediately after a delayed branch instruction, the PC must
+		//point to an address specified by (the starting address of the branch destination) + 2.
+		if (ctx.delaySlot) {
+			ctx.registers[0] = ((ctx.delayPC + 2) & 0xfffffffc) + (d << 2);
+		}
 	}
 
 	protected final void MOVT(int code) {
@@ -621,13 +628,14 @@ public class Sh2 implements Device {
 		int m = RM(code);
 		int n = RN(code);
 
-		int tmp0 = ctx.registers[n];
-		int tmp1 = ctx.registers[n] + ctx.registers[m];
-		ctx.registers[n] = tmp1 + (ctx.SR & flagT);
+		long tmp0 = ctx.registers[n] & 0xFFFF_FFFFL;
+		long tmp1 = (ctx.registers[n] + ctx.registers[m]) & 0xFFFF_FFFFL;
+		long regN = tmp1 + (ctx.SR & flagT);
+		ctx.registers[n] = (int) regN;
 		if (tmp0 > tmp1)
 			ctx.SR |= flagT;
 		else ctx.SR &= (~flagT);
-		if (tmp1 > ctx.registers[n]) ctx.SR |= flagT;
+		if (tmp1 > regN) ctx.SR |= flagT;
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -644,10 +652,10 @@ public class Sh2 implements Device {
 		int n = RN(code);
 		int dest = 0, src = 0;
 
-		if (ctx.registers[n] >= 0) dest = 1;
-		else dest = 0;
-		if (ctx.registers[m] >= 0) src = 1;
-		else src = 0;
+		if (ctx.registers[n] >= 0) dest = 0;
+		else dest = 1;
+		if (ctx.registers[m] >= 0) src = 0;
+		else src = 1;
 
 		src += dest;
 		ctx.registers[n] += ctx.registers[m];
@@ -1057,120 +1065,71 @@ public class Sh2 implements Device {
 	}
 
 	protected final void MACL(int code) {
-		int RnL, RnH, RmL, RmH, Res0, Res1, Res2;
-		int temp0, temp1, temp2, temp3;
-		int tempm, tempn, fnLmL;
-
 		int m = RM(code);
 		int n = RN(code);
-
-		tempn = memory.read32i(ctx.registers[n]);
+		long regN = memory.read32i(ctx.registers[n]);
 		ctx.registers[n] += 4;
-		tempm = memory.read32i(ctx.registers[m]);
+		long regM = memory.read32i(ctx.registers[m]);
 		ctx.registers[m] += 4;
 
-		if ((tempn ^ tempm) < 0)
-			fnLmL = -1;
-		else
-			fnLmL = 0;
-
-		if (tempn < 0)
-			tempn = 0 - tempn;
-		if (tempm < 0)
-			tempm = 0 - tempm;
-
-		temp1 = (int) tempn;
-		temp2 = (int) tempm;
-
-		RnL = (temp1 >> 0) & 0x0000FFFF;
-		RnH = (temp1 >> 16) & 0x0000FFFF;
-		RmL = (temp2 >> 0) & 0x0000FFFF;
-		RmH = (temp2 >> 16) & 0x0000FFFF;
-
-		temp0 = RmL * RnL;
-		temp1 = RmH * RnL;
-		temp2 = RmL * RnH;
-		temp3 = RmH * RnH;
-
-		Res2 = 0;
-		Res1 = temp1 + temp2;
-
-		if (Res1 < temp1)
-			Res2 += 0x00010000;
-
-		temp1 = (Res1 << 16) & 0xFFFF0000;
-		Res0 = temp0 + temp1;
-
-		if (Res0 < temp0)
-			Res2++;
-
-		Res2 = Res2 + ((Res1 >>> 16) & 0x0000FFFF) + temp3;
-
-		if (fnLmL < 0) {
-			Res2 = ~Res2;
-			if (Res0 == 0)
-				Res2++;
-			else
-				Res0 = (~Res0) + 1;
-		}
-
-		if ((ctx.SR & flagS) == flagS) {
-			if (n >= 0) throw new RuntimeException("check");
-			Res0 = ctx.MACL + Res0;
-			if (ctx.MACL > Res0)
-				Res2++;
-
-			if ((ctx.MACH & 0x00008000) != 0) ;
-			else Res2 += ctx.MACH | 0xFFFF0000;
-
-			Res2 += (ctx.MACL & 0x0000FFFF);
-
-			if ((Res2 < 0) && (Res2 < 0xFFFF8000)) {
-				Res2 = 0x00008000;
-				Res0 = 0x00000000;
+		long res = regM * regN;
+		res += ((ctx.MACH & 0xFFFF_FFFFL) << 32) + (ctx.MACL & 0xFFFF_FFFFL);
+		if ((ctx.SR & flagS) > 0) {
+			long posLimit = 0x7FFF_FFFF_FFFFL, negLimit = 0xFFFF_8000_0000_0000L;
+			if (res > 0 && res > posLimit) {
+				res = posLimit;
+			} else if (res < 0 && res < negLimit) {
+				res = negLimit;
 			}
-
-			if ((Res2 > 0) && (Res2 > 0x00007FFF)) {
-				Res2 = 0x00007FFF;
-				Res0 = 0xFFFFFFFF;
-			}
-			;
-
-			ctx.MACH = Res2;
-			ctx.MACL = Res0;
+			ctx.MACH = (int) (res >> 32);
+			ctx.MACL = (int) (res & 0xFFFF_FFFF);
 		} else {
-			Res0 = ctx.MACL + Res0;
-
-			if (ctx.MACL > Res0)
-				Res2++;
-
-			Res2 += ctx.MACH;
-
-			ctx.MACH = Res2;
-			ctx.MACL = Res0;
+			ctx.MACH = (int) (res >> 32);
+			ctx.MACL = (int) (res & 0xFFFF_FFFF);
 		}
 		ctx.cycles -= 2;
 		ctx.PC += 2;
 	}
 
+	//TODO Shadow Squadron ~ Stellar Assault
 	protected final void MACW(int code) {
-		int tempm, tempn, dest, src, ans;
-		int templ;
-
 		int m = RM(code);
 		int n = RN(code);
+		int tempm, tempn, dest, src, ans;
+		long templ;
 
 		tempn = memory.read16i(ctx.registers[n]);
 		ctx.registers[n] += 2;
 		tempm = memory.read16i(ctx.registers[m]);
 		ctx.registers[m] += 2;
+		MACW(ctx, tempn, tempm);
+	}
 
-		templ = ctx.MACL;
+	public static void main(String[] args) {
+		Sh2Context ctx = new Sh2Context(MASTER);
+		// 1,ffffffff,ffffffff,80000000,S=true
+		int rn = 1;
+		int rm = 0xFFFF;
+		ctx.MACH = 0xffffffff;
+		ctx.MACL = 0x80000000;
+		ctx.SR = 2;
+		int expMACH = -1;
+		int expMACL = 0;
+		MACW(ctx, rn, rm);
+		System.out.println(th(ctx.MACH) + "," + th(ctx.MACL));
+	}
+
+	//TODO rewrite this
+	protected static final void MACW(Sh2Context ctx, int rn, int rm) {
+		int tempm, tempn, dest, src, ans;
+		long templ = ctx.MACL & 0xFFFF_FFFFL;
+		tempm = rm;
+		tempn = rn;
+//		System.out.println("#### " + th(tempn) + "," + th(tempm) + "," + th(ctx.MACH) + "," + th(ctx.MACL) + ",S=" +
+//				((ctx.SR & flagS) > 0));
 		tempm = ((int) (short) tempn * (int) (short) tempm);
-		//TODO Shadow Squadron ~ Stellar Assault
-		if (n >= 0) {
-			throw new RuntimeException("check");
-		}
+		int preMacl = ctx.MACL;
+
 		if (ctx.MACL >= 0)
 			dest = 0;
 		else
@@ -1185,8 +1144,9 @@ public class Sh2 implements Device {
 		}
 
 		src += dest;
-
+		int preM = ctx.MACL;
 		ctx.MACL += tempm;
+		boolean ovf = preM < 0 && ctx.MACL > 0 || preM > 0 && ctx.MACL < 0;
 
 		if (ctx.MACL >= 0)
 			ans = 0;
@@ -1195,15 +1155,20 @@ public class Sh2 implements Device {
 
 		ans += dest;
 
-		if ((ctx.SR & flagS) == 0) {
+		if ((ctx.SR & flagS) > 0) {
 			if (ans == 1) {
 				if (src == 0) ctx.MACL = 0x7FFFFFFF;
 				if (src == 2) ctx.MACL = 0x80000000;
+				ovf |= preM < 0 && src == 0 || preM > 0 && src == 2;
 			}
 		} else {
 			ctx.MACH += tempn;
-			if (templ > ctx.MACL)
+			if (ctx.MACL >= 0 && templ > ctx.MACL)  //overflow check?
 				ctx.MACH += 1;
+		}
+		int postMacl = ctx.MACL;
+		if ((ctx.SR & flagS) > 0 && ovf) { //32bit ovf
+			ctx.MACH |= 1;
 		}
 		ctx.cycles -= 2;
 		ctx.PC += 2;
@@ -1255,12 +1220,13 @@ public class Sh2 implements Device {
 		int m = RM(code);
 		int n = RN(code);
 
-		int tmp = 0 - ctx.registers[m];
-		ctx.registers[n] = tmp - (ctx.SR & flagT);
+		long tmp = (0 - ctx.registers[m]) & 0xFFFF_FFFFL;
+		long regN = (tmp - (ctx.SR & flagT)) & 0xFFFF_FFFFL;
+		ctx.registers[n] = (int) regN;
 		if (0 < tmp)
 			ctx.SR |= flagT;
 		else ctx.SR &= (~flagT);
-		if (tmp < ctx.registers[n])
+		if (tmp < regN)
 			ctx.SR |= flagT;
 
 		ctx.cycles--;
@@ -1281,14 +1247,15 @@ public class Sh2 implements Device {
 		int m = RM(code);
 		int n = RN(code);
 
-		int tmp0 = ctx.registers[n];
-		int tmp1 = ctx.registers[n] - ctx.registers[m];
-		ctx.registers[n] = tmp1 - (ctx.SR & flagT);
+		long tmp0 = ctx.registers[n] & 0xFFFF_FFFFL;
+		long tmp1 = (ctx.registers[n] - ctx.registers[m]) & 0xFFFF_FFFFL;
+		long regN = (tmp1 - (ctx.SR & flagT)) & 0xFFFF_FFFFL;
+		ctx.registers[n] = (int) regN;
 		if (tmp0 < tmp1)
 			ctx.SR |= flagT;
 		else ctx.SR &= (~flagT);
 
-		if (tmp1 < ctx.registers[n])
+		if (tmp1 < regN)
 			ctx.SR |= flagT;
 
 		ctx.cycles--;
@@ -1389,6 +1356,7 @@ public class Sh2 implements Device {
 		memory.write8i(ctx.GBR + ctx.registers[0], ((byte) (value | i)));
 
 		ctx.cycles -= 4;
+		ctx.PC += 2;
 	}
 
 	protected final void TAS(int code) {
@@ -1820,10 +1788,12 @@ public class Sh2 implements Device {
 	}
 
 	private void delaySlot(int pc) {
-		int nextPc = ctx.PC;
+		ctx.delayPC = ctx.PC;
 		ctx.PC = pc;
+		ctx.delaySlot = true;
 		decode(memory.read16i(ctx.PC));
-		ctx.PC = nextPc;
+		ctx.delaySlot = false;
+		ctx.PC = ctx.delayPC;
 	}
 
 	protected final void CLRMAC(int code) {

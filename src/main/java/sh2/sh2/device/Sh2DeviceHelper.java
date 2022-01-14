@@ -29,8 +29,8 @@ public class Sh2DeviceHelper {
         return createDevices(cpu, ctx.memory, ctx.dmaFifo68k, ctx.memory.getSh2MMREGS(cpu));
     }
 
-    private static Sh2DeviceContext createDevices(CpuDeviceAccess cpu, IMemory memory,
-                                                  DmaFifo68k dmaFifo68k, Sh2MMREG sh2Regs) {
+    public static Sh2DeviceContext createDevices(CpuDeviceAccess cpu, IMemory memory,
+                                                 DmaFifo68k dmaFifo68k, Sh2MMREG sh2Regs) {
         Sh2DeviceContext ctx = new Sh2DeviceContext();
         ctx.cpu = cpu;
         ctx.sh2MMREG = sh2Regs;
