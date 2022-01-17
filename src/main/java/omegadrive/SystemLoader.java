@@ -62,7 +62,7 @@ public class SystemLoader {
 
     public static final String SMD_INTERLEAVED_EXT = ".smd";
 
-    public static String[] s32xBinaryTypes = {".32x", ".bin"};
+    public static String[] s32xBinaryTypes = {".32x", ".bin", ".md"};
     public static String[] compressedBinaryTypes = {".gz", ".zip"};
 
     public static String[] binaryTypes = Stream.of(

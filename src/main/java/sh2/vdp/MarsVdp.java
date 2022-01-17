@@ -43,6 +43,8 @@ public interface MarsVdp extends Device {
 
     void updateDebugView(UpdatableViewer debugView);
 
+    int[] doCompositeRendering(int[] mdData, MarsVdpRenderContext ctx);
+
     default void dumpMarsData() {
         throw new UnsupportedOperationException();
     }

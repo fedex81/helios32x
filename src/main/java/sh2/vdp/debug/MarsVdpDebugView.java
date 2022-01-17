@@ -8,6 +8,7 @@ import sh2.vdp.MarsVdp;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.util.stream.IntStream;
 
 import static sh2.vdp.debug.MarsVdpDebugView.ImageType.*;
 
@@ -24,11 +25,17 @@ public interface MarsVdpDebugView extends Device {
         @Override
         public void update(MarsVdp.MarsVdpContext context, int[] buffer) {
         }
+
+        @Override
+        public void updateFinalImage(int[] fg) {
+        }
     };
 
-    public enum ImageType {BUFF_0, BUFF_1, FULL}
+    public enum ImageType {BUFF_0, BUFF_1, FULL, MDp32X}
 
     void update(MarsVdp.MarsVdpContext context, int[] buffer);
+
+    void updateFinalImage(int[] fg);
 
     default JPanel getPanel() {
         return null;
@@ -65,6 +72,7 @@ public interface MarsVdpDebugView extends Device {
         private static final int PANEL_HEIGHT = 256 + PANEL_TEXT_HEIGHT;
         private static final int PANEL_WIDTH = 320;
         private static final Dimension layerDim = new Dimension(PANEL_WIDTH, PANEL_HEIGHT);
+        private static final int imgTypeLen = values().length;
 
         private JPanel panel;
         private final ImageIcon[] imgIcons = new ImageIcon[ImageType.values().length];
@@ -76,14 +84,17 @@ public interface MarsVdpDebugView extends Device {
             imageList[BUFF_0.ordinal()] = ImageUtil.createImage(gd, layerDim);
             imageList[BUFF_1.ordinal()] = ImageUtil.createImage(gd, layerDim);
             imageList[FULL.ordinal()] = ImageUtil.createImage(gd, layerDim);
+            imageList[MDp32X.ordinal()] = ImageUtil.createImage(gd, layerDim);
             this.panel = new JPanel();
             JComponent p0 = createComponent(BUFF_0);
             JComponent p1 = createComponent(BUFF_1);
             JComponent p2 = createComponent(FULL);
+            JComponent p3 = createComponent(MDp32X);
             panel.add(p0);
             panel.add(p1);
             panel.add(p2);
-            Dimension d = new Dimension((int) (PANEL_WIDTH * 3.1), (int) (PANEL_HEIGHT * 1.01));
+            panel.add(p3);
+            Dimension d = new Dimension((int) (PANEL_WIDTH * 4.1), (int) (PANEL_HEIGHT * 1.01));
             panel.setMaximumSize(d);
             panel.setBackground(Color.BLACK);
         }
@@ -98,7 +109,7 @@ public interface MarsVdpDebugView extends Device {
             JPanel pnl = new JPanel();
             BoxLayout bl = new BoxLayout(pnl, BoxLayout.Y_AXIS);
             pnl.setLayout(bl);
-            JLabel title = new JLabel("32X " + type.toString());
+            JLabel title = new JLabel(type != MDp32X ? "32X " + type : "MD+32X Layer");
             title.setForeground(Color.WHITE);
             JLabel lbl = new JLabel(imgIcons[num]);
             pnl.add(title);
@@ -109,12 +120,10 @@ public interface MarsVdpDebugView extends Device {
         }
 
         private void updateVideoMode(VideoMode videoMode) {
-            imageList[0] = ImageUtil.createImage(gd, videoMode.getDimension());
-            imageList[1] = ImageUtil.createImage(gd, videoMode.getDimension());
-            imageList[2] = ImageUtil.createImage(gd, videoMode.getDimension());
-            imgIcons[0].setImage(imageList[0]);
-            imgIcons[1].setImage(imageList[1]);
-            imgIcons[2].setImage(imageList[2]);
+            IntStream.range(0, imgTypeLen).forEach(i -> {
+                imageList[i] = ImageUtil.createImage(gd, videoMode.getDimension());
+                imgIcons[i].setImage(imageList[i]);
+            });
             this.videoMode = videoMode;
         }
 
@@ -125,6 +134,12 @@ public interface MarsVdpDebugView extends Device {
             }
             copyToImages(context.frameBufferDisplay, rgb888);
             panel.repaint();
+        }
+
+        @Override
+        public void updateFinalImage(int[] fg) {
+            int[] imgDataFull = ImageUtil.getPixels(imageList[MDp32X.ordinal()]);
+            System.arraycopy(fg, 0, imgDataFull, 0, fg.length);
         }
 
         //copy the current front buffer to the FULL image

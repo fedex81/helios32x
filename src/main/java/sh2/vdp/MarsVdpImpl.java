@@ -167,9 +167,17 @@ public class MarsVdpImpl implements MarsVdp {
         wasBlankScreen = false;
     }
 
-    public static int[] doCompositeRendering(int[] mdData, MarsVdpRenderContext ctx) {
+    @Override
+    public int[] doCompositeRendering(int[] mdData, MarsVdpRenderContext ctx) {
+        int[] out = doCompositeRenderingExt(mdData, ctx);
+        view.updateFinalImage(out);
+        return out;
+    }
+
+    public static int[] doCompositeRenderingExt(int[] mdData, MarsVdpRenderContext ctx) {
         int mdDataLen = mdData.length;
         final int[] marsData = Optional.ofNullable(ctx.screen).orElse(new int[0]);
+        int[] out = mdData;
         if (mdDataLen == marsData.length) {
             final boolean prio32x = ctx.vdpContext.priority == S32X;
             final int[] fg = prio32x ? marsData : mdData;
@@ -182,8 +190,9 @@ public class MarsVdpImpl implements MarsVdp {
                 boolean fgBlanking = !prio32x && mdBlanking;
                 fg[i] = fgBlanking || (throughBit && !bgBlanking) ? bg[i] : fg[i];
             }
+            out = fg;
         }
-        return mdData;
+        return out;
     }
 
     private void populateLineTable(final ShortBuffer b) {

@@ -122,7 +122,7 @@ public class Md32x extends Genesis {
         if (dumpMars) {
             marsVdp.dumpMarsData();
         }
-        int[] fg = MarsVdpImpl.doCompositeRendering(data, ctx);
+        int[] fg = marsVdp.doCompositeRendering(data, ctx);
         renderScreenLinearInternal(fg, stats);
     }
 
