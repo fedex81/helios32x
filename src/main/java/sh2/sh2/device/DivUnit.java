@@ -10,6 +10,7 @@ import static sh2.S32xUtil.*;
 import static sh2.Sh2MMREG.SH2_REG_MASK;
 import static sh2.dict.Sh2Dict.RegSpec;
 import static sh2.dict.Sh2Dict.RegSpec.*;
+import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DIV;
 
 /**
  * Federico Berti
@@ -30,10 +31,12 @@ public class DivUnit implements StepDevice {
 
     private CpuDeviceAccess cpu;
     private ByteBuffer regs;
+    private IntControl intControl;
 
-    public DivUnit(CpuDeviceAccess cpu, ByteBuffer regs) {
+    public DivUnit(CpuDeviceAccess cpu, IntControl intControl, ByteBuffer regs) {
         this.cpu = cpu;
         this.regs = regs;
+        this.intControl = intControl;
     }
 
     private int readBufferLong(int reg) {
@@ -118,7 +121,9 @@ public class DivUnit implements StepDevice {
         writeBufferLong(DIV_DVDNTL.addr, val);
         writeBufferLong(DIV_DVDNTUL.addr, val);
         if ((dvcr & DIV_OVERFLOW_INT_EN_BIT) > 0) {
-            LOG.error("{} Interrupt request on overflow not supported", cpu);
+            intControl.setExternalIntPending(DIV, 0, true);
+            LOG.info(msg);
+            LOG.warn("DivUnit interrupt"); //not used by any sw?
         }
     }
 

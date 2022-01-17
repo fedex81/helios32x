@@ -37,7 +37,7 @@ public class Sh2DeviceHelper {
         ctx.intC = new IntControl(cpu, sh2Regs.getRegs());
         ctx.dmaC = new DmaC(cpu, ctx.intC, memory, dmaFifo68k, sh2Regs.getRegs());
         ctx.sci = new SerialCommInterface(cpu, sh2Regs.getRegs());
-        ctx.divUnit = new DivUnit(cpu, sh2Regs.getRegs());
+        ctx.divUnit = new DivUnit(cpu, ctx.intC, sh2Regs.getRegs());
         ctx.wdt = new WatchdogTimer(cpu, ctx.intC, sh2Regs.getRegs());
         return ctx;
     }

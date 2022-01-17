@@ -209,16 +209,17 @@ public class IntControl implements StepDevice {
             }
         }
         int vn = -1;
+        if (verbose) LOG.info("{} {} interrupt exec: {}, vector: {}", cpu, deviceType, interruptLevel, th(vn));
         switch (deviceType) {
             case DMA:
                 vn = readBuffer(regs, INTC_VCRDMA0.addr + (dmaChannelInt << 3), Size.LONG) & 0xFF;
-                if (verbose)
-                    LOG.info("{} DMA{} interrupt exec: {}, vector: {}", cpu, dmaChannelInt, interruptLevel, th(vn));
                 //clearInterrupt(interruptLevel);//TODO check
                 break;
             case WDT:
                 vn = readBuffer(regs, INTC_VCRWDT.addr, Size.BYTE) & 0xFF;
-                if (verbose) LOG.info("{} WDT interrupt exec: {}, vector: {}", cpu, interruptLevel, th(vn));
+                break;
+            case DIV:
+                vn = readBuffer(regs, INTC_VCRDIV.addr, Size.BYTE) & 0xFF;
                 break;
             case NONE:
                 break;
