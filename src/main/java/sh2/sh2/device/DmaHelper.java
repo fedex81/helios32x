@@ -55,6 +55,7 @@ public class DmaHelper {
     public static void updateChannelControl(DmaChannelSetup c, int chcr) {
         c.chcr_dmaEn = (chcr & 1) > 0;
         c.chcr_intEn = (chcr & 4) > 0;
+        c.chcr_autoReq = ((chcr >> 9) & 1) > 0;
         c.chcr_destMode = modeVals[chcr >> 14];
         c.chcr_srcMode = modeVals[(chcr >> 12) & 0x3];
         c.chcr_transferSize = trnVals[(chcr >> 10) & 0x3];
@@ -67,6 +68,10 @@ public class DmaHelper {
                     DmaTransferSize.BYTE_16, c.chcr_transferSize);
         }
         c.trnSize = Size.values()[c.chcr_transferSize.ordinal()];
+        //TODO
+        if (c.chcr_autoReq) {
+            LOG.error("TODO AutoReq: {}", c);
+        }
     }
 
     public static void updateFifoDma(DmaChannelSetup chan, int srcAddress) {
@@ -84,11 +89,9 @@ public class DmaHelper {
 
     public static class DmaChannelSetup {
         public int channel;
-        public boolean chcr_dmaEn;
+        public boolean chcr_dmaEn, chcr_intEn, chcr_autoReq;
         public boolean dmaor_dme;
-        public boolean chcr_intEn;
-        public DmaSrcDestMode chcr_destMode;
-        public DmaSrcDestMode chcr_srcMode;
+        public DmaSrcDestMode chcr_destMode, chcr_srcMode;
         public DmaTransferSize chcr_transferSize;
         public int fourWordsLeft = 4;
         public boolean dmaInProgress, fifoDma;
@@ -100,8 +103,9 @@ public class DmaHelper {
             return "DmaChannelSetup{" +
                     "channel=" + channel +
                     ", chcr_dmaEn=" + chcr_dmaEn +
-                    ", dmaor_dme=" + dmaor_dme +
                     ", chcr_intEn=" + chcr_intEn +
+                    ", chcr_autoReq=" + chcr_autoReq +
+                    ", dmaor_dme=" + dmaor_dme +
                     ", chcr_destMode=" + chcr_destMode +
                     ", chcr_srcMode=" + chcr_srcMode +
                     ", chcr_transferSize=" + chcr_transferSize +

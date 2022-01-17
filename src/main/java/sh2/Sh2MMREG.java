@@ -4,6 +4,7 @@ import com.google.common.collect.Maps;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.pwm.Pwm;
 import sh2.sh2.device.*;
 
 import java.nio.ByteBuffer;
@@ -162,5 +163,6 @@ public class Sh2MMREG {
     public void deviceStep() {
         dmaC.step();
         wdt.step();
+        Pwm.pwm.step();
     }
 }

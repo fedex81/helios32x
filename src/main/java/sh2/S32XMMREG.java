@@ -260,7 +260,7 @@ public class S32XMMREG implements Device {
                 dmaFifoControl.write(regSpec, cpu, reg, value, size);
                 break;
             default:
-                LOG.error("{} unexpected write, addr: {}, {} {}", cpu, th(address), th(value), size);
+                LOG.error("{} unexpected reg write, addr: {}, {} {}", cpu, th(address), th(value), size);
                 writeBufferInt(regSpec, reg, value, size);
                 regChanged = true;
                 break;
@@ -290,11 +290,12 @@ public class S32XMMREG implements Device {
             case SH2_HINT_CLEAR:
             case SH2_PWM_INT_CLEAR:
             case SH2_CMD_INT_CLEAR:
+            case SH2_VRES_INT_CLEAR:
                 handleIntClearWrite(cpu, regSpec.addr, value, size);
                 regChanged = true;
                 break;
             default:
-                LOG.error("{} unexpected write, addr: {}, {} {}", cpu, th(reg), th(value), size);
+                LOG.error("{} sysReg unexpected write, addr: {}, {} {}", cpu, th(reg), th(value), size);
                 writeBufferInt(regSpec, reg, value, size);
                 break;
         }
@@ -407,7 +408,7 @@ public class S32XMMREG implements Device {
                 }
             }
         } else {
-            LOG.error("Unexpected write {}, reg {}", sh2Access, regEven);
+            LOG.error("Unexpected intClear write {}, reg {}", sh2Access, regEven);
         }
     }
 
