@@ -30,8 +30,9 @@ public class Pwm implements StepDevice {
         reset();
     }
 
-    public void write(CpuDeviceAccess cpu, S32xDict.RegSpecS32x regSpec, int value, Size size) {
-        LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), size);
+    public void write(CpuDeviceAccess cpu, S32xDict.RegSpecS32x regSpec, int reg, int value, Size size) {
+//        LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), size);
+        writeBuffers(sysRegsMd, sysRegsSh2, reg, value, size);
         switch (regSpec) {
             case PWM_CTRL:
                 break;

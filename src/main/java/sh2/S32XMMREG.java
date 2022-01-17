@@ -21,8 +21,7 @@ import static sh2.S32xUtil.CpuDeviceAccess.M68K;
 import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
 import static sh2.dict.S32xDict.*;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
-import static sh2.dict.S32xDict.S32xRegType.COMM;
-import static sh2.dict.S32xDict.S32xRegType.VDP;
+import static sh2.dict.S32xDict.S32xRegType.*;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
 import static sh2.vdp.MarsVdp.VdpPriority.MD;
 import static sh2.vdp.MarsVdp.VdpPriority.S32X;
@@ -249,7 +248,7 @@ public class S32XMMREG implements Device {
                 regChanged = handleVdpRegWrite(regSpec, reg, value, size);
                 break;
             case PWM:
-                pwm.write(cpu, regSpec, value, size);
+                pwm.write(cpu, regSpec, reg, value, size);
                 break;
             case COMM:
                 regChanged = handleCommRegWrite(regSpec, reg, value, size);
@@ -656,7 +655,7 @@ public class S32XMMREG implements Device {
     }
 
     private void checkWriteLongAccess(RegSpecS32x regSpec, int reg, Size size) {
-        if (regSpec.deviceType != COMM && regSpec.deviceType != VDP && size == Size.LONG) {
+        if (regSpec.deviceType != COMM && regSpec.deviceType != VDP && regSpec.deviceType != PWM && size == Size.LONG) {
             LOG.error("unsupported 32 bit access, reg: {} {}", regSpec.name, th(reg));
             throw new RuntimeException("unsupported 32 bit access, reg: " + th(reg));
         }

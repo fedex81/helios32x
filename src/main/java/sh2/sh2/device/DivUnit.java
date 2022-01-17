@@ -53,12 +53,8 @@ public class DivUnit implements StepDevice {
             case DIV_DVDNT:
                 div32Dsp(value, size);
                 break;
-            case DIV_DVCR:
-                int val = readBuffer(regs, reg.addr, Size.WORD);
-                if ((val & (1 << DIV_OVERFLOW_INT_EN_BIT)) > 0) {
-                    LOG.error("{} Interrupt request on overflow not supported", cpu);
-                }
-                if (verbose) LOG.info("{} {} value: {} {}", cpu, reg.name, th(val), size);
+            default:
+                if (verbose) LOG.info("{} Write {} value: {} {}", cpu, reg.name, th(value), size);
                 break;
         }
     }
@@ -107,17 +103,23 @@ public class DivUnit implements StepDevice {
         int quot = dvd / dvsr;
         int rem = (int) (dvd - quot * dvsr);
         writeBufferLong(DIV_DVDNTH.addr, rem);
+        writeBufferLong(DIV_DVDNTUH.addr, rem);
         writeBufferLong(DIV_DVDNT.addr, quot);
+        writeBufferLong(DIV_DVDNTUL.addr, quot);
 //        BaseSystem.addCpuDelay(39);
     }
 
     private void handleOverflow(int quot, boolean divBy0, String msg) {
         if (verbose) LOG.info(msg);
         setBit(regs, DIV_DVCR.addr, DIV_OVERFLOW_BIT, 1, Size.LONG);
+        int dvcr = readBuffer(regs, DIV_DVCR.addr, Size.WORD);
         //TODO what happens to DVDNTL when divBy0 ?
         int val = quot > 0 ? MAX_NEG : MAX_POS;
         writeBufferLong(DIV_DVDNTL.addr, val);
         writeBufferLong(DIV_DVDNTUL.addr, val);
+        if ((dvcr & DIV_OVERFLOW_INT_EN_BIT) > 0) {
+            LOG.error("{} Interrupt request on overflow not supported", cpu);
+        }
     }
 
     @Override

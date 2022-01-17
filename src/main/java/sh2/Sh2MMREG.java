@@ -4,7 +4,6 @@ import com.google.common.collect.Maps;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.S32xUtil.*;
 import sh2.sh2.device.*;
 
 import java.nio.ByteBuffer;
@@ -75,7 +74,8 @@ public class Sh2MMREG {
         RegSpec regSpec = sh2RegMapping[reg & SH2_REG_MASK];
         if (regSpec == null) {
             LOG.error("{} unknown reg write {}: {} {}", cpu, th(reg), th(value), size);
-            writeBuffer(regs, reg & SH2_REG_MASK, value, size);
+            //VF writes a LONG to 0xFFFF_FFFF
+            tryWriteBuffer(reg, value, size);
             return;
         }
         switch (sh2RegDeviceMapping[reg & SH2_REG_MASK]) {
@@ -139,6 +139,14 @@ public class Sh2MMREG {
 
     public ByteBuffer getRegs() {
         return regs;
+    }
+
+    private void tryWriteBuffer(int reg, int value, Size size) {
+        try {
+            writeBuffer(regs, reg & SH2_REG_MASK, value, size);
+        } catch (Exception e) {
+            //do nothing
+        }
     }
 
     public void reset() {

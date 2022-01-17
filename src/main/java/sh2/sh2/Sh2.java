@@ -1075,18 +1075,14 @@ public class Sh2 implements Device {
 		long res = regM * regN;
 		res += ((ctx.MACH & 0xFFFF_FFFFL) << 32) + (ctx.MACL & 0xFFFF_FFFFL);
 		if ((ctx.SR & flagS) > 0) {
-			long posLimit = 0x7FFF_FFFF_FFFFL, negLimit = 0xFFFF_8000_0000_0000L;
-			if (res > 0 && res > posLimit) {
-				res = posLimit;
-			} else if (res < 0 && res < negLimit) {
-				res = negLimit;
+			if (res > 0x7FFF_FFFF_FFFFL) {
+				res = 0x7FFF_FFFF_FFFFL;
+			} else if (res < 0xFFFF_8000_0000_0000L) {
+				res = 0xFFFF_8000_0000_0000L;
 			}
-			ctx.MACH = (int) (res >> 32);
-			ctx.MACL = (int) (res & 0xFFFF_FFFF);
-		} else {
-			ctx.MACH = (int) (res >> 32);
-			ctx.MACL = (int) (res & 0xFFFF_FFFF);
 		}
+		ctx.MACH = (int) (res >> 32);
+		ctx.MACL = (int) (res & 0xFFFF_FFFF);
 		ctx.cycles -= 2;
 		ctx.PC += 2;
 	}
@@ -1098,11 +1094,11 @@ public class Sh2 implements Device {
 		int tempm, tempn, dest, src, ans;
 		long templ;
 
-		tempn = memory.read16i(ctx.registers[n]);
+		short rn = (short) memory.read16i(ctx.registers[n]);
 		ctx.registers[n] += 2;
-		tempm = memory.read16i(ctx.registers[m]);
+		short rm = (short) memory.read16i(ctx.registers[m]);
 		ctx.registers[m] += 2;
-		MACW(ctx, tempn, tempm);
+		MACW(ctx, rn, rm);
 	}
 
 	public static void main(String[] args) {
@@ -1115,12 +1111,56 @@ public class Sh2 implements Device {
 		ctx.SR = 2;
 		int expMACH = -1;
 		int expMACL = 0;
-		MACW(ctx, rn, rm);
+//		MACW(ctx, rn, rm);
 		System.out.println(th(ctx.MACH) + "," + th(ctx.MACL));
 	}
 
-	//TODO rewrite this
-	protected static final void MACW(Sh2Context ctx, int rn, int rm) {
+	protected static final void MACW(Sh2Context ctx, short rn, short rm) {
+		String s = "#### " + th(rn) + "," + th(rm) + "," + th(ctx.MACH) + "," + th(ctx.MACL) + ",S=" +
+				((ctx.SR & flagS) > 0);
+		int macl = ctx.MACL;
+		int mach = ctx.MACH;
+		if ((ctx.SR & flagS) > 0) { //16 x 16 + 32
+			long res = rm * rn + (long) ctx.MACL;
+			//saturation
+			if (res > 0x7FFF_FFFFL) {
+				res = 0x7FFF_FFFFL;
+				ctx.MACH |= 1;
+			} else if (res < 0xFFFF_FFFF_8000_0000L) {
+				res = 0xFFFF_FFFF_8000_0000L;
+				ctx.MACH |= 1;
+			}
+			ctx.MACL = (int) (res & 0xFFFF_FFFF);
+		} else { //16 x 16 + 64
+			long prod = rm * rn;
+			long mac = ((ctx.MACH & 0xFFFF_FFFFL) << 32) + (ctx.MACL & 0xFFFF_FFFFL);
+			long res = prod + mac;
+			ctx.MACH = (int) (res >> 32);
+			ctx.MACL = (int) (res & 0xFFFF_FFFF);
+			//overflow
+			if ((prod > 0 && mac > 0 && res < 0) || (mac < 0 && prod < 0 && res > 0)) {
+				ctx.MACH |= 1;
+			}
+		}
+		ctx.cycles -= 2;
+		ctx.PC += 2;
+//		System.out.println("1>>>>> " + th(ctx.MACH) + "," + th(ctx.MACL));
+		int c1l = ctx.MACL;
+		int c1h = ctx.MACH;
+		ctx.MACH = mach;
+		ctx.MACL = macl;
+		MACW2(ctx, rn, rm);
+		if (c1l != ctx.MACL || (c1h != ctx.MACH && ((c1l - ctx.MACH) > 1))) {
+			System.out.println(s);
+			System.out.println("NEW  >>>>> " + th(c1h) + "," + th(c1l));
+			System.out.println("PREV >>>>> " + th(ctx.MACH) + "," + th(ctx.MACL));
+			ctx.MACL = c1l;
+			ctx.MACH = c1h;
+		}
+	}
+
+	@Deprecated
+	protected static final void MACW2(Sh2Context ctx, int rn, int rm) {
 		int tempm, tempn, dest, src, ans;
 		long templ = ctx.MACL & 0xFFFF_FFFFL;
 		tempm = rm;
@@ -1170,8 +1210,9 @@ public class Sh2 implements Device {
 		if ((ctx.SR & flagS) > 0 && ovf) { //32bit ovf
 			ctx.MACH |= 1;
 		}
-		ctx.cycles -= 2;
-		ctx.PC += 2;
+//		ctx.cycles -= 2;
+//		ctx.PC += 2;
+//		System.out.println("2>>>>> " + th(ctx.MACH) + "," + th(ctx.MACL));
 	}
 
 	protected final void MULL(int code) {
