@@ -119,8 +119,8 @@ public class Pwm implements StepDevice {
                     intControls[1].setIntPending(PWM_6, true);
                     if (dreqEn) {
                         //NOTE this should trigger dmaStep on channel one for BOTH sh2s
-                        DmaC.dmaC[0].dmaReq1Trigger(1);
-                        DmaC.dmaC[1].dmaReq1Trigger(1);
+                        DmaC.dmaC[0].dmaReqTrigger(1, true);
+                        DmaC.dmaC[1].dmaReqTrigger(1, true);
                     }
                     sh2ticksToNextPwmInterrupt = interruptInterval;
                 }

@@ -74,10 +74,6 @@ public class DmaHelper {
         }
     }
 
-    public static void updateFifoDma(DmaChannelSetup chan, int srcAddress) {
-        chan.fifoDma = chan.chcr_srcMode == DmaSrcDestMode.FIXED && srcAddress == FIFO_REG_SH2;
-    }
-
     private static int getAddressDelta(DmaSrcDestMode mode, DmaTransferSize transferSize, boolean isSrc) {
         int d = mode.signMult * transferSize.byteSize;
         //NOTE: FIXED -> +16 when SRC and 16 byte transfer size
@@ -90,11 +86,12 @@ public class DmaHelper {
     public static class DmaChannelSetup {
         public int channel;
         public boolean chcr_dmaEn, chcr_intEn, chcr_autoReq;
-        public boolean dmaor_dme;
+        public boolean dmaor_dme, dreqTrigger;
         public DmaSrcDestMode chcr_destMode, chcr_srcMode;
         public DmaTransferSize chcr_transferSize;
+        @Deprecated
         public int fourWordsLeft = 4;
-        public boolean dmaInProgress, fifoDma;
+        public boolean dmaInProgress;
         public int srcDelta, destDelta;
         public Size trnSize;
 
@@ -111,7 +108,6 @@ public class DmaHelper {
                     ", chcr_transferSize=" + chcr_transferSize +
                     ", fourWordsLeft=" + fourWordsLeft +
                     ", dmaInProgress=" + dmaInProgress +
-                    ", fifoDma=" + fifoDma +
                     ", srcDelta=" + srcDelta +
                     ", destDelta=" + destDelta +
                     ", trnSize=" + trnSize +

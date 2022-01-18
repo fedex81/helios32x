@@ -294,6 +294,9 @@ public class S32XMMREG implements Device {
                 handleIntClearWrite(cpu, regSpec.addr, value, size);
                 regChanged = true;
                 break;
+            case M68K_SEGA_TV:
+                writeBufferInt(regSpec, reg, value, size);
+                break;
             default:
                 LOG.error("{} sysReg unexpected write, addr: {}, {} {}", cpu, th(reg), th(value), size);
                 writeBufferInt(regSpec, reg, value, size);

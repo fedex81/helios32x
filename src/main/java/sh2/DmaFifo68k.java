@@ -6,6 +6,7 @@ import omegadrive.vdp.model.GenesisVdpProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.dict.S32xDict.RegSpecS32x;
+import sh2.sh2.device.DmaC;
 
 import java.nio.ByteBuffer;
 
@@ -29,11 +30,12 @@ public class DmaFifo68k {
     private static final int M68K_68S_BIT_POS = 2;
     private static final int SH2_FIFO_FULL_BIT = 15;
     private static final int SH2_FIFO_EMPTY_BIT = 14;
+    private static final int DREQ0_CHANNEL = 0;
 
     private final ByteBuffer sysRegsMd, sysRegsSh2;
     private final VdpFifo fifo = VdpFifo.createInstance();
-    private boolean dmaOn = false;
-    private static final boolean verbose = false;
+    private boolean dreqOn = false;
+    private static final boolean verbose = true;
 
     public DmaFifo68k(S32XMMREG s32XMMREG) {
         this.sysRegsMd = s32XMMREG.sysRegsMd;
@@ -97,23 +99,28 @@ public class DmaFifo68k {
         boolean changed = writeBufferHasChanged(sysRegsMd, reg, value, size);
         if (changed) {
             int res = readBuffer(sysRegsMd, M68K_DMAC_CTRL.addr, Size.WORD);
-            boolean wasDmaOn = dmaOn;
-            dmaOn = (res & 4) > 0;
+            boolean wasDmaOn = dreqOn;
+            dreqOn = (res & 4) > 0;
             //sync sh2 reg
             writeBuffer(sysRegsSh2, SH2_DREQ_CTRL.addr + 1, res & 7, Size.BYTE);
-            if (verbose) LOG.info("{} write DREQ_CTL, dmaOn: {} , RV: {}", M68K, dmaOn, res & 1);
-            if (wasDmaOn && !dmaOn) {
-                LOG.error("TODO check, stop DMA");
+            if (verbose) LOG.info("{} write DREQ_CTL, dmaOn: {} , RV: {}", M68K, dreqOn, res & 1);
+            if (wasDmaOn && !dreqOn) {
+                LOG.error("TODO check, 68S = 0, stops DMA while running");
                 stopDma();
             }
+            updateFifoState();
+            //TODO hack??
+//            DmaC.dmaC[0].dmaReqTrigger(DREQ0_CHANNEL, dreqOn);
+//            DmaC.dmaC[1].dmaReqTrigger(DREQ0_CHANNEL, dreqOn);
         }
     }
 
     private void handleFifoRegWrite68k(int value) {
-        if (dmaOn) {
+        if (dreqOn) {
             if (!fifo.isFull()) {
                 fifo.push(GenesisVdpProvider.VramMode.vramWrite, 0, value);
                 updateFifoState();
+
             } else {
                 LOG.error("DMA Fifo full, discarding data");
             }
@@ -129,7 +136,7 @@ public class DmaFifo68k {
     }
 
     private void stopDma() {
-        dmaOn = false;
+        dreqOn = false;
         fifo.clear();
         dmaEnd();
     }
@@ -138,6 +145,11 @@ public class DmaFifo68k {
         boolean changed = setBit(sysRegsMd, M68K_DMAC_CTRL.addr, M68K_FIFO_FULL_BIT, fifo.isFull() ? 1 : 0, Size.WORD);
         if (changed) {
             setBit(sysRegsSh2, SH2_DREQ_CTRL.addr, SH2_FIFO_FULL_BIT, fifo.isFull() ? 1 : 0, Size.WORD);
+            //TODO hack??
+            if (fifo.isFull()) {
+                DmaC.dmaC[0].dmaReqTrigger(DREQ0_CHANNEL, dreqOn);
+                DmaC.dmaC[1].dmaReqTrigger(DREQ0_CHANNEL, dreqOn);
+            }
             if (verbose) {
                 LOG.info("68k DMA Fifo FULL state changed: {}", toHexString(sysRegsMd, M68K_DMAC_CTRL.addr, Size.WORD));
                 LOG.info("Sh2 DMA Fifo FULL state changed: {}", toHexString(sysRegsSh2, SH2_DREQ_CTRL.addr, Size.WORD));
@@ -145,6 +157,10 @@ public class DmaFifo68k {
         }
         changed = setBit(sysRegsSh2, SH2_DREQ_CTRL.addr, SH2_FIFO_EMPTY_BIT, fifo.isEmpty() ? 1 : 0, Size.WORD);
         if (changed) {
+            if (fifo.isEmpty()) {
+                DmaC.dmaC[0].dmaReqTrigger(DREQ0_CHANNEL, false);
+                DmaC.dmaC[1].dmaReqTrigger(DREQ0_CHANNEL, false);
+            }
             if (verbose)
                 LOG.info("Sh2 DMA Fifo empty state changed: {}", toHexString(sysRegsSh2, SH2_DREQ_CTRL.addr, Size.WORD));
         }
@@ -158,6 +174,15 @@ public class DmaFifo68k {
     private int readSh2(RegSpecS32x regSpec, int address, Size size) {
         if (regSpec == SH2_DREQ_CTRL) {
             return readBuffer(sysRegsSh2, address, size);
+        } else if (regSpec == SH2_FIFO_REG) {
+            int res = 0;
+            if (dreqOn && !fifo.isEmpty()) {
+                res = fifo.pop().data;
+                updateFifoState();
+            } else {
+                LOG.warn("Dreq0: {}, fifoEmpty: {}", dreqOn, fifo.isEmpty());
+            }
+            return res;
         }
         return readBuffer(sysRegsMd, address, size);
     }

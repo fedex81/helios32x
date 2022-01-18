@@ -72,7 +72,7 @@ public class DmaC implements StepDevice {
             return;
         }
         for (DmaChannelSetup c : dmaChannelSetup) {
-            if (c.dmaInProgress) {
+            if (c.dmaInProgress && (c.chcr_autoReq || c.dreqTrigger)) {
                 dmaOneStep(c);
             }
         }
@@ -118,14 +118,13 @@ public class DmaC implements StepDevice {
     }
 
     private void checkDmaStart(DmaChannelSetup chan) {
-        if (chan.chcr_dmaEn && chan.dmaor_dme) {
+        if (chan.chcr_dmaEn && chan.dmaor_dme && (chan.chcr_autoReq || chan.dreqTrigger)) {
             if (!chan.dmaInProgress) {
                 chan.dmaInProgress = true;
                 updateOneDmaInProgress();
-                DmaHelper.updateFifoDma(chan, readBufferForChannel(chan.channel, DMA_SAR0.addr, Size.LONG));
                 chan.fourWordsLeft = 4;
                 if (verbose) LOG.info("DMA start: {}", chan);
-                if (chan.fifoDma && chan.chcr_transferSize != DmaHelper.DmaTransferSize.WORD) {
+                if (chan.chcr_transferSize != DmaHelper.DmaTransferSize.WORD) {
                     LOG.error("{} Unhandled transfer size {}", cpu, chan.chcr_transferSize);
                 }
                 dmaOneStep(chan);
@@ -133,54 +132,16 @@ public class DmaC implements StepDevice {
         }
     }
 
-    //TODO
-    public void dmaReq1Trigger(int channel) {
-        DmaChannelSetup chan = dmaChannelSetup[1];
-        if (!chan.dmaInProgress) {
-            checkDmaStart(chan);
+    public void dmaReqTrigger(int channel, boolean enable) {
+        dmaChannelSetup[channel].dreqTrigger = enable;
+        if (enable) {
+            checkDmaStart(dmaChannelSetup[channel]);
         } else {
-            dmaOneStep(dmaChannelSetup[1]);
+//            dmaEnd(dmaChannelSetup[channel], false);
         }
     }
 
     private void dmaOneStep(DmaChannelSetup c) {
-        if (c.fifoDma) {
-            dmaFifo(c);
-        } else {
-            dmaSh2(c);
-        }
-    }
-
-    //TODO should dmaFifo handle transferSize != WORD? probably not
-    private void dmaFifo(DmaChannelSetup c) {
-        int len = readBufferForChannel(c.channel, DMA_TCR0.addr, Size.LONG);
-        boolean lessThanFourLeft = c.fourWordsLeft == 4 && len < c.fourWordsLeft;
-        boolean fifoFilling = !lessThanFourLeft && c.fourWordsLeft == 4 && !fifo.isFull();
-        if (c.fifoDma && (fifoFilling || fifo.isEmpty())) {
-            return;
-        }
-        c.fourWordsLeft--;
-        int srcAddress = readBufferForChannel(c.channel, DMA_SAR0.addr, Size.LONG);
-        int destAddress = readBufferForChannel(c.channel, DMA_DAR0.addr, Size.LONG);
-        long val = fifo.pop().data;
-        memory.write16i(destAddress, (int) val);
-        if (verbose)
-            LOG.info("{} DMA FIFO write, src: {}, dest: {}, val: {}, dmaLen: {}", cpu, th(srcAddress), th(destAddress),
-                    th((int) val), th(len));
-        writeBufferForChannel(c.channel, DMA_DAR0.addr, destAddress + c.destDelta, Size.LONG);
-        writeBufferForChannel(c.channel, DMA_SAR0.addr, srcAddress + c.srcDelta, Size.LONG);
-        if (c.fourWordsLeft == 0 || lessThanFourLeft) {
-            dma68k.updateFifoState();
-            c.fourWordsLeft = 4;
-            len = len < c.fourWordsLeft ? len - 1 : (len - 4) & 0xFFFF;
-            if (len == 0) {
-                dmaEnd(c, true);
-            }
-            writeBufferForChannel(c.channel, DMA_TCR0.addr, len, Size.LONG);
-        }
-    }
-
-    private void dmaSh2(DmaChannelSetup c) {
         int len = readBufferForChannel(c.channel, DMA_TCR0.addr, Size.LONG);
         int srcAddress = readBufferForChannel(c.channel, DMA_SAR0.addr, Size.LONG);
         int destAddress = readBufferForChannel(c.channel, DMA_DAR0.addr, Size.LONG);
