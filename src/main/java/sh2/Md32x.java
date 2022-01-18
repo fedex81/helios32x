@@ -12,7 +12,6 @@ import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.vdp.MarsVdp;
 import sh2.vdp.MarsVdp.MarsVdpRenderContext;
-import sh2.vdp.MarsVdpImpl;
 import sh2.vdp.debug.DebugVideoRenderContext;
 
 import java.nio.file.Path;
@@ -36,6 +35,7 @@ public class Md32x extends Genesis {
     private Md32xRuntimeData rt;
 
     //TODO StarWars Arcade doesnt boot when SH2_CYCLES_PER_STEP=3
+    //TODO Star trek needs <= 128
     static {
         SH2_CYCLES_PER_STEP = 24; //24;
         Sh2.burstCycles = SH2_CYCLES_PER_STEP;

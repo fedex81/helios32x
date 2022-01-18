@@ -56,7 +56,7 @@ public class IntControl implements StepDevice {
     private ByteBuffer regs;
     private int interruptLevel;
     private CpuDeviceAccess cpu;
-    private int dmaChannelInt = 0;
+    private int additionalIntData = 0;
 
     public IntControl(CpuDeviceAccess cpu, ByteBuffer regs) {
         sh2_int_mask = ByteBuffer.allocateDirect(2);
@@ -133,12 +133,12 @@ public class IntControl implements StepDevice {
         setIntPending(interrupt.ordinal(), isPending);
     }
 
-    public void setExternalIntPending(Sh2DeviceType deviceType, int channel, boolean isPending) {
+    public void setExternalIntPending(Sh2DeviceType deviceType, int intData, boolean isPending) {
         int level = sh2DeviceInt.get(deviceType);
         if (level > 0) {
             setIntPending(level, isPending);
-            dmaChannelInt = channel;
-            if (verbose) LOG.info("{} {}{} interrupt pending: {}", cpu, deviceType, channel, level);
+            additionalIntData = intData;
+            if (verbose) LOG.info("{} {}{} interrupt pending: {}", cpu, deviceType, intData, level);
         }
     }
 
@@ -210,16 +210,21 @@ public class IntControl implements StepDevice {
         }
         int vn = -1;
         if (verbose) LOG.info("{} {} interrupt exec: {}, vector: {}", cpu, deviceType, interruptLevel, th(vn));
+        //TODO the vector number should be coming from the device itself
         switch (deviceType) {
             case DMA:
-                vn = readBuffer(regs, INTC_VCRDMA0.addr + (dmaChannelInt << 3), Size.LONG) & 0xFF;
-                //clearInterrupt(interruptLevel);//TODO check
+                vn = readBuffer(regs, INTC_VCRDMA0.addr + (additionalIntData << 3), Size.LONG) & 0xFF;
                 break;
             case WDT:
                 vn = readBuffer(regs, INTC_VCRWDT.addr, Size.BYTE) & 0xFF;
                 break;
             case DIV:
                 vn = readBuffer(regs, INTC_VCRDIV.addr, Size.BYTE) & 0xFF;
+                break;
+            case SCI:
+                //RIE vs TIE
+                int pos = additionalIntData == 1 ? INTC_VCRA.addr + 1 : INTC_VCRB.addr;
+                vn = readBuffer(regs, pos, Size.BYTE) & 0xFF;
                 break;
             case NONE:
                 break;

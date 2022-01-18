@@ -13,6 +13,7 @@ import java.util.stream.IntStream;
 
 import static sh2.S32xUtil.*;
 import static sh2.dict.Sh2Dict.*;
+import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.SCI;
 
 /**
  * Federico Berti
@@ -135,6 +136,12 @@ public class Sh2MMREG {
             logAccess("read", reg, res, size);
         }
         checkName(reg);
+        RegSpec regSpec = sh2RegMapping[reg & SH2_REG_MASK];
+        if (regSpec != null) {
+            if (sh2RegDeviceMapping[reg & SH2_REG_MASK] == SCI) {
+                return sci.read(regSpec, size);
+            }
+        }
         return res;
     }
 
@@ -163,6 +170,7 @@ public class Sh2MMREG {
     public void deviceStep() {
         dmaC.step();
         wdt.step();
+        sci.step();
         Pwm.pwm.step();
     }
 }

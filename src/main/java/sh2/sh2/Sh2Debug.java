@@ -76,16 +76,16 @@ public class Sh2Debug extends Sh2 {
         final int[] opc = opv1[pc >> 24];
         final int prevOpcode = opc[pc & PC_AREA_MASK];
 
-        String val = " [NEW]";
-        if (prevOpcode == 0) {
+        if (prevOpcode == 0 || prevOpcode != opcode) {
             opc[pc & PC_AREA_MASK] = opcode;
             pcv[pc & PC_AREA_MASK] = 1;
-            LOG.info("{}{}", Sh2Helper.getInstString(ctx, opcode), val);
-        } else if (prevOpcode != opcode) {
-            opc[pc & PC_AREA_MASK] = opcode;
-            pcv[pc & PC_AREA_MASK] = 1;
-            val = " [NEW-R]";
-            LOG.info("{}{}", Sh2Helper.getInstString(ctx, opcode), val);
+            String val = prevOpcode != opcode ? " [NEW-R]" : " [NEW]";
+            logNewInst(Sh2Helper.getInstString(ctx, opcode), val);
         }
+    }
+
+    private void logNewInst(String s1, String s2) {
+        LOG.info("{}{}", s1, s2);
+//        System.out.println(s1 + s2);
     }
 }
