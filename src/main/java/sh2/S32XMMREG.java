@@ -581,16 +581,18 @@ public class S32XMMREG implements Device {
     public void runAutoFillInternal(ByteBuffer buffer, int startAddrWord, int data, int len) {
         int addrFixed = startAddrWord & 0xFF00;
         int addrVariable = startAddrWord & 0xFF;
-//     String s1 = "start %08X, len %04X, data %04X";
-//                    System.out.println(String.format(s1, startAddr, len, data));
-        len = len == 0 ? 0xFF : len;
-        final int dataWord = (data << 8) | data;
+        if (verbose) LOG.info("AutoFill start {}, len {}, data {}", th(startAddrWord), th(len), th(data));
+        final int dataWord = data & 0xFFFF;
+        int afsarEnd = addrFixed + (len & 0xFF);
         do {
             writeBuffer(buffer, (addrFixed + addrVariable) << 1, dataWord, Size.WORD);
+            if (verbose) LOG.info("AutoFill write(byte): {}, len(word) {}, data {}",
+                    th((addrFixed + addrVariable) << 1), th(len), th(dataWord));
             addrVariable = (addrVariable + 1) & 0xFF;
             len--;
         } while (len >= 0);
-        writeBufferWord(AFSAR, addrFixed + addrVariable);
+        writeBufferWord(AFSAR, afsarEnd);
+        if (verbose) LOG.info("AutoFill done, AFSAR {}, len {}", th(afsarEnd), th(Math.max(len, 0)));
     }
 
     public void updateVideoMode(VideoMode video) {

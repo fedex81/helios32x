@@ -16,6 +16,8 @@ import sh2.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
 
+import static sh2.S32XMMREG.START_DRAM_CACHE;
+import static sh2.S32XMMREG.START_OVER_IMAGE_CACHE;
 import static sh2.S32xUtil.readBuffer;
 import static sh2.S32xUtil.writeBuffer;
 
@@ -121,10 +123,10 @@ public class S32xBus extends GenesisBus {
             int val = bankSetShift | (address & ROM_MIRROR_MASK);
             res = readBuffer(rom, val, size);
         } else if (address >= START_FRAME_BUFFER && address < END_FRAME_BUFFER) {
-            int addr = 0x400_0000 + (address & S32XMMREG.DRAM_MASK);
+            int addr = START_DRAM_CACHE + (address & S32XMMREG.DRAM_MASK);
             res = read32xWord(addr, size);
         } else if (address >= START_OVERWRITE_IMAGE && address < END_OVERWRITE_IMAGE) {
-            int addr = 0x402_0000 + (address & S32XMMREG.DRAM_MASK);
+            int addr = START_OVER_IMAGE_CACHE + (address & S32XMMREG.DRAM_MASK);
             res = read32xWord(addr, size);
         } else if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
             int addr = (address - START_32X_SYSREG + 0x4000); //START_32X_SYSREG_CACHE;
@@ -166,10 +168,10 @@ public class S32xBus extends GenesisBus {
 
     private void writeAdapterEnOn(int address, int data, Size size) {
         if (address >= START_FRAME_BUFFER && address < END_FRAME_BUFFER) {
-            int val = 0x400_0000 + (address & S32XMMREG.DRAM_MASK);
+            int val = START_DRAM_CACHE + (address & S32XMMREG.DRAM_MASK);
             write32xWord(val, data, size);
         } else if (address >= START_OVERWRITE_IMAGE && address < END_OVERWRITE_IMAGE) {
-            int val = 0x402_0000 + (address & S32XMMREG.DRAM_MASK);
+            int val = START_OVER_IMAGE_CACHE + (address & S32XMMREG.DRAM_MASK);
             write32xWord(val, data, size);
         } else if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
             int addr = (address - START_32X_SYSREG + 0x4000); //START_32X_SYSREG_CACHE;
