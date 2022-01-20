@@ -34,7 +34,7 @@ public class VdpAutoFillTest {
         int len = 0xE3;
         int data = 0xAA;
         s32XMMREG.runAutoFillInternal(buffer, startAddr, data, len);
-        int expected = -1555711615;
+        int expected = 248042729;
         Assertions.assertEquals(expected, Arrays.hashCode(b));
     }
 
@@ -47,7 +47,7 @@ public class VdpAutoFillTest {
         int len = 0xE0;
         int data = 0xAA;
         s32XMMREG.runAutoFillInternal(buffer, startAddr, data, len);
-        int expected = -65896095;
+        int expected = 1856652043;
         Assertions.assertEquals(expected, Arrays.hashCode(b));
     }
 

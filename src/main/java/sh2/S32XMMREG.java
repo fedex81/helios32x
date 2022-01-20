@@ -225,11 +225,20 @@ public class S32XMMREG implements Device {
         if (verboseRead) {
             doLog(cpu, regSpec, address, -1, size, true);
         }
-        int res = readBufferInt(regSpec, address, size);
-        if (regSpec == SH2_INT_MASK) {
-            res = interruptControls[cpu.ordinal()].readSh2IntMaskReg(address & S32X_REG_MASK, size);
-        } else if (regSpec.deviceType == S32xRegType.DMA) {
-            res = dmaFifoControl.read(regSpec, cpu, address & S32X_REG_MASK, size);
+        int res = 0;
+        switch (regSpec.deviceType) {
+            case DMA:
+                res = dmaFifoControl.read(regSpec, cpu, address & S32X_REG_MASK, size);
+                break;
+            case PWM:
+                res = pwm.read(cpu, regSpec, address & S32X_MMREG_MASK, size);
+                break;
+            default:
+                res = readBufferInt(regSpec, address, size);
+                if (regSpec == SH2_INT_MASK) {
+                    res = interruptControls[cpu.ordinal()].readSh2IntMaskReg(address & S32X_REG_MASK, size);
+                }
+                break;
         }
         return res;
     }
@@ -591,7 +600,7 @@ public class S32XMMREG implements Device {
             addrVariable = (addrVariable + 1) & 0xFF;
             len--;
         } while (len >= 0);
-        writeBufferWord(AFSAR, afsarEnd);
+        writeBufferWord(AFSAR, addrFixed + addrVariable); //star wars arcade
         if (verbose) LOG.info("AutoFill done, AFSAR {}, len {}", th(afsarEnd), th(Math.max(len, 0)));
     }
 

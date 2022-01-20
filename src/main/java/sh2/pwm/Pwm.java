@@ -44,7 +44,11 @@ public class Pwm implements StepDevice {
     private int cycle = 0, interruptInterval;
     private int sh2TicksToNextPwmSample, sh2ticksToNextPwmInterrupt;
 
+    @Deprecated
     public static Pwm pwm;
+
+    private int fifoCountLeft = 0, fifoCountRight = 0;
+    private static final boolean verbose = false;
 
     public Pwm(S32XMMREG s32XMMREG) {
         this.sysRegsMd = s32XMMREG.sysRegsMd;
@@ -53,32 +57,60 @@ public class Pwm implements StepDevice {
         pwm = this;
     }
 
+    public int read(CpuDeviceAccess cpu, S32xDict.RegSpecS32x regSpec, int address, Size size) {
+        int res = readBuffer(sysRegsMd, address, Size.WORD);
+        switch (regSpec) {
+            case PWM_MONO:
+            case PWM_RCH_PW:
+                int full = fifoCountRight >= 3 ? 1 : 0;
+                int empty = fifoCountRight == 0 ? 1 : 0;
+                res |= (full << 15) | (empty << 14);
+                res = size == Size.BYTE ? res >> 8 : res;
+                break;
+            case PWM_LCH_PW:
+                int full1 = fifoCountLeft >= 3 ? 1 : 0;
+                int empty1 = fifoCountLeft == 0 ? 1 : 0;
+                res |= (full1 << 15) | (empty1 << 14);
+                res = size == Size.BYTE ? res >> 8 : res;
+                break;
+        }
+        if (verbose) LOG.info("{} PWM read {}: {} {}", cpu, regSpec.name, th(res), size);
+        return res;
+    }
+
     public void write(CpuDeviceAccess cpu, S32xDict.RegSpecS32x regSpec, int reg, int value, Size size) {
+        if (verbose) LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), size);
         switch (regSpec) {
             case PWM_CTRL:
-                LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), size);
                 handlePwmControl(cpu, reg, value, size);
                 break;
             case PWM_CYCLE:
-                LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), size);
+                writeBuffers(sysRegsMd, sysRegsSh2, regSpec.addr, value, size);
                 cycle = (value - 1) & 0xFFF;
                 handlePwmEnable();
                 break;
-            case PWM_LCH_PW:
+            case PWM_MONO:
+                writeBuffers(sysRegsMd, sysRegsSh2, PWM_MONO.addr, value, size);
+                writeBuffers(sysRegsMd, sysRegsSh2, PWM_RCH_PW.addr, value, size);
                 writeBuffers(sysRegsMd, sysRegsSh2, PWM_LCH_PW.addr, value, size);
+                fifoCountLeft = Math.min(3, fifoCountLeft + 1);
+                fifoCountRight = Math.min(3, fifoCountRight + 1);
+                break;
+            case PWM_LCH_PW:
+                fifoCountLeft = Math.min(3, fifoCountLeft + 1);
+                writeBuffers(sysRegsMd, sysRegsSh2, regSpec.addr, value, size);
                 break;
             case PWM_RCH_PW:
-                writeBuffers(sysRegsMd, sysRegsSh2, PWM_RCH_PW.addr, value, size);
+                fifoCountRight = Math.min(3, fifoCountRight + 1);
+                writeBuffers(sysRegsMd, sysRegsSh2, regSpec.addr, value, size);
                 break;
-            case PWM_MONO:
-                writeBuffers(sysRegsMd, sysRegsSh2, PWM_RCH_PW.addr, value, size);
-                writeBuffers(sysRegsMd, sysRegsSh2, PWM_LCH_PW.addr, value, size);
+            default:
+                writeBuffers(sysRegsMd, sysRegsSh2, regSpec.addr, value, size);
                 break;
         }
     }
 
     private void handlePwmControl(CpuDeviceAccess cpu, int reg, int value, Size size) {
-        int val = readBuffer(sysRegsMd, PWM_CTRL.addr, Size.WORD);
         switch (cpu) {
             case M68K:
                 if ((reg & 1) == 0 && size == Size.BYTE) {
@@ -114,6 +146,8 @@ public class Pwm implements StepDevice {
             if (--sh2TicksToNextPwmSample == 0) {
                 sh2TicksToNextPwmSample = cycle;
                 //                playSample();
+                fifoCountLeft = Math.max(0, fifoCountLeft - 1);
+                fifoCountRight = Math.max(0, fifoCountRight - 1);
                 if (--sh2ticksToNextPwmInterrupt == 0) {
                     intControls[0].setIntPending(PWM_6, true);
                     intControls[1].setIntPending(PWM_6, true);
