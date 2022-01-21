@@ -8,6 +8,7 @@ import omegadrive.vdp.md.GenesisVdp;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.MarsLauncherHelper.Sh2LaunchContext;
+import sh2.pwm.Pwm;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.vdp.MarsVdp;
@@ -37,7 +38,7 @@ public class Md32x extends Genesis {
     //TODO StarWars Arcade doesnt boot when SH2_CYCLES_PER_STEP=3
     //TODO Star trek needs <= 128
     static {
-        SH2_CYCLES_PER_STEP = 24; //24;
+        SH2_CYCLES_PER_STEP = 1024; //24;
         Sh2.burstCycles = SH2_CYCLES_PER_STEP;
         //3 cycles @ 23Mhz = 1 cycle @ 7.67
         SH2_CYCLE_RATIO = 3; //23.01/7.67 = 3
@@ -85,6 +86,8 @@ public class Md32x extends Genesis {
                 runFM(cnt);
                 runVdp(cnt);
                 runSh2(cnt);
+                Pwm.pwm.step();
+                Pwm.pwm.step();
                 counter++;
             } while (!futureDoneFlag);
         } catch (Exception e) {
@@ -133,12 +136,14 @@ public class Md32x extends Genesis {
         nextSSh2Cycle = Math.max(1, nextMSh2Cycle - counter);
         //NOTE Sh2s will only start at the next vblank, not immediately when aden switches
         nextSSh2Cycle = nextMSh2Cycle = ctx.s32XMMREG.aden & 1;
+        Pwm.pwm.newFrame();
     }
 
     @Override
     protected void handleCloseRom() {
         super.handleCloseRom();
         Optional.ofNullable(marsVdp).ifPresent(Device::reset);
+        Pwm.pwm.reset();
         Md32xRuntimeData.releaseInstance();
     }
 

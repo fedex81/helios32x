@@ -35,7 +35,6 @@ public class DmaC implements StepDevice {
     private final IntControl intControl;
     private final IMemory memory;
     private final DmaFifo68k dma68k;
-    private final VdpFifo fifo;
     private final CpuDeviceAccess cpu;
     private final DmaChannelSetup[] dmaChannelSetup;
     private boolean oneDmaInProgress = false;
@@ -49,7 +48,6 @@ public class DmaC implements StepDevice {
         this.memory = memory;
         this.dma68k = dma68k;
         this.intControl = intControl;
-        this.fifo = dma68k.getFifo();
         this.dmaChannelSetup = new DmaChannelSetup[]{DmaHelper.createChannel(0), DmaHelper.createChannel(1)};
         dmaC[cpu.ordinal()] = this;
     }

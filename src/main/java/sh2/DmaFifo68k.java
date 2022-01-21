@@ -1,8 +1,7 @@
 package sh2;
 
+import omegadrive.util.Fifo;
 import omegadrive.util.Size;
-import omegadrive.vdp.md.VdpFifo;
-import omegadrive.vdp.model.GenesisVdpProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.dict.S32xDict.RegSpecS32x;
@@ -31,9 +30,10 @@ public class DmaFifo68k {
     private static final int SH2_FIFO_FULL_BIT = 15;
     private static final int SH2_FIFO_EMPTY_BIT = 14;
     private static final int DREQ0_CHANNEL = 0;
+    private static final int DMA_FIFO_SIZE = 4;
 
     private final ByteBuffer sysRegsMd, sysRegsSh2;
-    private final VdpFifo fifo = VdpFifo.createInstance();
+    private final Fifo<Integer> fifo = Fifo.createIntegerFixedSizeFifo(DMA_FIFO_SIZE);
     private boolean dreqOn = false;
     private static final boolean verbose = true;
 
@@ -118,7 +118,7 @@ public class DmaFifo68k {
     private void handleFifoRegWrite68k(int value) {
         if (dreqOn) {
             if (!fifo.isFull()) {
-                fifo.push(GenesisVdpProvider.VramMode.vramWrite, 0, value);
+                fifo.push(value);
                 updateFifoState();
 
             } else {
@@ -177,7 +177,7 @@ public class DmaFifo68k {
         } else if (regSpec == SH2_FIFO_REG) {
             int res = 0;
             if (dreqOn && !fifo.isEmpty()) {
-                res = fifo.pop().data;
+                res = fifo.pop();
                 updateFifoState();
             } else {
                 LOG.warn("Dreq0: {}, fifoEmpty: {}", dreqOn, fifo.isEmpty());
@@ -185,9 +185,5 @@ public class DmaFifo68k {
             return res;
         }
         return readBuffer(sysRegsMd, address, size);
-    }
-
-    public VdpFifo getFifo() {
-        return fifo;
     }
 }

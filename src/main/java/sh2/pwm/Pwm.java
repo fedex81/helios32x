@@ -1,14 +1,22 @@
 package sh2.pwm;
 
+import omegadrive.sound.javasound.AbstractSoundManager;
+import omegadrive.util.Fifo;
 import omegadrive.util.Size;
+import omegadrive.util.SoundUtil;
+import omegadrive.util.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.S32XMMREG;
 import sh2.dict.S32xDict;
+import sh2.dict.S32xDict.RegSpecS32x;
 import sh2.sh2.device.DmaC;
 import sh2.sh2.device.IntControl;
 
+import javax.sound.sampled.SourceDataLine;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.concurrent.Future;
 
 import static sh2.S32xUtil.*;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
@@ -33,6 +41,11 @@ public class Pwm implements StepDevice {
     }
 
     private static final int chLeft = 0, chRight = 1;
+    private static final int PWM_FIFO_SIZE = 3;
+    private static final int PWM_FIFO_FULL_BIT_POS = 15;
+    private static final int PWM_FIFO_EMPTY_BIT_POS = 14;
+
+    private static final boolean ENABLE = false;
 
     private static final PwmChannelSetup[] chanVals = PwmChannelSetup.values();
 
@@ -47,39 +60,44 @@ public class Pwm implements StepDevice {
     @Deprecated
     public static Pwm pwm;
 
-    private int fifoCountLeft = 0, fifoCountRight = 0;
+    private Fifo<Integer> fifoLeft, fifoRight;
+    private int latestPwmValue = 0;
     private static final boolean verbose = false;
+
+    private SourceDataLine dataLine;
 
     public Pwm(S32XMMREG s32XMMREG) {
         this.sysRegsMd = s32XMMREG.sysRegsMd;
         this.sysRegsSh2 = s32XMMREG.sysRegsSh2;
+        this.fifoLeft = Fifo.createIntegerFixedSizeFifo(PWM_FIFO_SIZE);
+        this.fifoRight = Fifo.createIntegerFixedSizeFifo(PWM_FIFO_SIZE);
         reset();
         pwm = this;
+        dataLine = SoundUtil.createDataLine(AbstractSoundManager.audioFormat);
     }
 
-    public int read(CpuDeviceAccess cpu, S32xDict.RegSpecS32x regSpec, int address, Size size) {
-        int res = readBuffer(sysRegsMd, address, Size.WORD);
-        switch (regSpec) {
-            case PWM_MONO:
-            case PWM_RCH_PW:
-                int full = fifoCountRight >= 3 ? 1 : 0;
-                int empty = fifoCountRight == 0 ? 1 : 0;
-                res |= (full << 15) | (empty << 14);
-                res = size == Size.BYTE ? res >> 8 : res;
-                break;
-            case PWM_LCH_PW:
-                int full1 = fifoCountLeft >= 3 ? 1 : 0;
-                int empty1 = fifoCountLeft == 0 ? 1 : 0;
-                res |= (full1 << 15) | (empty1 << 14);
-                res = size == Size.BYTE ? res >> 8 : res;
-                break;
-        }
+    public int read(CpuDeviceAccess cpu, RegSpecS32x regSpec, int address, Size size) {
+        int res = readBuffer(sysRegsMd, address, size);
         if (verbose) LOG.info("{} PWM read {}: {} {}", cpu, regSpec.name, th(res), size);
         return res;
     }
 
-    public void write(CpuDeviceAccess cpu, S32xDict.RegSpecS32x regSpec, int reg, int value, Size size) {
+    public void write(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value, Size size) {
+        switch (size) {
+            case BYTE:
+            case WORD:
+                writeWord(cpu, regSpec, reg, value, size);
+                break;
+            case LONG:
+                writeWord(cpu, regSpec, reg, value >> 16, size);
+                writeWord(cpu, S32xDict.getRegSpec(cpu, regSpec.addr + 2), reg + 2, value & 0xFFFF, size);
+                break;
+        }
+    }
+
+    private void writeWord(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value, Size size) {
         if (verbose) LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), size);
+
         switch (regSpec) {
             case PWM_CTRL:
                 handlePwmControl(cpu, reg, value, size);
@@ -90,19 +108,13 @@ public class Pwm implements StepDevice {
                 handlePwmEnable();
                 break;
             case PWM_MONO:
-                writeBuffers(sysRegsMd, sysRegsSh2, PWM_MONO.addr, value, size);
-                writeBuffers(sysRegsMd, sysRegsSh2, PWM_RCH_PW.addr, value, size);
-                writeBuffers(sysRegsMd, sysRegsSh2, PWM_LCH_PW.addr, value, size);
-                fifoCountLeft = Math.min(3, fifoCountLeft + 1);
-                fifoCountRight = Math.min(3, fifoCountRight + 1);
+                writeMono(reg, value, size);
                 break;
             case PWM_LCH_PW:
-                fifoCountLeft = Math.min(3, fifoCountLeft + 1);
-                writeBuffers(sysRegsMd, sysRegsSh2, regSpec.addr, value, size);
+                writeFifo(regSpec, reg, fifoLeft, value, size);
                 break;
             case PWM_RCH_PW:
-                fifoCountRight = Math.min(3, fifoCountRight + 1);
-                writeBuffers(sysRegsMd, sysRegsSh2, regSpec.addr, value, size);
+                writeFifo(regSpec, reg, fifoRight, value, size);
                 break;
             default:
                 writeBuffers(sysRegsMd, sysRegsSh2, regSpec.addr, value, size);
@@ -115,12 +127,16 @@ public class Pwm implements StepDevice {
             case M68K:
                 if ((reg & 1) == 0 && size == Size.BYTE) {
                     LOG.warn("ignore");
+                    return;
                 }
                 writeBuffers(sysRegsMd, sysRegsSh2, PWM_CTRL.addr, value & 0xF, size);
                 channelMap[chLeft] = chanVals[value & 3];
                 channelMap[chRight] = chanVals[(value >> 2) & 3];
                 break;
             default:
+                if ((reg & 1) == 0 && size == Size.BYTE) {
+                    LOG.error("unhandled");
+                }
                 writeBuffers(sysRegsMd, sysRegsSh2, PWM_CTRL.addr, value, size);
                 dreqEn = ((value >> 7) & 1) > 0;
                 int ival = (value >> 8) & 0xF;
@@ -133,21 +149,135 @@ public class Pwm implements StepDevice {
     }
 
     private void handlePwmEnable() {
+        boolean wasEnabled = pwmEnable;
         pwmEnable = cycle > 0 && (channelMap[chLeft].isValid() || channelMap[chRight].isValid());
         if (pwmEnable) {
             sh2TicksToNextPwmSample = cycle;
             sh2ticksToNextPwmInterrupt = interruptInterval;
+            if (!wasEnabled) {
+                latestPwmValue = cycle >> 1;
+                fifoRight.clear();
+                fifoLeft.clear();
+                updateFifoRegs();
+            }
         }
+    }
+
+    private void writeFifo(RegSpecS32x regSpec, int reg, Fifo<Integer> fifo, int value, Size size) {
+        if (size == Size.BYTE) {
+            LOG.error("{} unexpected PWM write {}, reg: {}: {} {}", regSpec.name, th(reg), th(value), size);
+        }
+        if (fifo.isFull()) {
+            //TODO replace oldest
+            LOG.error("PWM FIFO push when fifo full");
+            return;
+        }
+        fifo.push(value & 0xFFF);
+        updateFifoRegs();
+    }
+
+    public int readFifo(RegSpecS32x regSpec, Fifo<Integer> fifo) {
+        if (fifo.isEmpty()) {
+            return latestPwmValue;
+        }
+        latestPwmValue = fifo.pop();
+        updateFifoRegs();
+        return latestPwmValue;
+    }
+
+    private void updateFifoRegs() {
+        int regValue = (fifoLeft.isFullBit() << PWM_FIFO_FULL_BIT_POS) | (fifoLeft.isEmptyBit() << PWM_FIFO_EMPTY_BIT_POS);
+        writeBuffers(sysRegsMd, sysRegsSh2, PWM_LCH_PW.addr, regValue, Size.WORD);
+        regValue = (fifoRight.isFullBit() << PWM_FIFO_FULL_BIT_POS) | (fifoRight.isEmptyBit() << PWM_FIFO_EMPTY_BIT_POS);
+        writeBuffers(sysRegsMd, sysRegsSh2, PWM_RCH_PW.addr, regValue, Size.WORD);
+        updateMono(PWM_RCH_PW);
+    }
+
+    private void updateMono(RegSpecS32x regSpec) {
+        int regValue = ((fifoLeft.isFullBit() | fifoRight.isFullBit()) << PWM_FIFO_FULL_BIT_POS) |
+                ((fifoLeft.isEmptyBit() & fifoRight.isEmptyBit()) << PWM_FIFO_EMPTY_BIT_POS);
+        writeBuffers(sysRegsMd, sysRegsSh2, PWM_MONO.addr, regValue, Size.WORD);
+    }
+
+    public void writeMono(int reg, int value, Size size) {
+        writeFifo(PWM_LCH_PW, reg, fifoLeft, value, size);
+        writeFifo(PWM_RCH_PW, reg, fifoRight, value, size);
+    }
+
+    int expMonoSamples44 = (int) (44100.0 / 60);
+    int expStereoSamples44 = expMonoSamples44 << 1;
+    //    int expBytesStereoSamples44 = expStereoSamples44 << 1;
+    int[] data = new int[expStereoSamples44 + 2];
+    volatile byte[][] bytes = new byte[5][data.length << 1]; //4 bytes per frame
+    int index = 0, pwmSampleIndex = 0, sampleIndex44 = 0;
+    volatile Future<Integer> f;
+    int samplesProducedFrame = 0, stepsPerFrame = 0;
+
+    private void playSample() {
+        float c = cycle;
+        int samplesPerPeriod = (int) (23_100_000.0 / (60 * cycle));
+        float scale = Short.MAX_VALUE / c;
+        int samplesPerPeriodStereo = samplesPerPeriod << 1;
+        if (samplesPerPeriodStereo > data.length) {
+            data = new int[samplesPerPeriodStereo];
+            for (int i = 0; i < bytes.length; i++) {
+                bytes[i] = new byte[data.length << 1]; //4 bytes per frame
+            }
+        }
+
+        int valL = readFifo(PWM_LCH_PW, fifoLeft);
+        int valR = readFifo(PWM_RCH_PW, fifoRight);
+        float val = (valL + valR) * scale;
+        val -= Short.MAX_VALUE;
+        short sval = (short) (val * 1.5);
+
+        data[sampleIndex44++] = sval;
+        data[sampleIndex44++] = sval;
+        data[sampleIndex44++] = sval;
+        data[sampleIndex44++] = sval;
+        pwmSampleIndex++;
+        samplesProducedFrame += 1;
+        if (pwmSampleIndex == samplesPerPeriod) {
+            if (sampleIndex44 < expStereoSamples44) {
+                Arrays.fill(data, sampleIndex44, data.length, data[sampleIndex44 - 2]);
+            }
+            pwmSampleIndex = sampleIndex44 = 0;
+            intStereo16ToByteStereo16Mix(data, bytes[index], data.length);
+            final int playIdx = index;
+            final byte[] play = bytes[playIdx];
+            index = (index + 1) % bytes.length;
+            final Future<Integer> prevF = f;
+            //TODO use one thread
+            if (ENABLE) {
+                f = Util.executorService.submit(() -> {
+                    SoundUtil.writeBufferInternal(dataLine, play, 0, data.length << 1);
+                }, playIdx);
+            }
+        }
+    }
+
+    private static void intStereo16ToByteStereo16Mix(int[] input, byte[] output, int inputLen) {
+        for (int i = 0, k = 0; i < inputLen; i += 2, k += 4) {
+            output[k] = (byte) (input[i] & 0xFF); //left lsb
+            output[k + 1] = (byte) ((input[i] >> 8) & 0xFF); //left msb
+            output[k + 2] = (byte) (input[i + 1] & 0xFF); //left lsb
+            output[k + 3] = (byte) ((input[i + 1] >> 8) & 0xFF); //left msb
+        }
+    }
+
+    public void newFrame() {
+//        LOG.info("Samples per frame: {}, stepsPerFrame: {}", samplesProducedFrame ,stepsPerFrame);
+        samplesProducedFrame = 0;
+        stepsPerFrame = 0;
     }
 
     @Override
     public void step() {
+        stepsPerFrame++;
         if (pwmEnable) {
             if (--sh2TicksToNextPwmSample == 0) {
                 sh2TicksToNextPwmSample = cycle;
-                //                playSample();
-                fifoCountLeft = Math.max(0, fifoCountLeft - 1);
-                fifoCountRight = Math.max(0, fifoCountRight - 1);
+                playSample();
                 if (--sh2ticksToNextPwmInterrupt == 0) {
                     intControls[0].setIntPending(PWM_6, true);
                     intControls[1].setIntPending(PWM_6, true);
@@ -168,5 +298,9 @@ public class Pwm implements StepDevice {
 
     @Override
     public void reset() {
+        SoundUtil.close(dataLine);
+        writeBuffers(sysRegsMd, sysRegsSh2, PWM_LCH_PW.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
+        writeBuffers(sysRegsMd, sysRegsSh2, PWM_RCH_PW.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
+        writeBuffers(sysRegsMd, sysRegsSh2, PWM_MONO.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
     }
 }
