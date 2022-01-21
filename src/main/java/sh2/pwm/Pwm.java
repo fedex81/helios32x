@@ -1,10 +1,7 @@
 package sh2.pwm;
 
-import omegadrive.sound.javasound.AbstractSoundManager;
 import omegadrive.util.Fifo;
 import omegadrive.util.Size;
-import omegadrive.util.SoundUtil;
-import omegadrive.util.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.S32XMMREG;
@@ -13,10 +10,7 @@ import sh2.dict.S32xDict.RegSpecS32x;
 import sh2.sh2.device.DmaC;
 import sh2.sh2.device.IntControl;
 
-import javax.sound.sampled.SourceDataLine;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.concurrent.Future;
 
 import static sh2.S32xUtil.*;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
@@ -45,8 +39,6 @@ public class Pwm implements StepDevice {
     private static final int PWM_FIFO_FULL_BIT_POS = 15;
     private static final int PWM_FIFO_EMPTY_BIT_POS = 14;
 
-    private static final boolean ENABLE = false;
-
     private static final PwmChannelSetup[] chanVals = PwmChannelSetup.values();
 
     private ByteBuffer sysRegsMd, sysRegsSh2;
@@ -56,6 +48,7 @@ public class Pwm implements StepDevice {
     private boolean pwmEnable, dreqEn;
     private int cycle = 0, interruptInterval;
     private int sh2TicksToNextPwmSample, sh2ticksToNextPwmInterrupt;
+    private int pwmSamplesPerFrame = 0, stepsPerFrame = 0;
 
     @Deprecated
     public static Pwm pwm;
@@ -63,17 +56,16 @@ public class Pwm implements StepDevice {
     private Fifo<Integer> fifoLeft, fifoRight;
     private int latestPwmValue = 0;
     private static final boolean verbose = false;
-
-    private SourceDataLine dataLine;
+    private PwmPlaySupport playSupport;
 
     public Pwm(S32XMMREG s32XMMREG) {
         this.sysRegsMd = s32XMMREG.sysRegsMd;
         this.sysRegsSh2 = s32XMMREG.sysRegsSh2;
         this.fifoLeft = Fifo.createIntegerFixedSizeFifo(PWM_FIFO_SIZE);
         this.fifoRight = Fifo.createIntegerFixedSizeFifo(PWM_FIFO_SIZE);
-        reset();
+        this.playSupport = new PwmPlaySupport();
         pwm = this;
-        dataLine = SoundUtil.createDataLine(AbstractSoundManager.audioFormat);
+        init();
     }
 
     public int read(CpuDeviceAccess cpu, RegSpecS32x regSpec, int address, Size size) {
@@ -154,13 +146,20 @@ public class Pwm implements StepDevice {
         if (pwmEnable) {
             sh2TicksToNextPwmSample = cycle;
             sh2ticksToNextPwmInterrupt = interruptInterval;
-            if (!wasEnabled) {
-                latestPwmValue = cycle >> 1;
-                fifoRight.clear();
-                fifoLeft.clear();
-                updateFifoRegs();
-            }
+            latestPwmValue = cycle >> 1;
+            resetFifo();
+            updateFifoRegs();
+            playSupport.updatePwmCycle(cycle);
         }
+    }
+
+    private void resetFifo() {
+        fifoRight.clear();
+        fifoLeft.clear();
+        do {
+            fifoLeft.push(latestPwmValue);
+            fifoRight.push(latestPwmValue);
+        } while (!fifoLeft.isFull());
     }
 
     private void writeFifo(RegSpecS32x regSpec, int reg, Fifo<Integer> fifo, int value, Size size) {
@@ -204,70 +203,9 @@ public class Pwm implements StepDevice {
         writeFifo(PWM_RCH_PW, reg, fifoRight, value, size);
     }
 
-    int expMonoSamples44 = (int) (44100.0 / 60);
-    int expStereoSamples44 = expMonoSamples44 << 1;
-    //    int expBytesStereoSamples44 = expStereoSamples44 << 1;
-    int[] data = new int[expStereoSamples44 + 2];
-    volatile byte[][] bytes = new byte[5][data.length << 1]; //4 bytes per frame
-    int index = 0, pwmSampleIndex = 0, sampleIndex44 = 0;
-    volatile Future<Integer> f;
-    int samplesProducedFrame = 0, stepsPerFrame = 0;
-
-    private void playSample() {
-        float c = cycle;
-        int samplesPerPeriod = (int) (23_100_000.0 / (60 * cycle));
-        float scale = Short.MAX_VALUE / c;
-        int samplesPerPeriodStereo = samplesPerPeriod << 1;
-        if (samplesPerPeriodStereo > data.length) {
-            data = new int[samplesPerPeriodStereo];
-            for (int i = 0; i < bytes.length; i++) {
-                bytes[i] = new byte[data.length << 1]; //4 bytes per frame
-            }
-        }
-
-        int valL = readFifo(PWM_LCH_PW, fifoLeft);
-        int valR = readFifo(PWM_RCH_PW, fifoRight);
-        float val = (valL + valR) * scale;
-        val -= Short.MAX_VALUE;
-        short sval = (short) (val * 1.5);
-
-        data[sampleIndex44++] = sval;
-        data[sampleIndex44++] = sval;
-        data[sampleIndex44++] = sval;
-        data[sampleIndex44++] = sval;
-        pwmSampleIndex++;
-        samplesProducedFrame += 1;
-        if (pwmSampleIndex == samplesPerPeriod) {
-            if (sampleIndex44 < expStereoSamples44) {
-                Arrays.fill(data, sampleIndex44, data.length, data[sampleIndex44 - 2]);
-            }
-            pwmSampleIndex = sampleIndex44 = 0;
-            intStereo16ToByteStereo16Mix(data, bytes[index], data.length);
-            final int playIdx = index;
-            final byte[] play = bytes[playIdx];
-            index = (index + 1) % bytes.length;
-            final Future<Integer> prevF = f;
-            //TODO use one thread
-            if (ENABLE) {
-                f = Util.executorService.submit(() -> {
-                    SoundUtil.writeBufferInternal(dataLine, play, 0, data.length << 1);
-                }, playIdx);
-            }
-        }
-    }
-
-    private static void intStereo16ToByteStereo16Mix(int[] input, byte[] output, int inputLen) {
-        for (int i = 0, k = 0; i < inputLen; i += 2, k += 4) {
-            output[k] = (byte) (input[i] & 0xFF); //left lsb
-            output[k + 1] = (byte) ((input[i] >> 8) & 0xFF); //left msb
-            output[k + 2] = (byte) (input[i + 1] & 0xFF); //left lsb
-            output[k + 3] = (byte) ((input[i + 1] >> 8) & 0xFF); //left msb
-        }
-    }
-
     public void newFrame() {
 //        LOG.info("Samples per frame: {}, stepsPerFrame: {}", samplesProducedFrame ,stepsPerFrame);
-        samplesProducedFrame = 0;
+        pwmSamplesPerFrame = 0;
         stepsPerFrame = 0;
     }
 
@@ -277,7 +215,8 @@ public class Pwm implements StepDevice {
         if (pwmEnable) {
             if (--sh2TicksToNextPwmSample == 0) {
                 sh2TicksToNextPwmSample = cycle;
-                playSample();
+                pwmSamplesPerFrame++;
+                playSupport.playSample(readFifo(PWM_LCH_PW, fifoLeft), readFifo(PWM_RCH_PW, fifoRight));
                 if (--sh2ticksToNextPwmInterrupt == 0) {
                     intControls[0].setIntPending(PWM_6, true);
                     intControls[1].setIntPending(PWM_6, true);
@@ -297,10 +236,16 @@ public class Pwm implements StepDevice {
     }
 
     @Override
-    public void reset() {
-        SoundUtil.close(dataLine);
+    public void init() {
         writeBuffers(sysRegsMd, sysRegsSh2, PWM_LCH_PW.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
         writeBuffers(sysRegsMd, sysRegsSh2, PWM_RCH_PW.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
         writeBuffers(sysRegsMd, sysRegsSh2, PWM_MONO.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
+    }
+
+    @Override
+    public void reset() {
+        init();
+        playSupport.close();
+        LOG.info("PWM reset done");
     }
 }
