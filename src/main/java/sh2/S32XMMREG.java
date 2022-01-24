@@ -130,7 +130,7 @@ public class S32XMMREG implements Device {
         writeBufferWord(FBCR, val);
         if (hBlankOn) {
             int hCnt = readWordFromBuffer(SH2_HCOUNT_REG);
-            if (--vdpContext.hCount < 0) {
+            if (!vdpContext.vBlankOn && --vdpContext.hCount < 0) {
                 vdpContext.hCount = readWordFromBuffer(SH2_HCOUNT_REG) & 0xFF;
                 interruptControls[0].setIntPending(HINT_10, true);
                 interruptControls[1].setIntPending(HINT_10, true);
