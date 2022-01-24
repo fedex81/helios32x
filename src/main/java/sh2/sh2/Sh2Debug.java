@@ -69,17 +69,18 @@ public class Sh2Debug extends Sh2 {
 
     private void printNewInst(Sh2Context ctx, int opcode) {
         final int pc = ctx.PC;
+        final int pcArea = (pc >> 24) & 0xFF;
         final int c = ctx.cpuAccess.ordinal();
         int[][] pcv1 = ctx.cpuAccess == S32xUtil.CpuDeviceAccess.MASTER ? pcVisitedMaster : pcVisitedSlave;
         int[][] opv1 = ctx.cpuAccess == S32xUtil.CpuDeviceAccess.MASTER ? opcodesMaster : opcodesSlave;
-        final int[] pcv = pcv1[pc >> 24];
-        final int[] opc = opv1[pc >> 24];
+        final int[] pcv = pcv1[pcArea];
+        final int[] opc = opv1[pcArea];
         final int prevOpcode = opc[pc & PC_AREA_MASK];
 
         if (prevOpcode == 0 || prevOpcode != opcode) {
             opc[pc & PC_AREA_MASK] = opcode;
             pcv[pc & PC_AREA_MASK] = 1;
-            String val = prevOpcode != opcode ? " [NEW-R]" : " [NEW]";
+            String val = prevOpcode == 0 ? " [NEW]" : " [NEW-R]";
             logNewInst(Sh2Helper.getInstString(ctx, opcode), val);
         }
     }

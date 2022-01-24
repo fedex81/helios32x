@@ -35,7 +35,7 @@ public class DmaFifo68k {
     private final ByteBuffer sysRegsMd, sysRegsSh2;
     private final Fifo<Integer> fifo = Fifo.createIntegerFixedSizeFifo(DMA_FIFO_SIZE);
     private boolean dreqOn = false;
-    private static final boolean verbose = true;
+    private static final boolean verbose = false;
 
     public DmaFifo68k(S32XMMREG s32XMMREG) {
         this.sysRegsMd = s32XMMREG.sysRegsMd;
@@ -157,6 +157,7 @@ public class DmaFifo68k {
         }
         changed = setBit(sysRegsSh2, SH2_DREQ_CTRL.addr, SH2_FIFO_EMPTY_BIT, fifo.isEmpty() ? 1 : 0, Size.WORD);
         if (changed) {
+            //TODO hack
             if (fifo.isEmpty()) {
                 DmaC.dmaC[0].dmaReqTrigger(DREQ0_CHANNEL, false);
                 DmaC.dmaC[1].dmaReqTrigger(DREQ0_CHANNEL, false);

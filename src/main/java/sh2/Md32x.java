@@ -38,11 +38,14 @@ public class Md32x extends Genesis {
     //TODO StarWars Arcade doesnt boot when SH2_CYCLES_PER_STEP=3
     //TODO Star trek needs <= 128
     static {
-        SH2_CYCLES_PER_STEP = 1024; //24;
+        SH2_CYCLES_PER_STEP = 128; //24;
         Sh2.burstCycles = SH2_CYCLES_PER_STEP;
         //3 cycles @ 23Mhz = 1 cycle @ 7.67
         SH2_CYCLE_RATIO = 3; //23.01/7.67 = 3
 //        System.setProperty("68k.debug", "true");
+//        System.setProperty("z80.debug", "true");
+//        System.setProperty("sh2.master.debug", "true");
+//        System.setProperty("sh2.slave.debug", "true");
     }
 
     private int nextMSh2Cycle = 0, nextSSh2Cycle = 0;
@@ -79,8 +82,6 @@ public class Md32x extends Genesis {
         try {
             do {
                 cnt = counter;
-//                slaveCtx.debug = true;
-//                masterCtx.debug = true;
                 run68k(cnt);
                 runZ80(cnt);
                 runFM(cnt);

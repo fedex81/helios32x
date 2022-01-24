@@ -28,6 +28,9 @@ public class MarsLauncherHelper {
     static String slaveBiosName = "32x_bios_s.bin";
     static String mdBiosName = "32x_bios_g.bin";
 
+    static final boolean masterDebug = Boolean.parseBoolean(System.getProperty("sh2.master.debug", "false"));
+    static final boolean slaveDebug = Boolean.parseBoolean(System.getProperty("sh2.slave.debug", "false"));
+
 //    static String masterBiosName = "32x_hbrew_bios_m.bin";
 //    static String slaveBiosName = "32x_hbrew_bios_s.bin";
 //    static String mdBiosName = "32x_hbrew_bios_g.bin";
@@ -43,7 +46,9 @@ public class MarsLauncherHelper {
     public static Sh2LaunchContext setupRom(S32xBus bus, Path romFile) {
         Sh2LaunchContext ctx = new Sh2LaunchContext();
         ctx.masterCtx = new Sh2Context(MASTER);
+        ctx.masterCtx.debug = masterDebug;
         ctx.slaveCtx = new Sh2Context(SLAVE);
+        ctx.slaveCtx.debug = slaveDebug;
         ctx.biosHolder = initBios();
         ctx.bus = bus;
         ctx.rom = ByteBuffer.wrap(FileUtil.readBinaryFile(romFile, SystemLoader.s32xBinaryTypes));
@@ -55,7 +60,7 @@ public class MarsLauncherHelper {
         ctx.mDevCtx = Sh2DeviceHelper.createDevices(MASTER, ctx);
         ctx.sDevCtx = Sh2DeviceHelper.createDevices(SLAVE, ctx);
         ctx.sh2 = (ctx.masterCtx.debug || ctx.slaveCtx.debug) ?
-                new Sh2(ctx.memory) : new Sh2Debug(ctx.memory);
+                new Sh2Debug(ctx.memory) : new Sh2(ctx.memory);
         ctx.pwm = new Pwm(ctx.s32XMMREG);
         ctx.masterCtx.devices = ctx.mDevCtx;
         ctx.slaveCtx.devices = ctx.sDevCtx;

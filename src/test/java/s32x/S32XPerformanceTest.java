@@ -1,8 +1,6 @@
 package s32x;
 
 import omegadrive.SystemLoader;
-import omegadrive.cpu.m68k.MC68000Helper;
-import omegadrive.cpu.m68k.MC68000WrapperDebug;
 import omegadrive.input.InputProvider;
 import omegadrive.system.BaseSystem;
 import omegadrive.system.SystemProvider;
@@ -82,17 +80,7 @@ public class S32XPerformanceTest {
     }
 
     private void hitCounter(int startFrame, int endFrame) {
-        if (!MC68000Helper.M68K_DEBUG) {
-            return;
-        }
-        if (MC68000WrapperDebug.countHits) {
-            MC68000WrapperDebug.dumpHitCounter();
-        }
-        if (sampleCnt == startFrame) {
-            MC68000WrapperDebug.countHits = true;
-        } else if (sampleCnt == endFrame) {
-            MC68000WrapperDebug.countHits = false;
-        }
+        return;
     }
 
     protected GenesisVdp getVdpProvider(SystemProvider systemProvider) throws Exception {

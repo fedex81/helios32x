@@ -9,10 +9,15 @@ import org.apache.logging.log4j.Logger;
 
 import javax.sound.sampled.SourceDataLine;
 import java.util.Arrays;
-import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+import static sh2.S32xUtil.th;
+import static sh2.pwm.Pwm.CYCLE_LIMIT;
 
 /**
  * Federico Berti
@@ -46,22 +51,26 @@ public class PwmPlaySupport {
 
     private final SourceDataLine dataLine;
     private final ExecutorService executorService;
-    private final CyclicBarrier barrier;
+    private final ReentrantLock lock;
+    private final Condition dataReady;
+    private boolean shouldPlay;
 
     public PwmPlaySupport() {
         executorService = Executors.newSingleThreadExecutor(new PriorityThreadFactory("pwm"));
-        barrier = new CyclicBarrier(2);
+        lock = new ReentrantLock();
+        dataReady = lock.newCondition();
         dataLine = SoundUtil.createDataLine(AbstractSoundManager.audioFormat);
-        executorService.submit(createRunnable(dataLine, bytes, barrier));
+        executorService.submit(createRunnable(dataLine, bytes));
     }
 
-    private Runnable createRunnable(final SourceDataLine line, final byte[][] buffers, final CyclicBarrier barr) {
+    private Runnable createRunnable(final SourceDataLine line, final byte[][] buffers) {
         return () -> {
             Util.sleep(50);
-            barr.reset();
+            final Lock l = lock;
+            final Condition c = dataReady;
             close = false;
             do {
-                Util.waitOnBarrier(barr);
+                Util.waitOnCondition(l, c);
                 final int idx = playIndex.get();
                 SoundUtil.writeBufferInternal(line, buffers[idx], 0, buffers[idx].length);
             } while (!close);
@@ -82,14 +91,19 @@ public class PwmPlaySupport {
                 bytes[i] = new byte[data.length << 1]; //4 bytes per frame
             }
         }
+        shouldPlay = cycle >= CYCLE_LIMIT;
+        if (!shouldPlay) {
+            LOG.warn("Not playing any sound, PWM cycle not supported: {}, limit: {}", cycle, CYCLE_LIMIT);
+        }
     }
 
     public void playSample(int left, int right) {
         int val = (int) (((left + right) >> 1) * scale - Short.MAX_VALUE);
-        if (val > Short.MAX_VALUE || val < Short.MIN_VALUE) {
-            LOG.error("Oops: {}", val);
-        }
         short sval = (short) val;
+        if (sval != val) {
+            LOG.error("PWM value out of range (16 bit signed): {}", th(val));
+            sval = (short) Math.min(Math.max(val, Short.MIN_VALUE), Short.MAX_VALUE);
+        }
         data[sampleIndex44++] = sval;
         data[sampleIndex44++] = sval;
         data[sampleIndex44++] = sval;
@@ -108,8 +122,12 @@ public class PwmPlaySupport {
                 LOG.warn("playIndex prev: {}, now: {}", prev, bufferIndex);
             }
             bufferIndex = (bufferIndex + 1) % NUM_BUFFERS;
-            if (ENABLE && !close) {
-                Util.waitOnBarrier(barrier);
+            if (ENABLE && shouldPlay && !close) {
+                boolean ok = Util.trySignalCondition(lock, dataReady);
+                if (!ok) {
+                    LOG.error("Pwm thread not ready!");
+                    shouldPlay = false;
+                }
             }
         }
     }
