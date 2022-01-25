@@ -8,7 +8,6 @@ import sh2.IMemory;
 import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
 
-import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.th;
 
 /*
@@ -1086,37 +1085,20 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	//TODO Shadow Squadron ~ Stellar Assault
+	//TODO test Shadow Squadron ~ Stellar Assault, VR deluxe
 	protected final void MACW(int code) {
-		int m = RM(code);
-		int n = RN(code);
-		int tempm, tempn, dest, src, ans;
-		long templ;
-
-		short rn = (short) memory.read16i(ctx.registers[n]);
+		final int m = RM(code);
+		final int n = RN(code);
+		final short rn = (short) memory.read16i(ctx.registers[n]);
 		ctx.registers[n] += 2;
-		short rm = (short) memory.read16i(ctx.registers[m]);
+		final short rm = (short) memory.read16i(ctx.registers[m]);
 		ctx.registers[m] += 2;
 		MACW(ctx, rn, rm);
 	}
 
-	public static void main(String[] args) {
-		Sh2Context ctx = new Sh2Context(MASTER);
-		// 1,ffffffff,ffffffff,80000000,S=true
-		int rn = 1;
-		int rm = 0xFFFF;
-		ctx.MACH = 0xffffffff;
-		ctx.MACL = 0x80000000;
-		ctx.SR = 2;
-		int expMACH = -1;
-		int expMACL = 0;
-//		MACW(ctx, rn, rm);
-		System.out.println(th(ctx.MACH) + "," + th(ctx.MACL));
-	}
-
 	protected static final void MACW(Sh2Context ctx, short rn, short rm) {
-		String s = "#### " + th(rn) + "," + th(rm) + "," + th(ctx.MACH) + "," + th(ctx.MACL) + ",S=" +
-				((ctx.SR & flagS) > 0);
+//		String s = "#### " + th(rn) + "," + th(rm) + "," + th(ctx.MACH) + "," + th(ctx.MACL) + ",S=" +
+//				((ctx.SR & flagS) > 0);
 		int macl = ctx.MACL;
 		int mach = ctx.MACH;
 		if ((ctx.SR & flagS) > 0) { //16 x 16 + 32
@@ -1144,74 +1126,6 @@ public class Sh2 implements Device {
 		ctx.cycles -= 2;
 		ctx.PC += 2;
 //		System.out.println("1>>>>> " + th(ctx.MACH) + "," + th(ctx.MACL));
-		int c1l = ctx.MACL;
-		int c1h = ctx.MACH;
-		ctx.MACH = mach;
-		ctx.MACL = macl;
-		MACW2(ctx, rn, rm);
-		if (c1l != ctx.MACL || (c1h != ctx.MACH && ((c1l - ctx.MACH) > 1))) {
-			System.out.println(s);
-			System.out.println("NEW  >>>>> " + th(c1h) + "," + th(c1l));
-			System.out.println("PREV >>>>> " + th(ctx.MACH) + "," + th(ctx.MACL));
-			ctx.MACL = c1l;
-			ctx.MACH = c1h;
-		}
-	}
-
-	@Deprecated
-	protected static final void MACW2(Sh2Context ctx, int rn, int rm) {
-		int tempm, tempn, dest, src, ans;
-		long templ = ctx.MACL & 0xFFFF_FFFFL;
-		tempm = rm;
-		tempn = rn;
-//		System.out.println("#### " + th(tempn) + "," + th(tempm) + "," + th(ctx.MACH) + "," + th(ctx.MACL) + ",S=" +
-//				((ctx.SR & flagS) > 0));
-		tempm = ((int) (short) tempn * (int) (short) tempm);
-		int preMacl = ctx.MACL;
-
-		if (ctx.MACL >= 0)
-			dest = 0;
-		else
-			dest = 1;
-
-		if (tempm >= 0) {
-			src = 0;
-			tempn = 0;
-		} else {
-			src = 1;
-			tempn = 0xFFFFFFFF;
-		}
-
-		src += dest;
-		int preM = ctx.MACL;
-		ctx.MACL += tempm;
-		boolean ovf = preM < 0 && ctx.MACL > 0 || preM > 0 && ctx.MACL < 0;
-
-		if (ctx.MACL >= 0)
-			ans = 0;
-		else
-			ans = 1;
-
-		ans += dest;
-
-		if ((ctx.SR & flagS) > 0) {
-			if (ans == 1) {
-				if (src == 0) ctx.MACL = 0x7FFFFFFF;
-				if (src == 2) ctx.MACL = 0x80000000;
-				ovf |= preM < 0 && src == 0 || preM > 0 && src == 2;
-			}
-		} else {
-			ctx.MACH += tempn;
-			if (ctx.MACL >= 0 && templ > ctx.MACL)  //overflow check?
-				ctx.MACH += 1;
-		}
-		int postMacl = ctx.MACL;
-		if ((ctx.SR & flagS) > 0 && ovf) { //32bit ovf
-			ctx.MACH |= 1;
-		}
-//		ctx.cycles -= 2;
-//		ctx.PC += 2;
-//		System.out.println("2>>>>> " + th(ctx.MACH) + "," + th(ctx.MACL));
 	}
 
 	protected final void MULL(int code) {
