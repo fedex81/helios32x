@@ -8,7 +8,6 @@ import sh2.IMemory;
 import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
 
-import static omegadrive.util.Util.toHex;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.th;
 
@@ -82,7 +81,7 @@ public class Sh2 implements Device {
 		ctx.SR = flagIMASK;
 		ctx.registers[15] = memory.read32i(4); //SP
 		ctx.cycles = burstCycles;
-		LOG.info("{} Reset, PC: {}, SP: {}", ctx.cpuAccess, toHex(ctx.PC), toHex(ctx.registers[15]));
+		LOG.info("{} Reset, PC: {}, SP: {}", ctx.cpuAccess, th(ctx.PC), th(ctx.registers[15]));
 	}
 
 	private boolean intClearNext = false;

@@ -62,7 +62,7 @@ public final class Sh2Memory implements IMemory {
 		this.rom = rom;
 		romSize = rom.capacity();
 		romMask = (int) Math.pow(2, Util.log2(romSize) + 1) - 1;
-		LOG.info("Rom size: {}, mask: {}", Util.toHex(romSize), Util.toHex(romMask));
+		LOG.info("Rom size: {}, mask: {}", th(romSize), th(romMask));
 	}
 
 	private Sh2Memory() {
