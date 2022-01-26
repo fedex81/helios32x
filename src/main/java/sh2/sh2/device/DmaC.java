@@ -1,7 +1,6 @@
 package sh2.sh2.device;
 
 import omegadrive.util.Size;
-import omegadrive.vdp.md.VdpFifo;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.DmaFifo68k;
@@ -120,12 +119,7 @@ public class DmaC implements StepDevice {
             if (!chan.dmaInProgress) {
                 chan.dmaInProgress = true;
                 updateOneDmaInProgress();
-                chan.fourWordsLeft = 4;
-                if (verbose) LOG.info("DMA start: {}", chan);
-                if (chan.chcr_transferSize != DmaHelper.DmaTransferSize.WORD) {
-                    LOG.error("{} Unhandled transfer size {}", cpu, chan.chcr_transferSize);
-                }
-                dmaOneStep(chan);
+                if (verbose) LOG.info("{} DMA start: {}", cpu, chan);
             }
         }
     }
@@ -134,31 +128,40 @@ public class DmaC implements StepDevice {
         dmaChannelSetup[channel].dreqTrigger = enable;
         if (enable) {
             checkDmaStart(dmaChannelSetup[channel]);
-        } else {
-//            dmaEnd(dmaChannelSetup[channel], false);
         }
     }
 
     private void dmaOneStep(DmaChannelSetup c) {
-        int len = readBufferForChannel(c.channel, DMA_TCR0.addr, Size.LONG);
+        int len = readBufferForChannel(c.channel, DMA_TCR0.addr, Size.LONG) & 0x00FF_FFFF;
         int srcAddress = readBufferForChannel(c.channel, DMA_SAR0.addr, Size.LONG);
         int destAddress = readBufferForChannel(c.channel, DMA_DAR0.addr, Size.LONG);
-        int val = memory.read(srcAddress, c.trnSize);
-        memory.write(destAddress, val, c.trnSize);
-        writeBufferForChannel(c.channel, DMA_DAR0.addr, destAddress + c.destDelta, Size.LONG);
-        writeBufferForChannel(c.channel, DMA_SAR0.addr, srcAddress + c.srcDelta, Size.LONG);
-        len = (len - 1) & 0xFFFF;
-        if (verbose) LOG.info("DMA write, src: {}, dest: {}, val: {}, dmaLen: {}", th(srcAddress), th(destAddress),
-                th((int) val), th(len));
-        if (len == 0) {
+        int steps = c.transfersPerStep;
+        do {
+            int val = memory.read(srcAddress, c.trnSize);
+            memory.write(destAddress, val, c.trnSize);
+            if (verbose)
+                LOG.info("{} DMA write, src: {}, dest: {}, val: {}, dmaLen: {}", cpu, th(srcAddress), th(destAddress),
+                        th((int) val), th(len));
+            srcAddress += c.srcDelta;
+            destAddress += c.destDelta;
+            len = (len - 1) & 0xFFFF;
+        } while (--steps > 0 && len > 0);
+        writeBufferForChannel(c.channel, DMA_DAR0.addr, destAddress, Size.LONG);
+        writeBufferForChannel(c.channel, DMA_SAR0.addr, srcAddress, Size.LONG);
+
+        if (len <= 0) {
+            if (verbose)
+                LOG.info("{} DMA end, src: {}, dest: {}, dmaLen: {}", cpu, th(srcAddress), th(destAddress), th(len));
             dmaEnd(c, true);
+            len = 0;
         }
-        writeBufferForChannel(c.channel, DMA_TCR0.addr, len, Size.LONG);
+        writeBufferForChannel(c.channel, DMA_TCR0.addr, Math.max(len, 0), Size.LONG);
     }
 
     private void dmaEnd(DmaChannelSetup c, boolean normal) {
         if (c.dmaInProgress) {
             c.dmaInProgress = false;
+            c.dreqTrigger = false;
             updateOneDmaInProgress();
             dma68k.dmaEnd();
             //transfer ended normally, ie. TCR = 0

@@ -34,7 +34,7 @@ public class DmaFifo68k {
 
     private final ByteBuffer sysRegsMd, sysRegsSh2;
     private final Fifo<Integer> fifo = Fifo.createIntegerFixedSizeFifo(DMA_FIFO_SIZE);
-    private boolean dreqOn = false;
+    private boolean m68S = false;
     private static final boolean verbose = false;
 
     public DmaFifo68k(S32XMMREG s32XMMREG) {
@@ -90,7 +90,9 @@ public class DmaFifo68k {
                 writeBuffer(sysRegsMd, address, value, size);
                 writeBuffer(sysRegsSh2, address, value, size);
                 break;
-
+            default:
+                LOG.error("{} check DMA write {}: {} {}", M68K, regSpec.name, th(value), size);
+                break;
         }
         writeBuffer(sysRegsMd, address, value, size);
     }
@@ -99,28 +101,24 @@ public class DmaFifo68k {
         boolean changed = writeBufferHasChanged(sysRegsMd, reg, value, size);
         if (changed) {
             int res = readBuffer(sysRegsMd, M68K_DMAC_CTRL.addr, Size.WORD);
-            boolean wasDmaOn = dreqOn;
-            dreqOn = (res & 4) > 0;
+            boolean wasDmaOn = m68S;
+            m68S = (res & 4) > 0;
             //sync sh2 reg
             writeBuffer(sysRegsSh2, SH2_DREQ_CTRL.addr + 1, res & 7, Size.BYTE);
-            if (verbose) LOG.info("{} write DREQ_CTL, dmaOn: {} , RV: {}", M68K, dreqOn, res & 1);
-            if (wasDmaOn && !dreqOn) {
+            if (verbose) LOG.info("{} write DREQ_CTL, dmaOn: {} , RV: {}", M68K, m68S, res & 1);
+            if (wasDmaOn && !m68S) {
                 LOG.error("TODO check, 68S = 0, stops DMA while running");
                 stopDma();
             }
             updateFifoState();
-            //TODO hack??
-//            DmaC.dmaC[0].dmaReqTrigger(DREQ0_CHANNEL, dreqOn);
-//            DmaC.dmaC[1].dmaReqTrigger(DREQ0_CHANNEL, dreqOn);
         }
     }
 
     private void handleFifoRegWrite68k(int value) {
-        if (dreqOn) {
+        if (m68S) {
             if (!fifo.isFull()) {
                 fifo.push(value);
                 updateFifoState();
-
             } else {
                 LOG.error("DMA Fifo full, discarding data");
             }
@@ -136,34 +134,35 @@ public class DmaFifo68k {
     }
 
     private void stopDma() {
-        dreqOn = false;
+        m68S = false;
         fifo.clear();
         dmaEnd();
     }
 
     public void updateFifoState() {
-        boolean changed = setBit(sysRegsMd, M68K_DMAC_CTRL.addr, M68K_FIFO_FULL_BIT, fifo.isFull() ? 1 : 0, Size.WORD);
+        boolean changed = setBit(sysRegsMd, M68K_DMAC_CTRL.addr, M68K_FIFO_FULL_BIT, fifo.isFullBit(), Size.WORD);
         if (changed) {
             setBit(sysRegsSh2, SH2_DREQ_CTRL.addr, SH2_FIFO_FULL_BIT, fifo.isFull() ? 1 : 0, Size.WORD);
-            //TODO hack??
-            if (fifo.isFull()) {
-                DmaC.dmaC[0].dmaReqTrigger(DREQ0_CHANNEL, dreqOn);
-                DmaC.dmaC[1].dmaReqTrigger(DREQ0_CHANNEL, dreqOn);
-            }
             if (verbose) {
                 LOG.info("68k DMA Fifo FULL state changed: {}", toHexString(sysRegsMd, M68K_DMAC_CTRL.addr, Size.WORD));
                 LOG.info("Sh2 DMA Fifo FULL state changed: {}", toHexString(sysRegsSh2, SH2_DREQ_CTRL.addr, Size.WORD));
             }
+            evaluateDreqTrigger();
         }
-        changed = setBit(sysRegsSh2, SH2_DREQ_CTRL.addr, SH2_FIFO_EMPTY_BIT, fifo.isEmpty() ? 1 : 0, Size.WORD);
+        changed = setBit(sysRegsSh2, SH2_DREQ_CTRL.addr, SH2_FIFO_EMPTY_BIT, fifo.isEmptyBit(), Size.WORD);
         if (changed) {
-            //TODO hack
-            if (fifo.isEmpty()) {
-                DmaC.dmaC[0].dmaReqTrigger(DREQ0_CHANNEL, false);
-                DmaC.dmaC[1].dmaReqTrigger(DREQ0_CHANNEL, false);
-            }
             if (verbose)
                 LOG.info("Sh2 DMA Fifo empty state changed: {}", toHexString(sysRegsSh2, SH2_DREQ_CTRL.addr, Size.WORD));
+            evaluateDreqTrigger();
+        }
+    }
+
+    private void evaluateDreqTrigger() {
+        if (m68S && (fifo.isFull() || fifo.isEmpty())) {
+            boolean enable = fifo.isFull();
+            DmaC.dmaC[0].dmaReqTrigger(DREQ0_CHANNEL, enable);
+            DmaC.dmaC[1].dmaReqTrigger(DREQ0_CHANNEL, enable);
+            if (verbose) LOG.info("DMA fifo dreq: {}", enable);
         }
     }
 
@@ -177,11 +176,11 @@ public class DmaFifo68k {
             return readBuffer(sysRegsSh2, address, size);
         } else if (regSpec == SH2_FIFO_REG) {
             int res = 0;
-            if (dreqOn && !fifo.isEmpty()) {
+            if (m68S && !fifo.isEmpty()) {
                 res = fifo.pop();
                 updateFifoState();
             } else {
-                LOG.warn("Dreq0: {}, fifoEmpty: {}", dreqOn, fifo.isEmpty());
+                LOG.error("Dreq0: {}, fifoEmpty: {}", m68S, fifo.isEmpty());
             }
             return res;
         }

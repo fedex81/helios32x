@@ -1,5 +1,7 @@
 package sh2.sh2;
 
+import static sh2.S32xUtil.th;
+
 public class Sh2Disassembler {
 
 
@@ -934,6 +936,6 @@ public class Sh2Disassembler {
                 return String.format("stc.l R%d_BANK(opcode)(opcode), @-R%d", BANK(opcode), RN(opcode));
 
         }
-        return "???";
+        return "??? (" + th(opcode) + ")";
     }
 }

@@ -15,13 +15,16 @@ public class DmaHelper {
 
     private static final Logger LOG = LogManager.getLogger(DmaHelper.class.getSimpleName());
 
+    //TODO remove
+    public static final Size[] vals = Size.values();
+
     private static final int FIFO_REG_SH2 = 0x2000_4000 + SH2_FIFO_REG.addr;
 
     private final static DmaSrcDestMode[] modeVals = DmaSrcDestMode.values();
     private final static DmaTransferSize[] trnVals = DmaTransferSize.values();
 
     enum DmaTransferSize {
-        BYTE(1), WORD(2), LONG(4), BYTE_16(16);
+        BYTE(1), WORD(2), LONG(4), BYTE_16(4); //4 transfers of 4 bytes
 
         public int byteSize;
 
@@ -61,16 +64,12 @@ public class DmaHelper {
         c.chcr_transferSize = trnVals[(chcr >> 10) & 0x3];
         c.srcDelta = getAddressDelta(c.chcr_srcMode, c.chcr_transferSize, true);
         c.destDelta = getAddressDelta(c.chcr_destMode, c.chcr_transferSize, false);
-        //TODO Sangokushi
-        if (c.chcr_transferSize == DmaTransferSize.BYTE_16) {
-            c.chcr_transferSize = DmaTransferSize.LONG;
-            LOG.error("DMA transfer size not supported: {}, using instead: {}",
-                    DmaTransferSize.BYTE_16, c.chcr_transferSize);
-        }
-        c.trnSize = Size.values()[c.chcr_transferSize.ordinal()];
-        //TODO
-        if (c.chcr_autoReq) {
-            LOG.error("TODO AutoReq: {}", c);
+        if (c.chcr_transferSize == DmaTransferSize.BYTE_16) {  //Sangokushi
+            c.trnSize = Size.LONG;
+            c.transfersPerStep = 4;
+        } else {
+            c.trnSize = vals[c.chcr_transferSize.ordinal()];
+            c.transfersPerStep = 1;
         }
     }
 
@@ -89,10 +88,8 @@ public class DmaHelper {
         public boolean dmaor_dme, dreqTrigger;
         public DmaSrcDestMode chcr_destMode, chcr_srcMode;
         public DmaTransferSize chcr_transferSize;
-        @Deprecated
-        public int fourWordsLeft = 4;
         public boolean dmaInProgress;
-        public int srcDelta, destDelta;
+        public int srcDelta, destDelta, transfersPerStep;
         public Size trnSize;
 
         @Override
@@ -103,13 +100,14 @@ public class DmaHelper {
                     ", chcr_intEn=" + chcr_intEn +
                     ", chcr_autoReq=" + chcr_autoReq +
                     ", dmaor_dme=" + dmaor_dme +
+                    ", dreqTrigger=" + dreqTrigger +
                     ", chcr_destMode=" + chcr_destMode +
                     ", chcr_srcMode=" + chcr_srcMode +
                     ", chcr_transferSize=" + chcr_transferSize +
-                    ", fourWordsLeft=" + fourWordsLeft +
                     ", dmaInProgress=" + dmaInProgress +
                     ", srcDelta=" + srcDelta +
                     ", destDelta=" + destDelta +
+                    ", transfersPerStep=" + transfersPerStep +
                     ", trnSize=" + trnSize +
                     '}';
         }

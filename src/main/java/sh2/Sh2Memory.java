@@ -37,6 +37,8 @@ public final class Sh2Memory implements IMemory {
 	public static final int END_ROM_CACHE = START_ROM_CACHE + 0x40_0000; //4 Mbit window;
 	public static final int END_ROM = START_ROM + 0x40_0000; //4 Mbit window;
 
+	public static final int START_CACHE_FLUSH = 0x6000_0000;
+	public static final int END_CACHE_FLUSH = 0x8000_0000;
 	public static final int START_DATA_ARRAY = 0xC000_0000;
 	public static final int START_ONCHIP_MOD = 0xFFFF_FE00;
 	public static final int START_DRAM_MODE = 0xFFFF_8000;
@@ -162,10 +164,11 @@ public final class Sh2Memory implements IMemory {
 		} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
 			sh2MMREGS[cpuAccess.ordinal()].writeDramMode(address & 0xFFFF, val, size);
 		} else if ((address & CACHE_PURGE_OFFSET) == CACHE_PURGE_OFFSET) { //cache purge
-			LOG.debug("Cache purge: {}", th(address));
+			LOG.info("Cache purge: {}", th(address));
+		} else if (address >= START_CACHE_FLUSH && address < END_CACHE_FLUSH) {
+			LOG.info("Cache flush: {}", th(address));
 		} else {
-			LOG.error("{} write to addr: {}, {} {}", cpuAccess, Integer.toHexString(address),
-					Integer.toHexString(val), size);
+			LOG.error("{} write to addr: {}, {} {}", cpuAccess, th(address), th(val), size);
 		}
 		S32xMemAccessDelay.addWriteCpuDelay(deviceAccessType);
 	}
