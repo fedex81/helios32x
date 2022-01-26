@@ -15,9 +15,6 @@ public class DmaHelper {
 
     private static final Logger LOG = LogManager.getLogger(DmaHelper.class.getSimpleName());
 
-    //TODO remove
-    public static final Size[] vals = Size.values();
-
     private static final int FIFO_REG_SH2 = 0x2000_4000 + SH2_FIFO_REG.addr;
 
     private final static DmaSrcDestMode[] modeVals = DmaSrcDestMode.values();
@@ -68,7 +65,7 @@ public class DmaHelper {
             c.trnSize = Size.LONG;
             c.transfersPerStep = 4;
         } else {
-            c.trnSize = vals[c.chcr_transferSize.ordinal()];
+            c.trnSize = Size.vals[c.chcr_transferSize.ordinal()];
             c.transfersPerStep = 1;
         }
     }

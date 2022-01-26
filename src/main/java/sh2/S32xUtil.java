@@ -88,14 +88,9 @@ public class S32xUtil {
         return false;
     }
 
-    public static String th(int pos) {
-        return Integer.toHexString(pos);
-    }
-
     public static String toHexString(ByteBuffer b, int pos, Size size) {
         return Integer.toHexString(readBuffer(b, pos, size));
     }
-
 
     public enum CpuDeviceAccess {
         MASTER, SLAVE, M68K;

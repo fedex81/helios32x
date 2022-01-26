@@ -9,7 +9,7 @@ import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 
 import java.util.Map;
 
-import static sh2.S32xUtil.th;
+import static omegadrive.util.Util.th;
 import static sh2.Sh2MMREG.SH2_REG_MASK;
 import static sh2.Sh2MMREG.SH2_REG_SIZE;
 

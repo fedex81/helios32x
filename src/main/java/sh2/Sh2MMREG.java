@@ -11,6 +11,7 @@ import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.stream.IntStream;
 
+import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.dict.Sh2Dict.*;
 import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.SCI;

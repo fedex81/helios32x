@@ -16,6 +16,7 @@ import sh2.vdp.MarsVdpImpl;
 
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.M68K;
 import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
@@ -123,36 +124,34 @@ public class S32XMMREG implements Device {
         return vdp;
     }
 
-    public void setHBlankOn(boolean hBlankOn) {
+    public void setHBlank(boolean hBlankOn) {
         vdpContext.hBlankOn = hBlankOn;
-        int val = readWordFromBuffer(FBCR);
-        val = (hBlankOn ? 1 : 0) << 14 | (val & 0xBFFF);
-        writeBufferWord(FBCR, val);
+        setBitFromWord(FBCR, FBCR_HBLK_BIT_POS, hBlankOn ? 1 : 0);
         if (hBlankOn) {
-            int hCnt = readWordFromBuffer(SH2_HCOUNT_REG);
-            if (!vdpContext.vBlankOn && --vdpContext.hCount < 0) {
+            if (!vdpContext.vBlankOn) {
+                if (--vdpContext.hCount < 0) {
+                    vdpContext.hCount = readWordFromBuffer(SH2_HCOUNT_REG) & 0xFF;
+                    interruptControls[0].setIntPending(HINT_10, true);
+                    interruptControls[1].setIntPending(HINT_10, true);
+                }
+            } else {
                 vdpContext.hCount = readWordFromBuffer(SH2_HCOUNT_REG) & 0xFF;
-                interruptControls[0].setIntPending(HINT_10, true);
-                interruptControls[1].setIntPending(HINT_10, true);
             }
         }
         setPen(hBlankOn || vdpContext.vBlankOn ? 1 : 0);
 //        System.out.println("HBlank: " + hBlankOn);
     }
 
-    public void setVBlankOn(boolean vBlankOn) {
+    public void setVBlank(boolean vBlankOn) {
         vdpContext.vBlankOn = vBlankOn;
-        int val = readWordFromBuffer(FBCR);
-        val = (vBlankOn ? 1 : 0) << 15 | (val & 0x7FFF);
-        writeBufferWord(FBCR, val);
+        setBitFromWord(FBCR, FBCR_VBLK_BIT_POS, vBlankOn ? 1 : 0);
         if (vBlankOn) {
             vdpContext.screenShift = readWordFromBuffer(SSCR) & 1;
             vdp.draw(vdpContext);
-            int currentFb = val & 1;
+            int currentFb = readWordFromBuffer(FBCR) & 1;
             if (currentFb != vdpContext.fsLatch) {
-                int newVal = ((val & 0xFFFE) | vdpContext.fsLatch);
-                writeBufferWord(FBCR, newVal);
-                updateFrameBuffer(newVal);
+                setBitFromWord(FBCR, FBCR_FRAMESEL_BIT_POS, vdpContext.fsLatch);
+                updateFrameBuffer(vdpContext.fsLatch);
 //                System.out.println("##### VBLANK, D" + frameBufferDisplay + "W" + frameBufferWritable + ", fsLatch: " + fsLatch + ", VB: " + vBlankOn);
             }
             interruptControls[0].setIntPending(VINT_12, true);
@@ -646,6 +645,30 @@ public class S32XMMREG implements Device {
 
     private void writeBufferWord(RegSpecS32x reg, int value) {
         writeBufferInt(reg, reg.addr, value, Size.WORD);
+    }
+
+    private void setBitFromWord(RegSpecS32x reg, int pos, int value) {
+        setBitInt(reg, reg.addr, pos, value, Size.WORD);
+    }
+
+    private void setBitInt(RegSpecS32x reg, int address, int pos, int value, Size size) {
+        address &= S32X_REG_MASK;
+        if (reg.deviceType == VDP) {
+            S32xUtil.setBit(vdpRegs, address & S32X_VDP_REG_MASK, pos, value, size);
+            return;
+        }
+        switch (reg.regCpuType) {
+            case REG_BOTH:
+                S32xUtil.setBit(sysRegsMd, sysRegsSh2, address, pos, value, size);
+                return;
+            case REG_M68K:
+                S32xUtil.setBit(sysRegsMd, address, pos, value, size);
+                return;
+            case REG_SH2:
+                S32xUtil.setBit(sysRegsSh2, address, pos, value, size);
+                return;
+        }
+        LOG.error("Unable to setBit: {}, addr: {}, value: {} {}", reg.name, th(address), th(value), size);
     }
 
     private void writeBufferInt(RegSpecS32x reg, int address, int value, Size size) {

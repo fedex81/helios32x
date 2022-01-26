@@ -10,6 +10,7 @@ import sh2.sh2.device.DmaHelper.DmaChannelSetup;
 
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.dict.Sh2Dict.RegSpec;
 import static sh2.dict.Sh2Dict.RegSpec.*;

@@ -25,28 +25,28 @@ public class VdpRegTest {
         s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 0, Size.WORD);
         //startup, vblankOn, pen= true
         MarsRegTestUtil.assertPEN(s32XMMREG, true);
-        s32XMMREG.setVBlankOn(true);
+        s32XMMREG.setVBlank(true);
 
-        s32XMMREG.setHBlankOn(true);
+        s32XMMREG.setHBlank(true);
         MarsRegTestUtil.assertPEN(s32XMMREG, true);
 
-        s32XMMREG.setHBlankOn(false); //vblank on
+        s32XMMREG.setHBlank(false); //vblank on
         MarsRegTestUtil.assertPEN(s32XMMREG, true);
 
-        s32XMMREG.setVBlankOn(true);
-        s32XMMREG.setHBlankOn(true);
+        s32XMMREG.setVBlank(true);
+        s32XMMREG.setHBlank(true);
         MarsRegTestUtil.assertPEN(s32XMMREG, true);
 
-        s32XMMREG.setVBlankOn(true);
-        s32XMMREG.setHBlankOn(false);
+        s32XMMREG.setVBlank(true);
+        s32XMMREG.setHBlank(false);
         MarsRegTestUtil.assertPEN(s32XMMREG, true);
 
-        s32XMMREG.setVBlankOn(false);
-        s32XMMREG.setHBlankOn(true);
+        s32XMMREG.setVBlank(false);
+        s32XMMREG.setHBlank(true);
         MarsRegTestUtil.assertPEN(s32XMMREG, true);
 
-        s32XMMREG.setVBlankOn(false);
-        s32XMMREG.setHBlankOn(false);
+        s32XMMREG.setVBlank(false);
+        s32XMMREG.setHBlank(false);
         MarsRegTestUtil.assertPEN(s32XMMREG, false);
     }
 
@@ -77,8 +77,8 @@ public class VdpRegTest {
     public void testFBCR_ReadOnly() {
         s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 0, Size.WORD);
 
-        s32XMMREG.setVBlankOn(true);
-        s32XMMREG.setHBlankOn(true);
+        s32XMMREG.setVBlank(true);
+        s32XMMREG.setHBlank(true);
         s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 0, Size.WORD);
         MarsRegTestUtil.assertVBlank(s32XMMREG, true);
         MarsRegTestUtil.assertHBlank(s32XMMREG, true);

@@ -8,8 +8,8 @@ import sh2.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.*;
-import static sh2.S32xUtil.th;
 import static sh2.dict.S32xDict.S32xRegCpuType.*;
 import static sh2.dict.S32xDict.S32xRegType.*;
 
@@ -141,9 +141,12 @@ public class S32xDict {
     public static final int P32XS_DMA = (1 << 1);
     public static final int P32XS_RV = (1 << 0);
 
-    public static final int P32XV_VBLK = (1 << 15);
+    public static final int FBCR_VBLK_BIT_POS = 15;
+    public static final int FBCR_HBLK_BIT_POS = 14;
+    public static final int FBCR_FRAMESEL_BIT_POS = 0;
+    public static final int P32XV_VBLK = (1 << FBCR_VBLK_BIT_POS);
     public static final int P32XV_PAL = (1 << 15);
-    public static final int P32XV_HBLK = (1 << 14);
+
     public static final int P32XV_PEN = (1 << 13);
     public static final int P32XV_PRIO = (1 << 7);
     public static final int P32XV_240 = (1 << 6);

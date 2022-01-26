@@ -16,7 +16,9 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static sh2.S32xUtil.*;
+import static omegadrive.util.Util.th;
+import static sh2.S32xUtil.readBuffer;
+import static sh2.S32xUtil.writeBuffer;
 
 /**
  * Federico Berti

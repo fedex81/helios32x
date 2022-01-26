@@ -252,10 +252,10 @@ public class S32xBus extends GenesisBus {
         super.onVdpEvent(event, value);
         switch (event) {
             case V_BLANK_CHANGE:
-                s32XMMREG.setVBlankOn((boolean) value);
+                s32XMMREG.setVBlank((boolean) value);
                 break;
             case H_BLANK_CHANGE:
-                s32XMMREG.setHBlankOn((boolean) value);
+                s32XMMREG.setHBlank((boolean) value);
                 break;
             case VIDEO_MODE:
                 s32XMMREG.updateVideoMode((VideoMode) value);

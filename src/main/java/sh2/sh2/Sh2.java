@@ -8,7 +8,7 @@ import sh2.IMemory;
 import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
 
-import static sh2.S32xUtil.th;
+import static omegadrive.util.Util.th;
 
 /*
  *  Revision 1 -  port the code from Dcemu and use information provided by dark||raziel (done)

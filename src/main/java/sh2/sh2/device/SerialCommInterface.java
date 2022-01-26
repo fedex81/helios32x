@@ -6,6 +6,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.dict.Sh2Dict.RegSpec;
 import static sh2.dict.Sh2Dict.RegSpec.*;

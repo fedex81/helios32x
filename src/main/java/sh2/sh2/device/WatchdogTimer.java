@@ -8,6 +8,7 @@ import sh2.dict.Sh2Dict;
 
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.Sh2MMREG.SH2_REG_MASK;
 import static sh2.dict.Sh2Dict.RegSpec.WDT_WTCNT;

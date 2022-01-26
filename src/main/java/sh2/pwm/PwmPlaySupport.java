@@ -16,7 +16,7 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static sh2.S32xUtil.th;
+import static omegadrive.util.Util.th;
 import static sh2.pwm.Pwm.CYCLE_LIMIT;
 
 /**

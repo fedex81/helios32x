@@ -9,6 +9,7 @@ import sh2.sh2.device.DmaC;
 
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.M68K;
 import static sh2.dict.S32xDict.RegSpecS32x.*;

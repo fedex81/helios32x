@@ -29,7 +29,7 @@ public class FrameBufferControlTest {
     public void testFrameBufferSelect_BlankMode() {
         s32XMMREG.write(MarsRegTestUtil.BITMAP_MODE_OFFSET, 0, Size.WORD); //blank
 
-        s32XMMREG.setVBlankOn(false);
+        s32XMMREG.setVBlank(false);
         assertVBlank(false);
         assertFrameBufferDisplay(0);
 
@@ -40,7 +40,7 @@ public class FrameBufferControlTest {
         assertFrameBufferDisplay(1);
 
         //no further change at vblank
-        s32XMMREG.setVBlankOn(true);
+        s32XMMREG.setVBlank(true);
         assertVBlank(true);
         assertFrameBufferDisplay(1);
 
@@ -56,7 +56,7 @@ public class FrameBufferControlTest {
         s32XMMREG.write(MarsRegTestUtil.BITMAP_MODE_OFFSET, 1, Size.WORD); //packed pixel
         int res = s32XMMREG.read(MarsRegTestUtil.FBCR_OFFSET, Size.WORD);
 
-        s32XMMREG.setVBlankOn(true);
+        s32XMMREG.setVBlank(true);
         assertVBlank(true);
         assertFrameBufferDisplay(0);
 
@@ -67,13 +67,13 @@ public class FrameBufferControlTest {
         assertFrameBufferDisplay(1);
 
         //change FB during display -> no change until next vblank
-        s32XMMREG.setVBlankOn(false);
+        s32XMMREG.setVBlank(false);
         res = s32XMMREG.read(MarsRegTestUtil.FBCR_OFFSET, Size.WORD);
         s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, res ^ 1, Size.WORD);
         assertVBlank(false);
         assertFrameBufferDisplay(1);
 
-        s32XMMREG.setVBlankOn(true);
+        s32XMMREG.setVBlank(true);
         assertVBlank(true);
         assertFrameBufferDisplay(0);
     }
