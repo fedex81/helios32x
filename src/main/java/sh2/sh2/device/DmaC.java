@@ -39,9 +39,6 @@ public class DmaC implements StepDevice {
     private final DmaChannelSetup[] dmaChannelSetup;
     private boolean oneDmaInProgress = false;
 
-    @Deprecated
-    public static DmaC[] dmaC = new DmaC[2];
-
     public DmaC(CpuDeviceAccess cpu, IntControl intControl, IMemory memory, DmaFifo68k dma68k, ByteBuffer regs) {
         this.cpu = cpu;
         this.regs = regs;
@@ -49,7 +46,6 @@ public class DmaC implements StepDevice {
         this.dma68k = dma68k;
         this.intControl = intControl;
         this.dmaChannelSetup = new DmaChannelSetup[]{DmaHelper.createChannel(0), DmaHelper.createChannel(1)};
-        dmaC[cpu.ordinal()] = this;
     }
 
     public void write(RegSpec regSpec, int value, Size size) {
@@ -65,7 +61,7 @@ public class DmaC implements StepDevice {
     }
 
     @Override
-    public void step() {
+    public void step(int cycles) {
         if (!oneDmaInProgress) {
             return;
         }

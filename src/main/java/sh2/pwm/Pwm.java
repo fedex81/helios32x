@@ -14,6 +14,8 @@ import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
+import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
+import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
 import static sh2.pwm.Pwm.PwmChannelSetup.OFF;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.PWM_6;
@@ -23,7 +25,6 @@ import static sh2.sh2.device.IntControl.Sh2Interrupt.PWM_6;
  * <p>
  * Copyright 2022
  * <p>
- * TODO sh2 PWM DMA write test
  */
 public class Pwm implements StepDevice {
 
@@ -37,6 +38,7 @@ public class Pwm implements StepDevice {
         }
     }
 
+    private static final int PWM_DMA_CHANNEL = 1;
     private static final int chLeft = 0, chRight = 1;
     private static final int PWM_FIFO_SIZE = 3;
     private static final int PWM_FIFO_FULL_BIT_POS = 15;
@@ -47,15 +49,13 @@ public class Pwm implements StepDevice {
 
     private ByteBuffer sysRegsMd, sysRegsSh2;
     private IntControl[] intControls;
+    private DmaC[] dmac;
 
     private PwmChannelSetup[] channelMap = {OFF, OFF};
     private boolean pwmEnable, dreqEn;
     private int cycle = 0, interruptInterval;
     private int sh2TicksToNextPwmSample, sh2ticksToNextPwmInterrupt;
     private int pwmSamplesPerFrame = 0, stepsPerFrame = 0;
-
-    @Deprecated
-    public static Pwm pwm;
 
     private Fifo<Integer> fifoLeft, fifoRight;
     private int latestPwmValue = 0;
@@ -68,7 +68,6 @@ public class Pwm implements StepDevice {
         this.fifoLeft = Fifo.createIntegerFixedSizeFifo(PWM_FIFO_SIZE);
         this.fifoRight = Fifo.createIntegerFixedSizeFifo(PWM_FIFO_SIZE);
         this.playSupport = new PwmPlaySupport();
-        pwm = this;
         init();
     }
 
@@ -184,10 +183,6 @@ public class Pwm implements StepDevice {
         }
         fifo.push(value & 0xFFF);
         updateFifoRegs();
-//        if(dreqEn && fifo.isFull()){
-//            DmaC.dmaC[0].dmaReqTrigger(1, true);
-//            DmaC.dmaC[1].dmaReqTrigger(1, true);
-//        }
     }
 
     public int readFifo(RegSpecS32x regSpec, Fifo<Integer> fifo) {
@@ -196,10 +191,6 @@ public class Pwm implements StepDevice {
         }
         latestPwmValue = fifo.pop();
         updateFifoRegs();
-//        if(dreqEn && fifo.isEmpty()){
-//            DmaC.dmaC[0].dmaReqTrigger(1, false);
-//            DmaC.dmaC[1].dmaReqTrigger(1, false);
-//        }
         return latestPwmValue;
     }
 
@@ -223,35 +214,45 @@ public class Pwm implements StepDevice {
     }
 
     public void newFrame() {
-//        LOG.info("Samples per frame: {}, stepsPerFrame: {}", samplesProducedFrame ,stepsPerFrame);
+        if (verbose) LOG.info("Samples per frame: {}, stepsPerFrame: {}", pwmSamplesPerFrame, stepsPerFrame);
         pwmSamplesPerFrame = 0;
         stepsPerFrame = 0;
     }
 
     @Override
-    public void step() {
-        stepsPerFrame++;
+    public void step(int cycles) {
+        stepsPerFrame += cycles;
         if (pwmEnable) {
-            if (--sh2TicksToNextPwmSample == 0) {
-                sh2TicksToNextPwmSample = cycle;
-                pwmSamplesPerFrame++;
-                playSupport.playSample(readFifo(PWM_LCH_PW, fifoLeft), readFifo(PWM_RCH_PW, fifoRight));
-                if (--sh2ticksToNextPwmInterrupt == 0) {
-                    intControls[0].setIntPending(PWM_6, true);
-                    intControls[1].setIntPending(PWM_6, true);
-                    if (dreqEn) {
-                        //NOTE this should trigger dmaStep on channel one for BOTH sh2s
-                        DmaC.dmaC[0].dmaReqTrigger(1, true);
-                        DmaC.dmaC[1].dmaReqTrigger(1, true);
-                    }
-                    sh2ticksToNextPwmInterrupt = interruptInterval;
+            stepOne();
+            stepOne();
+            stepOne();
+        }
+    }
+
+    private void stepOne() {
+        if (--sh2TicksToNextPwmSample == 0) {
+            sh2TicksToNextPwmSample = cycle;
+            pwmSamplesPerFrame++;
+            playSupport.playSample(readFifo(PWM_LCH_PW, fifoLeft), readFifo(PWM_RCH_PW, fifoRight));
+            if (--sh2ticksToNextPwmInterrupt == 0) {
+                intControls[MASTER.ordinal()].setIntPending(PWM_6, true);
+                intControls[SLAVE.ordinal()].setIntPending(PWM_6, true);
+                if (dreqEn) {
+                    //NOTE this should trigger on channel one for BOTH sh2s
+                    dmac[MASTER.ordinal()].dmaReqTrigger(PWM_DMA_CHANNEL, true);
+                    dmac[SLAVE.ordinal()].dmaReqTrigger(PWM_DMA_CHANNEL, true);
                 }
+                sh2ticksToNextPwmInterrupt = interruptInterval;
             }
         }
     }
 
     public void setIntControls(IntControl... intControls) {
         this.intControls = intControls;
+    }
+
+    public void setDmac(DmaC... dmac) {
+        this.dmac = dmac;
     }
 
     @Override

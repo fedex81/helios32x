@@ -1,11 +1,11 @@
 package sh2.sh2;
 
 import com.google.common.collect.ImmutableSet;
+import omegadrive.cpu.CpuFastDebug.DebugMode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.IMemory;
 import sh2.S32xUtil;
-import sh2.S32xUtil.DebugMode;
 
 import java.util.Arrays;
 import java.util.Set;

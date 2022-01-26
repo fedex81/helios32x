@@ -132,7 +132,7 @@ public class SerialCommInterface implements StepDevice {
     }
 
     @Override
-    public void step() {
+    public void step(int cycles) {
         if (txEn && tdre == 0 && txDataReady) {
             int data = readBuffer(regs, SCI_TDR.addr, Size.BYTE);
             int scr = readBuffer(regs, SCI_SCR.addr, Size.BYTE);

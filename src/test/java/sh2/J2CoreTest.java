@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import sh2.pwm.Pwm;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.device.Sh2DeviceHelper;
@@ -78,7 +77,6 @@ public class J2CoreTest {
         context.devices = Sh2DeviceHelper.createDevices(cpu, memory, new DmaFifo68k(s32XMMREG), sh2MMREG);
         sh2MMREG.init(context.devices);
         Md32xRuntimeData.newInstance();
-        Pwm.pwm = new Pwm(s32XMMREG);
         context.debug = true;
         return context;
     }

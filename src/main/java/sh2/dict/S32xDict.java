@@ -144,14 +144,13 @@ public class S32xDict {
     public static final int FBCR_VBLK_BIT_POS = 15;
     public static final int FBCR_HBLK_BIT_POS = 14;
     public static final int FBCR_FRAMESEL_BIT_POS = 0;
+    public static final int FBCR_nFEN_BIT_POS = 1;
     public static final int P32XV_VBLK = (1 << FBCR_VBLK_BIT_POS);
     public static final int P32XV_PAL = (1 << 15);
 
     public static final int P32XV_PEN = (1 << 13);
     public static final int P32XV_PRIO = (1 << 7);
     public static final int P32XV_240 = (1 << 6);
-    public static final int P32XV_nFEN = (1 << 1);
-    public static final int P32XV_FS = (1 << 0);
 
     public static class S32xDictLogContext {
         public S32xUtil.CpuDeviceAccess sh2Access;

@@ -16,10 +16,8 @@ public class S32xUtil {
 
     private static final Logger LOG = LogManager.getLogger(S32xUtil.class.getSimpleName());
 
-    public enum DebugMode {NONE, INST_ONLY, NEW_INST_ONLY, STATE}
-
     public static interface StepDevice extends Device {
-        public default void step() {
+        public default void step(int cycles) {
         } //DO NOTHING
     }
 

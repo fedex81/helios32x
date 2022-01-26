@@ -89,6 +89,8 @@ public class MarsLauncherHelper {
             s32XMMREG.setDmaControl(dmaFifo68k);
             s32XMMREG.setPwm(pwm);
             pwm.setIntControls(mDevCtx.intC, sDevCtx.intC);
+            pwm.setDmac(mDevCtx.dmaC, sDevCtx.dmaC);
+            dmaFifo68k.setDmac(mDevCtx.dmaC, sDevCtx.dmaC);
             bus.setBios68k(biosHolder.getBiosData(M68K));
             bus.setRom(rom);
             bus.masterCtx = masterCtx;

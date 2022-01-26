@@ -11,7 +11,7 @@ import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
-import static sh2.S32xUtil.CpuDeviceAccess.M68K;
+import static sh2.S32xUtil.CpuDeviceAccess.*;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
 
 /**
@@ -34,6 +34,7 @@ public class DmaFifo68k {
     private static final int DMA_FIFO_SIZE = 4;
 
     private final ByteBuffer sysRegsMd, sysRegsSh2;
+    private DmaC[] dmac;
     private final Fifo<Integer> fifo = Fifo.createIntegerFixedSizeFifo(DMA_FIFO_SIZE);
     private boolean m68S = false;
     private static final boolean verbose = false;
@@ -161,8 +162,8 @@ public class DmaFifo68k {
     private void evaluateDreqTrigger() {
         if (m68S && (fifo.isFull() || fifo.isEmpty())) {
             boolean enable = fifo.isFull();
-            DmaC.dmaC[0].dmaReqTrigger(DREQ0_CHANNEL, enable);
-            DmaC.dmaC[1].dmaReqTrigger(DREQ0_CHANNEL, enable);
+            dmac[MASTER.ordinal()].dmaReqTrigger(DREQ0_CHANNEL, enable);
+            dmac[SLAVE.ordinal()].dmaReqTrigger(DREQ0_CHANNEL, enable);
             if (verbose) LOG.info("DMA fifo dreq: {}", enable);
         }
     }
@@ -186,5 +187,9 @@ public class DmaFifo68k {
             return res;
         }
         return readBuffer(sysRegsMd, address, size);
+    }
+
+    public void setDmac(DmaC... dmac) {
+        this.dmac = dmac;
     }
 }

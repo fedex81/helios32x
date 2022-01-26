@@ -147,15 +147,21 @@ public class WatchdogTimer implements StepDevice {
     }
 
     @Override
-    public void step() {
+    public void step(int cycles) {
         if (wdtTimerEnable) {
-            if (--sh2TicksToNextWdtClock == 0) {
-                sh2TicksToNextWdtClock = clockDivider;
-                int cnt = increaseCount();
-                if (cnt == 0) { //overflow
-                    setBit(regs, WTCSR_ADDR_READ, 7, 1, Size.BYTE);
-                    intControl.setExternalIntPending(WDT, 0, true);
-                }
+            for (int i = 0; i < cycles; i++) {
+                stepOne();
+            }
+        }
+    }
+
+    private void stepOne() {
+        if (--sh2TicksToNextWdtClock == 0) {
+            sh2TicksToNextWdtClock = clockDivider;
+            int cnt = increaseCount();
+            if (cnt == 0) { //overflow
+                setBit(regs, WTCSR_ADDR_READ, 7, 1, Size.BYTE);
+                intControl.setExternalIntPending(WDT, 0, true);
             }
         }
     }

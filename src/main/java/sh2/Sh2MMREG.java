@@ -4,7 +4,6 @@ import com.google.common.collect.Maps;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.pwm.Pwm;
 import sh2.sh2.device.*;
 
 import java.nio.ByteBuffer;
@@ -42,10 +41,16 @@ public class Sh2MMREG {
     private WatchdogTimer wdt;
 
     private CpuDeviceAccess cpu;
+    private int ticksPerFrame, sh2TicksPerFrame;
     private static final boolean verbose = false;
+
+    //TODO
+    public static CacheContext[] cacheCtx = new CacheContext[2];
+
 
     public Sh2MMREG(CpuDeviceAccess sh2Access) {
         this.cpu = sh2Access;
+        cacheCtx[cpu.ordinal()] = new CacheContext();
     }
 
     public void init(Sh2DeviceHelper.Sh2DeviceContext ctx) {
@@ -103,6 +108,23 @@ public class Sh2MMREG {
             case NONE:
             default:
                 //logAccess("write", reg, value, size);
+                if (regSpec == RegSpec.NONE_CCR) {
+                    int prev = readBuffer(regs, reg & SH2_REG_MASK, size);
+                    if (prev != value) {
+                        CacheContext ctx = cacheCtx[cpu.ordinal()];
+                        ctx.way = value >> 6;
+                        ctx.cachePurge = (value >> 4) & 1;
+                        ctx.twoWay = (value >> 3) & 1;
+                        ctx.dataReplaceDis = (value >> 2) & 1;
+                        ctx.instReplaceDis = (value >> 1) & 1;
+                        ctx.cacheEn = value & 1;
+//                        ctx.logInfoString(cpu);
+                        if (ctx.cachePurge > 0) {
+//                            LOG.info("{} trigger cache purge", cpu);
+                            ctx.cachePurge = 0; //always reverts to 0
+                        }
+                    }
+                }
                 writeBuffer(regs, reg & SH2_REG_MASK, value, size);
                 break;
         }
@@ -158,6 +180,26 @@ public class Sh2MMREG {
         }
     }
 
+    public void newFrame() {
+        if (verbose) LOG.info("{} Ticks per frame: {}, sh2 tpf: {}", cpu, ticksPerFrame, sh2TicksPerFrame);
+        ticksPerFrame = sh2TicksPerFrame = 0;
+    }
+
+    static class CacheContext {
+        public int way;
+        public int cachePurge;
+        public int twoWay;
+        public int dataReplaceDis;
+        public int instReplaceDis;
+        public int cacheEn;
+
+        public void logInfoString(CpuDeviceAccess cpu) {
+            LOG.info("{} CCR write: cacheEn {}, instReplaceDis {}, dataReplaceDis {}, {}, cachePurge {}, " +
+                            "way{}",
+                    cpu, cacheEn, instReplaceDis, dataReplaceDis, twoWay > 0 ? "twoWay" : "fourWay", cachePurge, way);
+        }
+    }
+
     public void reset() {
         //from picodrive
         IntStream.range(0, regs.capacity()).forEach(i -> regs.put(i, (byte) 0));
@@ -169,9 +211,14 @@ public class Sh2MMREG {
     }
 
     public void deviceStep() {
-        dmaC.step();
-        wdt.step();
-        sci.step();
-        Pwm.pwm.step();
+        dmaC.step(0);
+        sci.step(0);
+        ticksPerFrame++;
+    }
+
+    //23 Mhz
+    public void deviceStepSh2Rate(int cycles) {
+        wdt.step(cycles);
+        sh2TicksPerFrame += cycles;
     }
 }

@@ -8,7 +8,6 @@ import omegadrive.vdp.md.GenesisVdp;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.MarsLauncherHelper.Sh2LaunchContext;
-import sh2.pwm.Pwm;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.vdp.MarsVdp;
@@ -87,8 +86,7 @@ public class Md32x extends Genesis {
                 runFM(cnt);
                 runVdp(cnt);
                 runSh2(cnt);
-                Pwm.pwm.step();
-                Pwm.pwm.step();
+                runDevices();
                 counter++;
             } while (!futureDoneFlag);
         } catch (Exception e) {
@@ -109,6 +107,12 @@ public class Md32x extends Genesis {
             sh2.run(slaveCtx);
             nextSSh2Cycle += ((slaveCtx.cycles_ran + rt.resetCpuDelay()) * 5) >> 5;
         }
+    }
+
+    private void runDevices() {
+        ctx.pwm.step(SH2_CYCLE_RATIO);
+        ctx.mDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
+        ctx.sDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
     }
 
     @Override
@@ -137,14 +141,16 @@ public class Md32x extends Genesis {
         nextSSh2Cycle = Math.max(1, nextMSh2Cycle - counter);
         //NOTE Sh2s will only start at the next vblank, not immediately when aden switches
         nextSSh2Cycle = nextMSh2Cycle = ctx.s32XMMREG.aden & 1;
-        Pwm.pwm.newFrame();
+        ctx.pwm.newFrame();
+        ctx.mDevCtx.sh2MMREG.newFrame();
+        ctx.sDevCtx.sh2MMREG.newFrame();
     }
 
     @Override
     protected void handleCloseRom() {
         super.handleCloseRom();
         Optional.ofNullable(marsVdp).ifPresent(Device::reset);
-        Pwm.pwm.reset();
+        ctx.pwm.reset();
         Md32xRuntimeData.releaseInstance();
     }
 

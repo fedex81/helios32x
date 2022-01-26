@@ -127,6 +127,7 @@ public class S32XMMREG implements Device {
     public void setHBlank(boolean hBlankOn) {
         vdpContext.hBlankOn = hBlankOn;
         setBitFromWord(FBCR, FBCR_HBLK_BIT_POS, hBlankOn ? 1 : 0);
+        setBitFromWord(FBCR, FBCR_nFEN_BIT_POS, hBlankOn ? 1 : 0); //TODO hack, FEN =0 after 40 cycles @ 23Mhz
         if (hBlankOn) {
             if (!vdpContext.vBlankOn) {
                 if (--vdpContext.hCount < 0) {
@@ -524,7 +525,7 @@ public class S32XMMREG implements Device {
         int prio = (newVal >> 7) & 1;
         if (prevPrio != prio) {
             vdpContext.priority = prio == 0 ? MD : S32X;
-            LOG.info("Vdp priority: {} -> {}", prevPrio == 0 ? "MD" : "32x", vdpContext.priority);
+            if (verbose) LOG.info("Vdp priority: {} -> {}", prevPrio == 0 ? "MD" : "32x", vdpContext.priority);
         }
         return val != newVal;
     }
@@ -565,7 +566,7 @@ public class S32XMMREG implements Device {
         setBit(interruptControls[0].getSh2_int_mask_regs(),
                 interruptControls[1].getSh2_int_mask_regs(), 0, 7, fm, Size.BYTE);
         setBit(sysRegsMd, M68K_ADAPTER_CTRL.addr, 7, fm, Size.BYTE);
-        LOG.info("{} FM: {}", Md32xRuntimeData.getAccessTypeExt(), fm);
+        if (verbose) LOG.info("{} FM: {}", Md32xRuntimeData.getAccessTypeExt(), fm);
     }
 
     private void setPen(int pen) {

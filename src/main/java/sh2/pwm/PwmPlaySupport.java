@@ -84,10 +84,10 @@ public class PwmPlaySupport {
         pwmSamplesPerFrame = (int) (SH2_CLK_HZ / (fps * cycle));
         scale = (Short.MAX_VALUE << 1) / c;
         int byteSamplesPerFrame = pwmSamplesPerFrame << 2;
-        shouldPlay = cycle >= CYCLE_LIMIT && byteSamplesPerFrame < data.length;
+        shouldPlay = cycle >= CYCLE_LIMIT;
         if (!shouldPlay) {
-            LOG.error("Unsupported cycle setting: {}, pwmSamplesPerFrame: {}", cycle, pwmSamplesPerFrame);
-            LOG.warn("Not playing any sound, PWM cycle not supported: {}, limit: {}", cycle, CYCLE_LIMIT);
+            LOG.error("Unsupported cycle setting: {}, limit: {}, pwmSamplesPerFrame: {}",
+                    cycle, CYCLE_LIMIT, pwmSamplesPerFrame);
         }
     }
 
@@ -98,7 +98,10 @@ public class PwmPlaySupport {
         int val = (int) (((left + right) >> 1) * scale - Short.MAX_VALUE);
         short sval = (short) val;
         if (sval != val) {
-            LOG.error("PWM value out of range (16 bit signed): {}", th(val));
+            float sc = scale;
+            scale -= 1;
+            LOG.warn("PWM value out of range (16 bit signed): {}, scale: {}, pwmVal: {}", th(val), sc, left);
+            LOG.warn("Reducing scale: {} -> {}", sc, scale);
             sval = (short) Math.min(Math.max(val, Short.MIN_VALUE), Short.MAX_VALUE);
         }
         data[sampleIndex44++] = sval;

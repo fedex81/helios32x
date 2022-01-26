@@ -2059,7 +2059,6 @@ public class Sh2 implements Device {
 	 */
 	public void run(final Sh2Context ctx) {
 		this.ctx = ctx;
-		int opcode;
 		final Sh2MMREG sh2MMREG = ctx.devices.sh2MMREG;
 		for (; ctx.cycles >= 0; ) {
 			decode(memory.read16i(ctx.PC));
