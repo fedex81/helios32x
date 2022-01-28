@@ -54,6 +54,7 @@ public class DmaHelper {
 
     public static void updateChannelControl(DmaChannelSetup c, int chcr) {
         c.chcr_dmaEn = (chcr & 1) > 0;
+        c.chcr_tranEndOk = (chcr & 2) > 0;
         c.chcr_intEn = (chcr & 4) > 0;
         c.chcr_autoReq = ((chcr >> 9) & 1) > 0;
         c.chcr_destMode = modeVals[chcr >> 14];
@@ -81,8 +82,8 @@ public class DmaHelper {
 
     public static class DmaChannelSetup {
         public int channel;
-        public boolean chcr_dmaEn, chcr_intEn, chcr_autoReq;
-        public boolean dmaor_dme, dreqTrigger;
+        public boolean chcr_dmaEn, chcr_intEn, chcr_autoReq, chcr_tranEndOk;
+        public boolean dmaor_dme, dreqLevel;
         public DmaSrcDestMode chcr_destMode, chcr_srcMode;
         public DmaTransferSize chcr_transferSize;
         public boolean dmaInProgress;
@@ -96,8 +97,9 @@ public class DmaHelper {
                     ", chcr_dmaEn=" + chcr_dmaEn +
                     ", chcr_intEn=" + chcr_intEn +
                     ", chcr_autoReq=" + chcr_autoReq +
+                    ", chcr_tranEndOk=" + chcr_tranEndOk +
                     ", dmaor_dme=" + dmaor_dme +
-                    ", dreqTrigger=" + dreqTrigger +
+                    ", dreqLevel=" + dreqLevel +
                     ", chcr_destMode=" + chcr_destMode +
                     ", chcr_srcMode=" + chcr_srcMode +
                     ", chcr_transferSize=" + chcr_transferSize +

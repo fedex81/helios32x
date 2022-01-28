@@ -66,7 +66,7 @@ public class DmaC implements StepDevice {
             return;
         }
         for (DmaChannelSetup c : dmaChannelSetup) {
-            if (c.dmaInProgress && (c.chcr_autoReq || c.dreqTrigger)) {
+            if (c.dmaInProgress && (c.chcr_autoReq || c.dreqLevel)) {
                 dmaOneStep(c);
             }
         }
@@ -91,7 +91,7 @@ public class DmaC implements StepDevice {
         DmaHelper.updateChannelControl(chan, value);
         if (wasEn != chan.chcr_dmaEn) {
             if (chan.chcr_dmaEn) {
-                checkDmaStart(chan);
+                checkDmaStart(chan, false);
             } else {
                 dmaEnd(chan, false);
             }
@@ -103,16 +103,16 @@ public class DmaC implements StepDevice {
         DmaHelper.updateChannelDmaor(dmaChannelSetup[1], value);
         boolean dme = (value & 1) > 0;
         if (dme) {
-            checkDmaStart(dmaChannelSetup[0]);
-            checkDmaStart(dmaChannelSetup[1]);
+            checkDmaStart(dmaChannelSetup[0], false);
+            checkDmaStart(dmaChannelSetup[1], false);
         } else {
             dmaEnd(dmaChannelSetup[0], false);
             dmaEnd(dmaChannelSetup[1], false);
         }
     }
 
-    private void checkDmaStart(DmaChannelSetup chan) {
-        if (chan.chcr_dmaEn && chan.dmaor_dme && (chan.chcr_autoReq || chan.dreqTrigger)) {
+    private void checkDmaStart(DmaChannelSetup chan, boolean dreqTrigger) {
+        if (chan.chcr_dmaEn && chan.dmaor_dme && !chan.chcr_tranEndOk && (chan.chcr_autoReq || dreqTrigger)) {
             if (!chan.dmaInProgress) {
                 chan.dmaInProgress = true;
                 updateOneDmaInProgress();
@@ -122,9 +122,11 @@ public class DmaC implements StepDevice {
     }
 
     public void dmaReqTrigger(int channel, boolean enable) {
-        dmaChannelSetup[channel].dreqTrigger = enable;
+        boolean prevLevel = dmaChannelSetup[channel].dreqLevel;
+        dmaChannelSetup[channel].dreqLevel = enable;
         if (enable) {
-            checkDmaStart(dmaChannelSetup[channel]);
+            boolean dreqTrigger = !prevLevel && enable;
+            checkDmaStart(dmaChannelSetup[channel], dreqTrigger);
         }
     }
 
@@ -158,12 +160,12 @@ public class DmaC implements StepDevice {
     private void dmaEnd(DmaChannelSetup c, boolean normal) {
         if (c.dmaInProgress) {
             c.dmaInProgress = false;
-            c.dreqTrigger = false;
             updateOneDmaInProgress();
             dma68k.dmaEnd();
             //transfer ended normally, ie. TCR = 0
             if (normal) {
-                setBitInt(c.channel, DMA_CHCR0.addr + 2, SH2_CHCR_TRANSFER_END_BIT, 1, Size.WORD);
+                int chcr = setBitValInt(c.channel, DMA_CHCR0.addr + 2, SH2_CHCR_TRANSFER_END_BIT, 1, Size.WORD);
+                DmaHelper.updateChannelControl(c, chcr);
                 if (c.chcr_intEn) {
                     intControl.setExternalIntPending(DMA, c.channel, true);
                 }
@@ -178,6 +180,10 @@ public class DmaC implements StepDevice {
 
     private void setBitInt(int channel, int regChan0, int bitPos, int bitVal, Size size) {
         setBit(regs, (regChan0 + (channel << 4)) & Sh2MMREG.SH2_REG_MASK, bitPos, bitVal, size);
+    }
+
+    private int setBitValInt(int channel, int regChan0, int bitPos, int bitVal, Size size) {
+        return setBitVal(regs, (regChan0 + (channel << 4)) & Sh2MMREG.SH2_REG_MASK, bitPos, bitVal, size);
     }
 
     private int readVcrDma(int channel) {

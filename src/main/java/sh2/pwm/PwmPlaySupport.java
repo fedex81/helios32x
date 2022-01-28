@@ -104,10 +104,12 @@ public class PwmPlaySupport {
             LOG.warn("Reducing scale: {} -> {}", sc, scale);
             sval = (short) Math.min(Math.max(val, Short.MIN_VALUE), Short.MAX_VALUE);
         }
-        data[sampleIndex44++] = sval;
-        data[sampleIndex44++] = sval;
-        data[sampleIndex44++] = sval;
-        data[sampleIndex44++] = sval;
+        if (sampleIndex44 < data.length - 4) {
+            data[sampleIndex44++] = sval;
+            data[sampleIndex44++] = sval;
+            data[sampleIndex44++] = sval;
+            data[sampleIndex44++] = sval;
+        }
         pwmSampleIndex++;
         if (pwmSampleIndex == pwmSamplesPerFrame) {
             if (sampleIndex44 < expStereoSamples44) {
