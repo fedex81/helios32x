@@ -33,6 +33,7 @@ public class Sh2Context {
     public S32xUtil.CpuDeviceAccess cpuAccess;
     public String sh2TypeCode;
     public boolean delaySlot;
+    public boolean clearNextInt;
     public boolean debug;
 
     public Sh2DeviceContext devices;

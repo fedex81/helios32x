@@ -83,18 +83,16 @@ public class Sh2 implements Device {
 		LOG.info("{} Reset, PC: {}, SP: {}", ctx.cpuAccess, th(ctx.PC), th(ctx.registers[15]));
 	}
 
-	private boolean intClearNext = false;
-
 	private boolean acceptInterrupts() {
 		int level = ctx.devices.intC.getInterruptLevel();
 		if (level > getIMASK()) {
 			processInterrupt(ctx, level);
-			intClearNext = true;
+			ctx.clearNextInt = true;
 			return true;
 			//TODO hack, see DoomRes1.5 and Zaxxon motherbase
-		} else if (intClearNext) {
+		} else if (ctx.clearNextInt) {
 			ctx.devices.intC.clearCurrentInterrupt();
-			intClearNext = false;
+			ctx.clearNextInt = false;
 		}
 		return false;
 	}
