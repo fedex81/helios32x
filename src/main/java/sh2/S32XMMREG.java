@@ -83,7 +83,8 @@ public class S32XMMREG implements Device {
     private int pen = 1;
     //0 - pal, 1 - NTSC
     private int pal = 1;
-
+    //0 = Hint disabled during VBlank, 1 = enabled
+    private int hen = 0;
 
     public ByteBuffer sysRegsSh2 = ByteBuffer.allocate(SIZE_32X_SYSREG);
     public ByteBuffer sysRegsMd = ByteBuffer.allocate(SIZE_32X_SYSREG);
@@ -129,7 +130,7 @@ public class S32XMMREG implements Device {
         setBitFromWord(FBCR, FBCR_HBLK_BIT_POS, hBlankOn ? 1 : 0);
         setBitFromWord(FBCR, FBCR_nFEN_BIT_POS, hBlankOn ? 1 : 0); //TODO hack, FEN =0 after 40 cycles @ 23Mhz
         if (hBlankOn) {
-            if (!vdpContext.vBlankOn) {
+            if (hen > 0 || !vdpContext.vBlankOn) {
                 if (--vdpContext.hCount < 0) {
                     vdpContext.hCount = readWordFromBuffer(SH2_HCOUNT_REG) & 0xFF;
                     interruptControls[0].setIntPending(HINT_10, true);
@@ -510,6 +511,11 @@ public class S32XMMREG implements Device {
         int newVal = ic.readSh2IntMaskReg(baseReg, Size.WORD) | (cart << 8);
         ic.writeSh2IntMaskReg(baseReg, newVal, Size.WORD);
         updateFmShared(newVal); //68k side r/w too
+        int nhen = (newVal >> INTMASK_HEN_BIT_POS) & 1;
+        if (nhen != hen) {
+            hen = nhen;
+            LOG.info("{} HEN: {}", sh2Access, hen);
+        }
         return newVal != prevW;
     }
 

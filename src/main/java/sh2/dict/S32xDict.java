@@ -141,6 +141,7 @@ public class S32xDict {
     public static final int P32XS_DMA = (1 << 1);
     public static final int P32XS_RV = (1 << 0);
 
+    public static final int INTMASK_HEN_BIT_POS = 7;
     public static final int FBCR_VBLK_BIT_POS = 15;
     public static final int FBCR_HBLK_BIT_POS = 14;
     public static final int FBCR_FRAMESEL_BIT_POS = 0;

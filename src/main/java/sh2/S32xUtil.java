@@ -75,6 +75,9 @@ public class S32xUtil {
         setBit(b2, pos, bitPos, bitValue, size);
     }
 
+    /**
+     * @return true - has changed, false - otherwise
+     */
     public static boolean setBit(ByteBuffer b, int pos, int bitPos, int bitValue, Size size) {
         int val = readBuffer(b, pos, size);
         //clear bit and then set it
@@ -84,6 +87,20 @@ public class S32xUtil {
             return true;
         }
         return false;
+    }
+
+    /**
+     * @return the new value
+     */
+    public static int setBitVal(ByteBuffer b, int pos, int bitPos, int bitValue, Size size) {
+        int val = readBuffer(b, pos, size);
+        //clear bit and then set it
+        int newVal = (val & ~(1 << bitPos)) | (bitValue << bitPos);
+        if (val != newVal) {
+            writeBuffer(b, pos, newVal, size);
+            return newVal;
+        }
+        return val;
     }
 
     public static String toHexString(ByteBuffer b, int pos, Size size) {
