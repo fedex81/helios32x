@@ -91,7 +91,7 @@ public class DmaC implements StepDevice {
         DmaHelper.updateChannelControl(chan, value);
         if (wasEn != chan.chcr_dmaEn) {
             if (chan.chcr_dmaEn) {
-                checkDmaStart(chan, false);
+                checkDmaStart(chan);
             } else {
                 dmaEnd(chan, false);
             }
@@ -103,16 +103,16 @@ public class DmaC implements StepDevice {
         DmaHelper.updateChannelDmaor(dmaChannelSetup[1], value);
         boolean dme = (value & 1) > 0;
         if (dme) {
-            checkDmaStart(dmaChannelSetup[0], false);
-            checkDmaStart(dmaChannelSetup[1], false);
+            checkDmaStart(dmaChannelSetup[0]);
+            checkDmaStart(dmaChannelSetup[1]);
         } else {
             dmaEnd(dmaChannelSetup[0], false);
             dmaEnd(dmaChannelSetup[1], false);
         }
     }
 
-    private void checkDmaStart(DmaChannelSetup chan, boolean dreqTrigger) {
-        if (chan.chcr_dmaEn && chan.dmaor_dme && !chan.chcr_tranEndOk && (chan.chcr_autoReq || dreqTrigger)) {
+    private void checkDmaStart(DmaChannelSetup chan) {
+        if (chan.chcr_dmaEn && chan.dmaor_dme && !chan.chcr_tranEndOk && (chan.chcr_autoReq || chan.dreqLevel)) {
             if (!chan.dmaInProgress) {
                 chan.dmaInProgress = true;
                 updateOneDmaInProgress();
@@ -122,16 +122,14 @@ public class DmaC implements StepDevice {
     }
 
     public void dmaReqTrigger(int channel, boolean enable) {
-        boolean prevLevel = dmaChannelSetup[channel].dreqLevel;
         dmaChannelSetup[channel].dreqLevel = enable;
         if (enable) {
-            boolean dreqTrigger = !prevLevel && enable;
-            checkDmaStart(dmaChannelSetup[channel], dreqTrigger);
+            checkDmaStart(dmaChannelSetup[channel]);
         }
     }
 
     private void dmaOneStep(DmaChannelSetup c) {
-        int len = readBufferForChannel(c.channel, DMA_TCR0.addr, Size.LONG) & 0x00FF_FFFF;
+        int len = readBufferForChannel(c.channel, DMA_TCR0.addr, Size.LONG) & 0xFF_FFFF;
         int srcAddress = readBufferForChannel(c.channel, DMA_SAR0.addr, Size.LONG);
         int destAddress = readBufferForChannel(c.channel, DMA_DAR0.addr, Size.LONG);
         int steps = c.transfersPerStep;
@@ -143,8 +141,8 @@ public class DmaC implements StepDevice {
                         th((int) val), th(len));
             srcAddress += c.srcDelta;
             destAddress += c.destDelta;
-            len = (len - 1) & 0xFFFF;
-        } while (--steps > 0 && len > 0);
+            len = (len - 1) & 0xFF_FFFF;
+        } while (--steps > 0 && len >= 0); //TODO check len > 0?
         writeBufferForChannel(c.channel, DMA_DAR0.addr, destAddress, Size.LONG);
         writeBufferForChannel(c.channel, DMA_SAR0.addr, srcAddress, Size.LONG);
 
@@ -160,6 +158,7 @@ public class DmaC implements StepDevice {
     private void dmaEnd(DmaChannelSetup c, boolean normal) {
         if (c.dmaInProgress) {
             c.dmaInProgress = false;
+            c.dreqLevel = false;
             updateOneDmaInProgress();
             dma68k.dmaEnd();
             //transfer ended normally, ie. TCR = 0

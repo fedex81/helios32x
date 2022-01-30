@@ -26,8 +26,8 @@ public class DmaFifo68k {
     private static final Logger LOG = LogManager.getLogger(DmaFifo68k.class.getSimpleName());
 
     private static final int FIFO_REG_M68K = 0xA15100 + M68K_FIFO_REG.addr;
-    private static final int M68K_FIFO_FULL_BIT = 7;
-    private static final int M68K_68S_BIT_POS = 2;
+    public static final int M68K_FIFO_FULL_BIT = 7;
+    public static final int M68K_68S_BIT_POS = 2;
     private static final int SH2_FIFO_FULL_BIT = 15;
     private static final int SH2_FIFO_EMPTY_BIT = 14;
     private static final int DREQ0_CHANNEL = 0;
@@ -84,11 +84,16 @@ public class DmaFifo68k {
             case M68K_FIFO_REG:
                 handleFifoRegWrite68k(value);
                 break;
+            case M68K_DREQ_LEN:
+                //TODO this should be & 0xFFFC and not incremented by 1,
+                //TODO see Mars check 2, Vr, primal rage
+//                value = (value + 1); // & 0xFFFC;
+//                value &= 0xFFFC;
+                //fall-through
             case M68K_DREQ_DEST_ADDR_H:
             case M68K_DREQ_DEST_ADDR_L:
             case M68K_DREQ_SRC_ADDR_H:
             case M68K_DREQ_SRC_ADDR_L:
-            case M68K_DREQ_LEN:
                 writeBuffer(sysRegsMd, address, value, size);
                 writeBuffer(sysRegsSh2, address, value, size);
                 break;
@@ -191,5 +196,9 @@ public class DmaFifo68k {
 
     public void setDmac(DmaC... dmac) {
         this.dmac = dmac;
+    }
+
+    public DmaC[] getDmac() {
+        return dmac;
     }
 }

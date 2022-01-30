@@ -218,7 +218,7 @@ public class S32XMMREG implements Device {
     private int handleRegRead(int address, Size size) {
         CpuDeviceAccess cpu = Md32xRuntimeData.getAccessTypeExt();
         RegSpecS32x regSpec = S32xDict.getRegSpec(cpu, address);
-        if (regSpec == null) {
+        if (regSpec == INVALID) {
             LOG.error("{} unable to handle read, addr: {} {}", cpu, th(address), size);
             return (int) size.getMask();
         }

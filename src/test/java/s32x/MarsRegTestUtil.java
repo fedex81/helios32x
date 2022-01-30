@@ -2,10 +2,11 @@ package s32x;
 
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
-import sh2.Md32xRuntimeData;
-import sh2.S32XMMREG;
-import sh2.S32xUtil;
+import sh2.*;
+import sh2.sh2.device.DmaC;
 import sh2.sh2.device.IntControl;
+
+import java.nio.ByteBuffer;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
@@ -32,14 +33,30 @@ public class MarsRegTestUtil {
 
     public static S32XMMREG createInstance() {
         S32XMMREG s = new S32XMMREG();
-        s.setInterruptControl(createIntC(MASTER), createIntC(SLAVE));
+        Sh2Memory memory = new Sh2Memory(s, ByteBuffer.allocate(0xFFF));
+        DmaFifo68k dmaFifoControl = new DmaFifo68k(s);
+        s.setDmaControl(dmaFifoControl);
+        Sh2MMREG sm = new Sh2MMREG(MASTER);
+        Sh2MMREG ss = new Sh2MMREG(SLAVE);
+        s.setInterruptControl(createIntC(MASTER, sm.getRegs()), createIntC(SLAVE, ss.getRegs()));
+        DmaC d1 = createDmaC(MASTER, memory, s.interruptControls[0], dmaFifoControl, sm);
+        DmaC d2 = createDmaC(SLAVE, memory, s.interruptControls[1], dmaFifoControl, ss);
+        dmaFifoControl.setDmac(d1, d2);
         Md32xRuntimeData.releaseInstance();
         Md32xRuntimeData.newInstance();
         return s;
     }
 
+    public static DmaC createDmaC(S32xUtil.CpuDeviceAccess cpuDeviceAccess, Sh2Memory memory, IntControl intc, DmaFifo68k dmaFifo, Sh2MMREG s) {
+        return new DmaC(cpuDeviceAccess, intc, memory, dmaFifo, s.getRegs());
+    }
+
     public static IntControl createIntC(S32xUtil.CpuDeviceAccess cpuDeviceAccess) {
-        return new IntControl(cpuDeviceAccess, null);
+        return createIntC(cpuDeviceAccess, null);
+    }
+
+    public static IntControl createIntC(S32xUtil.CpuDeviceAccess cpuDeviceAccess, ByteBuffer regs) {
+        return new IntControl(cpuDeviceAccess, regs);
     }
 
     public static void assertFrameBufferDisplay(S32XMMREG s32XMMREG, int num) {
