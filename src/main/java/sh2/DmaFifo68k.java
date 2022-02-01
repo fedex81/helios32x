@@ -28,10 +28,12 @@ public class DmaFifo68k {
     private static final int FIFO_REG_M68K = 0xA15100 + M68K_FIFO_REG.addr;
     public static final int M68K_FIFO_FULL_BIT = 7;
     public static final int M68K_68S_BIT_POS = 2;
-    private static final int SH2_FIFO_FULL_BIT = 15;
-    private static final int SH2_FIFO_EMPTY_BIT = 14;
-    private static final int DREQ0_CHANNEL = 0;
-    private static final int DMA_FIFO_SIZE = 4;
+    public static final int SH2_FIFO_FULL_BIT = 15;
+    public static final int SH2_FIFO_EMPTY_BIT = 14;
+    public static final int DREQ0_CHANNEL = 0;
+    public static final int DMA_FIFO_SIZE = 8;
+    public static final int M68K_DMA_FIFO_LEN_MASK = 0xFFFC;
+
 
     private final ByteBuffer sysRegsMd, sysRegsSh2;
     private DmaC[] dmac;
@@ -85,10 +87,7 @@ public class DmaFifo68k {
                 handleFifoRegWrite68k(value);
                 break;
             case M68K_DREQ_LEN:
-                //TODO this should be & 0xFFFC and not incremented by 1,
-                //TODO see Mars check 2, Vr, primal rage
-//                value = (value + 1); // & 0xFFFC;
-//                value &= 0xFFFC;
+                value &= M68K_DMA_FIFO_LEN_MASK;
                 //fall-through
             case M68K_DREQ_DEST_ADDR_H:
             case M68K_DREQ_DEST_ADDR_L:
@@ -115,7 +114,7 @@ public class DmaFifo68k {
             if (verbose) LOG.info("{} write DREQ_CTL, dmaOn: {} , RV: {}", M68K, m68S, res & 1);
             if (wasDmaOn && !m68S) {
                 LOG.error("TODO check, 68S = 0, stops DMA while running");
-                stopDma();
+                dmaEnd();
             }
             updateFifoState();
         }
@@ -135,15 +134,12 @@ public class DmaFifo68k {
     }
 
     public void dmaEnd() {
+        fifo.clear();
         updateFifoState();
+        evaluateDreqTrigger(true); //force clears the dreqLevel in DMAC
         //set 68S to 0
         setBit(sysRegsMd, sysRegsSh2, SH2_DREQ_CTRL.addr + 1, M68K_68S_BIT_POS, 0, Size.BYTE);
-    }
-
-    private void stopDma() {
         m68S = false;
-        fifo.clear();
-        dmaEnd();
     }
 
     public void updateFifoState() {
@@ -154,19 +150,20 @@ public class DmaFifo68k {
                 LOG.info("68k DMA Fifo FULL state changed: {}", toHexString(sysRegsMd, M68K_DMAC_CTRL.addr, Size.WORD));
                 LOG.info("Sh2 DMA Fifo FULL state changed: {}", toHexString(sysRegsSh2, SH2_DREQ_CTRL.addr, Size.WORD));
             }
-            evaluateDreqTrigger();
         }
         changed = setBit(sysRegsSh2, SH2_DREQ_CTRL.addr, SH2_FIFO_EMPTY_BIT, fifo.isEmptyBit(), Size.WORD);
         if (changed) {
             if (verbose)
                 LOG.info("Sh2 DMA Fifo empty state changed: {}", toHexString(sysRegsSh2, SH2_DREQ_CTRL.addr, Size.WORD));
-            evaluateDreqTrigger();
         }
+        evaluateDreqTrigger(m68S);
     }
 
-    private void evaluateDreqTrigger() {
-        if (m68S && (fifo.isFull() || fifo.isEmpty())) {
-            boolean enable = fifo.isFull();
+    //NOTE: there are two fifos of size 4, dreq is triggered when at least one fifo is full
+    private void evaluateDreqTrigger(boolean pm68S) {
+        final int lev = fifo.getLevel();
+        if (pm68S && (lev & 3) == 0) { //lev can be 0,4,8
+            boolean enable = lev > 0; //lev can be 4,8
             dmac[MASTER.ordinal()].dmaReqTrigger(DREQ0_CHANNEL, enable);
             dmac[SLAVE.ordinal()].dmaReqTrigger(DREQ0_CHANNEL, enable);
             if (verbose) LOG.info("DMA fifo dreq: {}", enable);

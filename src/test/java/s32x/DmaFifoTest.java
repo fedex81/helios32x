@@ -3,7 +3,6 @@ package s32x;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import sh2.DmaFifo68k;
 import sh2.Md32xRuntimeData;
@@ -25,12 +24,11 @@ import static sh2.dict.Sh2Dict.RegSpec.*;
  * <p>
  * Copyright 2022
  * <p>
- * //TODO see MD/SOURCE/DEMO.ASM.FEDE, 0x008809c6
  */
-@Disabled
-public class DmacTest {
+public class DmaFifoTest {
 
     private S32XMMREG s32XMMREG;
+    private DmaC masterDmac;
     private int[] data = new int[0x80];
 
     public static final int FIFO_OFFSET = 0x4000 + M68K_FIFO_REG.addr;
@@ -48,21 +46,19 @@ public class DmacTest {
     public void beforeEach() {
         s32XMMREG = MarsRegTestUtil.createInstance();
         IntStream.range(0, data.length).forEach(i -> data[i] = i);
+        masterDmac = s32XMMREG.dmaFifoControl.getDmac()[MASTER.ordinal()];
     }
 
     @Test
     public void testMultiFifoTransfer() {
-        do {
-            testFifoTransfer01();
-            testFifoTransfer01();
-            testFifoTransfer02();
-            testFifoTransfer02();
-        } while (true);
+        testDmaFifoBlocks();
+        testFifoTransfer01();
+        testDmaFifoBlocks();
+        testFifoTransfer01();
     }
 
     @Test
     public void testFifoTransfer01() {
-        DmaC masterDmac = s32XMMREG.dmaFifoControl.getDmac()[0];
         int idx = 0, cnt = 0;
         int spin = 0;
         setup68k();
@@ -88,33 +84,36 @@ public class DmacTest {
     }
 
     @Test
-    public void testFifoTransfer02() {
-        DmaC masterDmac = s32XMMREG.dmaFifoControl.getDmac()[0];
+    public void testDmaFifoBlocks() {
         int idx = 0, cnt = 0;
-        int spin = 0;
         setup68k();
         setupSh2(masterDmac, data.length);
-        int pushFifo = r.nextInt(10) + 2;
-        System.out.println("#### " + pushFifo);
-        pushFifo = 3;
-        int limit = data.length * pushFifo;
-        do {
-            m68kWriteToFifo(data[idx++]);
-        } while (!isFifoFull());
+        //start Sh2 side
         masterDmac.write(DMA_CHCR0, 0x44E1, Size.WORD);
         masterDmac.write(DMA_DMAOR, 1, Size.WORD);
+        Assertions.assertFalse(masterDmac.getDmaChannelSetup()[0].dreqLevel);
+        Assertions.assertFalse(isFifoFull());
+        Assertions.assertTrue(isFifoEmpty());
         do {
-            if (idx < data.length && (cnt % pushFifo) == 0) {
-                boolean full = isFifoFull();
-                if (full) {
-                    spin++;
-                } else {
-                    m68kWriteToFifo(data[idx++]);
-                }
-            }
+            //68k: fill one dma block
+            m68kWriteToFifo(data[idx++]);
+            m68kWriteToFifo(data[idx++]);
+            m68kWriteToFifo(data[idx++]);
+            m68kWriteToFifo(data[idx++]);
+            Assertions.assertTrue(masterDmac.getDmaChannelSetup()[0].dreqLevel);
+            Assertions.assertFalse(isFifoFull());
+            Assertions.assertFalse(isFifoEmpty());
+
+            //Sh2: empty one block
             dmaStep(masterDmac);
+            dmaStep(masterDmac);
+            dmaStep(masterDmac);
+            dmaStep(masterDmac);
+            Assertions.assertFalse(masterDmac.getDmaChannelSetup()[0].dreqLevel);
+            Assertions.assertFalse(isFifoFull());
+            Assertions.assertTrue(isFifoEmpty());
             cnt++;
-        } while (!isDmaDoneM68k() && spin < limit);
+        } while (!isDmaDoneM68k());
         Assertions.assertEquals(data.length, idx);
     }
 
@@ -134,8 +133,7 @@ public class DmacTest {
         dmac.write(DMA_TCR0, len, Size.LONG);
         dmac.write(DMA_SAR0, Sh2Memory.CACHE_THROUGH_OFFSET + FIFO_OFFSET, Size.LONG);
         dmac.write(DMA_DAR0, Sh2Memory.START_SDRAM, Size.LONG);
-//        dmac.write(DMA_CHCR0, 0x44E1 ,Size.WORD);
-//        dmac.write(DMA_DMAOR, 1 ,Size.WORD);
+        Assertions.assertFalse(dmac.getDmaChannelSetup()[0].dreqLevel);
     }
 
     private void m68kWriteToFifo(int data) {
@@ -152,7 +150,12 @@ public class DmacTest {
     private boolean isFifoFull() {
         Md32xRuntimeData.setAccessTypeExt(M68K);
         int val = s32XMMREG.read(DMA_CONTROL_OFFSET, Size.WORD);
-        //System.out.println(val);
         return (val >> DmaFifo68k.M68K_FIFO_FULL_BIT & 1) > 0;
+    }
+
+    private boolean isFifoEmpty() {
+        Md32xRuntimeData.setAccessTypeExt(MASTER);
+        int val = s32XMMREG.read(DMA_CONTROL_OFFSET, Size.WORD);
+        return (val >> DmaFifo68k.SH2_FIFO_EMPTY_BIT & 1) > 0;
     }
 }

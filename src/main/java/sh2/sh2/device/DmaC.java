@@ -126,6 +126,7 @@ public class DmaC implements StepDevice {
         if (enable) {
             checkDmaStart(dmaChannelSetup[channel]);
         }
+        if (verbose) LOG.info("{} Dreq{} Level: {}", cpu, channel, enable);
     }
 
     private void dmaOneStep(DmaChannelSetup c) {
@@ -175,6 +176,10 @@ public class DmaC implements StepDevice {
 
     private void updateOneDmaInProgress() {
         oneDmaInProgress = dmaChannelSetup[0].dmaInProgress || dmaChannelSetup[1].dmaInProgress;
+    }
+
+    public DmaChannelSetup[] getDmaChannelSetup() {
+        return dmaChannelSetup;
     }
 
     private void setBitInt(int channel, int regChan0, int bitPos, int bitVal, Size size) {
