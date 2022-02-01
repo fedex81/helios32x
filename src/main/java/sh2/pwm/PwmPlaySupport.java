@@ -136,6 +136,7 @@ public class PwmPlaySupport {
 
     public void close() {
         close = true;
+        Util.trySignalCondition(lock, dataReady);
         if (executorService != null) {
             executorService.shutdown();
         }

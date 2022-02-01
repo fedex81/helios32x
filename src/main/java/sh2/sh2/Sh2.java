@@ -39,11 +39,16 @@ public class Sh2 implements Device {
 
 	private final static Logger LOG = LogManager.getLogger(Sh2.class.getSimpleName());
 
-	public static final int flagT = 0x00000001;
-	public static final int flagS = 0x00000002;
+	public static final int posT = 0;
+	public static final int posS = 1;
+	public static final int posQ = 8;
+	public static final int posM = 9;
+
+	public static final int flagT = 1 << posT;
+	public static final int flagS = 1 << posS;
 	public static final int flagIMASK = 0x000000f0;
-	public static final int flagQ = 0x00000100;
-	public static final int flagM = 0x00000200;
+	public static final int flagQ = 1 << posQ;
+	public static final int flagM = 1 << posM;
 
 	public static final int SR_MASK = 0x3F3;
 
@@ -816,117 +821,32 @@ public class Sh2 implements Device {
 		ctx.PC += 2;
 	}
 
-	/**
-	 * https://chromium.googlesource.com/chromiumos/third_party/gcc/+/009f97f2bf0e7c070fac2d2806af05e166ceaf3c/gcc/gcc-4.6.0/libgcc/config/sh/lib1funcs-Os-4-200.S
-	 *
-	 * @param code
-	 */
 	protected final void DIV1(int code) {
-		int n = RN(code);//dividend
-		int m = RM(code); //divisor
-		DIV1(ctx, n, m);
+		DIV1(ctx, RN(code), RM(code)); //dividend, divisor
 	}
 
+	/**
+	 * From Ares
+	 */
 	public final static void DIV1(Sh2Context ctx, int dvd, int dvsr) {
-		long tmp0;
-		int old_q;
-
-		old_q = ctx.SR & flagQ;
-		if ((0x80000000 & ctx.registers[dvd]) != 0)
-			ctx.SR |= flagQ;
-		else
-			ctx.SR &= ~flagQ;
-
-		long dvdl = ctx.registers[dvd] & 0xFFFF_FFFFL;
-		long dvsrl = ctx.registers[dvsr] &= 0xFFFF_FFFFL;
-
-		dvdl <<= 1;
-		dvdl |= (ctx.SR & flagT);
-		dvdl &= 0xFFFF_FFFFL;
-//		System.out.printf("1: %x\n", dvdl);
-
-		tmp0 = dvdl;
-
-		if (old_q == 0) {
-			if ((ctx.SR & flagM) == 0) {
-				dvdl -= dvsrl;
-				dvdl &= 0xFFFF_FFFFL;
-//				System.out.printf("2a: %x\n", dvdl);
-				if ((ctx.SR & flagQ) == 0) {
-					if (dvdl > tmp0) {
-						ctx.SR |= flagQ;
-					} else {
-						ctx.SR &= ~flagQ;
-					}
-				} else if (dvdl > tmp0) {
-					ctx.SR &= ~flagQ;
-				} else {
-					ctx.SR |= flagQ;
-				}
-			} else {
-				dvdl += dvsrl;
-				dvdl &= 0xFFFF_FFFFL;
-//				System.out.printf("2b: %x\n", dvdl);
-				if ((ctx.SR & flagQ) == 0) {
-					if (dvdl < tmp0) {
-						ctx.SR &= ~flagQ;
-					} else {
-						ctx.SR |= flagQ;
-					}
-				} else {
-					if (dvdl < tmp0) {
-						ctx.SR |= flagQ;
-					} else {
-						ctx.SR &= ~flagQ;
-					}
-				}
-			}
+		boolean old_q = (ctx.SR & flagQ) > 0;
+		ctx.SR &= ~flagQ;
+		ctx.SR |= ((ctx.registers[dvd] >> 31) & 1) << posQ;
+		long r = ((long) (ctx.registers[dvd]) << 1) & 0xFFFF_FFFFL;
+		r |= (ctx.SR & flagT);
+		if (old_q == ((ctx.SR & flagM) > 0)) {
+			r -= ctx.registers[dvsr];
 		} else {
-			if ((ctx.SR & flagM) == 0) {
-				dvdl += dvsrl;
-				dvdl &= 0xFFFF_FFFFL;
-//				System.out.printf("2c: %x\n", dvdl);
-				if ((ctx.SR & flagQ) == 0) {
-					if (dvdl < tmp0) {
-						ctx.SR |= flagQ;
-					} else {
-						ctx.SR &= ~flagQ;
-					}
-				} else {
-					if (dvdl < tmp0) {
-						ctx.SR &= ~flagQ;
-					} else {
-						ctx.SR |= flagQ;
-					}
-				}
-			} else {
-				dvdl -= dvsrl;
-				dvdl &= 0xFFFF_FFFFL;
-//				System.out.printf("2d: %x\n", dvdl);
-				if ((ctx.SR & flagQ) == 0) {
-					if (dvdl > tmp0) {
-						ctx.SR &= ~flagQ;
-					} else {
-						ctx.SR |= flagQ;
-					}
-				} else {
-					if (dvdl > tmp0) {
-						ctx.SR |= flagQ;
-					} else {
-						ctx.SR &= ~flagQ;
-					}
-				}
-			}
+			r += ctx.registers[dvsr];
 		}
-
-		tmp0 = (ctx.SR & (flagQ | flagM));
-		if (((tmp0) == 0) || (tmp0 == 0x300)) /* if Q == M set T else clear T */
-			ctx.SR |= flagT;
-		else
-			ctx.SR &= ~flagT;
-
-		ctx.registers[dvd] = (int) dvdl;
-//		System.out.printf("####,div1s: r[%d]=%x >= r[%d]=%x, %d, %d, %d\n", dvd,
+		ctx.registers[dvd] = (int) r;
+		int qm = ((ctx.SR >> posQ) & 1) ^ ((ctx.SR >> posM) & 1);
+		int q = qm ^ (int) ((r >> 32) & 1);
+		qm = q ^ ((ctx.SR >> posM) & 1);
+		int t = 1 - qm;
+		ctx.SR &= ~(flagQ | flagT);
+		ctx.SR |= (q << posQ) | t;
+//		System.out.printf("####,div1: r[%d]=%x >= r[%d]=%x, %d, %d, %d\n", dvd,
 //				ctx.registers[dvd], dvsr, ctx.registers[dvsr], ((ctx.SR & flagM) > 0) ? 1: 0,
 //				((ctx.SR & flagQ) > 0) ? 1: 0,
 //				((ctx.SR & flagT) > 0) ? 1: 0);
@@ -958,10 +878,7 @@ public class Sh2 implements Device {
 	}
 
 	protected final void DIV0U(int code) {
-		ctx.SR &= (~flagQ);
-		ctx.SR &= (~flagM);
-		ctx.SR &= (~flagT);
-
+		ctx.SR &= ~(flagQ | flagM | flagT);
 		ctx.cycles--;
 		ctx.PC += 2;
 //		System.out.printf("####,div0u: %d, %d, %d\n", ((ctx.SR & flagM) > 0) ? 1: 0,
