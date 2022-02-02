@@ -165,7 +165,7 @@ public final class Sh2Memory implements IMemory {
 		} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
 			sh2MMREGS[cpuAccess.ordinal()].writeDramMode(address & 0xFFFF, val, size);
 		} else if ((address & CACHE_PURGE_OFFSET) == CACHE_PURGE_OFFSET) { //cache purge
-			LOG.info("Cache purge: {}", th(address));
+//			LOG.info("Cache purge: {}", th(address));
 		} else if (address >= START_CACHE_FLUSH && address < END_CACHE_FLUSH) {
 			LOG.info("Cache flush: {}", th(address));
 		} else {

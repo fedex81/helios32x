@@ -34,17 +34,15 @@ public class Md32x extends Genesis {
     protected final static int SH2_CYCLE_RATIO;
     private Md32xRuntimeData rt;
 
-    //TODO StarWars Arcade needs x > 12
-    //TODO VR needs 3 < x < 12, due to tight DMA FIFO loops
     static {
-        SH2_CYCLES_PER_STEP = 6; //24;
+        SH2_CYCLES_PER_STEP = 3; //24;
         Sh2.burstCycles = SH2_CYCLES_PER_STEP;
         //3 cycles @ 23Mhz = 1 cycle @ 7.67
         SH2_CYCLE_RATIO = 3; //23.01/7.67 = 3
-        System.setProperty("68k.debug", "true");
+//        System.setProperty("68k.debug", "true");
 //        System.setProperty("z80.debug", "true");
-        System.setProperty("sh2.master.debug", "true");
-        System.setProperty("sh2.slave.debug", "true");
+//        System.setProperty("sh2.master.debug", "true");
+//        System.setProperty("sh2.slave.debug", "true");
     }
 
     private int nextMSh2Cycle = 0, nextSSh2Cycle = 0;

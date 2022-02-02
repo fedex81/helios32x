@@ -52,6 +52,8 @@ public class Sh2 implements Device {
 
 	public static final int SR_MASK = 0x3F3;
 
+	public static final int ILLEGAL_INST_VN = 4; //vector number
+
 	public static int burstCycles = 1;
 
 	private Sh2Context ctx;
@@ -140,8 +142,8 @@ public class Sh2 implements Device {
 	}
 
 	protected final void UNKNOWN(int instruction) {
-		Sh2Helper.printState(ctx, instruction);
-		throw new RuntimeException(ctx.sh2TypeCode + " Unknown inst: " + Integer.toHexString(instruction));
+		LOG.error("{} illegal instruction: {}\n{}", ctx.cpuAccess, th(instruction),
+				Sh2Helper.toDebuggingString(ctx, instruction));
 	}
 
 	protected final void MOVI(int code) {
@@ -822,22 +824,24 @@ public class Sh2 implements Device {
 	}
 
 	protected final void DIV1(int code) {
-		DIV1(ctx, RN(code), RM(code)); //dividend, divisor
+		DIV1(ctx, RN(code), RM(code));    //dividend, divisor
 	}
 
 	/**
 	 * From Ares
 	 */
 	public final static void DIV1(Sh2Context ctx, int dvd, int dvsr) {
+		long udvd = ctx.registers[dvd] & 0xFFFF_FFFFL;
+		long udvsr = ctx.registers[dvsr] & 0xFFFF_FFFFL;
 		boolean old_q = (ctx.SR & flagQ) > 0;
 		ctx.SR &= ~flagQ;
-		ctx.SR |= ((ctx.registers[dvd] >> 31) & 1) << posQ;
-		long r = ((long) (ctx.registers[dvd]) << 1) & 0xFFFF_FFFFL;
+		ctx.SR |= ((udvd >> 31) & 1) << posQ;
+		long r = (udvd << 1) & 0xFFFF_FFFFL;
 		r |= (ctx.SR & flagT);
 		if (old_q == ((ctx.SR & flagM) > 0)) {
-			r -= ctx.registers[dvsr];
+			r -= udvsr;
 		} else {
-			r += ctx.registers[dvsr];
+			r += udvsr;
 		}
 		ctx.registers[dvd] = (int) r;
 		int qm = ((ctx.SR >> posQ) & 1) ^ ((ctx.SR >> posM) & 1);
@@ -846,10 +850,7 @@ public class Sh2 implements Device {
 		int t = 1 - qm;
 		ctx.SR &= ~(flagQ | flagT);
 		ctx.SR |= (q << posQ) | t;
-//		System.out.printf("####,div1: r[%d]=%x >= r[%d]=%x, %d, %d, %d\n", dvd,
-//				ctx.registers[dvd], dvsr, ctx.registers[dvsr], ((ctx.SR & flagM) > 0) ? 1: 0,
-//				((ctx.SR & flagQ) > 0) ? 1: 0,
-//				((ctx.SR & flagT) > 0) ? 1: 0);
+
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
@@ -1960,8 +1961,18 @@ public class Sh2 implements Device {
 		push(ctx.SR);
 		push(ctx.PC + 2);
 
+		//TODO check +4
 		ctx.PC = memory.read32i(ctx.VBR + (imm << 2)) + 4;
+		if (true) new RuntimeException("TRAPA");
 		ctx.cycles -= 8;
+	}
+
+	protected final void ILLEGAL(int code) {
+		push(ctx.SR);
+		push(ctx.PC);
+		UNKNOWN(code);
+		ctx.PC = memory.read32i(ctx.VBR + (ILLEGAL_INST_VN << 2));
+		ctx.cycles -= 5;
 	}
 
 	//NO-OP
@@ -2594,7 +2605,7 @@ public class Sh2 implements Device {
 				MOVI(instruction);
 				return;
 		}
-		UNKNOWN(instruction);
+		ILLEGAL(instruction);
 	}
 
 	public void setCtx(Sh2Context ctx) {

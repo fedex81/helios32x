@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
+import sh2.sh2.Sh2Debug;
 import sh2.sh2.device.Sh2DeviceHelper;
 
 import java.io.File;
@@ -36,6 +37,7 @@ public class J2CoreTest {
     static String binName = "j2tests.bin";
     static ByteBuffer rom;
     private static boolean done = false;
+    private static boolean sh2Debug = false;
 
     public static Path baseDataFolder = Paths.get(new File(".").getAbsolutePath(),
             "src", "test", "resources");
@@ -54,7 +56,7 @@ public class J2CoreTest {
     @BeforeEach
     public void before() {
         IMemory memory = getMemory(rom);
-        sh2 = new Sh2(memory);
+        sh2 = sh2Debug ? new Sh2Debug(memory) : new Sh2(memory);
         ctx = createContext(S32xUtil.CpuDeviceAccess.MASTER, memory);
         sh2.reset(ctx);
         System.out.println("Reset, PC: " + ctx.PC + ", SP: " + ctx.registers[15]);
@@ -74,10 +76,10 @@ public class J2CoreTest {
         Sh2MMREG sh2MMREG = new Sh2MMREG(cpu);
         S32XMMREG s32XMMREG = new S32XMMREG();
         Sh2Context context = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
+        context.debug = sh2Debug;
         context.devices = Sh2DeviceHelper.createDevices(cpu, memory, new DmaFifo68k(s32XMMREG), sh2MMREG);
         sh2MMREG.init(context.devices);
         Md32xRuntimeData.newInstance();
-        context.debug = true;
         return context;
     }
 
