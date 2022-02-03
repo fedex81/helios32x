@@ -55,7 +55,8 @@ public class Pwm implements StepDevice {
     private boolean pwmEnable, dreqEn;
     private int cycle = 0, interruptInterval;
     private int sh2TicksToNextPwmSample, sh2ticksToNextPwmInterrupt;
-    private int pwmSamplesPerFrame = 0, stepsPerFrame = 0;
+    private int pwmSamplesPerFrame = 0, stepsPerFrame = 0, dreqPerFrame = 0;
+    ;
 
     private Fifo<Integer> fifoLeft, fifoRight;
     private int latestPwmValue = 0;
@@ -178,7 +179,8 @@ public class Pwm implements StepDevice {
     private void writeFifo(RegSpecS32x regSpec, int reg, Fifo<Integer> fifo, int value, Size size) {
         if (fifo.isFull()) {
             //TODO replace oldest
-//            LOG.error("PWM FIFO push when fifo full");
+//            LOG.warn("PWM FIFO push when fifo full");
+//            dreq();
             return;
         }
         fifo.push(value & 0xFFF);
@@ -203,8 +205,9 @@ public class Pwm implements StepDevice {
     }
 
     private void updateMono(RegSpecS32x regSpec) {
-        int regValue = ((fifoLeft.isFullBit() | fifoRight.isFullBit()) << PWM_FIFO_FULL_BIT_POS) |
-                ((fifoLeft.isEmptyBit() & fifoRight.isEmptyBit()) << PWM_FIFO_EMPTY_BIT_POS);
+        int fifoFull = ((fifoLeft.isFullBit() | fifoRight.isFullBit()) << PWM_FIFO_FULL_BIT_POS);
+        int fifoEmpty = ((fifoLeft.isEmptyBit() & fifoRight.isEmptyBit()) << PWM_FIFO_EMPTY_BIT_POS);
+        int regValue = fifoFull | fifoEmpty;
         writeBuffers(sysRegsMd, sysRegsSh2, PWM_MONO.addr, regValue, Size.WORD);
     }
 
@@ -214,9 +217,12 @@ public class Pwm implements StepDevice {
     }
 
     public void newFrame() {
-        if (verbose) LOG.info("Samples per frame: {}, stepsPerFrame: {}", pwmSamplesPerFrame, stepsPerFrame);
+        if (verbose)
+            LOG.info("Samples per frame: {}, stepsPerFrame: {}, dreqPerFrame: {}",
+                    pwmSamplesPerFrame, stepsPerFrame, dreqPerFrame);
         pwmSamplesPerFrame = 0;
         stepsPerFrame = 0;
+        dreqPerFrame = 0;
     }
 
     @Override
@@ -233,17 +239,22 @@ public class Pwm implements StepDevice {
         if (--sh2TicksToNextPwmSample == 0) {
             sh2TicksToNextPwmSample = cycle;
             pwmSamplesPerFrame++;
-            playSupport.playSample(readFifo(PWM_LCH_PW, fifoLeft), readFifo(PWM_RCH_PW, fifoRight));
+            playSupport.playSample(Math.min(cycle, readFifo(PWM_LCH_PW, fifoLeft)), Math.min(cycle, readFifo(PWM_RCH_PW, fifoRight)));
             if (--sh2ticksToNextPwmInterrupt == 0) {
                 intControls[MASTER.ordinal()].setIntPending(PWM_6, true);
                 intControls[SLAVE.ordinal()].setIntPending(PWM_6, true);
-                if (dreqEn) {
-                    //NOTE this should trigger on channel one for BOTH sh2s
-                    dmac[MASTER.ordinal()].dmaReqTrigger(PWM_DMA_CHANNEL, true);
-                    dmac[SLAVE.ordinal()].dmaReqTrigger(PWM_DMA_CHANNEL, true);
-                }
                 sh2ticksToNextPwmInterrupt = interruptInterval;
+                dreq();
             }
+        }
+    }
+
+    private void dreq() {
+        if (dreqEn) {
+            //NOTE this should trigger on channel one for BOTH sh2s
+            dmac[MASTER.ordinal()].dmaReqTriggerPwm(PWM_DMA_CHANNEL, true);
+            dmac[SLAVE.ordinal()].dmaReqTriggerPwm(PWM_DMA_CHANNEL, true);
+            dreqPerFrame++;
         }
     }
 

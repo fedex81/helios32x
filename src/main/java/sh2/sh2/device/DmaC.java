@@ -121,6 +121,22 @@ public class DmaC implements StepDevice {
         }
     }
 
+    //TODO unify
+    public void dmaReqTriggerPwm(int channel, boolean enable) {
+        DmaChannelSetup d = dmaChannelSetup[channel];
+        d.dreqLevel = enable;
+        if (enable) {
+            checkDmaStart(d);
+            if (d.dmaInProgress) {
+                dmaOneStep(d);
+                d.dreqLevel = false;
+                d.dmaInProgress = false;
+                updateOneDmaInProgress();
+            }
+        }
+        if (verbose) LOG.info("{} DreqPwm{} Level: {}", cpu, channel, enable);
+    }
+
     public void dmaReqTrigger(int channel, boolean enable) {
         dmaChannelSetup[channel].dreqLevel = enable;
         if (enable) {
@@ -143,7 +159,7 @@ public class DmaC implements StepDevice {
             srcAddress += c.srcDelta;
             destAddress += c.destDelta;
             len = (len - 1) & 0xFF_FFFF;
-        } while (--steps > 0 && len >= 0); //TODO check len > 0?
+        } while (--steps > 0 && len >= 0);
         writeBufferForChannel(c.channel, DMA_DAR0.addr, destAddress, Size.LONG);
         writeBufferForChannel(c.channel, DMA_SAR0.addr, srcAddress, Size.LONG);
 

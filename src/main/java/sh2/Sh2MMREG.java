@@ -181,7 +181,9 @@ public class Sh2MMREG {
     }
 
     public void newFrame() {
-        if (verbose) LOG.info("{} Ticks per frame: {}, sh2 tpf: {}", cpu, ticksPerFrame, sh2TicksPerFrame);
+        if (verbose)
+            LOG.info("{} DMA/SCI ticks per frame: {}, sh2 tpf: {}",
+                    cpu, ticksPerFrame, sh2TicksPerFrame);
         ticksPerFrame = sh2TicksPerFrame = 0;
     }
 
