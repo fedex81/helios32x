@@ -53,9 +53,11 @@ import static sh2.S32xUtil.CpuDeviceAccess.M68K;
  */
 public class Genesis extends BaseSystem<GenesisBusProvider> {
 
+    private final static Logger LOG = LogManager.getLogger(Genesis.class.getSimpleName());
+
     public final static boolean verbose = false;
-    //NTSC_MCLOCK_MHZ = 53693175;
-    //PAL_MCLOCK_MHZ = 53203424;
+    public final static int NTSC_MCLOCK_MHZ = 53693175;
+    public final static int PAL_MCLOCK_MHZ = 53203424;
     //the emulation runs at MCLOCK_MHZ/MCLK_DIVIDER
     protected final static int MCLK_DIVIDER = 7;
     protected final static double VDP_RATIO = 4.0 / MCLK_DIVIDER;  //16 -> MCLK/4, 20 -> MCLK/5
@@ -63,7 +65,7 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
     final static double[] vdpVals = {VDP_RATIO * BaseVdpProvider.MCLK_DIVIDER_FAST_VDP, VDP_RATIO * BaseVdpProvider.MCLK_DIVIDER_SLOW_VDP};
     protected final static int Z80_DIVIDER = 14 / MCLK_DIVIDER;
     protected final static int FM_DIVIDER = 42 / MCLK_DIVIDER;
-    private final static Logger LOG = LogManager.getLogger(Genesis.class.getSimpleName());
+
 
     protected Z80Provider z80;
     protected M68kProvider cpu;

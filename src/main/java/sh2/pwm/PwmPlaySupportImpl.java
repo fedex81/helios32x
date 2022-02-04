@@ -1,5 +1,6 @@
 package sh2.pwm;
 
+import omegadrive.sound.PwmProvider;
 import omegadrive.sound.javasound.AbstractSoundManager;
 import omegadrive.util.PriorityThreadFactory;
 import omegadrive.util.SoundUtil;
@@ -23,11 +24,11 @@ import static sh2.pwm.Pwm.CYCLE_LIMIT;
  * Federico Berti
  * <p>
  * Copyright 2022
- * TODO PAL
  */
-public class PwmPlaySupport {
+@Deprecated
+public class PwmPlaySupportImpl implements PwmProvider {
 
-    private static final Logger LOG = LogManager.getLogger(PwmPlaySupport.class.getSimpleName());
+    private static final Logger LOG = LogManager.getLogger(PwmPlaySupportImpl.class.getSimpleName());
 
     private static final boolean ENABLE = true;
 
@@ -55,7 +56,7 @@ public class PwmPlaySupport {
     private final Condition dataReady;
     private boolean shouldPlay;
 
-    public PwmPlaySupport() {
+    public PwmPlaySupportImpl() {
         executorService = Executors.newSingleThreadExecutor(new PriorityThreadFactory("pwm"));
         lock = new ReentrantLock();
         dataReady = lock.newCondition();

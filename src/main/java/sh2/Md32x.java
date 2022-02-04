@@ -1,6 +1,7 @@
 package sh2;
 
 import omegadrive.Device;
+import omegadrive.SystemLoader;
 import omegadrive.bus.model.GenesisBusProvider;
 import omegadrive.system.Genesis;
 import omegadrive.ui.DisplayWindow;
@@ -33,6 +34,7 @@ public class Md32x extends Genesis {
     protected final static int SH2_CYCLES_PER_STEP;
     protected final static int SH2_CYCLE_RATIO;
     private Md32xRuntimeData rt;
+    private static boolean enable_fm = false;
 
     static {
         SH2_CYCLES_PER_STEP = 3; //24;
@@ -43,6 +45,7 @@ public class Md32x extends Genesis {
 //        System.setProperty("z80.debug", "true");
 //        System.setProperty("sh2.master.debug", "true");
 //        System.setProperty("sh2.slave.debug", "true");
+//        enable_fm = true;
     }
 
     private int nextMSh2Cycle = 0, nextSSh2Cycle = 0;
@@ -68,6 +71,9 @@ public class Md32x extends Genesis {
         nextSSh2Cycle = nextMSh2Cycle = ctx.s32XMMREG.aden & 1;
         marsVdp.updateDebugView(((GenesisVdp) vdp).getDebugViewer());
         super.initAfterRomLoad(); //needs to be last
+        //TODO super inits the soundProvider
+        ctx.pwm.setPwmProvider(sound.getPwm());
+        sound.setEnabled(sound.getFm(), enable_fm);
     }
 
     @Override
@@ -156,5 +162,10 @@ public class Md32x extends Genesis {
     public void handleNewRom(Path file) {
         super.handleNewRom(file);
         rt = Md32xRuntimeData.newInstance();
+    }
+
+    @Override
+    public SystemLoader.SystemType getSystemType() {
+        return SystemLoader.SystemType.S32X;
     }
 }

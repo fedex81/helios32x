@@ -1,5 +1,6 @@
 package sh2.pwm;
 
+import omegadrive.sound.PwmProvider;
 import omegadrive.util.Fifo;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
@@ -56,19 +57,18 @@ public class Pwm implements StepDevice {
     private int cycle = 0, interruptInterval;
     private int sh2TicksToNextPwmSample, sh2ticksToNextPwmInterrupt;
     private int pwmSamplesPerFrame = 0, stepsPerFrame = 0, dreqPerFrame = 0;
-    ;
 
     private Fifo<Integer> fifoLeft, fifoRight;
     private int latestPwmValue = 0;
     private static final boolean verbose = false;
-    private PwmPlaySupport playSupport;
+    private PwmProvider playSupport;
 
     public Pwm(S32XMMREG s32XMMREG) {
         this.sysRegsMd = s32XMMREG.sysRegsMd;
         this.sysRegsSh2 = s32XMMREG.sysRegsSh2;
         this.fifoLeft = Fifo.createIntegerFixedSizeFifo(PWM_FIFO_SIZE);
         this.fifoRight = Fifo.createIntegerFixedSizeFifo(PWM_FIFO_SIZE);
-        this.playSupport = new PwmPlaySupport();
+//        this.playSupport = new PwmPlaySupportImpl();
         init();
     }
 
@@ -223,6 +223,7 @@ public class Pwm implements StepDevice {
         pwmSamplesPerFrame = 0;
         stepsPerFrame = 0;
         dreqPerFrame = 0;
+        playSupport.newFrame();
     }
 
     @Override
@@ -266,6 +267,11 @@ public class Pwm implements StepDevice {
         this.dmac = dmac;
     }
 
+    public void setPwmProvider(PwmProvider p) {
+        this.playSupport = p;
+        playSupport.updatePwmCycle(cycle);
+    }
+
     @Override
     public void init() {
         writeBuffers(sysRegsMd, sysRegsSh2, PWM_LCH_PW.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
@@ -276,7 +282,7 @@ public class Pwm implements StepDevice {
     @Override
     public void reset() {
         init();
-        playSupport.close();
+        playSupport.reset();
         LOG.info("PWM reset done");
     }
 }

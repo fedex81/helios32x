@@ -3,6 +3,7 @@ package sh2;
 import omegadrive.Device;
 import omegadrive.bus.md.GenesisBus;
 import omegadrive.bus.model.GenesisBusProvider;
+import omegadrive.sound.PwmProvider;
 import omegadrive.util.Size;
 import omegadrive.util.Util;
 import omegadrive.util.VideoMode;
@@ -269,6 +270,10 @@ public class S32xBus extends GenesisBus {
 
     public void setBios68k(ByteBuffer bios68k) {
         this.bios68k = bios68k;
+    }
+
+    public PwmProvider getPwm() {
+        return soundProvider.getPwm();
     }
 
     public void resetSh2() {
