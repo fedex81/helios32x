@@ -129,7 +129,7 @@ public class DmaFifo68k {
                 LOG.error("DMA Fifo full, discarding data");
             }
         } else {
-            LOG.error("DMA off");
+            LOG.error("DMA off, ignoring FIFO write: {}", th(value));
         }
     }
 

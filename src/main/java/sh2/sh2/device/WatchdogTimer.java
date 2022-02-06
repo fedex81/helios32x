@@ -43,6 +43,7 @@ public class WatchdogTimer implements StepDevice {
     private static final int WRITE_MSB_A5 = 0xA5;
 
     private static final int WOVF_BIT_POS = 7;
+    private static final int OVF_BIT_POS = 7;
     private static final int RSTE_BIT_POS = 6;
     private static final int RSTS_BIT_POS = 5;
     private static final int TME_BIT_POS = 5; //timer enable
@@ -58,7 +59,7 @@ public class WatchdogTimer implements StepDevice {
     private S32xUtil.CpuDeviceAccess cpu;
     private IntControl intControl;
     private boolean wdtTimerEnable, timerMode = true;
-    private int clockDivider = 2;
+    private int count = 0, clockDivider = 2;
     private int sh2TicksToNextWdtClock;
 
     public WatchdogTimer(S32xUtil.CpuDeviceAccess cpu, IntControl intC, ByteBuffer regs) {
@@ -68,12 +69,15 @@ public class WatchdogTimer implements StepDevice {
         reset();
     }
 
-    public int read(Sh2Dict.RegSpec regSpec, Size size) {
+    public int read(Sh2Dict.RegSpec regSpec, int address, Size size) {
         if (size != Size.BYTE) {
             LOG.error("{} WDT read {}: {}", cpu, regSpec.name, size);
             throw new RuntimeException();
         }
-        return 0;
+        if (address == WTCNT_ADDR_READ) {
+            writeBuffer(regs, WTCNT_ADDR_READ, count, Size.BYTE);
+        }
+        return readBuffer(regs, address, size);
     }
 
     public void write(Sh2Dict.RegSpec regSpec, int value, Size size) {
@@ -127,6 +131,7 @@ public class WatchdogTimer implements StepDevice {
                 if (verbose) LOG.info("{} WDT write {}: {} {}", cpu, WDT_WTCNT.name,
                         th(value), Size.WORD);
                 writeBuffer(regs, WTCNT_ADDR_READ, value & 0xFF, Size.BYTE);
+                count = value & 0xFF;
                 break;
             default:
                 LOG.error("{} WDT write, addr {}, unexpected MSB: {}", cpu, ADDR_WRITE_80, msb);
@@ -149,9 +154,9 @@ public class WatchdogTimer implements StepDevice {
     @Override
     public void step(int cycles) {
         if (wdtTimerEnable) {
-            for (int i = 0; i < cycles; i++) {
-                stepOne();
-            }
+            stepOne();
+            stepOne();
+            stepOne();
         }
     }
 
@@ -160,17 +165,15 @@ public class WatchdogTimer implements StepDevice {
             sh2TicksToNextWdtClock = clockDivider;
             int cnt = increaseCount();
             if (cnt == 0) { //overflow
-                setBit(regs, WTCSR_ADDR_READ, 7, 1, Size.BYTE);
+                setBit(regs, WTCSR_ADDR_READ, OVF_BIT_POS, 1, Size.BYTE);
                 intControl.setExternalIntPending(WDT, 0, true);
             }
         }
     }
 
     private int increaseCount() {
-        int cnt = readBuffer(regs, WTCNT_ADDR_READ, Size.BYTE);
-        cnt = (cnt + 1) & 0xFF;
-        writeBuffer(regs, WTCNT_ADDR_READ, cnt, Size.BYTE);
-        return cnt;
+        count = (count + 1) & 0xFF;
+        return count;
     }
 
     @Override
@@ -178,5 +181,6 @@ public class WatchdogTimer implements StepDevice {
         writeBuffer(regs, WTCSR_ADDR_READ, 0x18, Size.BYTE);
         writeBuffer(regs, WTCNT_ADDR_READ, 0, Size.BYTE);
         writeBuffer(regs, RSTCSR_ADDR_READ, 0x1F, Size.BYTE);
+        count = 0;
     }
 }

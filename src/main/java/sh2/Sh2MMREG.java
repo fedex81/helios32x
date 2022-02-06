@@ -13,7 +13,6 @@ import java.util.stream.IntStream;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.dict.Sh2Dict.*;
-import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.SCI;
 
 /**
  * Federico Berti
@@ -154,16 +153,24 @@ public class Sh2MMREG {
     }
 
     public int read(int reg, Size size) {
-        int res = readBuffer(regs, reg & SH2_REG_MASK, size);
-        if (verbose) {
-            logAccess("read", reg, res, size);
-        }
         checkName(reg);
         RegSpec regSpec = sh2RegMapping[reg & SH2_REG_MASK];
+        int res = 0;
         if (regSpec != null) {
-            if (sh2RegDeviceMapping[reg & SH2_REG_MASK] == SCI) {
-                return sci.read(regSpec, size);
+            switch (sh2RegDeviceMapping[reg & SH2_REG_MASK]) {
+                case WDT:
+                    res = wdt.read(regSpec, reg & SH2_REG_MASK, size);
+                    break;
+                case SCI:
+                    res = sci.read(regSpec, size);
+                    break;
+                default:
+                    res = readBuffer(regs, reg & SH2_REG_MASK, size);
+                    break;
             }
+        }
+        if (verbose) {
+            logAccess("read", reg, res, size);
         }
         return res;
     }
