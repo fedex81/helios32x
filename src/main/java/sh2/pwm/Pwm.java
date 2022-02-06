@@ -55,7 +55,7 @@ public class Pwm implements StepDevice {
     private PwmChannelSetup[] channelMap = {OFF, OFF};
     private boolean pwmEnable, dreqEn;
     private int cycle = 0, interruptInterval;
-    private int sh2TicksToNextPwmSample, sh2ticksToNextPwmInterrupt;
+    private int sh2TicksToNextPwmSample, sh2ticksToNextPwmInterrupt, sh2TicksToNext22khzSample = 1043;
     private int pwmSamplesPerFrame = 0, stepsPerFrame = 0, dreqPerFrame = 0;
 
     private Fifo<Integer> fifoLeft, fifoRight;
@@ -236,17 +236,24 @@ public class Pwm implements StepDevice {
         }
     }
 
+    private int rs, ls;
+
     private void stepOne() {
         if (--sh2TicksToNextPwmSample == 0) {
             sh2TicksToNextPwmSample = cycle;
             pwmSamplesPerFrame++;
-            playSupport.playSample(Math.min(cycle, readFifo(PWM_LCH_PW, fifoLeft)), Math.min(cycle, readFifo(PWM_RCH_PW, fifoRight)));
+            ls = Math.min(cycle, readFifo(PWM_LCH_PW, fifoLeft));
+            rs = Math.min(cycle, readFifo(PWM_RCH_PW, fifoRight));
             if (--sh2ticksToNextPwmInterrupt == 0) {
                 intControls[MASTER.ordinal()].setIntPending(PWM_6, true);
                 intControls[SLAVE.ordinal()].setIntPending(PWM_6, true);
                 sh2ticksToNextPwmInterrupt = interruptInterval;
                 dreq();
             }
+        }
+        if (--sh2TicksToNext22khzSample == 0) {
+            playSupport.playSample(ls, rs);
+            sh2TicksToNext22khzSample = 1043;
         }
     }
 

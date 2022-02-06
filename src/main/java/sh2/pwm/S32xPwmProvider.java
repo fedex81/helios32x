@@ -7,8 +7,6 @@ import omegadrive.util.RegionDetector;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.Arrays;
-
 import static omegadrive.util.Util.th;
 import static sh2.pwm.Pwm.CYCLE_LIMIT;
 
@@ -23,6 +21,7 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
 
     private static final boolean ENABLE = true;
     private float sh2ClockMhz, scale = 0;
+    private int cycle;
     private int fps;
 
     private boolean shouldPlay;
@@ -33,7 +32,6 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
         this.sh2ClockMhz = region == RegionDetector.Region.EUROPE ? PAL_SH2CLOCK_MHZ : NTSC_SH2CLOCK_MHZ;
     }
 
-    //TODO this essentially only supports 22khz playback
     @Override
     public void updatePwmCycle(int cycle) {
         float c = cycle;
@@ -41,6 +39,7 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
         scale = (Short.MAX_VALUE << 1) / c;
         int byteSamplesPerFrame = pwmSamplesPerFrame << 2;
         shouldPlay = cycle >= CYCLE_LIMIT;
+        this.cycle = cycle;
         start();
         if (!shouldPlay) {
             LOG.error("Unsupported cycle setting: {}, limit: {}, pwmSamplesPerFrame: {}",
@@ -54,17 +53,22 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
         if (!shouldPlay) {
             return;
         }
-        int val = (int) (((left + right) >> 1) * scale - Short.MAX_VALUE);
-        short sval = (short) val;
-        if (sval != val) {
+        int vleft = (int) ((left - (cycle >> 1)) * scale);
+        int vright = (int) ((right - (cycle >> 1)) * scale);
+        short sleft = (short) vleft;
+        short sright = (short) vright;
+        if (sleft != vleft || sright != vright) {
             float sc = scale;
             scale -= 1;
-            LOG.warn("PWM value out of range (16 bit signed): {}, scale: {}, pwmVal: {}", th(val), sc, left);
+            LOG.warn("PWM value out of range (16 bit signed), L/R: {}/{}, scale: {}, " +
+                    "pwmVal: {}/{}", th(sleft), th(sright), sc, left, right);
             LOG.warn("Reducing scale: {} -> {}", sc, scale);
-            sval = (short) Math.min(Math.max(val, Short.MIN_VALUE), Short.MAX_VALUE);
+            sleft = (short) Math.min(Math.max(sleft, Short.MIN_VALUE), Short.MAX_VALUE);
+            sright = (short) Math.min(Math.max(sright, Short.MIN_VALUE), Short.MAX_VALUE);
         }
-        addMonoSample(sval);
-        addMonoSample(sval);
+        short mono = (short) ((sleft >> 1) + (sright >> 1));
+        addMonoSample(mono);
+        addMonoSample(mono);
     }
 
     @Override
@@ -72,16 +76,32 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
         return SoundDeviceType.PWM;
     }
 
+    int[] preFilter = new int[0];
+    int[] prev = new int[2];
+    double alpha = 0.995;
+
     @Override
     public int updateStereo16(int[] buf_lr, int offset, int count) {
-        int actualStereo = super.updateStereo16(buf_lr, offset, count);
-        if (actualStereo > 0 && (actualStereo >> 1) < count) {
-            offset <<= 1;
-            int end = (count << 1) + offset;
-            Arrays.fill(buf_lr, actualStereo, end, buf_lr[actualStereo - 1]);
-            actualStereo = end;
+        if (preFilter.length < buf_lr.length) {
+            preFilter = buf_lr.clone();
         }
+        int actualStereo = super.updateStereo16(preFilter, offset, count);
+        dcBlocker(preFilter, buf_lr, buf_lr.length);
         return actualStereo;
+    }
+
+    /**
+     * DC blocker filter
+     */
+    public void dcBlocker(int[] in, int[] out, int len) {
+        out[0] = prev[0];
+        out[1] = prev[1];
+        for (int i = 2; i < len; i += 2) {
+            out[i] = (int) (in[i] - in[i - 2] + out[i - 2] * alpha); //left
+            out[i + 1] = (int) (in[i + 1] - in[i - 1] + out[i - 1] * alpha); //right
+        }
+        prev[0] = out[len - 2];
+        prev[1] = out[len - 1];
     }
 
     @Override
