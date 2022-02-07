@@ -7,6 +7,8 @@ import omegadrive.util.RegionDetector;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.Arrays;
+
 import static omegadrive.util.Util.th;
 import static sh2.pwm.Pwm.CYCLE_LIMIT;
 
@@ -18,13 +20,29 @@ import static sh2.pwm.Pwm.CYCLE_LIMIT;
 public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvider {
 
     private static final Logger LOG = LogManager.getLogger(S32xPwmProvider.class.getSimpleName());
-
+    private static final Warmup NO_WARMUP = new Warmup();
+    private static final Warmup WARMUP = new Warmup();
     private static final boolean ENABLE = true;
     private float sh2ClockMhz, scale = 0;
     private int cycle;
     private int fps;
 
     private boolean shouldPlay;
+    private Warmup warmup = NO_WARMUP;
+
+    static class Warmup {
+        static final int stepSamples = 5_000;
+        static final double stepFactor = 0.02;
+        boolean isWarmup;
+        int currentSamples;
+        double currentFactor = 0.0;
+
+        public void reset() {
+            isWarmup = false;
+            currentSamples = 0;
+            currentFactor = 0.0;
+        }
+    }
 
     public S32xPwmProvider(RegionDetector.Region region) {
         super(RegionDetector.Region.USA, AbstractSoundManager.audioFormat);
@@ -45,6 +63,11 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
             LOG.error("Unsupported cycle setting: {}, limit: {}, pwmSamplesPerFrame: {}",
                     cycle, CYCLE_LIMIT, pwmSamplesPerFrame);
             stop();
+        } else {
+            warmup = WARMUP;
+            warmup.reset();
+            warmup.isWarmup = true;
+            LOG.info("PWM warmup start");
         }
     }
 
@@ -78,30 +101,65 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
 
     int[] preFilter = new int[0];
     int[] prev = new int[2];
-    double alpha = 0.995;
+    static final double alpha = 0.995;
 
     @Override
-    public int updateStereo16(int[] buf_lr, int offset, int count) {
+    public int updateStereo16(int[] buf_lr, int offset, int countMono) {
+        int stereoSamples = countMono << 1;
+        if (countMono == 0 || !running) {
+            return stereoSamples;
+        }
         if (preFilter.length < buf_lr.length) {
             preFilter = buf_lr.clone();
         }
-        int actualStereo = super.updateStereo16(preFilter, offset, count);
-        dcBlocker(preFilter, buf_lr, buf_lr.length);
-        return actualStereo;
+        int actualStereo = super.updateStereo16(preFilter, offset, countMono);
+        if (actualStereo == 0) {
+            Arrays.fill(buf_lr, 0, stereoSamples, 0);
+            return stereoSamples;
+        }
+        if (actualStereo < stereoSamples) {
+            for (int i = actualStereo; i < stereoSamples; i += 2) {
+                preFilter[i] = preFilter[actualStereo - 2];
+                preFilter[i + 1] = preFilter[actualStereo - 1];
+            }
+        }
+        dcBlockerLpf(preFilter, buf_lr, prev, stereoSamples);
+        doWarmup(buf_lr, stereoSamples);
+        return stereoSamples;
     }
 
     /**
-     * DC blocker filter
+     * DC blocker + low pass filter
      */
-    public void dcBlocker(int[] in, int[] out, int len) {
-        out[0] = prev[0];
-        out[1] = prev[1];
+    public static void dcBlockerLpf(int[] in, int[] out, int[] prevLR, int len) {
+        out[0] = prevLR[0];
+        out[1] = prevLR[1];
         for (int i = 2; i < len; i += 2) {
             out[i] = (int) (in[i] - in[i - 2] + out[i - 2] * alpha); //left
             out[i + 1] = (int) (in[i + 1] - in[i - 1] + out[i - 1] * alpha); //right
+            out[i] = (out[i] + out[i - 2]) >> 1; //lpf
+            out[i + 1] = (out[i + 1] + out[i - 1]) >> 1;
         }
-        prev[0] = out[len - 2];
-        prev[1] = out[len - 1];
+        prevLR[0] = out[len - 2];
+        prevLR[1] = out[len - 1];
+    }
+
+    private void doWarmup(int[] out, int len) {
+        if (warmup.isWarmup) {
+            int start = warmup.currentSamples % Warmup.stepSamples;
+            for (int i = 2; i < len; i += 2) {
+                out[i] *= warmup.currentFactor;
+                out[i + 1] *= warmup.currentFactor;
+            }
+            warmup.currentSamples += len;
+            if (warmup.currentSamples % Warmup.stepSamples < start) {
+                warmup.currentFactor += Warmup.stepFactor;
+                if (warmup.currentFactor >= 1.0) {
+                    warmup = NO_WARMUP;
+                    LOG.info("PWM warmup done");
+                }
+            }
+        }
     }
 
     @Override
@@ -109,12 +167,15 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
         int len = queueLen.get();
         if (len > 5000) {
             LOG.warn("Pwm qLen: {}", len);
+            sampleQueue.clear();
+            queueLen.set(0);
         }
     }
 
     @Override
     public void reset() {
         shouldPlay = false;
+        WARMUP.reset();
         super.reset();
     }
 }

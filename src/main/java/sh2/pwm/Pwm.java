@@ -45,6 +45,8 @@ public class Pwm implements StepDevice {
     private static final int PWM_FIFO_FULL_BIT_POS = 15;
     private static final int PWM_FIFO_EMPTY_BIT_POS = 14;
     public static final int CYCLE_LIMIT = 400; //57khz @ 60hz
+    public static final int CYCLE_22khz = 1042;
+
 
     private static final PwmChannelSetup[] chanVals = PwmChannelSetup.values();
 
@@ -55,7 +57,7 @@ public class Pwm implements StepDevice {
     private PwmChannelSetup[] channelMap = {OFF, OFF};
     private boolean pwmEnable, dreqEn;
     private int cycle = 0, interruptInterval;
-    private int sh2TicksToNextPwmSample, sh2ticksToNextPwmInterrupt, sh2TicksToNext22khzSample = 1043;
+    private int sh2TicksToNextPwmSample, sh2ticksToNextPwmInterrupt, sh2TicksToNext22khzSample = CYCLE_22khz;
     private int pwmSamplesPerFrame = 0, stepsPerFrame = 0, dreqPerFrame = 0;
 
     private Fifo<Integer> fifoLeft, fifoRight;
@@ -253,7 +255,7 @@ public class Pwm implements StepDevice {
         }
         if (--sh2TicksToNext22khzSample == 0) {
             playSupport.playSample(ls, rs);
-            sh2TicksToNext22khzSample = 1043;
+            sh2TicksToNext22khzSample = CYCLE_22khz;
         }
     }
 

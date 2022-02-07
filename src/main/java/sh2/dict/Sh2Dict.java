@@ -109,6 +109,7 @@ public class Sh2Dict {
         //misc registers
         NONE_SBYCR(0xFE91, "NONE_SBYCR", Size.BYTE), //PowerDownModes:Standby Control Register
         NONE_CCR(0xFE92, "NONE_CCR", Size.BYTE), //Cache:Cache control register
+        NONE_FE93(0xFE93, "NONE_FE93", Size.BYTE), //Unknown, vf uses it
         ;
 
         public final int fullAddress, addr;
