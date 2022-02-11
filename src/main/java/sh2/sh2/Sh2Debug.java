@@ -2,6 +2,7 @@ package sh2.sh2;
 
 import com.google.common.collect.ImmutableSet;
 import omegadrive.cpu.CpuFastDebug.DebugMode;
+import omegadrive.util.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.IMemory;
@@ -46,6 +47,16 @@ public class Sh2Debug extends Sh2Impl {
     public void init() {
         for (Object o : arraySet) {
             Arrays.stream(areas).forEach(idx -> ((int[][]) o)[idx] = new int[PC_AREA_SIZE]);
+        }
+    }
+
+    @Override
+    public void run(Sh2Context ctx) {
+        try {
+            super.run(ctx);
+        } catch (Exception e) {
+            e.printStackTrace();
+            Util.waitForever();
         }
     }
 

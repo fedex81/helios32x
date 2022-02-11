@@ -69,7 +69,6 @@ public class DivUnit implements StepDevice {
     }
 
     //64/32 -> 32 only
-    //TODO 39 cycles, overflow handling?
     private void div64Dsp() {
         long dh = readBufferLong(DIV_DVDNTH.addr);
         long dl = readBufferLong(DIV_DVDNTL.addr);
@@ -90,11 +89,9 @@ public class DivUnit implements StepDevice {
         }
         writeBufferLong(DIV_DVDNTL.addr, quot);
         writeBufferLong(DIV_DVDNTUL.addr, quot);
-        Md32xRuntimeData.addCpuDelayExt(39);
     }
 
     //32/32 -> 32
-    //TODO 39 cycles
     private void div32Dsp(int value, Size size) {
         long d = value;
         writeBuffer(regs, DIV_DVDNTH.addr, (int) (d >> 32), size); //sign extend MSB into DVDNTH
@@ -110,8 +107,8 @@ public class DivUnit implements StepDevice {
         writeBufferLong(DIV_DVDNTH.addr, rem);
         writeBufferLong(DIV_DVDNTUH.addr, rem);
         writeBufferLong(DIV_DVDNT.addr, quot);
+        writeBufferLong(DIV_DVDNTL.addr, quot);
         writeBufferLong(DIV_DVDNTUL.addr, quot);
-        Md32xRuntimeData.addCpuDelayExt(39);
     }
 
     private void handleOverflow(int quot, boolean divBy0, String msg) {

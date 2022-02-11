@@ -82,9 +82,13 @@ public final class Sh2Memory implements IMemory {
 			res = readBuffer(sdram, address & SDRAM_MASK, size);
 			deviceAccessType = S32xMemAccessDelay.SDRAM;
 		} else if (address >= START_ROM && address < END_ROM) {
-			res = readBuffer(rom, address & romMask, size);
+			address &= romMask;
+			address = address > romSize - 1 ? address - (romSize) : address;
+			res = readBuffer(rom, address, size);
 			deviceAccessType = S32xMemAccessDelay.ROM;
 		} else if (address >= START_ROM_CACHE && address < END_ROM_CACHE) {
+			address &= romMask;
+			address = address > romSize - 1 ? address - (romSize) : address;
 			res = readBuffer(rom, address & romMask, size);
 			deviceAccessType = S32xMemAccessDelay.ROM;
 		} else if (address >= S32XMMREG.START_32X_SYSREG_CACHE && address < S32XMMREG.END_32X_COLPAL_CACHE) {
