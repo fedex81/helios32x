@@ -3,8 +3,9 @@ package sh2.sh2;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.*;
-import sh2.dict.S32xMemAccessDelay;
+import sh2.IMemory;
+import sh2.Md32xRuntimeData;
+import sh2.Sh2MMREG;
 
 import static omegadrive.util.Util.th;
 
@@ -42,10 +43,6 @@ public class Sh2Impl implements Sh2 {
 
 	public Sh2Impl(IMemory memory) {
 		this.memory = memory;
-//		this.pfc = {new Sh2Memory.PrefetchContext(), new Sh2Memory.PrefetchContext()};
-		if (memory instanceof Sh2Memory) {
-			((Sh2Memory) memory).setPrefetchContexts(pfc);
-		}
 	}
 
 	public static final int RN(int x) {
@@ -1646,7 +1643,7 @@ public class Sh2Impl implements Sh2 {
 		ctx.delayPC = ctx.PC;
 		ctx.PC = pc;
 		ctx.delaySlot = true;
-		decode(fetchDelaySlot(pc, ctx.cpuAccess));
+		decode(memory.fetchDelaySlot(pc, ctx.cpuAccess));
 		ctx.delaySlot = false;
 		ctx.PC = ctx.delayPC;
 	}
@@ -1964,42 +1961,6 @@ public class Sh2Impl implements Sh2 {
 	protected void printDebugMaybe(Sh2Context ctx, int instruction) {
 	}
 
-	private final Sh2Memory.PrefetchContext[] pfc = {new Sh2Memory.PrefetchContext(), new Sh2Memory.PrefetchContext()};
-	private int[] pfWords = pfc[0].prefetchWords;
-	long pfTotal, pfMiss;
-
-	private int fetch(int pc, S32xUtil.CpuDeviceAccess cpu) {
-		final Sh2Memory.PrefetchContext pctx = pfc[cpu.ordinal()];
-		int pcDeltaWords = (pc - pctx.prefetchPc) >> 1;
-		if (Math.abs(pcDeltaWords) >= Sh2Memory.PrefetchContext.PREFETCH_LOOKAHEAD) {
-			memory.prefetch(pc, cpu);
-			pcDeltaWords = 0;
-			if ((pfMiss++ & 0x7F_FFFF) == 0) {
-				LOG.info("pfTot: {}, pfMiss%: {}", pfTotal, 1.0 * pfMiss / pfTotal);
-			}
-		}
-		pfTotal++;
-		S32xMemAccessDelay.addReadCpuDelay(pctx.memAccessDelay);
-		return pfWords[Sh2Memory.PrefetchContext.PREFETCH_LOOKAHEAD + pcDeltaWords];
-	}
-
-	private int fetchDelaySlot(int pc, S32xUtil.CpuDeviceAccess cpu) {
-		final Sh2Memory.PrefetchContext pctx = pfc[cpu.ordinal()];
-		int pcDeltaWords = (pc - pctx.prefetchPc) >> 1;
-		pfTotal++;
-		int res;
-		if (Math.abs(pcDeltaWords) < Sh2Memory.PrefetchContext.PREFETCH_LOOKAHEAD) {
-			S32xMemAccessDelay.addReadCpuDelay(pctx.memAccessDelay);
-			res = pfWords[Sh2Memory.PrefetchContext.PREFETCH_LOOKAHEAD + pcDeltaWords];
-		} else {
-			res = memory.read16i(pc);
-			if ((pfMiss++ & 0x7F_FFFF) == 0) {
-				LOG.info("pfTot: {}, pfMiss%: {}", pfTotal, 1.0 * pfMiss / pfTotal);
-			}
-		}
-		return res;
-	}
-
 	/*
 	 * Because an instruction in a delay slot cannot alter the PC we can do this.
 	 * Perf: better to keep run() close to decode()
@@ -2007,9 +1968,8 @@ public class Sh2Impl implements Sh2 {
 	public void run(final Sh2Context ctx) {
 		this.ctx = ctx;
 		final Sh2MMREG sh2MMREG = ctx.devices.sh2MMREG;
-		pfWords = pfc[ctx.cpuAccess.ordinal()].prefetchWords;
 		for (; ctx.cycles >= 0; ) {
-			decode(fetch(ctx.PC, ctx.cpuAccess));
+			decode(memory.fetch(ctx.PC, ctx.cpuAccess));
 			sh2MMREG.deviceStep();
 			if (acceptInterrupts()) break;
 		}

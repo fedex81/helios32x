@@ -47,6 +47,8 @@ public final class Sh2Memory implements IMemory {
 	private ByteBuffer sdram;
 	public ByteBuffer rom;
 
+	private final PrefetchContext[] prefetchContexts = {new PrefetchContext(), new PrefetchContext()};
+
 	public int romSize = SDRAM_SIZE,
 			romMask = SDRAM_MASK;
 
@@ -163,27 +165,12 @@ public final class Sh2Memory implements IMemory {
 		S32xMemAccessDelay.addWriteCpuDelay(deviceAccessType);
 	}
 
-	private PrefetchContext[] prefetchContexts;
-
-	public void setPrefetchContexts(PrefetchContext... prefetchContexts) {
-		this.prefetchContexts = prefetchContexts;
-	}
-
-	public static class PrefetchContext {
-		public static final int PREFETCH_LOOKAHEAD = 0x16; //0x12;
-
-		public int pc, start, end, prefetchPc, pcMasked;
-		public int memAccessDelay;
-		public ByteBuffer buf;
-		public final int[] prefetchWords = new int[PREFETCH_LOOKAHEAD << 1];
-	}
-
 	@Override
 	public void prefetch(int pc, CpuDeviceAccess cpu) {
 //		LOG.info("{} Prefetch: {}", Md32xRuntimeData.getAccessTypeExt(), th(pc));
 		final PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
-		pctx.start = (pc & 0xFF_FFFF) + (-PrefetchContext.PREFETCH_LOOKAHEAD << 1);
-		pctx.end = (pc & 0xFF_FFFF) + (PrefetchContext.PREFETCH_LOOKAHEAD << 1);
+		pctx.start = (pc & 0xFF_FFFF) + (-pctx.prefetchLookahead << 1);
+		pctx.end = (pc & 0xFF_FFFF) + (pctx.prefetchLookahead << 1);
 		switch (pc >> 24) {
 			case 6:
 				pctx.start = Math.max(0, pctx.start) & SDRAM_MASK;
@@ -221,10 +208,44 @@ public final class Sh2Memory implements IMemory {
 		}
 
 		for (int bytePos = pctx.start; bytePos < pctx.end; bytePos += 2) {
-			int w = ((bytePos - pctx.pcMasked) >> 1) + PrefetchContext.PREFETCH_LOOKAHEAD;
+			int w = ((bytePos - pctx.pcMasked) >> 1) + pctx.prefetchLookahead;
 			pctx.prefetchWords[w] = pctx.buf.getShort(bytePos) & 0xFFFF;
 		}
 		pctx.prefetchPc = pc;
+	}
+
+	@Override
+	public int fetch(int pc, S32xUtil.CpuDeviceAccess cpu) {
+		final Sh2Memory.PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
+		int pcDeltaWords = (pc - pctx.prefetchPc) >> 1;
+		if (Math.abs(pcDeltaWords) >= pctx.prefetchLookahead) {
+			prefetch(pc, cpu);
+			pcDeltaWords = 0;
+//			if ((pfMiss++ & 0x7F_FFFF) == 0) {
+//				LOG.info("pfTot: {}, pfMiss%: {}", pfTotal, 1.0 * pfMiss / pfTotal);
+//			}
+		}
+//		pfTotal++;
+		S32xMemAccessDelay.addReadCpuDelay(pctx.memAccessDelay);
+		return pctx.prefetchWords[pctx.prefetchLookahead + pcDeltaWords];
+	}
+
+	@Override
+	public int fetchDelaySlot(int pc, S32xUtil.CpuDeviceAccess cpu) {
+		final Sh2Memory.PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
+		int pcDeltaWords = (pc - pctx.prefetchPc) >> 1;
+//		pfTotal++;
+		int res;
+		if (Math.abs(pcDeltaWords) < pctx.prefetchLookahead) {
+			S32xMemAccessDelay.addReadCpuDelay(pctx.memAccessDelay);
+			res = pctx.prefetchWords[pctx.prefetchLookahead + pcDeltaWords];
+		} else {
+			res = read16i(pc);
+//			if ((pfMiss++ & 0x7F_FFFF) == 0) {
+//				LOG.info("pfTot: {}, pfMiss%: {}", pfTotal, 1.0 * pfMiss / pfTotal);
+//			}
+		}
+		return res;
 	}
 
 	public Sh2MMREG getSh2MMREGS(CpuDeviceAccess cpu) {
