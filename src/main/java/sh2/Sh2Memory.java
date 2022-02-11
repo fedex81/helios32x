@@ -7,8 +7,6 @@ import org.apache.logging.log4j.Logger;
 import sh2.dict.S32xMemAccessDelay;
 
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
-import java.nio.ShortBuffer;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
@@ -46,9 +44,6 @@ public final class Sh2Memory implements IMemory {
 	public static final int END_DRAM_MODE = 0xFFFF_C000;
 
 	public ByteBuffer[] bios = new ByteBuffer[2];
-	private IntBuffer[] biosViewDWORD = new IntBuffer[2];
-	private ShortBuffer[] biosViewWord = new ShortBuffer[2];
-
 	private ByteBuffer sdram;
 	public ByteBuffer rom;
 
@@ -73,11 +68,6 @@ public final class Sh2Memory implements IMemory {
 		bios[SLAVE.ordinal()] = ByteBuffer.allocate(BOOT_ROM_SIZE);
 		sdram = ByteBuffer.allocateDirect(SDRAM_SIZE);
 		rom = ByteBuffer.allocateDirect(SDRAM_SIZE);
-		biosViewDWORD[MASTER.ordinal()] = bios[MASTER.ordinal()].asIntBuffer();
-		biosViewDWORD[SLAVE.ordinal()] = bios[SLAVE.ordinal()].asIntBuffer();
-		biosViewWord[MASTER.ordinal()] = bios[MASTER.ordinal()].asShortBuffer();
-		biosViewWord[SLAVE.ordinal()] = bios[SLAVE.ordinal()].asShortBuffer();
-
 		sh2MMREGS[MASTER.ordinal()] = new Sh2MMREG(MASTER);
 		sh2MMREGS[SLAVE.ordinal()] = new Sh2MMREG(SLAVE);
 	}
@@ -171,6 +161,70 @@ public final class Sh2Memory implements IMemory {
 			LOG.error("{} write to addr: {}, {} {}", cpuAccess, th(address), th(val), size);
 		}
 		S32xMemAccessDelay.addWriteCpuDelay(deviceAccessType);
+	}
+
+	private PrefetchContext[] prefetchContexts;
+
+	public void setPrefetchContexts(PrefetchContext... prefetchContexts) {
+		this.prefetchContexts = prefetchContexts;
+	}
+
+	public static class PrefetchContext {
+		public static final int PREFETCH_LOOKAHEAD = 0x16; //0x12;
+
+		public int pc, start, end, prefetchPc, pcMasked;
+		public int memAccessDelay;
+		public ByteBuffer buf;
+		public final int[] prefetchWords = new int[PREFETCH_LOOKAHEAD << 1];
+	}
+
+	@Override
+	public void prefetch(int pc, CpuDeviceAccess cpu) {
+//		LOG.info("{} Prefetch: {}", Md32xRuntimeData.getAccessTypeExt(), th(pc));
+		final PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
+		pctx.start = (pc & 0xFF_FFFF) + (-PrefetchContext.PREFETCH_LOOKAHEAD << 1);
+		pctx.end = (pc & 0xFF_FFFF) + (PrefetchContext.PREFETCH_LOOKAHEAD << 1);
+		switch (pc >> 24) {
+			case 6:
+				pctx.start = Math.max(0, pctx.start) & SDRAM_MASK;
+				pctx.end = Math.min(romSize - 1, pctx.end) & SDRAM_MASK;
+				pctx.pcMasked = pc & SDRAM_MASK;
+				pctx.memAccessDelay = S32xMemAccessDelay.SDRAM;
+				pctx.buf = sdram;
+				break;
+			case 2:
+				pctx.start = Math.max(0, pctx.start) & romMask;
+				pctx.end = Math.min(romSize - 1, pctx.end) & romMask;
+				pctx.pcMasked = pc & romMask;
+				pctx.memAccessDelay = S32xMemAccessDelay.ROM;
+				pctx.buf = rom;
+				break;
+			case 0:
+				pctx.buf = bios[Md32xRuntimeData.getAccessTypeExt().ordinal()];
+				pctx.start = Math.max(0, pctx.start);
+				pctx.end = Math.min(pctx.buf.capacity() - 1, pctx.end);
+				pctx.pcMasked = pc;
+				pctx.memAccessDelay = S32xMemAccessDelay.BOOT_ROM;
+				break;
+			default:
+				if ((pc >>> 28) == 0xC) {
+					pctx.start = Math.max(0, pctx.start) & Sh2MMREG.DATA_ARRAY_MASK;
+					pctx.end = Math.min(Sh2MMREG.DATA_ARRAY_SIZE - 1, pctx.end) & Sh2MMREG.DATA_ARRAY_MASK;
+					pctx.memAccessDelay = S32xMemAccessDelay.SYS_REG;
+					pctx.buf = sh2MMREGS[cpu.ordinal()].getDataArray();
+					pctx.pcMasked = pc & Sh2MMREG.DATA_ARRAY_MASK;
+				} else {
+					LOG.error("{} Unhandled prefetch: {}", cpu, th(pc));
+					throw new RuntimeException("Unhandled prefetch: " + th(pc));
+				}
+				break;
+		}
+
+		for (int bytePos = pctx.start; bytePos < pctx.end; bytePos += 2) {
+			int w = ((bytePos - pctx.pcMasked) >> 1) + PrefetchContext.PREFETCH_LOOKAHEAD;
+			pctx.prefetchWords[w] = pctx.buf.getShort(bytePos) & 0xFFFF;
+		}
+		pctx.prefetchPc = pc;
 	}
 
 	public Sh2MMREG getSh2MMREGS(CpuDeviceAccess cpu) {

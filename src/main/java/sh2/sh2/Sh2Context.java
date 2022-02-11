@@ -13,6 +13,8 @@ import java.util.Arrays;
 public class Sh2Context {
 
     final static int NUM_REG = 16;
+    public static int burstCycles = 1;
+
     /* System Registers */
     public int registers[];
 
@@ -37,6 +39,7 @@ public class Sh2Context {
     public boolean debug;
 
     public Sh2DeviceContext devices;
+    public int[] prefetchPc = new int[1];
 
     public Sh2Context(S32xUtil.CpuDeviceAccess cpuAccess) {
         this.registers = new int[NUM_REG];

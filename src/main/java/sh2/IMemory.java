@@ -21,6 +21,8 @@ public interface IMemory {
 
     int read32i(int i);
 
+    void prefetch(int pc, S32xUtil.CpuDeviceAccess cpu);
+
     void resetSh2();
 
     default void write(int register, int value, Size size) {

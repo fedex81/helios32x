@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Debug;
+import sh2.sh2.Sh2Impl;
 import sh2.sh2.device.Sh2DeviceHelper;
 
 import java.io.File;
@@ -29,6 +30,8 @@ import static sh2.S32xUtil.writeBuffer;
  * https://github.com/j-core/jcore-cpu/tree/master/testrom
  * <p>
  * License: see j2tests.lic
+ * <p>
+ * TODO fix
  */
 public class J2CoreTest {
 
@@ -37,7 +40,7 @@ public class J2CoreTest {
     static String binName = "j2tests.bin";
     static ByteBuffer rom;
     private static boolean done = false;
-    private static boolean sh2Debug = false;
+    private static boolean sh2Debug = true;
 
     public static Path baseDataFolder = Paths.get(new File(".").getAbsolutePath(),
             "src", "test", "resources");
@@ -56,7 +59,7 @@ public class J2CoreTest {
     @BeforeEach
     public void before() {
         IMemory memory = getMemory(rom);
-        sh2 = sh2Debug ? new Sh2Debug(memory) : new Sh2(memory);
+        sh2 = sh2Debug ? new Sh2Debug(memory) : new Sh2Impl(memory);
         ctx = createContext(S32xUtil.CpuDeviceAccess.MASTER, memory);
         sh2.reset(ctx);
         System.out.println("Reset, PC: " + ctx.PC + ", SP: " + ctx.registers[15]);
@@ -158,6 +161,10 @@ public class J2CoreTest {
             @Override
             public int read32i(int addr) {
                 return read(addr, Size.LONG);
+            }
+
+            @Override
+            public void prefetch(int pc, S32xUtil.CpuDeviceAccess cpu) {
             }
 
             @Override

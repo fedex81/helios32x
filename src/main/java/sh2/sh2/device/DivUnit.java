@@ -3,6 +3,7 @@ package sh2.sh2.device;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.Md32xRuntimeData;
 
 import java.nio.ByteBuffer;
 
@@ -89,7 +90,7 @@ public class DivUnit implements StepDevice {
         }
         writeBufferLong(DIV_DVDNTL.addr, quot);
         writeBufferLong(DIV_DVDNTUL.addr, quot);
-//        BaseSystem.addCpuDelay(39);
+        Md32xRuntimeData.addCpuDelayExt(39);
     }
 
     //32/32 -> 32
@@ -110,7 +111,7 @@ public class DivUnit implements StepDevice {
         writeBufferLong(DIV_DVDNTUH.addr, rem);
         writeBufferLong(DIV_DVDNT.addr, quot);
         writeBufferLong(DIV_DVDNTUL.addr, quot);
-//        BaseSystem.addCpuDelay(39);
+        Md32xRuntimeData.addCpuDelayExt(39);
     }
 
     private void handleOverflow(int quot, boolean divBy0, String msg) {
@@ -121,6 +122,7 @@ public class DivUnit implements StepDevice {
         int val = quot > 0 ? MAX_NEG : MAX_POS;
         writeBufferLong(DIV_DVDNTL.addr, val);
         writeBufferLong(DIV_DVDNTUL.addr, val);
+        Md32xRuntimeData.addCpuDelayExt(6);
         if ((dvcr & DIV_OVERFLOW_INT_EN_BIT) > 0) {
             intControl.setExternalIntPending(DIV, 0, true);
             LOG.info(msg);

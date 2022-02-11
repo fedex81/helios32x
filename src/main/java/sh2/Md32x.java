@@ -38,7 +38,7 @@ public class Md32x extends Genesis {
 
     static {
         SH2_CYCLES_PER_STEP = 3; //24;
-        Sh2.burstCycles = SH2_CYCLES_PER_STEP;
+        Sh2Context.burstCycles = SH2_CYCLES_PER_STEP;
         //3 cycles @ 23Mhz = 1 cycle @ 7.67
         SH2_CYCLE_RATIO = 3; //23.01/7.67 = 3
 //        System.setProperty("68k.debug", "true");

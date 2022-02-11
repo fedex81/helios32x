@@ -15,7 +15,7 @@ import java.util.Set;
  * <p>
  * Copyright 2021
  */
-public class Sh2Debug extends Sh2 {
+public class Sh2Debug extends Sh2Impl {
 
     private static final Logger LOG = LogManager.getLogger(Sh2Debug.class.getSimpleName());
 

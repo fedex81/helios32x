@@ -194,6 +194,10 @@ public class Sh2MMREG {
         ticksPerFrame = sh2TicksPerFrame = 0;
     }
 
+    public ByteBuffer getDataArray() {
+        return data_array;
+    }
+
     static class CacheContext {
         public int way;
         public int cachePurge;

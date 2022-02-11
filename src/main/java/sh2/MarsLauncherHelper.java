@@ -6,6 +6,7 @@ import sh2.pwm.Pwm;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Debug;
+import sh2.sh2.Sh2Impl;
 import sh2.sh2.device.Sh2DeviceHelper;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceContext;
 import sh2.vdp.MarsVdp;
@@ -60,7 +61,7 @@ public class MarsLauncherHelper {
         ctx.mDevCtx = Sh2DeviceHelper.createDevices(MASTER, ctx);
         ctx.sDevCtx = Sh2DeviceHelper.createDevices(SLAVE, ctx);
         ctx.sh2 = (ctx.masterCtx.debug || ctx.slaveCtx.debug) ?
-                new Sh2Debug(ctx.memory) : new Sh2(ctx.memory);
+                new Sh2Debug(ctx.memory) : new Sh2Impl(ctx.memory);
         ctx.pwm = new Pwm(ctx.s32XMMREG);
         ctx.masterCtx.devices = ctx.mDevCtx;
         ctx.slaveCtx.devices = ctx.sDevCtx;

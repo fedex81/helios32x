@@ -58,6 +58,10 @@ public class Md32xRuntimeData {
         return accessType;
     }
 
+    public static void addCpuDelayExt(int delay) {
+        rt.addCpuDelay(delay);
+    }
+
     public static void addCpuDelayExt(int[][] delays, int deviceType) {
         rt.addCpuDelay(delays[rt.accType][deviceType]);
     }

@@ -77,7 +77,7 @@ public class Div1Test extends Sh2BaseTest {
 
         for (int i = 0; i < 32; i++) {
             sh2.ROTL(r4 << 8);
-            DIV1(ctx, n, m);
+            sh2.DIV1(ctx, n, m);
         }
     }
 
