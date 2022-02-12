@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.S32XMMREG;
+import sh2.vdp.MarsVdpImpl;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -19,10 +20,12 @@ import static s32x.MarsRegTestUtil.*;
 public class VdpAutoFillTest {
 
     private S32XMMREG s32XMMREG;
+    private MarsVdpImpl vdp;
 
     @BeforeEach
     public void before() {
         s32XMMREG = createInstance();
+        vdp = (MarsVdpImpl) s32XMMREG.getVdp();
     }
 
     @Test
@@ -33,7 +36,7 @@ public class VdpAutoFillTest {
         int startAddr = 0x22A;
         int len = 0xE3;
         int data = 0xAA;
-        s32XMMREG.runAutoFillInternal(buffer, startAddr, data, len);
+        vdp.runAutoFillInternal(buffer, startAddr, data, len);
         int expected = 248042729;
         Assertions.assertEquals(expected, Arrays.hashCode(b));
     }
@@ -46,7 +49,7 @@ public class VdpAutoFillTest {
         int startAddr = 0x280;
         int len = 0xE0;
         int data = 0xAA;
-        s32XMMREG.runAutoFillInternal(buffer, startAddr, data, len);
+        vdp.runAutoFillInternal(buffer, startAddr, data, len);
         int expected = 1856652043;
         Assertions.assertEquals(expected, Arrays.hashCode(b));
     }
@@ -64,7 +67,7 @@ public class VdpAutoFillTest {
         int data = 0xAA;
         s32XMMREG.write(AFLEN_OFFSET, len, Size.WORD);
         s32XMMREG.write(AFSAR_OFFSET, startAddr, Size.WORD);
-        s32XMMREG.runAutoFillInternal(buffer, startAddr, data, len);
+        vdp.runAutoFillInternal(buffer, startAddr, data, len);
         int expSar = (startAddr & 0xFF00) + ((len + startAddr) & 0xFF) + 1;
         int actLen = s32XMMREG.read(AFLEN_OFFSET, Size.WORD);
         int actSar = s32XMMREG.read(AFSAR_OFFSET, Size.WORD);

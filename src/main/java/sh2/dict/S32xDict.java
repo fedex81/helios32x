@@ -10,6 +10,7 @@ import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.*;
+import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
 import static sh2.dict.S32xDict.S32xRegCpuType.*;
 import static sh2.dict.S32xDict.S32xRegType.*;
 
@@ -97,14 +98,15 @@ public class S32xDict {
 
         public final S32xRegCpuType regCpuType;
         public final S32xRegType deviceType;
-        public final int fullAddress, addr;
+        public final int fullAddress, addr, addrMask;
         public final String name;
         public final Size size;
         public final int deviceAccessTypeDelay;
 
         private RegSpecS32x(S32xRegType deviceType, int addr, String name, Size size) {
             this.fullAddress = addr;
-            this.addr = addr & (deviceType != VDP ? S32X_REG_MASK : S32X_VDP_REG_MASK);
+            this.addrMask = (deviceType != VDP ? S32X_REG_MASK : S32X_VDP_REG_MASK);
+            this.addr = addr & addrMask;
             this.name = name;
             this.size = size;
             this.deviceType = deviceType;
@@ -152,6 +154,38 @@ public class S32xDict {
     public static final int P32XV_PEN = (1 << 13);
     public static final int P32XV_PRIO = (1 << 7);
     public static final int P32XV_240 = (1 << 6);
+
+    public static final int SIZE_32X_SYSREG = 0x100;
+    public static final int SIZE_32X_VDPREG = 0x100;
+    public static final int SIZE_32X_COLPAL = 0x200; // 512 bytes, 256 words
+    public static final int DRAM_SIZE = 0x20000; //128 kb window, 2 DRAM banks 128kb each
+    public static final int DRAM_MASK = DRAM_SIZE - 1;
+    public static final int S32X_MMREG_MASK = 0xFF;
+    public static final int S32X_COLPAL_MASK = SIZE_32X_COLPAL - 1;
+
+    public static final int START_32X_SYSREG_CACHE = 0x4000;
+    public static final int END_32X_SYSREG_CACHE = START_32X_SYSREG_CACHE + SIZE_32X_SYSREG;
+    public static final int START_32X_VDPREG_CACHE = END_32X_SYSREG_CACHE;
+    public static final int END_32X_VDPREG_CACHE = START_32X_VDPREG_CACHE + SIZE_32X_VDPREG;
+    public static final int START_32X_COLPAL_CACHE = END_32X_VDPREG_CACHE;
+    public static final int END_32X_COLPAL_CACHE = START_32X_COLPAL_CACHE + SIZE_32X_COLPAL;
+
+    public static final int START_32X_SYSREG = START_32X_SYSREG_CACHE + CACHE_THROUGH_OFFSET;
+    public static final int START_32X_VDPREG = START_32X_VDPREG_CACHE + CACHE_THROUGH_OFFSET;
+    public static final int START_32X_COLPAL = START_32X_COLPAL_CACHE + CACHE_THROUGH_OFFSET;
+    public static final int END_32X_SYSREG = START_32X_SYSREG + SIZE_32X_SYSREG;
+    public static final int END_32X_VDPREG = START_32X_VDPREG + SIZE_32X_VDPREG;
+    public static final int END_32X_COLPAL = START_32X_COLPAL + SIZE_32X_COLPAL;
+
+    public static final int START_DRAM_CACHE = 0x400_0000;
+    public static final int END_DRAM_CACHE = START_DRAM_CACHE + DRAM_SIZE;
+    public static final int START_DRAM = START_DRAM_CACHE + CACHE_THROUGH_OFFSET;
+    public static final int END_DRAM = END_DRAM_CACHE + CACHE_THROUGH_OFFSET;
+
+    public static final int START_OVER_IMAGE_CACHE = 0x402_0000;
+    public static final int END_OVER_IMAGE_CACHE = START_OVER_IMAGE_CACHE + DRAM_SIZE;
+    public static final int START_OVER_IMAGE = START_OVER_IMAGE_CACHE + CACHE_THROUGH_OFFSET;
+    public static final int END_OVER_IMAGE = END_OVER_IMAGE_CACHE + CACHE_THROUGH_OFFSET;
 
     public static class S32xDictLogContext {
         public S32xUtil.CpuDeviceAccess sh2Access;

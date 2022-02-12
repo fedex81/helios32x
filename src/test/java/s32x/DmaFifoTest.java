@@ -57,6 +57,7 @@ public class DmaFifoTest {
         testFifoTransfer01();
     }
 
+    //TODO this fails for pushFifo = 2,3,??; why??
     @Test
     public void testFifoTransfer01() {
         int idx = 0, cnt = 0;
@@ -67,6 +68,7 @@ public class DmaFifoTest {
         masterDmac.write(DMA_DMAOR, 1, Size.WORD);
 
         int pushFifo = r.nextInt(10) + 2;
+        System.out.println("pushFifo: " + pushFifo);
         int limit = data.length * pushFifo;
         do {
             if ((cnt % pushFifo) == 0) {

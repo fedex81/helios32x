@@ -41,9 +41,9 @@ public class DmaFifo68k {
     private boolean m68S = false;
     private static final boolean verbose = false;
 
-    public DmaFifo68k(S32XMMREG s32XMMREG) {
-        this.sysRegsMd = s32XMMREG.sysRegsMd;
-        this.sysRegsSh2 = s32XMMREG.sysRegsSh2;
+    public DmaFifo68k(S32XMMREG.RegContext regContext) {
+        this.sysRegsMd = regContext.sysRegsMd;
+        this.sysRegsSh2 = regContext.sysRegsSh2;
     }
 
     public int read(RegSpecS32x regSpec, CpuDeviceAccess cpu, int address, Size size) {

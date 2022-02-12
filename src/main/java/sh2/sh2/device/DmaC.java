@@ -180,7 +180,7 @@ public class DmaC implements StepDevice {
             dma68k.dmaEnd();
             //transfer ended normally, ie. TCR = 0
             if (normal) {
-                int chcr = setBitValInt(c.channel, DMA_CHCR0.addr + 2, SH2_CHCR_TRANSFER_END_BIT, 1, Size.WORD);
+                int chcr = setDmaChannelBitVal(c.channel, DMA_CHCR0.addr + 2, SH2_CHCR_TRANSFER_END_BIT, 1, Size.WORD);
                 DmaHelper.updateChannelControl(c, chcr);
                 if (c.chcr_intEn) {
                     intControl.setExternalIntPending(DMA, c.channel, true);
@@ -198,11 +198,11 @@ public class DmaC implements StepDevice {
         return dmaChannelSetup;
     }
 
-    private void setBitInt(int channel, int regChan0, int bitPos, int bitVal, Size size) {
+    private void setDmaChannelBit(int channel, int regChan0, int bitPos, int bitVal, Size size) {
         setBit(regs, (regChan0 + (channel << 4)) & Sh2MMREG.SH2_REG_MASK, bitPos, bitVal, size);
     }
 
-    private int setBitValInt(int channel, int regChan0, int bitPos, int bitVal, Size size) {
+    private int setDmaChannelBitVal(int channel, int regChan0, int bitPos, int bitVal, Size size) {
         return setBitVal(regs, (regChan0 + (channel << 4)) & Sh2MMREG.SH2_REG_MASK, bitPos, bitVal, size);
     }
 

@@ -80,7 +80,7 @@ public class J2CoreTest {
         S32XMMREG s32XMMREG = new S32XMMREG();
         Sh2Context context = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
         context.debug = sh2Debug;
-        context.devices = Sh2DeviceHelper.createDevices(cpu, memory, new DmaFifo68k(s32XMMREG), sh2MMREG);
+        context.devices = Sh2DeviceHelper.createDevices(cpu, memory, new DmaFifo68k(s32XMMREG.regContext), sh2MMREG);
         sh2MMREG.init(context.devices);
         Md32xRuntimeData.newInstance();
         return context;

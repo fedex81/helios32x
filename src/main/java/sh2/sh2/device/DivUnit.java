@@ -9,7 +9,6 @@ import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
-import static sh2.Sh2MMREG.SH2_REG_MASK;
 import static sh2.dict.Sh2Dict.RegSpec;
 import static sh2.dict.Sh2Dict.RegSpec.*;
 import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DIV;
@@ -41,14 +40,6 @@ public class DivUnit implements StepDevice {
         this.intControl = intControl;
     }
 
-    private int readBufferLong(int reg) {
-        return readBuffer(regs, reg & SH2_REG_MASK, Size.LONG);
-    }
-
-    private void writeBufferLong(int reg, int value) {
-        writeBuffer(regs, reg & SH2_REG_MASK, value, Size.LONG);
-    }
-
     public void write(RegSpec reg, int value, Size size) {
         writeBuffer(regs, reg.addr, value, size);
         switch (reg) {
@@ -70,10 +61,10 @@ public class DivUnit implements StepDevice {
 
     //64/32 -> 32 only
     private void div64Dsp() {
-        long dh = readBufferLong(DIV_DVDNTH.addr);
-        long dl = readBufferLong(DIV_DVDNTL.addr);
+        long dh = readBufferLong(regs, DIV_DVDNTH);
+        long dl = readBufferLong(regs, DIV_DVDNTL);
         long dvd = ((dh << 32) & 0xffffffff_ffffffffL) | (dl & 0xffffffffL);
-        int dvsr = readBufferLong(DIV_DVSR.addr);
+        int dvsr = readBufferLong(regs, DIV_DVSR);
         if (dvsr == 0) {
             handleOverflow(0, true, String.format(formatDivBy0, 64, dvd, dvsr));
             return;
@@ -81,14 +72,12 @@ public class DivUnit implements StepDevice {
         long quotL = dvd / dvsr;
         int quot = (int) quotL;
         int rem = (int) (dvd - quot * dvsr);
-        writeBufferLong(DIV_DVDNTH.addr, rem);
-        writeBufferLong(DIV_DVDNTUH.addr, rem);
+        writeBuffersLong(regs, DIV_DVDNTH, DIV_DVDNTUH, rem);
         if (quot != (int) (quotL & 0xFFFF_FFFFL)) {
             handleOverflow(quot, false, String.format(format64, 64, dvd, dvsr, quotL, quot, rem));
             return;
         }
-        writeBufferLong(DIV_DVDNTL.addr, quot);
-        writeBufferLong(DIV_DVDNTUL.addr, quot);
+        writeBuffersLong(regs, DIV_DVDNTL, DIV_DVDNTUL, quot);
     }
 
     //32/32 -> 32
@@ -96,19 +85,17 @@ public class DivUnit implements StepDevice {
         long d = value;
         writeBuffer(regs, DIV_DVDNTH.addr, (int) (d >> 32), size); //sign extend MSB into DVDNTH
         writeBuffer(regs, DIV_DVDNTL.addr, value, size);
-        int dvd = readBufferLong(DIV_DVDNT.addr);
-        int dvsr = readBufferLong(DIV_DVSR.addr);
+        int dvd = readBufferLong(regs, DIV_DVDNT);
+        int dvsr = readBufferLong(regs, DIV_DVSR);
         if (dvsr == 0) {
             handleOverflow(0, true, String.format(formatDivBy0, 32, dvd, dvsr));
             return;
         }
         int quot = dvd / dvsr;
         int rem = (int) (dvd - quot * dvsr);
-        writeBufferLong(DIV_DVDNTH.addr, rem);
-        writeBufferLong(DIV_DVDNTUH.addr, rem);
-        writeBufferLong(DIV_DVDNT.addr, quot);
-        writeBufferLong(DIV_DVDNTL.addr, quot);
-        writeBufferLong(DIV_DVDNTUL.addr, quot);
+        writeBuffersLong(regs, DIV_DVDNTH, DIV_DVDNTUH, rem);
+        writeBuffersLong(regs, DIV_DVDNT, DIV_DVDNTL, quot);
+        writeBufferLong(regs, DIV_DVDNTUL, quot);
     }
 
     private void handleOverflow(int quot, boolean divBy0, String msg) {
@@ -117,8 +104,7 @@ public class DivUnit implements StepDevice {
         int dvcr = readBuffer(regs, DIV_DVCR.addr, Size.WORD);
         //TODO what happens to DVDNTL when divBy0 ?
         int val = quot > 0 ? MAX_NEG : MAX_POS;
-        writeBufferLong(DIV_DVDNTL.addr, val);
-        writeBufferLong(DIV_DVDNTUL.addr, val);
+        writeBuffersLong(regs, DIV_DVDNTL, DIV_DVDNTUL, val);
         Md32xRuntimeData.addCpuDelayExt(6);
         if ((dvcr & DIV_OVERFLOW_INT_EN_BIT) > 0) {
             intControl.setExternalIntPending(DIV, 0, true);
@@ -129,6 +115,6 @@ public class DivUnit implements StepDevice {
 
     @Override
     public void reset() {
-        writeBufferLong(DIV_DVCR.addr, 0);
+        writeBufferLong(regs, DIV_DVCR, 0);
     }
 }

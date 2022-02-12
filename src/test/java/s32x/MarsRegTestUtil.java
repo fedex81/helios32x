@@ -34,7 +34,7 @@ public class MarsRegTestUtil {
     public static S32XMMREG createInstance() {
         S32XMMREG s = new S32XMMREG();
         Sh2Memory memory = new Sh2Memory(s, ByteBuffer.allocate(0xFFF));
-        DmaFifo68k dmaFifoControl = new DmaFifo68k(s);
+        DmaFifo68k dmaFifoControl = new DmaFifo68k(s.regContext);
         s.setDmaControl(dmaFifoControl);
         Sh2MMREG sm = new Sh2MMREG(MASTER);
         Sh2MMREG ss = new Sh2MMREG(SLAVE);

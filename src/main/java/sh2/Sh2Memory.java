@@ -4,6 +4,7 @@ import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
 
 import java.nio.ByteBuffer;
@@ -12,6 +13,7 @@ import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
+import static sh2.dict.S32xDict.*;
 
 public final class Sh2Memory implements IMemory {
 
@@ -91,9 +93,9 @@ public final class Sh2Memory implements IMemory {
 			address = address > romSize - 1 ? address - (romSize) : address;
 			res = readBuffer(rom, address & romMask, size);
 			deviceAccessType = S32xMemAccessDelay.ROM;
-		} else if (address >= S32XMMREG.START_32X_SYSREG_CACHE && address < S32XMMREG.END_32X_COLPAL_CACHE) {
+		} else if (address >= S32xDict.START_32X_SYSREG_CACHE && address < S32xDict.END_32X_COLPAL_CACHE) {
 			res = s32XMMREG.read(address, size);
-		} else if (address >= S32XMMREG.START_32X_SYSREG && address < S32XMMREG.END_32X_COLPAL) {
+		} else if (address >= S32xDict.START_32X_SYSREG && address < S32xDict.END_32X_COLPAL) {
 			res = s32XMMREG.read(address, size);
 		} else if (address >= START_SDRAM && address < END_SDRAM) {
 			res = readBuffer(sdram, address & SDRAM_MASK, size);
@@ -101,16 +103,16 @@ public final class Sh2Memory implements IMemory {
 		} else if (address >= START_SDRAM_CACHE && address < END_SDRAM_CACHE) {
 			res = readBuffer(sdram, address & SDRAM_MASK, size);
 			deviceAccessType = S32xMemAccessDelay.SDRAM;
-		} else if (address >= S32XMMREG.START_DRAM && address < S32XMMREG.END_DRAM) {
+		} else if (address >= S32xDict.START_DRAM && address < S32xDict.END_DRAM) {
 			res = s32XMMREG.read(address, size);
 			deviceAccessType = S32xMemAccessDelay.FRAME_BUFFER;
-		} else if (address >= S32XMMREG.START_DRAM_CACHE && address < S32XMMREG.END_DRAM_CACHE) {
+		} else if (address >= START_DRAM_CACHE && address < END_DRAM_CACHE) {
 			res = s32XMMREG.read(address, size);
 			deviceAccessType = S32xMemAccessDelay.FRAME_BUFFER;
-		} else if (address >= S32XMMREG.START_OVER_IMAGE && address < S32XMMREG.END_OVER_IMAGE) {
+		} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
 			res = s32XMMREG.read(address, size);
 			deviceAccessType = S32xMemAccessDelay.FRAME_BUFFER;
-		} else if (address >= S32XMMREG.START_OVER_IMAGE_CACHE && address < S32XMMREG.END_OVER_IMAGE_CACHE) {
+		} else if (address >= START_OVER_IMAGE_CACHE && address < END_OVER_IMAGE_CACHE) {
 			res = s32XMMREG.read(address, size);
 			deviceAccessType = S32xMemAccessDelay.FRAME_BUFFER;
 		} else if ((address & 0xfffff000) == START_DATA_ARRAY) {
@@ -133,9 +135,9 @@ public final class Sh2Memory implements IMemory {
 	public void write(int address, int val, Size size) {
 		CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
 		val &= size.getMask();
-		if (address >= S32XMMREG.START_DRAM_CACHE && address < S32XMMREG.END_DRAM_CACHE) {
+		if (address >= START_DRAM_CACHE && address < END_DRAM_CACHE) {
 			s32XMMREG.write(address, val, size);
-		} else if (address >= S32XMMREG.START_DRAM && address < S32XMMREG.END_DRAM) {
+		} else if (address >= START_DRAM && address < END_DRAM) {
 			s32XMMREG.write(address, val, size);
 		} else if (address >= START_SDRAM && address < END_SDRAM) {
 			writeBuffer(sdram, address & SDRAM_MASK, val, size);
@@ -143,15 +145,15 @@ public final class Sh2Memory implements IMemory {
 		} else if (address >= START_SDRAM_CACHE && address < END_SDRAM_CACHE) {
 			writeBuffer(sdram, address & SDRAM_MASK, val, size);
 			deviceAccessType = S32xMemAccessDelay.SDRAM;
-		} else if (address >= S32XMMREG.START_OVER_IMAGE && address < S32XMMREG.END_OVER_IMAGE) {
+		} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
 			s32XMMREG.write(address, val, size);
 			deviceAccessType = S32xMemAccessDelay.FRAME_BUFFER;
-		} else if (address >= S32XMMREG.START_OVER_IMAGE_CACHE && address < S32XMMREG.END_OVER_IMAGE_CACHE) {
+		} else if (address >= START_OVER_IMAGE_CACHE && address < END_OVER_IMAGE_CACHE) {
 			s32XMMREG.write(address, val, size);
 			deviceAccessType = S32xMemAccessDelay.FRAME_BUFFER;
-		} else if (address >= S32XMMREG.START_32X_SYSREG && address < S32XMMREG.END_32X_COLPAL) {
+		} else if (address >= START_32X_SYSREG && address < END_32X_COLPAL) {
 			s32XMMREG.write(address, val, size);
-		} else if (address >= S32XMMREG.START_32X_SYSREG_CACHE && address < S32XMMREG.END_32X_COLPAL_CACHE) {
+		} else if (address >= START_32X_SYSREG_CACHE && address < END_32X_COLPAL_CACHE) {
 			s32XMMREG.write(address, val, size);
 		} else if ((address & 0xfffff000) == START_DATA_ARRAY) {
 			sh2MMREGS[cpuAccess.ordinal()].writeCache(address, val, size);

@@ -1,11 +1,13 @@
 package sh2.vdp;
 
 import omegadrive.Device;
+import omegadrive.util.Size;
 import omegadrive.util.Util;
 import omegadrive.util.VideoMode;
 import omegadrive.vdp.util.UpdatableViewer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.dict.S32xDict;
 
 import java.awt.*;
 import java.io.IOException;
@@ -35,6 +37,12 @@ public interface MarsVdp extends Device {
     static final int[] bgr5toRgb8Mapper = new int[0x10000];
     static final int NUM_FB = 2;
 
+    void write(int address, int value, Size size);
+
+    int read(int address, Size size);
+
+    boolean vdpRegWrite(S32xDict.RegSpecS32x regSpec, int reg, int value, Size size);
+
     void draw(MarsVdpContext context);
 
     void updateVideoMode(VideoMode videoMode);
@@ -48,6 +56,10 @@ public interface MarsVdp extends Device {
     default void dumpMarsData() {
         throw new UnsupportedOperationException();
     }
+
+    void setHBlank(boolean hBlankOn, int hen);
+
+    void setVBlank(boolean vBlankOn);
 
     public enum VdpPriority {MD, S32X}
 

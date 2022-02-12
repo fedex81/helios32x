@@ -26,6 +26,7 @@ public class Sh2Dict {
     public static RegSpec[] sh2RegMapping = new RegSpec[SH2_REG_SIZE];
 
     public enum RegSpec {
+
         //serial comm interface
         SCI_SMR(0xFE00, "SCI_SMR", Size.BYTE), //Serial mode register
         SCI_BRR(0xFE01, "SCI_BRR", Size.BYTE),  //Bit rate register
@@ -115,6 +116,8 @@ public class Sh2Dict {
         public final int fullAddress, addr;
         public final String name;
         public final Size size;
+
+        public static final int REG_MASK = SH2_REG_MASK;
 
         private RegSpec(int addr, String name, Size size) {
             this.fullAddress = addr;

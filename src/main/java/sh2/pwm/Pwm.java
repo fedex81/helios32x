@@ -65,9 +65,9 @@ public class Pwm implements StepDevice {
     private static final boolean verbose = false;
     private PwmProvider playSupport;
 
-    public Pwm(S32XMMREG s32XMMREG) {
-        this.sysRegsMd = s32XMMREG.sysRegsMd;
-        this.sysRegsSh2 = s32XMMREG.sysRegsSh2;
+    public Pwm(S32XMMREG.RegContext regContext) {
+        this.sysRegsMd = regContext.sysRegsMd;
+        this.sysRegsSh2 = regContext.sysRegsSh2;
         this.fifoLeft = Fifo.createIntegerFixedSizeFifo(PWM_FIFO_SIZE);
         this.fifoRight = Fifo.createIntegerFixedSizeFifo(PWM_FIFO_SIZE);
 //        this.playSupport = new PwmPlaySupportImpl();

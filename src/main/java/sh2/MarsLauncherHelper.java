@@ -54,7 +54,7 @@ public class MarsLauncherHelper {
         ctx.bus = bus;
         ctx.rom = ByteBuffer.wrap(FileUtil.readBinaryFile(romFile, SystemLoader.s32xBinaryTypes));
         ctx.s32XMMREG = new S32XMMREG();
-        ctx.dmaFifo68k = new DmaFifo68k(ctx.s32XMMREG);
+        ctx.dmaFifo68k = new DmaFifo68k(ctx.s32XMMREG.regContext);
         ctx.memory = new Sh2Memory(ctx.s32XMMREG, ctx.rom);
         ctx.memory.bios[MASTER.ordinal()] = ctx.biosHolder.getBiosData(MASTER);
         ctx.memory.bios[SLAVE.ordinal()] = ctx.biosHolder.getBiosData(SLAVE);
@@ -62,7 +62,7 @@ public class MarsLauncherHelper {
         ctx.sDevCtx = Sh2DeviceHelper.createDevices(SLAVE, ctx);
         ctx.sh2 = (ctx.masterCtx.debug || ctx.slaveCtx.debug) ?
                 new Sh2Debug(ctx.memory) : new Sh2Impl(ctx.memory);
-        ctx.pwm = new Pwm(ctx.s32XMMREG);
+        ctx.pwm = new Pwm(ctx.s32XMMREG.regContext);
         ctx.masterCtx.devices = ctx.mDevCtx;
         ctx.slaveCtx.devices = ctx.sDevCtx;
         ctx.initContext();
