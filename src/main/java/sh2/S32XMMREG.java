@@ -400,7 +400,7 @@ public class S32XMMREG implements Device {
     private void checkWriteLongAccess(RegSpecS32x regSpec, int reg, Size size) {
         if (regSpec.deviceType != COMM && regSpec.deviceType != VDP && regSpec.deviceType != PWM && size == Size.LONG) {
             LOG.error("unsupported 32 bit access, reg: {} {}", regSpec.name, th(reg));
-            throw new RuntimeException("unsupported 32 bit access, reg: " + th(reg));
+//            throw new RuntimeException("unsupported 32 bit access, reg: " + th(reg));
         }
     }
 

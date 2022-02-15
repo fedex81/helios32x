@@ -19,7 +19,7 @@ import java.util.Arrays;
 import java.util.Optional;
 
 import static omegadrive.util.Util.th;
-import static sh2.S32XMMREG.*;
+import static sh2.S32XMMREG.RegContext;
 import static sh2.S32xUtil.*;
 import static sh2.dict.S32xDict.*;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
@@ -37,22 +37,22 @@ public class MarsVdpImpl implements MarsVdp {
 
     private static final Logger LOG = LogManager.getLogger(MarsVdpImpl.class.getSimpleName());
 
-    private int[] buffer;
+    private final ByteBuffer colorPalette = ByteBuffer.allocateDirect(SIZE_32X_COLPAL);
+    private final ByteBuffer[] dramBanks = new ByteBuffer[2];
 
-    public ByteBuffer vdpRegs;
-    public ByteBuffer colorPalette = ByteBuffer.allocateDirect(SIZE_32X_COLPAL);
-    public ByteBuffer[] dramBanks = new ByteBuffer[2];
+    private final ShortBuffer[] frameBuffersWord = new ShortBuffer[NUM_FB];
+    private final ShortBuffer colorPaletteWords = colorPalette.asShortBuffer();
+    private final short[] fbDataWords = new short[DRAM_SIZE >> 1];
+    private final int[] lineTableWords = new int[LINE_TABLE_WORDS];
 
-    private ShortBuffer[] frameBuffersWord = new ShortBuffer[NUM_FB];
-    private ShortBuffer colorPaletteWords;
-    private short[] fbDataWords = new short[DRAM_SIZE >> 1];
-    private int[] lineTableWords = new int[LINE_TABLE_WORDS];
-
+    private ByteBuffer vdpRegs;
     private MarsVdpDebugView view;
     private MarsVdpContext vdpContext;
     private MarsVdpRenderContext renderContext;
     private S32XMMREG s32XMMREG;
     private RegContext regContext;
+
+    private int[] buffer;
 
     //0 - pal, 1 - NTSC
     private int pal = 1;
@@ -81,7 +81,6 @@ public class MarsVdpImpl implements MarsVdp {
         v.s32XMMREG = s32XMMREG;
         v.regContext = s32XMMREG.regContext;
         v.vdpRegs = v.regContext.vdpRegs;
-        v.colorPaletteWords = v.colorPalette.asShortBuffer();
         v.dramBanks[0] = ByteBuffer.allocateDirect(DRAM_SIZE);
         v.dramBanks[1] = ByteBuffer.allocateDirect(DRAM_SIZE);
         v.frameBuffersWord[0] = v.dramBanks[0].asShortBuffer();
@@ -353,7 +352,6 @@ public class MarsVdpImpl implements MarsVdp {
                 break;
         }
         view.update(context, buffer);
-        vdpContext = context;
     }
 
     private void drawBlank() {
