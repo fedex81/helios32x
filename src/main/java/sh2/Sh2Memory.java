@@ -179,6 +179,7 @@ public final class Sh2Memory implements IMemory {
 		pctx.end = (pc & 0xFF_FFFF) + (pctx.prefetchLookahead << 1);
 		switch (pc >> 24) {
 			case 6:
+			case 0x26:
 				pctx.start = Math.max(0, pctx.start) & SDRAM_MASK;
 				pctx.end = Math.min(romSize - 1, pctx.end) & SDRAM_MASK;
 				pctx.pcMasked = pc & SDRAM_MASK;
@@ -186,6 +187,7 @@ public final class Sh2Memory implements IMemory {
 				pctx.buf = sdram;
 				break;
 			case 2:
+			case 0x22:
 				pctx.start = Math.max(0, pctx.start) & romMask;
 				pctx.end = Math.min(romSize - 1, pctx.end) & romMask;
 				pctx.pcMasked = pc & romMask;
@@ -193,6 +195,7 @@ public final class Sh2Memory implements IMemory {
 				pctx.buf = rom;
 				break;
 			case 0:
+			case 0x20:
 				pctx.buf = bios[Md32xRuntimeData.getAccessTypeExt().ordinal()];
 				pctx.start = Math.max(0, pctx.start);
 				pctx.end = Math.min(pctx.buf.capacity() - 1, pctx.end);

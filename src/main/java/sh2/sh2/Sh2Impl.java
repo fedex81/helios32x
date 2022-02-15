@@ -730,8 +730,6 @@ public class Sh2Impl implements Sh2 {
 	protected final void CMPHI(int code) {
 		int m = RM(code);
 		int n = RN(code);
-
-		// AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH
 		if (((long) (ctx.registers[n] & 0xFFFFFFFFL)) > ((long) (ctx.registers[m] & 0xFFFFFFFFL)))
 			ctx.SR |= flagT;
 		else ctx.SR &= (~flagT);
@@ -833,6 +831,10 @@ public class Sh2Impl implements Sh2 {
 		ctx.SR &= ~(flagQ | flagT);
 		ctx.SR |= (q << posQ) | t;
 
+//		System.out.printf("####,div1: r[%d]=%x >= r[%d]=%x, %d, %d, %d\n", dvd,
+//				ctx.registers[dvd], dvsr, ctx.registers[dvsr], ((ctx.SR & flagM) > 0) ? 1 : 0,
+//				((ctx.SR & flagQ) > 0) ? 1 : 0,
+//				((ctx.SR & flagT) > 0) ? 1 : 0);
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
@@ -1573,10 +1575,9 @@ public class Sh2Impl implements Sh2 {
 		else disp = (0xFFFFF000 | code);
 
 		//PC is the start address of the second instruction after this instruction.
-		//PR is incremented by in RTS
-		ctx.PR = ctx.PC;
+		ctx.PR = ctx.PC + 4;
 		ctx.PC = ctx.PC + (disp << 1) + 4;
-		delaySlot(ctx.PR + 2);
+		delaySlot(ctx.PR - 2);
 		ctx.cycles -= 2;
 	}
 
@@ -1595,10 +1596,9 @@ public class Sh2Impl implements Sh2 {
 		int n = RN(code);
 
 		//PC is the start address of the second instruction after this instruction.
-		//PR is incremented by in RTS
-		ctx.PR = ctx.PC;
+		ctx.PR = ctx.PC + 4;
 		ctx.PC = ctx.PC + ctx.registers[n] + 4;
-		delaySlot(ctx.PR + 2);
+		delaySlot(ctx.PR - 2);
 		ctx.cycles -= 2;
 	}
 
@@ -1615,17 +1615,16 @@ public class Sh2Impl implements Sh2 {
 	protected final void JSR(int code) {
 		int n = RN(code);
 
-		//PR is incremented by 4 in RTS
-		ctx.PR = ctx.PC;
+		ctx.PR = ctx.PC + 4;
 		//NOTE: docs say this should be +4, are they wrong ??
 		ctx.PC = ctx.registers[n];
-		delaySlot(ctx.PR + 2);
+		delaySlot(ctx.PR - 2);
 		ctx.cycles -= 2;
 	}
 
 	protected final void RTS(int code) {
 		int prevPc = ctx.PC;
-		ctx.PC = ctx.PR + 4;
+		ctx.PC = ctx.PR;
 		delaySlot(prevPc + 2);
 		ctx.cycles -= 2;
 	}
