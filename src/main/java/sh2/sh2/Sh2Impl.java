@@ -38,7 +38,7 @@ public class Sh2Impl implements Sh2 {
 
 	private final static Logger LOG = LogManager.getLogger(Sh2Impl.class.getSimpleName());
 
-	private Sh2Context ctx;
+	protected Sh2Context ctx;
 	protected IMemory memory;
 
 	public Sh2Impl(IMemory memory) {
@@ -125,7 +125,7 @@ public class Sh2Impl implements Sh2 {
 
 	protected final void UNKNOWN(int instruction) {
 		LOG.error("{} illegal instruction: {}\n{}", ctx.cpuAccess, th(instruction),
-				Sh2Helper.toDebuggingString(ctx, instruction));
+				Sh2Helper.toDebuggingString(ctx));
 	}
 
 	protected final void MOVI(int code) {
@@ -1957,7 +1957,7 @@ public class Sh2Impl implements Sh2 {
 	}
 
 	//NO-OP
-	protected void printDebugMaybe(Sh2Context ctx, int instruction) {
+	protected void printDebugMaybe(Sh2Context ctx) {
 	}
 
 	/*
@@ -1977,7 +1977,8 @@ public class Sh2Impl implements Sh2 {
 	}
 
 	protected final void decode(int instruction) {
-		printDebugMaybe(ctx, instruction);
+		ctx.opcode = instruction;
+		printDebugMaybe(ctx);
 		switch ((instruction >>> 12) & 0xf) {
 			case 0:
 				switch ((instruction >>> 0) & 0xf) {

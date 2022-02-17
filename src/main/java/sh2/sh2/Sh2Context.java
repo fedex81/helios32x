@@ -24,7 +24,8 @@ public class Sh2Context {
     public int GBR, VBR, SR;
     public int MACH, MACL, PR;
     public int PC;
-    public int delayPC;
+
+    public int opcode, delayPC;
 
     /*
      * defines the number of cycles we can ran before stopping the interpreter

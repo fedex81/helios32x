@@ -8,22 +8,27 @@ package sh2.sh2;
 public class Sh2Helper {
 
     public static final Sh2Disassembler disasm = new Sh2Disassembler();
+    private static final String simpleFormat = "%s %08x\t%04x\t%s";
 
-    public static void printInst(Sh2Context ctx, int opcode) {
-        System.out.println(getInstString(ctx, opcode));
+    public static void printInst(Sh2Context ctx) {
+        System.out.println(getInstString(ctx));
     }
 
-    public static String getInstString(Sh2Context ctx, int opcode) {
-        return ctx.sh2TypeCode + " " + Integer.toHexString(ctx.PC) + ": " + disasm.disassemble(ctx.PC, opcode);
+    public static String getInstString(Sh2Context ctx) {
+        return String.format(simpleFormat, ctx.sh2TypeCode, ctx.PC, ctx.opcode, disasm.disassemble(ctx.PC, ctx.opcode));
     }
 
-    public static void printState(Sh2Context ctx, int opcode) {
-        System.out.println(toDebuggingString(ctx, opcode));
+    public static String getInstString(String sh2Type, int pc, int opcode) {
+        return String.format(simpleFormat, sh2Type, pc, opcode, disasm.disassemble(pc, opcode));
     }
 
-    public static String toDebuggingString(Sh2Context ctx, int opcode) {
+    public static void printState(Sh2Context ctx) {
+        System.out.println(toDebuggingString(ctx));
+    }
+
+    public static String toDebuggingString(Sh2Context ctx) {
         StringBuilder sb = new StringBuilder("\n");
-        sb.append(disasm.disassemble(ctx.PC, opcode)).append("\n");
+        sb.append(disasm.disassemble(ctx.PC, ctx.opcode)).append("\n");
         sb.append(String.format("PC : %08x\t", ctx.PC));
         sb.append(String.format("GBR: %08x\t", ctx.GBR));
         sb.append(String.format("VBR: %08x\t", ctx.VBR));
