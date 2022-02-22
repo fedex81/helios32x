@@ -64,13 +64,30 @@ public class VdpRegTest {
     @Test
     public void testFEN() {
         int res = s32XMMREG.read(MarsRegTestUtil.FBCR_OFFSET, Size.WORD);
-        MarsRegTestUtil.assertFEN(s32XMMREG, true);
+        MarsRegTestUtil.assertFEN(s32XMMREG, 0);
 
         s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 2, Size.WORD);
-        MarsRegTestUtil.assertFEN(s32XMMREG, false);
+        MarsRegTestUtil.assertFEN(s32XMMREG, 1);
 
         s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 0, Size.WORD);
-        MarsRegTestUtil.assertFEN(s32XMMREG, true);
+        MarsRegTestUtil.assertFEN(s32XMMREG, 0);
+    }
+
+    @Test
+    public void testFEN2() {
+        int res = s32XMMREG.read(MarsRegTestUtil.FBCR_OFFSET, Size.WORD);
+        MarsRegTestUtil.assertFEN(s32XMMREG, 0);
+
+        //set FEN=1, access denied
+        s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 2, Size.WORD);
+        MarsRegTestUtil.assertFEN(s32XMMREG, 1);
+
+        //toggle hblank
+        s32XMMREG.setHBlank(true);
+        s32XMMREG.setHBlank(false);
+
+        //fen should go back to 0
+        MarsRegTestUtil.assertFEN(s32XMMREG, 0);
     }
 
     @Test

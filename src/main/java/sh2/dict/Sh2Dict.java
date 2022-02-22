@@ -108,6 +108,7 @@ public class Sh2Dict {
         DMA_VRCDMA1(0xFFA8, "DMA_VRCDMA1", Size.LONG),
 
         //misc registers
+        //FMR 0xFE90, unused?
         NONE_SBYCR(0xFE91, "NONE_SBYCR", Size.BYTE), //PowerDownModes:Standby Control Register
         NONE_CCR(0xFE92, "NONE_CCR", Size.BYTE), //Cache:Cache control register
         NONE_FE93(0xFE93, "NONE_FE93", Size.BYTE), //Unknown, vf uses it

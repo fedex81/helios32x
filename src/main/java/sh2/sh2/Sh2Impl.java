@@ -118,14 +118,13 @@ public class Sh2Impl implements Sh2 {
 		return res;
 	}
 
-	private void NOIMP(int code) {
-		ctx.cycles--;
-		ctx.PC += 2;
-	}
-
-	protected final void UNKNOWN(int instruction) {
-		LOG.error("{} illegal instruction: {}\n{}", ctx.cpuAccess, th(instruction),
+	private void ILLEGAL(int code) {
+		push(ctx.SR);
+		push(ctx.PC);
+		LOG.error("{} illegal instruction: {}\n{}", ctx.cpuAccess, th(code),
 				Sh2Helper.toDebuggingString(ctx));
+		ctx.PC = memory.read32i(ctx.VBR + (ILLEGAL_INST_VN << 2));
+		ctx.cycles -= 5;
 	}
 
 	protected final void MOVI(int code) {
@@ -1948,14 +1947,6 @@ public class Sh2Impl implements Sh2 {
 		ctx.cycles -= 8;
 	}
 
-	protected final void ILLEGAL(int code) {
-		push(ctx.SR);
-		push(ctx.PC);
-		UNKNOWN(code);
-		ctx.PC = memory.read32i(ctx.VBR + (ILLEGAL_INST_VN << 2));
-		ctx.cycles -= 5;
-	}
-
 	//NO-OP
 	protected void printDebugMaybe(Sh2Context ctx) {
 	}
@@ -1994,7 +1985,7 @@ public class Sh2Impl implements Sh2 {
 								STCVBR(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2007,7 +1998,7 @@ public class Sh2Impl implements Sh2 {
 								BRAF(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2036,7 +2027,7 @@ public class Sh2Impl implements Sh2 {
 								CLRMAC(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2052,7 +2043,7 @@ public class Sh2Impl implements Sh2 {
 								MOVT(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2068,7 +2059,7 @@ public class Sh2Impl implements Sh2 {
 								STSPR(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2084,7 +2075,7 @@ public class Sh2Impl implements Sh2 {
 								RTE(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2101,7 +2092,7 @@ public class Sh2Impl implements Sh2 {
 						MACL(instruction);
 						return;
 					default:
-						NOIMP(instruction);
+						ILLEGAL(instruction);
 						return;
 				}
 
@@ -2157,7 +2148,7 @@ public class Sh2Impl implements Sh2 {
 						MULSW(instruction);
 						return;
 					default:
-						NOIMP(instruction);
+						ILLEGAL(instruction);
 						return;
 				}
 
@@ -2206,7 +2197,7 @@ public class Sh2Impl implements Sh2 {
 						ADDV(instruction);
 						return;
 					default:
-						NOIMP(instruction);
+						ILLEGAL(instruction);
 						return;
 				}
 
@@ -2224,7 +2215,7 @@ public class Sh2Impl implements Sh2 {
 								SHAL(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2240,7 +2231,7 @@ public class Sh2Impl implements Sh2 {
 								SHAR(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2256,7 +2247,7 @@ public class Sh2Impl implements Sh2 {
 								STSMPR(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2272,7 +2263,7 @@ public class Sh2Impl implements Sh2 {
 								STCMVBR(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2285,7 +2276,7 @@ public class Sh2Impl implements Sh2 {
 								ROTCL(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2301,7 +2292,7 @@ public class Sh2Impl implements Sh2 {
 								ROTCR(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2317,7 +2308,7 @@ public class Sh2Impl implements Sh2 {
 								LDSMPR(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2333,7 +2324,7 @@ public class Sh2Impl implements Sh2 {
 								LDCMVBR(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2349,7 +2340,7 @@ public class Sh2Impl implements Sh2 {
 								SHLL16(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2365,7 +2356,7 @@ public class Sh2Impl implements Sh2 {
 								SHLR16(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2381,7 +2372,7 @@ public class Sh2Impl implements Sh2 {
 								LDSPR(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2397,7 +2388,7 @@ public class Sh2Impl implements Sh2 {
 								JMP(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 					case 14:
@@ -2412,7 +2403,7 @@ public class Sh2Impl implements Sh2 {
 								LDCVBR(instruction);
 								return;
 							default:
-								NOIMP(instruction);
+								ILLEGAL(instruction);
 								return;
 						}
 
@@ -2420,7 +2411,7 @@ public class Sh2Impl implements Sh2 {
 						MACW(instruction);
 						return;
 					default:
-						NOIMP(instruction);
+						ILLEGAL(instruction);
 						return;
 				}
 
@@ -2514,7 +2505,7 @@ public class Sh2Impl implements Sh2 {
 						BFS(instruction);
 						return;
 					default:
-						NOIMP(instruction);
+						ILLEGAL(instruction);
 						return;
 				}
 

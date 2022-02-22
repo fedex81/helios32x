@@ -278,7 +278,8 @@ public class MarsVdpImpl implements MarsVdp {
     public void setHBlank(boolean hBlankOn, int hen) {
         vdpContext.hBlankOn = hBlankOn;
         setBitFromWord(FBCR, FBCR_HBLK_BIT_POS, hBlankOn ? 1 : 0);
-        setBitFromWord(FBCR, FBCR_nFEN_BIT_POS, hBlankOn ? 1 : 0); //TODO hack, FEN =0 after 40 cycles @ 23Mhz
+        //TODO hack, FEN =0 after 40 cycles @ 23Mhz
+        setBitFromWord(FBCR, FBCR_nFEN_BIT_POS, hBlankOn ? 1 : 0);
         if (hBlankOn) {
             if (hen > 0 || !vdpContext.vBlankOn) {
                 if (--vdpContext.hCount < 0) {
