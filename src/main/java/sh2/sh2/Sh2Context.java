@@ -16,7 +16,7 @@ public class Sh2Context {
     public static int burstCycles = 1;
 
     /* System Registers */
-    public int registers[];
+    public final int registers[];
 
     /* Flags to access the bit fields in SR and FPSCR
      * Sintax : flagRegName
@@ -33,14 +33,12 @@ public class Sh2Context {
     public int cycles;
     public int cycles_ran;
 
-    public S32xUtil.CpuDeviceAccess cpuAccess;
-    public String sh2TypeCode;
+    public final S32xUtil.CpuDeviceAccess cpuAccess;
+    public final String sh2TypeCode;
     public boolean delaySlot;
-    public boolean clearNextInt;
     public boolean debug;
 
     public Sh2DeviceContext devices;
-    public int[] prefetchPc = new int[1];
 
     public Sh2Context(S32xUtil.CpuDeviceAccess cpuAccess) {
         this.registers = new int[NUM_REG];

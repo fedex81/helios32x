@@ -6,6 +6,7 @@ import org.apache.logging.log4j.Logger;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
+import sh2.sh2.device.IntControl;
 
 import static omegadrive.util.Util.th;
 
@@ -53,10 +54,6 @@ public class Sh2Impl implements Sh2 {
 		return ((x >> 4) & 0xf);
 	}
 
-	public static final boolean is_flag_set(int register, int flag) {
-		return ((register & flag) != 0);
-	}
-
 	// get interrupt masks bits int the SR register
 	private int getIMASK() {
 		return (ctx.SR & flagIMASK) >>> 4;
@@ -72,16 +69,11 @@ public class Sh2Impl implements Sh2 {
 		LOG.info("{} Reset, PC: {}, SP: {}", ctx.cpuAccess, th(ctx.PC), th(ctx.registers[15]));
 	}
 
-	private boolean acceptInterrupts() {
-		int level = ctx.devices.intC.getInterruptLevel();
+	private boolean acceptInterrupts(final int level) {
 		if (level > getIMASK()) {
 			processInterrupt(ctx, level);
-			ctx.clearNextInt = true;
+			ctx.devices.intC.clearCurrentInterrupt(); //DoomRes1.5
 			return true;
-			//TODO hack, see DoomRes1.5 and Zaxxon motherbase
-		} else if (ctx.clearNextInt) {
-			ctx.devices.intC.clearCurrentInterrupt();
-			ctx.clearNextInt = false;
 		}
 		return false;
 	}
@@ -143,11 +135,8 @@ public class Sh2Impl implements Sh2 {
 
 		if ((ctx.registers[n] & 0x8000) == 0) ctx.registers[n] &= 0x0000FFFF;
 		else ctx.registers[n] |= 0xFFFF0000;
-
-
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void MOVLI(int code) {
@@ -1958,10 +1947,11 @@ public class Sh2Impl implements Sh2 {
 	public void run(final Sh2Context ctx) {
 		this.ctx = ctx;
 		final Sh2MMREG sh2MMREG = ctx.devices.sh2MMREG;
+		final IntControl intControl = ctx.devices.intC;
 		for (; ctx.cycles >= 0; ) {
 			decode(memory.fetch(ctx.PC, ctx.cpuAccess));
 			sh2MMREG.deviceStep();
-			if (acceptInterrupts()) break;
+			if (acceptInterrupts(intControl.getInterruptLevel())) break;
 		}
 		ctx.cycles_ran = Sh2Context.burstCycles - ctx.cycles;
 		ctx.cycles = Sh2Context.burstCycles;
