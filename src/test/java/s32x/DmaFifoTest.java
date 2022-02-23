@@ -34,7 +34,7 @@ public class DmaFifoTest {
     public static final int FIFO_OFFSET = 0x4000 + M68K_FIFO_REG.addr;
     public static final int DMA_CONTROL_OFFSET = 0x4000 + M68K_DMAC_CTRL.addr;
 
-    private static Random r = new Random(System.currentTimeMillis());
+    private static Random r;
 
     static {
         long ms = System.currentTimeMillis();
@@ -57,13 +57,13 @@ public class DmaFifoTest {
         testFifoTransfer01();
     }
 
-    //TODO this fails for pushFifo = 2,3,??; why??
     @Test
     public void testFifoTransfer01() {
         int idx = 0, cnt = 0;
         int spin = 0;
-        setup68k();
+        toggle68kFifo(false);
         setupSh2(masterDmac, data.length);
+        toggle68kFifo(true);
         masterDmac.write(DMA_CHCR0, 0x44E1, Size.WORD);
         masterDmac.write(DMA_DMAOR, 1, Size.WORD);
 
@@ -81,21 +81,23 @@ public class DmaFifoTest {
             }
             dmaStep(masterDmac);
             cnt++;
-        } while (!isDmaDoneM68k() && spin < limit);
+        } while (!isDmaDoneM68k() && spin < limit && idx < data.length);
         Assertions.assertEquals(data.length, idx);
     }
 
     @Test
     public void testDmaFifoBlocks() {
         int idx = 0, cnt = 0;
-        setup68k();
+        toggle68kFifo(false);
         setupSh2(masterDmac, data.length);
+        toggle68kFifo(true);
         //start Sh2 side
         masterDmac.write(DMA_CHCR0, 0x44E1, Size.WORD);
         masterDmac.write(DMA_DMAOR, 1, Size.WORD);
         Assertions.assertFalse(masterDmac.getDmaChannelSetup()[0].dreqLevel);
         Assertions.assertFalse(isFifoFull());
         Assertions.assertTrue(isFifoEmpty());
+
         do {
             //68k: fill one dma block
             m68kWriteToFifo(data[idx++]);
@@ -124,9 +126,9 @@ public class DmaFifoTest {
         dmac.step(1);
     }
 
-    private void setup68k() {
+    private void toggle68kFifo(boolean enable) {
         Md32xRuntimeData.setAccessTypeExt(M68K);
-        s32XMMREG.write(DMA_CONTROL_OFFSET, 4, Size.WORD); // 68S <- 1
+        s32XMMREG.write(DMA_CONTROL_OFFSET, enable ? 4 : 0, Size.WORD); // 68S <- 1
     }
 
     private void setupSh2(DmaC dmac, int len) {
