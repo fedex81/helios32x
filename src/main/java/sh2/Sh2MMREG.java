@@ -164,6 +164,8 @@ public class Sh2MMREG {
                 case SCI:
                     res = sci.read(regSpec, size);
                     break;
+                case DIV:
+                    res = divUnit.read(regSpec, reg & SH2_REG_MASK, size);
                 default:
                     res = readBuffer(regs, reg & SH2_REG_MASK, size);
                     break;

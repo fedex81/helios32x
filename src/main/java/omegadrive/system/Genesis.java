@@ -25,6 +25,7 @@ import omegadrive.bus.md.SvpMapper;
 import omegadrive.bus.model.GenesisBusProvider;
 import omegadrive.cpu.m68k.M68kProvider;
 import omegadrive.cpu.m68k.MC68000Wrapper;
+import omegadrive.cpu.ssp16.Ssp16;
 import omegadrive.cpu.z80.Z80CoreWrapper;
 import omegadrive.cpu.z80.Z80Provider;
 import omegadrive.input.InputProvider;
@@ -69,6 +70,8 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
 
     protected Z80Provider z80;
     protected M68kProvider cpu;
+    protected Ssp16 ssp16 = Ssp16.NO_SVP;
+    protected boolean hasSvp = ssp16 != Ssp16.NO_SVP;
     protected double nextVdpCycle = vdpVals[0];
     private int next68kCycle = M68K_DIVIDER;
     private int nextZ80Cycle = Z80_DIVIDER;
@@ -105,7 +108,8 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
         createAndAddVdpEventListener();
     }
 
-    static final int SVP_CYCLES = 100;
+    static final int SVP_CYCLES = 128;
+    static final int SVP_CYCLES_MASK = SVP_CYCLES - 1;
     static final int SVP_RUN_CYCLES = (int) (SVP_CYCLES * 1.5);
 
 
@@ -121,8 +125,8 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
                 runZ80(cnt);
                 runFM(cnt);
                 runVdp(cnt);
-                if (cnt % SVP_CYCLES == 0) {
-                    SvpMapper.ssp16.ssp1601_run(SVP_RUN_CYCLES);
+                if (hasSvp && (counter & SVP_CYCLES_MASK) == 0) {
+                    ssp16.ssp1601_run(SVP_RUN_CYCLES);
                 }
                 counter++;
             } while (!futureDoneFlag);
@@ -207,6 +211,17 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
             romRegion = ovrRegion;
         }
         return romRegion;
+    }
+
+    @Override
+    public void newFrame() {
+        checkSvp();
+        super.newFrame();
+    }
+
+    private void checkSvp() {
+        ssp16 = SvpMapper.ssp16;
+        hasSvp = ssp16 != Ssp16.NO_SVP;
     }
 
     @Override

@@ -76,7 +76,7 @@ public class S32xBus extends GenesisBus {
     public void setRom(ByteBuffer b) {
         rom = b;
         romSize = rom.capacity();
-        romMask = (int) Math.pow(2, Util.log2(romSize) + 1) - 1;
+        romMask = Util.getRomMask(romSize);
         s32XMMREG.setCart(romSize);
     }
 
@@ -116,8 +116,6 @@ public class S32xBus extends GenesisBus {
             }
         } else if (address >= START_ROM_MIRROR && address < END_ROM_MIRROR) {
             address &= ROM_WINDOW_MASK;
-            address &= romMask;
-            address = address > romSize - 1 ? address - (romSize) : address;
             res = readBuffer(rom, address & romMask, size);
         } else if (address >= START_ROM_MIRROR_BANK && address < END_ROM_MIRROR_BANK) {
             int val = bankSetShift | (address & ROM_MIRROR_MASK);

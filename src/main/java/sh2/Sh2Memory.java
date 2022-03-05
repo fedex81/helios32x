@@ -63,7 +63,7 @@ public final class Sh2Memory implements IMemory {
 		this.s32XMMREG = s32XMMREG;
 		this.rom = rom;
 		romSize = rom.capacity();
-		romMask = (int) Math.pow(2, Util.log2(romSize - 1) + 1) - 1;
+		romMask = Util.getRomMask(romSize);
 		LOG.info("Rom size: {}, mask: {}", th(romSize), th(romMask));
 	}
 
@@ -84,13 +84,9 @@ public final class Sh2Memory implements IMemory {
 			res = readBuffer(sdram, address & SDRAM_MASK, size);
 			deviceAccessType = S32xMemAccessDelay.SDRAM;
 		} else if (address >= START_ROM && address < END_ROM) {
-			address &= romMask;
-			address = address > romSize - 1 ? address - (romSize) : address;
-			res = readBuffer(rom, address, size);
+			res = readBuffer(rom, address & romMask, size);
 			deviceAccessType = S32xMemAccessDelay.ROM;
 		} else if (address >= START_ROM_CACHE && address < END_ROM_CACHE) {
-			address &= romMask;
-			address = address > romSize - 1 ? address - (romSize) : address;
 			res = readBuffer(rom, address & romMask, size);
 			deviceAccessType = S32xMemAccessDelay.ROM;
 		} else if (address >= S32xDict.START_32X_SYSREG_CACHE && address < S32xDict.END_32X_COLPAL_CACHE) {

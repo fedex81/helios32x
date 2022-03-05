@@ -18,9 +18,6 @@ public class Sh2Context {
     /* System Registers */
     public final int registers[];
 
-    /* Flags to access the bit fields in SR and FPSCR
-     * Sintax : flagRegName
-     */
     public int GBR, VBR, SR;
     public int MACH, MACL, PR;
     public int PC;

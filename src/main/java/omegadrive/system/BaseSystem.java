@@ -32,6 +32,7 @@ import omegadrive.system.perf.Telemetry;
 import omegadrive.ui.DisplayWindow;
 import omegadrive.ui.PrefStore;
 import omegadrive.util.*;
+import omegadrive.vdp.model.BaseVdpAdapterEventSupport;
 import omegadrive.vdp.model.BaseVdpProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -253,9 +254,7 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
         if (!SystemLoader.showFps) {
             return Optional.empty();
         }
-
-        double lastFps = (1.0 * Util.SECOND_IN_NS) / ((nowNs - prevStartNs));
-        telemetry.newFrame(lastFps, driftNs).ifPresent(statsConsumer);
+        telemetry.newFrame(nowNs - prevStartNs, driftNs).ifPresent(statsConsumer);
         return stats;
     }
 
@@ -300,10 +299,15 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
     }
 
     protected void createAndAddVdpEventListener() {
-        vdp.addVdpEventListener(new BaseVdpProvider.VdpEventListener() {
+        vdp.addVdpEventListener(new BaseVdpAdapterEventSupport.VdpEventListener() {
             @Override
             public void onNewFrame() {
                 newFrame();
+            }
+
+            @Override
+            public int order() {
+                return 100;
             }
         });
     }

@@ -26,7 +26,8 @@ public class DivUnit implements StepDevice {
     private static final int DIV_OVERFLOW_INT_EN_BIT = 1;
     private static final int MAX_POS = 0x8000_0000;
     private static final int MAX_NEG = 0x7FFF_FFFF;
-    private static final String format64 = "div%d overflow, dvd: %16X, dvsr: %08X, quotLong: %16X, quot32: %08x, rem: %08X";
+    private static final String formatDiv = "div%d, dvd: %16X, dvsr: %08X, quotLong: %16X, quot32: %08x, rem: %08X";
+    private static final String formatOvf = "div%d overflow, dvd: %16X, dvsr: %08X, quotLong: %16X, quot32: %08x, rem: %08X";
     private static final String formatDivBy0 = "div%d overflow (div by 0), dvd: %16X, dvsr: %08X";
     private static final boolean verbose = false;
 
@@ -42,6 +43,7 @@ public class DivUnit implements StepDevice {
 
     public void write(RegSpec reg, int value, Size size) {
         writeBuffer(regs, reg.addr, value, size);
+        if (verbose) LOG.info("{} Write {} value: {} {}", cpu, reg.name, th(value), size);
         switch (reg) {
             case DIV_DVDNTL:
                 div64Dsp();
@@ -49,13 +51,11 @@ public class DivUnit implements StepDevice {
             case DIV_DVDNT:
                 div32Dsp(value, size);
                 break;
-            default:
-                if (verbose) LOG.info("{} Write {} value: {} {}", cpu, reg.name, th(value), size);
-                break;
         }
     }
 
-    public int read(int reg, Size size) {
+    public int read(RegSpec regSpec, int reg, Size size) {
+        if (verbose) LOG.info("{} Read {} value: {} {}", cpu, regSpec.name, th(readBuffer(regs, reg, size)), size);
         return readBuffer(regs, reg, size);
     }
 
@@ -73,8 +73,9 @@ public class DivUnit implements StepDevice {
         int quot = (int) quotL;
         int rem = (int) (dvd - quot * dvsr);
         writeBuffersLong(regs, DIV_DVDNTH, DIV_DVDNTUH, rem);
+        if (verbose) LOG.info(String.format(formatDiv, 64, dvd, dvsr, quotL, quot, rem));
         if (quot != (int) (quotL & 0xFFFF_FFFFL)) {
-            handleOverflow(quot, false, String.format(format64, 64, dvd, dvsr, quotL, quot, rem));
+            handleOverflow(quot, false, String.format(formatOvf, 64, dvd, dvsr, quotL, quot, rem));
             return;
         }
         writeBuffersLong(regs, DIV_DVDNTL, DIV_DVDNTUL, quot);
@@ -93,6 +94,7 @@ public class DivUnit implements StepDevice {
         }
         int quot = dvd / dvsr;
         int rem = (int) (dvd - quot * dvsr);
+        if (verbose) LOG.info(String.format(formatDiv, 32, dvd, dvsr, quot, quot, rem));
         writeBuffersLong(regs, DIV_DVDNTH, DIV_DVDNTUH, rem);
         writeBuffersLong(regs, DIV_DVDNT, DIV_DVDNTL, quot);
         writeBufferLong(regs, DIV_DVDNTUL, quot);
