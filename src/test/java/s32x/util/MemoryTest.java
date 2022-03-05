@@ -1,6 +1,7 @@
 package s32x.util;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import sh2.Md32xRuntimeData;
 import sh2.S32XMMREG;
@@ -21,6 +22,7 @@ public class MemoryTest {
     Sh2Memory memory;
 
     @Test
+    @Disabled("not needed for 32x??")
     public void testRomWrap() {
         Md32xRuntimeData.newInstance();
         ByteBuffer b = ByteBuffer.allocate(0xA0);

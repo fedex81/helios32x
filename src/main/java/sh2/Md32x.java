@@ -3,6 +3,7 @@ package sh2;
 import omegadrive.Device;
 import omegadrive.SystemLoader;
 import omegadrive.bus.model.GenesisBusProvider;
+import omegadrive.sound.PwmProvider;
 import omegadrive.system.Genesis;
 import omegadrive.ui.DisplayWindow;
 import omegadrive.vdp.md.GenesisVdp;
@@ -34,7 +35,7 @@ public class Md32x extends Genesis {
     protected final static int SH2_CYCLES_PER_STEP;
     protected final static int SH2_CYCLE_RATIO;
     private Md32xRuntimeData rt;
-    private static boolean enable_fm = false;
+    private static boolean enable_fm = false, enable_pwm = true;
 
     static {
         SH2_CYCLES_PER_STEP = 3; //24;
@@ -72,7 +73,7 @@ public class Md32x extends Genesis {
         marsVdp.updateDebugView(((GenesisVdp) vdp).getDebugViewer());
         super.initAfterRomLoad(); //needs to be last
         //TODO super inits the soundProvider
-        ctx.pwm.setPwmProvider(sound.getPwm());
+        ctx.pwm.setPwmProvider(enable_pwm ? sound.getPwm() : PwmProvider.NO_SOUND);
         sound.setEnabled(sound.getFm(), enable_fm);
     }
 
