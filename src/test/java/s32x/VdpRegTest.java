@@ -16,7 +16,7 @@ public class VdpRegTest {
 
     @BeforeEach
     public void before() {
-        s32XMMREG = MarsRegTestUtil.createInstance();
+        s32XMMREG = MarsRegTestUtil.createTestInstance().s32XMMREG;
     }
 
     //palette enable bit#13

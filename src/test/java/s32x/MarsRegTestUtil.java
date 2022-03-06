@@ -1,15 +1,19 @@
 package s32x;
 
+import omegadrive.memory.IMemoryProvider;
+import omegadrive.memory.MemoryProvider;
 import omegadrive.util.Size;
+import omegadrive.util.Util;
 import org.junit.jupiter.api.Assertions;
-import sh2.*;
-import sh2.sh2.device.DmaC;
-import sh2.sh2.device.IntControl;
+import s32x.util.SystemTestUtil;
+import sh2.MarsLauncherHelper;
+import sh2.MarsLauncherHelper.Sh2LaunchContext;
+import sh2.Md32xRuntimeData;
+import sh2.S32XMMREG;
+import sh2.S32xBus;
 
 import java.nio.ByteBuffer;
 
-import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
-import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
 
 /**
@@ -31,32 +35,17 @@ public class MarsRegTestUtil {
         System.setProperty("32x.show.vdp.debug.viewer", "false");
     }
 
-    public static S32XMMREG createInstance() {
-        S32XMMREG s = new S32XMMREG();
-        Sh2Memory memory = new Sh2Memory(s, ByteBuffer.allocate(0xFFF));
-        DmaFifo68k dmaFifoControl = new DmaFifo68k(s.regContext);
-        s.setDmaControl(dmaFifoControl);
-        Sh2MMREG sm = new Sh2MMREG(MASTER);
-        Sh2MMREG ss = new Sh2MMREG(SLAVE);
-        s.setInterruptControl(createIntC(MASTER, sm.getRegs()), createIntC(SLAVE, ss.getRegs()));
-        DmaC d1 = createDmaC(MASTER, memory, s.interruptControls[0], dmaFifoControl, sm);
-        DmaC d2 = createDmaC(SLAVE, memory, s.interruptControls[1], dmaFifoControl, ss);
-        dmaFifoControl.setDmac(d1, d2);
+    public static Sh2LaunchContext createTestInstance() {
+        byte[] brom = new byte[0x1000];
         Md32xRuntimeData.releaseInstance();
         Md32xRuntimeData.newInstance();
-        return s;
-    }
+        Sh2LaunchContext lc = MarsLauncherHelper.setupRom(new S32xBus(), ByteBuffer.wrap(brom));
 
-    public static DmaC createDmaC(S32xUtil.CpuDeviceAccess cpuDeviceAccess, Sh2Memory memory, IntControl intc, DmaFifo68k dmaFifo, Sh2MMREG s) {
-        return new DmaC(cpuDeviceAccess, intc, memory, dmaFifo, s.getRegs());
-    }
-
-    public static IntControl createIntC(S32xUtil.CpuDeviceAccess cpuDeviceAccess) {
-        return createIntC(cpuDeviceAccess, null);
-    }
-
-    public static IntControl createIntC(S32xUtil.CpuDeviceAccess cpuDeviceAccess, ByteBuffer regs) {
-        return new IntControl(cpuDeviceAccess, regs);
+        int[] irom = Util.toSignedIntArray(brom);
+        IMemoryProvider mp = MemoryProvider.createGenesisInstance();
+        mp.setRomData(irom);
+        SystemTestUtil.setupNewMdSystem(lc.bus, mp);
+        return lc;
     }
 
     public static void assertFrameBufferDisplay(S32XMMREG s32XMMREG, int num) {

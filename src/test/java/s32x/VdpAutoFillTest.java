@@ -24,7 +24,7 @@ public class VdpAutoFillTest {
 
     @BeforeEach
     public void before() {
-        s32XMMREG = createInstance();
+        s32XMMREG = createTestInstance().s32XMMREG;
         vdp = (MarsVdpImpl) s32XMMREG.getVdp();
     }
 

@@ -44,7 +44,7 @@ public class DmaFifoTest {
 
     @BeforeEach
     public void beforeEach() {
-        s32XMMREG = MarsRegTestUtil.createInstance();
+        s32XMMREG = MarsRegTestUtil.createTestInstance().s32XMMREG;
         IntStream.range(0, data.length).forEach(i -> data[i] = i);
         masterDmac = s32XMMREG.dmaFifoControl.getDmac()[MASTER.ordinal()];
     }

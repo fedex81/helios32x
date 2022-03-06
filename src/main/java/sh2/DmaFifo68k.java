@@ -39,6 +39,7 @@ public class DmaFifo68k {
     private DmaC[] dmac;
     private final Fifo<Integer> fifo = Fifo.createIntegerFixedSizeFifo(DMA_FIFO_SIZE);
     private boolean m68S = false;
+    public static boolean rv = false;
     private static final boolean verbose = false;
 
     public DmaFifo68k(S32XMMREG.RegContext regContext) {
@@ -109,9 +110,10 @@ public class DmaFifo68k {
             int res = readBuffer(sysRegsMd, M68K_DMAC_CTRL.addr, Size.WORD);
             boolean wasDmaOn = m68S;
             m68S = (res & 4) > 0;
+            rv = (res & 1) > 0;
             //sync sh2 reg
             writeBuffer(sysRegsSh2, SH2_DREQ_CTRL.addr + 1, res & 7, Size.BYTE);
-            if (verbose) LOG.info("{} write DREQ_CTL, dmaOn: {} , RV: {}", M68K, m68S, res & 1);
+            if (verbose) LOG.info("{} write DREQ_CTL, dmaOn: {} , RV: {}", M68K, m68S, rv);
             if (wasDmaOn && !m68S) {
                 LOG.error("TODO check, 68S = 0, stops DMA while running");
                 dmaEnd();

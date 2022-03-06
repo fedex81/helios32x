@@ -84,6 +84,10 @@ public final class Sh2Memory implements IMemory {
 			res = readBuffer(sdram, address & SDRAM_MASK, size);
 			deviceAccessType = S32xMemAccessDelay.SDRAM;
 		} else if (address >= START_ROM && address < END_ROM) {
+			//TODO RV bit
+			if (DmaFifo68k.rv) {
+				LOG.warn("Sh2 ROM access with RV on");
+			}
 			res = readBuffer(rom, address & romMask, size);
 			deviceAccessType = S32xMemAccessDelay.ROM;
 		} else if (address >= START_ROM_CACHE && address < END_ROM_CACHE) {
@@ -134,7 +138,9 @@ public final class Sh2Memory implements IMemory {
 		if (address >= START_DRAM_CACHE && address < END_DRAM_CACHE) {
 			s32XMMREG.write(address, val, size);
 		} else if (address >= START_DRAM && address < END_DRAM) {
-			s32XMMREG.write(address, val, size);
+			if (s32XMMREG.fm > 0) {
+				s32XMMREG.write(address, val, size);
+			}
 		} else if (address >= START_SDRAM && address < END_SDRAM) {
 			writeBuffer(sdram, address & SDRAM_MASK, val, size);
 			deviceAccessType = S32xMemAccessDelay.SDRAM;
@@ -142,13 +148,18 @@ public final class Sh2Memory implements IMemory {
 			writeBuffer(sdram, address & SDRAM_MASK, val, size);
 			deviceAccessType = S32xMemAccessDelay.SDRAM;
 		} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
-			s32XMMREG.write(address, val, size);
-			deviceAccessType = S32xMemAccessDelay.FRAME_BUFFER;
+			if (s32XMMREG.fm > 0) {
+				s32XMMREG.write(address, val, size);
+			}
 		} else if (address >= START_OVER_IMAGE_CACHE && address < END_OVER_IMAGE_CACHE) {
 			s32XMMREG.write(address, val, size);
 			deviceAccessType = S32xMemAccessDelay.FRAME_BUFFER;
-		} else if (address >= START_32X_SYSREG && address < END_32X_COLPAL) {
+		} else if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
 			s32XMMREG.write(address, val, size);
+		} else if (address >= START_32X_VDPREG && address < END_32X_COLPAL) {
+			if (s32XMMREG.fm > 0) {
+				s32XMMREG.write(address, val, size);
+			}
 		} else if (address >= START_32X_SYSREG_CACHE && address < END_32X_COLPAL_CACHE) {
 			s32XMMREG.write(address, val, size);
 		} else if ((address & 0xfffff000) == START_DATA_ARRAY) {

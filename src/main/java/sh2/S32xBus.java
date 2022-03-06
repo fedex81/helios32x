@@ -115,11 +115,15 @@ public class S32xBus extends GenesisBus {
                 res = readHIntVector(address, size);
             }
         } else if (address >= START_ROM_MIRROR && address < END_ROM_MIRROR) {
-            address &= ROM_WINDOW_MASK;
-            res = readBuffer(rom, address & romMask, size);
+            if (DmaFifo68k.rv || true) {
+                address &= ROM_WINDOW_MASK;
+                res = readBuffer(rom, address & romMask, size);
+            }
         } else if (address >= START_ROM_MIRROR_BANK && address < END_ROM_MIRROR_BANK) {
-            int val = bankSetShift | (address & ROM_MIRROR_MASK);
-            res = readBuffer(rom, val, size);
+            if (DmaFifo68k.rv || true) {
+                int val = bankSetShift | (address & ROM_MIRROR_MASK);
+                res = readBuffer(rom, val, size);
+            }
         } else if (address >= START_FRAME_BUFFER && address < END_FRAME_BUFFER) {
             int addr = START_DRAM_CACHE + (address & DRAM_MASK);
             res = read32xWord(addr, size);
@@ -177,7 +181,7 @@ public class S32xBus extends GenesisBus {
                 bankSetValue = (data & 3);
                 bankSetShift = bankSetValue << 20;
             }
-            write32xWord(addr, data, size);
+            write32xWordDirect(addr, data, size);
         } else if (address >= START_32X_VDPREG && address < END_32X_VDPREG) {
             int addr = (address - START_32X_VDPREG + 0x4100); //START_32X_VDPREG_CACHE;
             write32xWord(addr, data, size);
@@ -213,6 +217,13 @@ public class S32xBus extends GenesisBus {
     }
 
     private void write32xWord(int address, int data, Size size) {
+        if (s32XMMREG.fm > 0) {
+            return;
+        }
+        write32xWordDirect(address, data, size);
+    }
+
+    private void write32xWordDirect(int address, int data, Size size) {
         if (size != Size.LONG) {
             s32XMMREG.write(address, data, size);
         } else {

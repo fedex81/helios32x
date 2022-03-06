@@ -25,7 +25,7 @@ public class S32xSharedRegsTest {
 
     @BeforeEach
     public void before() {
-        s32XMMREG = createInstance();
+        s32XMMREG = createTestInstance().s32XMMREG;
     }
 
     @Test

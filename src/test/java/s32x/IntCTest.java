@@ -3,11 +3,10 @@ package s32x;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import sh2.MarsLauncherHelper;
 import sh2.sh2.device.IntControl;
 import sh2.sh2.device.IntControl.Sh2Interrupt;
 
-import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
-import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
 
 /**
@@ -22,8 +21,9 @@ public class IntCTest {
 
     @BeforeEach
     public void before() {
-        mInt = MarsRegTestUtil.createIntC(MASTER);
-        sInt = MarsRegTestUtil.createIntC(SLAVE);
+        MarsLauncherHelper.Sh2LaunchContext lc = MarsRegTestUtil.createTestInstance();
+        mInt = lc.mDevCtx.intC;
+        sInt = lc.sDevCtx.intC;
     }
 
     @Test

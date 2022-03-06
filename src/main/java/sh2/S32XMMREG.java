@@ -41,7 +41,7 @@ public class S32XMMREG implements Device {
     //0 = cart inserted, 1 = otherwise
     private int cart = CART_NOT_INSERTED;
     //0 = md access, 1 = sh2 access
-    private int fm = 0;
+    public int fm = 0;
     //0 = disabled, 1 = 32x enabled
     public int aden = 0;
     //0 = Hint disabled during VBlank, 1 = enabled

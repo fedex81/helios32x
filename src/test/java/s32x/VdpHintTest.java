@@ -6,7 +6,10 @@ import omegadrive.vdp.model.VdpCounterMode;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import sh2.MarsLauncherHelper;
+import sh2.Md32xRuntimeData;
 import sh2.S32XMMREG;
+import sh2.S32xUtil;
 import sh2.sh2.device.IntControl;
 import sh2.sh2.device.IntControl.Sh2Interrupt;
 
@@ -23,13 +26,16 @@ public class VdpHintTest {
 
     public static final int HCOUNT_OFFSET = 0x4000 + SH2_HCOUNT_REG.addr;
 
+    private MarsLauncherHelper.Sh2LaunchContext lc;
     private S32XMMREG s32XMMREG;
     private IntControl masterIntControl;
 
     @BeforeEach
     public void before() {
-        s32XMMREG = MarsRegTestUtil.createInstance();
-        masterIntControl = s32XMMREG.interruptControls[0];
+        lc = MarsRegTestUtil.createTestInstance();
+        s32XMMREG = lc.s32XMMREG;
+        masterIntControl = lc.mDevCtx.intC;
+        Md32xRuntimeData.setAccessTypeExt(S32xUtil.CpuDeviceAccess.MASTER);
     }
 
     //hcount = 0, hen = 0
@@ -38,7 +44,7 @@ public class VdpHintTest {
         setReloadHCount(0);
         s32XMMREG.write(MarsRegTestUtil.INT_MASK, 0x4, Size.WORD); //enable HINT
         int hint = testInternal(VideoMode.NTSCU_H40_V28, false);
-        Assertions.assertTrue((hint & 0xFF00) == 0x1A00); //0x1A22
+        Assertions.assertTrue((hint & 0xFF00) == 0x1A00, th(hint)); //0x1A22
     }
 
     //hcount = 0, hen = 1
