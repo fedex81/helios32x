@@ -84,9 +84,9 @@ public final class Sh2Memory implements IMemory {
 			res = readBuffer(sdram, address & SDRAM_MASK, size);
 			deviceAccessType = S32xMemAccessDelay.SDRAM;
 		} else if (address >= START_ROM && address < END_ROM) {
-			//TODO RV bit
+			//TODO RV bit, sh2 should stall
 			if (DmaFifo68k.rv) {
-				LOG.warn("Sh2 ROM access with RV on");
+				LOG.warn("{} sh2 access to ROM when RV={}, addr: {} {}", cpuAccess, DmaFifo68k.rv, th(address), size);
 			}
 			res = readBuffer(rom, address & romMask, size);
 			deviceAccessType = S32xMemAccessDelay.ROM;
@@ -140,6 +140,8 @@ public final class Sh2Memory implements IMemory {
 		} else if (address >= START_DRAM && address < END_DRAM) {
 			if (s32XMMREG.fm > 0) {
 				s32XMMREG.write(address, val, size);
+			} else {
+				LOG.warn("{} sh2 ignoring access to FB when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
 			}
 		} else if (address >= START_SDRAM && address < END_SDRAM) {
 			writeBuffer(sdram, address & SDRAM_MASK, val, size);
@@ -150,6 +152,8 @@ public final class Sh2Memory implements IMemory {
 		} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
 			if (s32XMMREG.fm > 0) {
 				s32XMMREG.write(address, val, size);
+			} else {
+				LOG.warn("{} sh2 ignoring access to overwrite FB when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
 			}
 		} else if (address >= START_OVER_IMAGE_CACHE && address < END_OVER_IMAGE_CACHE) {
 			s32XMMREG.write(address, val, size);
@@ -159,6 +163,8 @@ public final class Sh2Memory implements IMemory {
 		} else if (address >= START_32X_VDPREG && address < END_32X_COLPAL) {
 			if (s32XMMREG.fm > 0) {
 				s32XMMREG.write(address, val, size);
+			} else {
+				LOG.warn("{} sh2 ignoring access to VDP regs when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
 			}
 		} else if (address >= START_32X_SYSREG_CACHE && address < END_32X_COLPAL_CACHE) {
 			s32XMMREG.write(address, val, size);

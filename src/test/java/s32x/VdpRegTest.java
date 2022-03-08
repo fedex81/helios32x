@@ -22,7 +22,7 @@ public class VdpRegTest {
     //palette enable bit#13
     @Test
     public void testPEN() {
-        s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 0, Size.WORD);
+        s32XMMREG.write(MarsRegTestUtil.SH2_FBCR_OFFSET, 0, Size.WORD);
         //startup, vblankOn, pen= true
         MarsRegTestUtil.assertPEN(s32XMMREG, true);
         s32XMMREG.setVBlank(true);
@@ -63,23 +63,23 @@ public class VdpRegTest {
      */
     @Test
     public void testFEN() {
-        int res = s32XMMREG.read(MarsRegTestUtil.FBCR_OFFSET, Size.WORD);
+        int res = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD);
         MarsRegTestUtil.assertFEN(s32XMMREG, 0);
 
-        s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 2, Size.WORD);
+        s32XMMREG.write(MarsRegTestUtil.SH2_FBCR_OFFSET, 2, Size.WORD);
         MarsRegTestUtil.assertFEN(s32XMMREG, 1);
 
-        s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 0, Size.WORD);
+        s32XMMREG.write(MarsRegTestUtil.SH2_FBCR_OFFSET, 0, Size.WORD);
         MarsRegTestUtil.assertFEN(s32XMMREG, 0);
     }
 
     @Test
     public void testFEN2() {
-        int res = s32XMMREG.read(MarsRegTestUtil.FBCR_OFFSET, Size.WORD);
+        int res = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD);
         MarsRegTestUtil.assertFEN(s32XMMREG, 0);
 
         //set FEN=1, access denied
-        s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 2, Size.WORD);
+        s32XMMREG.write(MarsRegTestUtil.SH2_FBCR_OFFSET, 2, Size.WORD);
         MarsRegTestUtil.assertFEN(s32XMMREG, 1);
 
         //toggle hblank
@@ -92,11 +92,11 @@ public class VdpRegTest {
 
     @Test
     public void testFBCR_ReadOnly() {
-        s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 0, Size.WORD);
+        s32XMMREG.write(MarsRegTestUtil.SH2_FBCR_OFFSET, 0, Size.WORD);
 
         s32XMMREG.setVBlank(true);
         s32XMMREG.setHBlank(true);
-        s32XMMREG.write(MarsRegTestUtil.FBCR_OFFSET, 0, Size.WORD);
+        s32XMMREG.write(MarsRegTestUtil.SH2_FBCR_OFFSET, 0, Size.WORD);
         MarsRegTestUtil.assertVBlank(s32XMMREG, true);
         MarsRegTestUtil.assertHBlank(s32XMMREG, true);
         MarsRegTestUtil.assertPEN(s32XMMREG, true);

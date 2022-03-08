@@ -17,6 +17,7 @@ import sh2.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.readBuffer;
 import static sh2.S32xUtil.writeBuffer;
 import static sh2.dict.S32xDict.*;
@@ -115,14 +116,18 @@ public class S32xBus extends GenesisBus {
                 res = readHIntVector(address, size);
             }
         } else if (address >= START_ROM_MIRROR && address < END_ROM_MIRROR) {
-            if (DmaFifo68k.rv || true) {
+            if (!DmaFifo68k.rv) {
                 address &= ROM_WINDOW_MASK;
                 res = readBuffer(rom, address & romMask, size);
+            } else {
+                LOG.warn("Ignoring access to ROM mirror when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
             }
         } else if (address >= START_ROM_MIRROR_BANK && address < END_ROM_MIRROR_BANK) {
-            if (DmaFifo68k.rv || true) {
+            if (!DmaFifo68k.rv) {
                 int val = bankSetShift | (address & ROM_MIRROR_MASK);
                 res = readBuffer(rom, val, size);
+            } else {
+                LOG.warn("Ignoring access to ROM mirror bank when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
             }
         } else if (address >= START_FRAME_BUFFER && address < END_FRAME_BUFFER) {
             int addr = START_DRAM_CACHE + (address & DRAM_MASK);
@@ -142,6 +147,10 @@ public class S32xBus extends GenesisBus {
         } else if (address >= 0xA130EC && address < 0xA130F0) {
             res = 0x4d415253; //'MARS'
         } else {
+            if (!DmaFifo68k.rv && address <= GenesisBus.DEFAULT_ROM_END_ADDRESS) {
+                LOG.warn("Ignoring access to ROM when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
+                return size.getMask();
+            }
             res = super.read(address, size);
         }
         if (verboseMd) {
@@ -210,7 +219,7 @@ public class S32xBus extends GenesisBus {
                 bankSetValue = (data & 3);
                 bankSetShift = bankSetValue << 20;
             }
-            write32xWord(addr, data, size);
+            write32xWordDirect(addr, data, size);
         } else {
             super.write(address, data, size);
         }
@@ -218,6 +227,7 @@ public class S32xBus extends GenesisBus {
 
     private void write32xWord(int address, int data, Size size) {
         if (s32XMMREG.fm > 0) {
+            LOG.warn("Ignoring access to ROM when FM={}, addr: {} {}", s32XMMREG.fm, th(address), size);
             return;
         }
         write32xWordDirect(address, data, size);

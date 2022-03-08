@@ -45,6 +45,7 @@ public class DmaFifo68k {
     public DmaFifo68k(S32XMMREG.RegContext regContext) {
         this.sysRegsMd = regContext.sysRegsMd;
         this.sysRegsSh2 = regContext.sysRegsSh2;
+        rv = false;
     }
 
     public int read(RegSpecS32x regSpec, CpuDeviceAccess cpu, int address, Size size) {

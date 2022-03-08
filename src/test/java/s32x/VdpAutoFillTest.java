@@ -65,12 +65,12 @@ public class VdpAutoFillTest {
         int startAddr = 0x1E0;
         int len = 0x30;
         int data = 0xAA;
-        s32XMMREG.write(AFLEN_OFFSET, len, Size.WORD);
-        s32XMMREG.write(AFSAR_OFFSET, startAddr, Size.WORD);
+        s32XMMREG.write(SH2_AFLEN_OFFSET, len, Size.WORD);
+        s32XMMREG.write(SH2_AFSAR_OFFSET, startAddr, Size.WORD);
         vdp.runAutoFillInternal(buffer, startAddr, data, len);
         int expSar = (startAddr & 0xFF00) + ((len + startAddr) & 0xFF) + 1;
-        int actLen = s32XMMREG.read(AFLEN_OFFSET, Size.WORD);
-        int actSar = s32XMMREG.read(AFSAR_OFFSET, Size.WORD);
+        int actLen = s32XMMREG.read(SH2_AFLEN_OFFSET, Size.WORD);
+        int actSar = s32XMMREG.read(SH2_AFSAR_OFFSET, Size.WORD);
         Assertions.assertEquals(len, actLen);
         Assertions.assertEquals(expSar, actSar);
     }
