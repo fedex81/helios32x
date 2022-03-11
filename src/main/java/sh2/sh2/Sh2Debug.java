@@ -77,8 +77,8 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
     public void init() {
         fastDebug[0] = new CpuFastDebug(this, createContext());
         fastDebug[1] = new CpuFastDebug(this, createContext());
-        fastDebug[0].debugMode = DebugMode.NONE;
-        fastDebug[1].debugMode = DebugMode.NONE;
+        fastDebug[0].debugMode = DebugMode.NEW_INST_ONLY;
+        fastDebug[1].debugMode = DebugMode.NEW_INST_ONLY;
     }
 
 //    @Override

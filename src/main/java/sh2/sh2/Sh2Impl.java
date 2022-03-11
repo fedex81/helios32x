@@ -72,6 +72,7 @@ public class Sh2Impl implements Sh2 {
 	private boolean acceptInterrupts(final int level) {
 		if (level > getIMASK()) {
 			processInterrupt(ctx, level);
+			//TODO this should only happen for internal (ie.DMA,SCI, etc) interrupts
 			ctx.devices.intC.clearCurrentInterrupt(); //DoomRes1.5
 			return true;
 		}

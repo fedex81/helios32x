@@ -48,7 +48,8 @@ public final class Sh2Memory implements IMemory {
 	public static final int END_DRAM_MODE = 0xFFFF_C000;
 
 
-	private static final boolean USE_SH2_CACHE = false;
+	private static final boolean SH2_ENABLE_CACHE = true;
+	private static final boolean SH2_ENABLE_PREFETCH = true;
 
 	public ByteBuffer[] bios = new ByteBuffer[2];
 	private ByteBuffer sdram;
@@ -83,8 +84,8 @@ public final class Sh2Memory implements IMemory {
 		rom = ByteBuffer.allocateDirect(SDRAM_SIZE);
 		sh2MMREGS[MASTER.ordinal()] = new Sh2MMREG(MASTER);
 		sh2MMREGS[SLAVE.ordinal()] = new Sh2MMREG(SLAVE);
-		cache[MASTER.ordinal()] = USE_SH2_CACHE ? new Sh2CacheImpl(this) : Sh2Cache.createNoCacheInstance(this);
-		cache[SLAVE.ordinal()] = USE_SH2_CACHE ? new Sh2CacheImpl(this) : Sh2Cache.createNoCacheInstance(this);
+		cache[MASTER.ordinal()] = SH2_ENABLE_CACHE ? new Sh2CacheImpl(this) : Sh2Cache.createNoCacheInstance(this);
+		cache[SLAVE.ordinal()] = SH2_ENABLE_CACHE ? new Sh2CacheImpl(this) : Sh2Cache.createNoCacheInstance(this);
 	}
 
 	@Override
@@ -192,6 +193,7 @@ public final class Sh2Memory implements IMemory {
 
 	@Override
 	public void prefetch(int pc, CpuDeviceAccess cpu) {
+		if (!SH2_ENABLE_PREFETCH) return;
 //		LOG.info("{} Prefetch: {}", Md32xRuntimeData.getAccessTypeExt(), th(pc));
 		final PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
 		pctx.start = (pc & 0xFF_FFFF) + (-pctx.prefetchLookahead << 1);
@@ -244,6 +246,9 @@ public final class Sh2Memory implements IMemory {
 
 	@Override
 	public int fetch(int pc, S32xUtil.CpuDeviceAccess cpu) {
+		if (!SH2_ENABLE_PREFETCH) {
+			return read(pc, Size.WORD);
+		}
 		final Sh2Memory.PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
 		int pcDeltaWords = (pc - pctx.prefetchPc) >> 1;
 		if (Math.abs(pcDeltaWords) >= pctx.prefetchLookahead) {
@@ -260,6 +265,9 @@ public final class Sh2Memory implements IMemory {
 
 	@Override
 	public int fetchDelaySlot(int pc, S32xUtil.CpuDeviceAccess cpu) {
+		if (!SH2_ENABLE_PREFETCH) {
+			return read(pc, Size.WORD);
+		}
 		final Sh2Memory.PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
 		int pcDeltaWords = (pc - pctx.prefetchPc) >> 1;
 //		pfTotal++;
@@ -268,7 +276,7 @@ public final class Sh2Memory implements IMemory {
 			S32xMemAccessDelay.addReadCpuDelay(pctx.memAccessDelay);
 			res = pctx.prefetchWords[pctx.prefetchLookahead + pcDeltaWords];
 		} else {
-			res = read16i(pc);
+			res = read(pc, Size.WORD);
 //			if ((pfMiss++ & 0x7F_FFFF) == 0) {
 //				LOG.info("pfTot: {}, pfMiss%: {}", pfTotal, 1.0 * pfMiss / pfTotal);
 //			}
