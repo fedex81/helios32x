@@ -18,12 +18,13 @@ public class S32xMemAccessDelay {
     public static final int SYS_REG = 4;
     public static final int BOOT_ROM = 5;
     public static final int SDRAM = 6;
+    public static final int NO_DELAY = 7;
 
     public static final int[][] readDelays, writeDelays;
 
     static {
-        readDelays = new int[cdaValues.length][7];
-        writeDelays = new int[cdaValues.length][7];
+        readDelays = new int[cdaValues.length][8];
+        writeDelays = new int[cdaValues.length][8];
 
         readDelays[M68K.ordinal()][ROM] = 3; //[0,5]
         readDelays[M68K.ordinal()][FRAME_BUFFER] = 3; //[2,4]

@@ -4,6 +4,7 @@ import com.google.common.collect.Maps;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.device.*;
 
 import java.nio.ByteBuffer;
@@ -22,15 +23,10 @@ import static sh2.dict.Sh2Dict.*;
 public class Sh2MMREG {
 
     private static final Logger LOG = LogManager.getLogger(Sh2MMREG.class.getSimpleName());
-
-    public static final int DATA_ARRAY_SIZE = 0x1000;
-    public static final int DATA_ARRAY_MASK = DATA_ARRAY_SIZE - 1;
     public static final int SH2_REG_SIZE = 0x200;
     public static final int SH2_REG_MASK = SH2_REG_SIZE - 1;
 
     private ByteBuffer regs = ByteBuffer.allocateDirect(SH2_REG_SIZE);
-    private ByteBuffer data_array = ByteBuffer.allocateDirect(DATA_ARRAY_SIZE); // cache (can be used as RAM)
-
     private final Map<Integer, Integer> dramModeRegs = Maps.newHashMap(dramModeRegsSpec);
 
     private SerialCommInterface sci;
@@ -38,18 +34,15 @@ public class Sh2MMREG {
     private DmaC dmaC;
     public IntControl intC;
     private WatchdogTimer wdt;
+    private Sh2Cache cache;
 
     private CpuDeviceAccess cpu;
     private int ticksPerFrame, sh2TicksPerFrame;
     private static final boolean verbose = false;
 
-    //TODO
-    public static CacheContext[] cacheCtx = new CacheContext[2];
-
-
-    public Sh2MMREG(CpuDeviceAccess sh2Access) {
+    public Sh2MMREG(CpuDeviceAccess sh2Access, Sh2Cache sh2Cache) {
         this.cpu = sh2Access;
-        cacheCtx[cpu.ordinal()] = new CacheContext();
+        this.cache = sh2Cache;
     }
 
     public void init(Sh2DeviceHelper.Sh2DeviceContext ctx) {
@@ -59,14 +52,6 @@ public class Sh2MMREG {
         this.intC = ctx.intC;
         this.wdt = ctx.wdt;
         reset();
-    }
-
-    public void writeCache(int address, int value, Size size) {
-        writeBuffer(data_array, address & DATA_ARRAY_MASK, value, size);
-    }
-
-    public int readCache(int address, Size size) {
-        return readBuffer(data_array, address & DATA_ARRAY_MASK, size);
     }
 
     public void write(int reg, int value, Size size) {
@@ -81,7 +66,6 @@ public class Sh2MMREG {
         RegSpec regSpec = sh2RegMapping[reg & SH2_REG_MASK];
         if (regSpec == null) {
             LOG.error("{} unknown reg write {}: {} {}", cpu, th(reg), th(value), size);
-            //VF writes a LONG to 0xFFFF_FFFF
             tryWriteBuffer(reg, value, size);
             return;
         }
@@ -110,18 +94,9 @@ public class Sh2MMREG {
                 if (regSpec == RegSpec.NONE_CCR) {
                     int prev = readBuffer(regs, reg & SH2_REG_MASK, size);
                     if (prev != value) {
-                        CacheContext ctx = cacheCtx[cpu.ordinal()];
-                        ctx.way = value >> 6;
-                        ctx.cachePurge = (value >> 4) & 1;
-                        ctx.twoWay = (value >> 3) & 1;
-                        ctx.dataReplaceDis = (value >> 2) & 1;
-                        ctx.instReplaceDis = (value >> 1) & 1;
-                        ctx.cacheEn = value & 1;
-//                        ctx.logInfoString(cpu);
-                        if (ctx.cachePurge > 0) {
-//                            LOG.info("{} trigger cache purge", cpu);
-                            ctx.cachePurge = 0; //always reverts to 0
-                        }
+                        Sh2Cache.CacheContext ctx = cache.updateState(value);
+                        //purge always reverts to 0
+                        value = ctx.ccr;
                     }
                 }
                 writeBuffer(regs, reg & SH2_REG_MASK, value, size);
@@ -194,25 +169,6 @@ public class Sh2MMREG {
             LOG.info("{} DMA/SCI ticks per frame: {}, sh2 tpf: {}",
                     cpu, ticksPerFrame, sh2TicksPerFrame);
         ticksPerFrame = sh2TicksPerFrame = 0;
-    }
-
-    public ByteBuffer getDataArray() {
-        return data_array;
-    }
-
-    static class CacheContext {
-        public int way;
-        public int cachePurge;
-        public int twoWay;
-        public int dataReplaceDis;
-        public int instReplaceDis;
-        public int cacheEn;
-
-        public void logInfoString(CpuDeviceAccess cpu) {
-            LOG.info("{} CCR write: cacheEn {}, instReplaceDis {}, dataReplaceDis {}, {}, cachePurge {}, " +
-                            "way{}",
-                    cpu, cacheEn, instReplaceDis, dataReplaceDis, twoWay > 0 ? "twoWay" : "fourWay", cachePurge, way);
-        }
     }
 
     public void reset() {

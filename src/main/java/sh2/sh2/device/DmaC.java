@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.DmaFifo68k;
 import sh2.IMemory;
+import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
 import sh2.sh2.device.DmaHelper.DmaChannelSetup;
 
@@ -128,6 +129,7 @@ public class DmaC implements StepDevice {
         if (enable) {
             checkDmaStart(d);
             if (d.dmaInProgress) {
+                Md32xRuntimeData.setAccessTypeExt(cpu);
                 dmaOneStep(d);
                 d.dreqLevel = false;
                 d.dmaInProgress = false;

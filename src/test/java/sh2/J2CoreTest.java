@@ -10,6 +10,8 @@ import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Debug;
 import sh2.sh2.Sh2Impl;
+import sh2.sh2.cache.Sh2Cache;
+import sh2.sh2.cache.Sh2CacheImpl;
 import sh2.sh2.device.Sh2DeviceHelper;
 
 import java.io.File;
@@ -31,7 +33,6 @@ import static sh2.S32xUtil.writeBuffer;
  * <p>
  * License: see j2tests.lic
  * <p>
- * TODO fix
  */
 public class J2CoreTest {
 
@@ -76,7 +77,8 @@ public class J2CoreTest {
     }
 
     public static Sh2Context createContext(S32xUtil.CpuDeviceAccess cpu, IMemory memory) {
-        Sh2MMREG sh2MMREG = new Sh2MMREG(cpu);
+        Sh2Cache cache = new Sh2CacheImpl(cpu, memory);
+        Sh2MMREG sh2MMREG = new Sh2MMREG(cpu, cache);
         S32XMMREG s32XMMREG = new S32XMMREG();
         Sh2Context context = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
         context.debug = sh2Debug;

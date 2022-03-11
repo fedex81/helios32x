@@ -4,6 +4,8 @@ import omegadrive.util.Size;
 
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.th;
+
 /**
  * Federico Berti
  * <p>
@@ -17,7 +19,7 @@ public interface IMemory {
         public final int prefetchLookahead;
         public final int[] prefetchWords;
 
-        public int pc, start, end, prefetchPc, pcMasked;
+        public int start, end, prefetchPc, pcMasked;
         public int memAccessDelay;
         public ByteBuffer buf;
 
@@ -28,6 +30,17 @@ public interface IMemory {
         public PrefetchContext(int lookahead) {
             prefetchLookahead = lookahead;
             prefetchWords = new int[lookahead << 1];
+        }
+
+        @Override
+        public String toString() {
+            return "PrefetchContext{" +
+                    "prefetchLookahead=" + th(prefetchLookahead) +
+                    ", start=" + th(start) +
+                    ", end=" + th(end) +
+                    ", prefetchPc=" + th(prefetchPc) +
+                    ", pcMasked=" + th(pcMasked) +
+                    '}';
         }
     }
 

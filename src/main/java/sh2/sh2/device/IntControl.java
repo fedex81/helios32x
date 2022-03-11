@@ -165,6 +165,7 @@ public class IntControl implements StepDevice {
     private void resetInterruptLevel() {
         boolean[] ints = this.intTrigger;
         int newLevel = 0;
+        int prev = interruptLevel;
         for (int i = MAX_LEVEL - 1; i >= 0; i--) {
             if (ints[i]) {
                 newLevel = i;
@@ -172,6 +173,9 @@ public class IntControl implements StepDevice {
             }
         }
         interruptLevel = newLevel;
+        if (prev > 0 && interruptLevel != prev && interruptLevel > 0) {
+//            LOG.warn("IRQ {} -> {}", prev, interruptLevel);
+        }
     }
 
     public void clearInterrupt(Sh2Interrupt intType) {

@@ -101,6 +101,7 @@ public class MarsVdpImpl implements MarsVdp {
         writeBufferWord(FBCR, (vdpContext.vBlankOn ? 1 : 0) * P32XV_VBLK | (pen * P32XV_PEN));
     }
 
+    @Override
     public void write(int address, int value, Size size) {
         if (address >= START_32X_COLPAL_CACHE && address < END_32X_COLPAL_CACHE) {
             switch (size) {
