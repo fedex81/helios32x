@@ -275,7 +275,7 @@ public class SystemLoader {
         }
         boolean is32x = Arrays.stream(s32xBinaryTypes).anyMatch(lowerCaseName::endsWith);
         if (is32x) {
-            systemProvider = Md32x.createNewInstance(emuFrame, debugPerf);
+            systemProvider = Md32x.createNewInstance32x(emuFrame, debugPerf);
         }
         if (systemProvider == null) {
             LOG.error("Unable to find a system to load: {}", file.toAbsolutePath());

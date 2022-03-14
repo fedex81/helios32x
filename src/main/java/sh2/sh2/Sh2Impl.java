@@ -54,11 +54,6 @@ public class Sh2Impl implements Sh2 {
 		return ((x >> 4) & 0xf);
 	}
 
-	// get interrupt masks bits int the SR register
-	private int getIMASK() {
-		return (ctx.SR & flagIMASK) >>> 4;
-	}
-
 	public void reset(Sh2Context ctx) {
 		Md32xRuntimeData.setAccessTypeExt(ctx.cpuAccess);
 		ctx.VBR = 0;
@@ -67,31 +62,6 @@ public class Sh2Impl implements Sh2 {
 		ctx.registers[15] = memory.read32i(4); //SP
 		ctx.cycles = Sh2Context.burstCycles;
 		LOG.info("{} Reset, PC: {}, SP: {}", ctx.cpuAccess, th(ctx.PC), th(ctx.registers[15]));
-	}
-
-	private boolean acceptInterrupts(final int level) {
-		if (level > getIMASK()) {
-			processInterrupt(ctx, level);
-			//TODO this should only happen for internal (ie.DMA,SCI, etc) interrupts
-			ctx.devices.intC.clearCurrentInterrupt(); //DoomRes1.5
-			return true;
-		}
-		return false;
-	}
-
-	private void processInterrupt(final Sh2Context ctx, final int level) {
-//		System.out.println(ctx.cpuAccess + " Interrupt processed: " + level);
-		Md32xRuntimeData.setAccessTypeExt(ctx.cpuAccess);
-		push(ctx.SR);
-		push(ctx.PC); //stores the next inst to be executed
-		//SR 7-4
-		ctx.SR &= 0xF0F;
-		ctx.SR |= (level << 4);
-
-		int vectorNum = ctx.devices.intC.getVectorNumber();
-		ctx.PC = memory.read32i(ctx.VBR + (vectorNum << 2));
-		//5 + 3 mem accesses
-		ctx.cycles -= 5;
 	}
 
 	//push to stack
@@ -1941,6 +1911,36 @@ public class Sh2Impl implements Sh2 {
 	protected void printDebugMaybe(Sh2Context ctx) {
 	}
 
+	// get interrupt masks bits int the SR register
+	private int getIMASK() {
+		return (ctx.SR & flagIMASK) >>> 4;
+	}
+
+	private boolean acceptInterrupts(final int level) {
+		if (level > getIMASK()) {
+			processInterrupt(ctx, level);
+			//TODO this should only happen for internal (ie.DMA,SCI, etc) interrupts
+			ctx.devices.intC.clearCurrentInterrupt(); //DoomRes1.5
+			return true;
+		}
+		return false;
+	}
+
+	private void processInterrupt(final Sh2Context ctx, final int level) {
+//		System.out.println(ctx.cpuAccess + " Interrupt processed: " + level);
+		assert Md32xRuntimeData.getAccessTypeExt() == ctx.cpuAccess;
+		push(ctx.SR);
+		push(ctx.PC); //stores the next inst to be executed
+		//SR 7-4
+		ctx.SR &= 0xF0F;
+		ctx.SR |= (level << 4);
+
+		int vectorNum = ctx.devices.intC.getVectorNumber();
+		ctx.PC = memory.read32i(ctx.VBR + (vectorNum << 2));
+		//5 + 3 mem accesses
+		ctx.cycles -= 5;
+	}
+
 	/*
 	 * Because an instruction in a delay slot cannot alter the PC we can do this.
 	 * Perf: better to keep run() close to decode()
@@ -1951,9 +1951,12 @@ public class Sh2Impl implements Sh2 {
 		final IntControl intControl = ctx.devices.intC;
 		for (; ctx.cycles >= 0; ) {
 			decode(memory.fetch(ctx.PC, ctx.cpuAccess));
-			ctx.cycles -= Md32xRuntimeData.resetCpuDelayExt(); //TODO check perf
 			sh2MMREG.deviceStep();
-			if (acceptInterrupts(intControl.getInterruptLevel())) break;
+			ctx.cycles -= Md32xRuntimeData.resetCpuDelayExt(); //TODO check perf
+			if (acceptInterrupts(intControl.getInterruptLevel())) {
+				ctx.cycles -= Md32xRuntimeData.resetCpuDelayExt();
+				break;
+			}
 		}
 		ctx.cycles_ran = Sh2Context.burstCycles - ctx.cycles;
 		ctx.cycles = Sh2Context.burstCycles;

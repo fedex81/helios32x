@@ -5,6 +5,7 @@ import omegadrive.SystemLoader;
 import omegadrive.bus.model.GenesisBusProvider;
 import omegadrive.sound.PwmProvider;
 import omegadrive.system.Genesis;
+import omegadrive.system.SystemProvider;
 import omegadrive.ui.DisplayWindow;
 import omegadrive.vdp.md.GenesisVdp;
 import org.apache.logging.log4j.LogManager;
@@ -31,22 +32,24 @@ public class Md32x extends Genesis {
 
     private static final Logger LOG = LogManager.getLogger(Md32x.class.getSimpleName());
 
+    private static final boolean ENABLE_FM, ENABLE_PWM;
+
     //23.01Mhz NTSC
     protected final static int SH2_CYCLES_PER_STEP;
-    protected final static int SH2_CYCLE_RATIO;
+    //3 cycles @ 23Mhz = 1 cycle @ 7.67, 23.01/7.67 = 3
+    protected final static int SH2_CYCLE_RATIO = 3;
     private Md32xRuntimeData rt;
-    private static boolean enable_fm = false, enable_pwm = true;
 
     static {
-        SH2_CYCLES_PER_STEP = 3; //64;
+        ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "false"));
+        ENABLE_PWM = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.enable", "true"));
+        SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "64")); //64;
         Sh2Context.burstCycles = SH2_CYCLES_PER_STEP;
-        //3 cycles @ 23Mhz = 1 cycle @ 7.67
-        SH2_CYCLE_RATIO = 3; //23.01/7.67 = 3
 //        System.setProperty("68k.debug", "true");
-//        System.setProperty("z80.debug", "true");
+//        System.setProperty("z80.debug", "true");                                              wee
 //        System.setProperty("sh2.master.debug", "true");
 //        System.setProperty("sh2.slave.debug", "true");
-//        enable_fm = true;
+        LOG.info("Enable FM: {}, Enable PWM: {}, Sh2Cycles: {}", ENABLE_FM, ENABLE_PWM, SH2_CYCLES_PER_STEP);
     }
 
     private int nextMSh2Cycle = 0, nextSSh2Cycle = 0;
@@ -73,44 +76,44 @@ public class Md32x extends Genesis {
         marsVdp.updateDebugView(((GenesisVdp) vdp).getDebugViewer());
         super.initAfterRomLoad(); //needs to be last
         //TODO super inits the soundProvider
-        ctx.pwm.setPwmProvider(enable_pwm ? sound.getPwm() : PwmProvider.NO_SOUND);
-        sound.setEnabled(sound.getFm(), enable_fm);
+        ctx.pwm.setPwmProvider(ENABLE_PWM ? sound.getPwm() : PwmProvider.NO_SOUND);
+        sound.setEnabled(sound.getFm(), ENABLE_FM);
+    }
+
+    public static SystemProvider createNewInstance32x(DisplayWindow emuFrame, boolean debugPerf) {
+        return debugPerf ? null : new Md32x(emuFrame);
     }
 
     @Override
     protected void loop() {
-        LOG.info("Starting game loop");
         updateVideoMode(true);
         int cnt;
-
-        try {
-            do {
-                cnt = counter;
-                run68k(cnt);
-                runZ80(cnt);
-                runFM(cnt);
-                runVdp(cnt);
-                runSh2(cnt);
-                runDevices();
-                counter++;
-            } while (!futureDoneFlag);
-        } catch (Exception e) {
-            LOG.error("Error main cycle", e);
-        }
-        LOG.info("Exiting rom thread loop");
+        do {
+            cnt = counter;
+            run68k(cnt);
+            runZ80(cnt);
+            runFM(cnt);
+            runVdp(cnt);
+            runSh2(cnt);
+            runDevices();
+            counter++;
+        } while (!futureDoneFlag);
     }
 
+    //PAL: 1/3.0 gives ~ 450k per frame, 22.8Mhz. but the games are too slow!!!
     //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
     protected final void runSh2(int counter) {
         if (nextMSh2Cycle == counter) {
             rt.setAccessType(MASTER);
             sh2.run(masterCtx);
-            nextMSh2Cycle += Math.max(1, ((masterCtx.cycles_ran + rt.resetCpuDelay()) * 5) >> 5); //5/16 ~= 1/3
+            nextMSh2Cycle += Math.max(1, (masterCtx.cycles_ran * 5) >> 5); //5/16 ~= 1/3
+            assert Md32xRuntimeData.resetCpuDelayExt() == 0;
         }
         if (nextSSh2Cycle == counter) {
             rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
-            nextSSh2Cycle += Math.max(1, ((slaveCtx.cycles_ran + rt.resetCpuDelay()) * 5) >> 5);
+            nextSSh2Cycle += Math.max(1, (slaveCtx.cycles_ran * 5) >> 5);
+            assert Md32xRuntimeData.resetCpuDelayExt() == 0;
         }
     }
 

@@ -35,6 +35,7 @@ import omegadrive.memory.MemoryProvider;
 import omegadrive.savestate.BaseStateHandler;
 import omegadrive.sound.SoundProvider;
 import omegadrive.sound.javasound.AbstractSoundManager;
+import omegadrive.system.perf.GenesisPerf;
 import omegadrive.ui.DisplayWindow;
 import omegadrive.util.RegionDetector;
 import omegadrive.util.Util;
@@ -42,7 +43,6 @@ import omegadrive.vdp.model.BaseVdpProvider;
 import omegadrive.vdp.model.GenesisVdpProvider;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.Md32x;
 import sh2.Md32xRuntimeData;
 
 import static sh2.S32xUtil.CpuDeviceAccess.M68K;
@@ -73,8 +73,8 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
     protected Ssp16 ssp16 = Ssp16.NO_SVP;
     protected boolean hasSvp = ssp16 != Ssp16.NO_SVP;
     protected double nextVdpCycle = vdpVals[0];
-    private int next68kCycle = M68K_DIVIDER;
-    private int nextZ80Cycle = Z80_DIVIDER;
+    protected int next68kCycle = M68K_DIVIDER;
+    protected int nextZ80Cycle = Z80_DIVIDER;
 
     protected Genesis(DisplayWindow emuFrame) {
         super(emuFrame);
@@ -85,7 +85,7 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
     }
 
     public static SystemProvider createNewInstance(DisplayWindow emuFrame, boolean debugPerf) {
-        return debugPerf ? null : new Md32x(emuFrame);
+        return debugPerf ? new GenesisPerf(emuFrame) : new Genesis(emuFrame);
     }
 
     @Override
@@ -136,9 +136,12 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
         LOG.info("Exiting rom thread loop");
     }
 
+    int cVdp;
+
     protected final void runVdp(int counter) {
         if (counter >= nextVdpCycle) {
             int vdpMclk = vdp.runSlot();
+            cVdp++;
             nextVdpCycle += vdpVals[vdpMclk - 4];
         }
     }
@@ -160,6 +163,7 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
             }
             cycleDelay = Math.max(1, cycleDelay);
             next68kCycle += M68K_DIVIDER * cycleDelay;
+            assert Md32xRuntimeData.resetCpuDelayExt() == 0;
         }
     }
 
@@ -226,9 +230,9 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
 
     @Override
     protected void resetCycleCounters(int counter) {
-        nextZ80Cycle -= counter;
-        next68kCycle -= counter;
-        nextVdpCycle -= counter;
+        nextZ80Cycle = Math.max(1, nextZ80Cycle - counter);
+        next68kCycle = Math.max(1, next68kCycle - counter);
+        nextVdpCycle = Math.max(1, nextVdpCycle - counter);
     }
 
     @Override

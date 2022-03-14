@@ -48,8 +48,8 @@ public final class Sh2Memory implements IMemory {
 	public static final int START_DRAM_MODE = 0xFFFF_8000;
 	public static final int END_DRAM_MODE = 0xFFFF_C000;
 
-	private static final boolean SH2_ENABLE_CACHE = true;
-	private static final boolean SH2_ENABLE_PREFETCH = true;
+	private static final boolean SH2_ENABLE_CACHE = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "true"));
+	private static final boolean SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
 
 	public ByteBuffer[] bios = new ByteBuffer[2];
 	private ByteBuffer sdram;
