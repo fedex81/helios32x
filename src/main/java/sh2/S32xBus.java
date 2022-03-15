@@ -34,6 +34,7 @@ public class S32xBus extends GenesisBus {
 
     public static final int START_HINT_VECTOR_WRITEABLE = 0x70;
     public static final int END_HINT_VECTOR_WRITEABLE = 0x74;
+    public static final int END_VECTOR_ROM = 0x100;
     public static final int START_FRAME_BUFFER = 0x84_0000;
     public static final int END_FRAME_BUFFER = START_FRAME_BUFFER + DRAM_SIZE;
     public static final int START_OVERWRITE_IMAGE = 0x86_0000;
@@ -44,16 +45,22 @@ public class S32xBus extends GenesisBus {
     public static final int END_ROM_MIRROR_BANK = 0xA0_0000;
     public static final int ROM_WINDOW_MASK = 0x7_FFFF; //according to docs, *NOT* 0xF_FFFF
     public static final int ROM_MIRROR_MASK = 0xF_FFFF;
+    public static final int START_MARS_ID = 0xA130EC;
+    public static final int END_MARS_ID = 0xA130F0;
     public static final int START_32X_SYSREG = 0xA1_5100;
+
     public static final int END_32X_SYSREG = START_32X_SYSREG + 0x80;
     public static final int START_32X_VDPREG = END_32X_SYSREG;
     public static final int END_32X_VDPREG = START_32X_VDPREG + 0x80;
     public static final int START_32X_COLPAL = END_32X_VDPREG;
     public static final int END_32X_COLPAL = START_32X_COLPAL + 0x200;
 
+    private static final int SYSREG_32X_OFFSET = S32xDict.START_32X_SYSREG_CACHE,
+            VDPREG_32X_OFFSET = START_32X_VDPREG_CACHE, COLPAL_32X_OFFSET = START_32X_COLPAL_CACHE;
+
     private ByteBuffer rom;
     private ByteBuffer bios68k;
-    private ByteBuffer writeableHintRom = ByteBuffer.allocate(4).putInt(-1);
+    private final ByteBuffer writeableHintRom = ByteBuffer.allocate(4).putInt(-1);
 
     private S32XMMREG s32XMMREG;
     public Sh2Context masterCtx, slaveCtx;
@@ -83,7 +90,7 @@ public class S32xBus extends GenesisBus {
 
     @Override
     public long read(long address, Size size) {
-        address &= 0xFF_FFFFF;
+        address &= 0xFF_FFFF;
         long res = 0;
         if (s32XMMREG.aden > 0) {
             res = readAdapterEnOn((int) address, size);
@@ -96,10 +103,9 @@ public class S32xBus extends GenesisBus {
     @Override
     public void write(long address, long data, Size size) {
         data &= size.getMask();
-        address &= 0xFF_FFFFF;
+        address &= 0xFF_FFFF;
         if (verboseMd) {
-            LOG.info("Write address: {}, data: {}, size: {}", Long.toHexString(address),
-                    Long.toHexString(data), size);
+            LOG.info("Write address: {}, data: {}, size: {}", th(address), th(data), size);
         }
         if (s32XMMREG.aden > 0) {
             writeAdapterEnOn((int) address, (int) data, size);
@@ -110,7 +116,7 @@ public class S32xBus extends GenesisBus {
 
     private long readAdapterEnOn(int address, Size size) {
         long res = 0;
-        if (address < 0x100) {
+        if (address < END_VECTOR_ROM) {
             res = readBuffer(bios68k, address, size);
             if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {
                 res = readHIntVector(address, size);
@@ -136,15 +142,15 @@ public class S32xBus extends GenesisBus {
             int addr = START_OVER_IMAGE_CACHE + (address & DRAM_MASK);
             res = read32xWord(addr, size);
         } else if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
-            int addr = (address - START_32X_SYSREG + 0x4000); //START_32X_SYSREG_CACHE;
+            int addr = (address - START_32X_SYSREG + SYSREG_32X_OFFSET);
             res = read32xWord(addr, size);
         } else if (address >= START_32X_VDPREG && address < END_32X_VDPREG) {
-            int addr = (address - START_32X_VDPREG + 0x4100); //START_32X_VDPREG_CACHE;
+            int addr = (address - START_32X_VDPREG + VDPREG_32X_OFFSET);
             res = read32xWord(addr, size);
         } else if (address >= START_32X_COLPAL && address < END_32X_COLPAL) {
-            int addr = (address - START_32X_COLPAL + 0x4200); //START_32X_COLPAL_CACHE;
+            int addr = (address - START_32X_COLPAL + COLPAL_32X_OFFSET);
             res = read32xWord(addr, size);
-        } else if (address >= 0xA130EC && address < 0xA130F0) {
+        } else if (address >= START_MARS_ID && address < END_MARS_ID) {
             res = 0x4d415253; //'MARS'
         } else {
             if (!DmaFifo68k.rv && address <= GenesisBus.DEFAULT_ROM_END_ADDRESS) {
@@ -162,10 +168,10 @@ public class S32xBus extends GenesisBus {
 
     private long readAdapterEnOff(int address, Size size) {
         long res = 0;
-        if (address >= 0xA130EC && address < 0xA130F0) {
+        if (address >= START_MARS_ID && address < END_MARS_ID) {
             res = 0x4d415253; //'MARS'
         } else if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
-            int addr = (address - START_32X_SYSREG + 0x4000); //START_32X_SYSREG_CACHE;
+            int addr = (address - START_32X_SYSREG + SYSREG_32X_OFFSET);
             res = read32xWord(addr, size);
         } else {
             res = super.read(address, size);
@@ -185,24 +191,25 @@ public class S32xBus extends GenesisBus {
             int val = START_OVER_IMAGE_CACHE + (address & DRAM_MASK);
             write32xWord(val, data, size);
         } else if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
-            int addr = (address - START_32X_SYSREG + 0x4000); //START_32X_SYSREG_CACHE;
+            int addr = (address - START_32X_SYSREG + SYSREG_32X_OFFSET);
             if (((addr & 0xFF) & ~1) == S32xDict.RegSpecS32x.M68K_BANK_SET.addr) {
                 bankSetValue = (data & 3);
                 bankSetShift = bankSetValue << 20;
             }
             write32xWordDirect(addr, data, size);
         } else if (address >= START_32X_VDPREG && address < END_32X_VDPREG) {
-            int addr = (address - START_32X_VDPREG + 0x4100); //START_32X_VDPREG_CACHE;
+            int addr = (address - START_32X_VDPREG + VDPREG_32X_OFFSET);
             write32xWord(addr, data, size);
         } else if (address >= START_32X_COLPAL && address < END_32X_COLPAL) {
-            int addr = (address - START_32X_COLPAL + 0x4200); //START_32X_COLPAL_CACHE;
+            int addr = (address - START_32X_COLPAL + COLPAL_32X_OFFSET);
             write32xWord(addr, data, size);
         } else if (address >= START_ROM_MIRROR_BANK && address < END_ROM_MIRROR_BANK) {
             //NOTE it could be writing to SRAM via the rom mirror
             super.write((address & ROM_MIRROR_MASK) | bankSetShift, data, size);
         } else if (address >= START_ROM_MIRROR && address < END_ROM_MIRROR) {
-            //TODO ?? rom37
+            //TODO should not happen
             super.write(address & ROM_WINDOW_MASK, data, size);
+            if (true) throw new RuntimeException();
         } else if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {
             LOG.info("HINT vector write, address: {}, data: {}, size: {}", Long.toHexString(address),
                     Integer.toHexString(data), size);
@@ -214,7 +221,7 @@ public class S32xBus extends GenesisBus {
 
     private void writeAdapterEnOff(int address, int data, Size size) {
         if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
-            int addr = (address - START_32X_SYSREG + 0x4000); //START_32X_SYSREG_CACHE;
+            int addr = (address - START_32X_SYSREG + SYSREG_32X_OFFSET);
             if (((addr & 0xFF) & ~1) == S32xDict.RegSpecS32x.M68K_BANK_SET.addr) {
                 bankSetValue = (data & 3);
                 bankSetShift = bankSetValue << 20;
