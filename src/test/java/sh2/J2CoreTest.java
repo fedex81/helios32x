@@ -41,7 +41,7 @@ public class J2CoreTest {
     static String binName = "j2tests.bin";
     static ByteBuffer rom;
     private static boolean done = false;
-    private static boolean sh2Debug = true;
+    private static boolean sh2Debug = false;
 
     public static Path baseDataFolder = Paths.get(new File(".").getAbsolutePath(),
             "src", "test", "resources");
