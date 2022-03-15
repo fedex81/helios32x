@@ -23,6 +23,10 @@ public class BiosHolder {
         init();
     }
 
+    public BiosHolder(ByteBuffer[] biosData) {
+        this.biosData = biosData;
+    }
+
     private void init() {
         assert sh2m.toFile().exists();
         assert sh2s.toFile().exists();

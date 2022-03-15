@@ -14,6 +14,7 @@ jobs:
         with:
           java-version: 1.11
       - name: Build with Gradle
+        #./gradlew --stacktrace --debug packageDistribution
         run: ./gradlew packageDistribution
       - uses: actions/upload-artifact@v2
         with:

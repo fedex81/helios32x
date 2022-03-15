@@ -45,16 +45,16 @@ public class MarsLauncherHelper {
     }
 
     public static Sh2LaunchContext setupRom(S32xBus bus, Path romFile) {
-        return setupRom(bus, ByteBuffer.wrap(FileUtil.readBinaryFile(romFile, SystemLoader.s32xBinaryTypes)));
+        return setupRom(bus, ByteBuffer.wrap(FileUtil.readBinaryFile(romFile, SystemLoader.s32xBinaryTypes)), initBios());
     }
 
-    public static Sh2LaunchContext setupRom(S32xBus bus, ByteBuffer rom) {
+    public static Sh2LaunchContext setupRom(S32xBus bus, ByteBuffer rom, BiosHolder biosHolder) {
         Sh2LaunchContext ctx = new Sh2LaunchContext();
         ctx.masterCtx = new Sh2Context(MASTER);
         ctx.masterCtx.debug = masterDebug;
         ctx.slaveCtx = new Sh2Context(SLAVE);
         ctx.slaveCtx.debug = slaveDebug;
-        ctx.biosHolder = initBios();
+        ctx.biosHolder = biosHolder;
         ctx.bus = bus;
         ctx.rom = rom;
         ctx.s32XMMREG = new S32XMMREG();
