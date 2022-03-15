@@ -7,11 +7,8 @@ import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.junit.jupiter.api.Assertions;
 import s32x.util.SystemTestUtil;
-import sh2.MarsLauncherHelper;
+import sh2.*;
 import sh2.MarsLauncherHelper.Sh2LaunchContext;
-import sh2.Md32xRuntimeData;
-import sh2.S32XMMREG;
-import sh2.S32xBus;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict;
 
@@ -65,13 +62,23 @@ public class MarsRegTestUtil {
     public static Sh2LaunchContext createTestInstance(byte[] brom) {
         Md32xRuntimeData.releaseInstance();
         Md32xRuntimeData.newInstance();
-        Sh2LaunchContext lc = MarsLauncherHelper.setupRom(new S32xBus(), ByteBuffer.wrap(brom));
+        Sh2LaunchContext lc = MarsLauncherHelper.setupRom(new S32xBus(), ByteBuffer.wrap(brom), createTestBiosHolder());
 
         int[] irom = Util.toSignedIntArray(brom);
         IMemoryProvider mp = MemoryProvider.createGenesisInstance();
         mp.setRomData(irom);
         SystemTestUtil.setupNewMdSystem(lc.bus, mp);
         return lc;
+    }
+
+    private static BiosHolder createTestBiosHolder() {
+        ByteBuffer[] biosData = new ByteBuffer[CpuDeviceAccess.values().length];
+        ByteBuffer data = ByteBuffer.allocate(0x1000);
+
+        biosData[0] = data;
+        biosData[1] = data;
+        biosData[2] = data;
+        return new BiosHolder(biosData);
     }
 
     public static int readBus(Sh2LaunchContext lc, CpuDeviceAccess sh2Access, int reg, Size size) {
