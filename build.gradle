@@ -4,6 +4,7 @@ plugins {
 
 compileJava {
     options.release = 11
+    //options.compilerArgs += ["-Xlint:deprecation", "-Xlint:unchecked"]
 }
 
 def dateString = getDate()
@@ -19,16 +20,16 @@ repositories {
 
 dependencies {
     //START helios
-    compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.14.1'
-    compile group: 'com.google.guava', name: 'guava', version: '31.0.1-jre'
-    compile group: 'org.jctools', name: 'jctools-core', version: '3.3.0'
-    compile group: 'org.jaudiolibs', name: 'audioservers-javasound', version: '2.0.0'
-    compile group: 'org.digitalmediaserver', name: 'cuelib-core', version: '2.0.0'
-    compile group: 'com.github.trilarion', name: 'java-vorbis-support', version: '1.2.1'
-    compile group: 'net.java.jinput', name: 'jinput', version: '2.0.9'
+    implementation group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.14.1'
+    implementation group: 'com.google.guava', name: 'guava', version: '31.0.1-jre'
+    implementation group: 'org.jctools', name: 'jctools-core', version: '3.3.0'
+    implementation group: 'org.jaudiolibs', name: 'audioservers-javasound', version: '2.0.0'
+    implementation group: 'org.digitalmediaserver', name: 'cuelib-core', version: '2.0.0'
+    implementation group: 'com.github.trilarion', name: 'java-vorbis-support', version: '1.2.1'
+    implementation group: 'net.java.jinput', name: 'jinput', version: '2.0.9'
 
     //include local jars
-    compile fileTree(dir: 'lib', include: ['*.jar'])
+    implementation fileTree(dir: 'lib', include: ['*.jar'])
     //END helios
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
@@ -81,7 +82,7 @@ task copyRes {
         into "$buildDir/packageDir"
     }
     copy {
-        from configurations.runtime
+        from configurations.runtimeClasspath
         into "$buildDir/packageDir/lib"
     }
     copy {
@@ -96,12 +97,12 @@ jar {
         attributes 'Implementation-Title': 'Helios',
                 'Implementation-Version': archiveVersion,
                 'Main-Class': 'omegadrive.SystemLoader',
-                'Class-Path': configurations.compile.collect { "lib/" + it.getName() }.join(' ')
+                'Class-Path': configurations.compileClasspath.collect { "lib/" + it.getName() }.join(' ')
     }
     archivesBaseName = rootProject.name
     destinationDirectory = file("$buildDir/packageDir")
     doLast {
-        println("Creating jar in folder: " + destinationDirectory)
+        println("Creating jar: " + jar.getArchiveName() + " in folder: " + jar.getDestinationDir())
     }
 }
 
@@ -113,8 +114,8 @@ task packageDistribution(type: Zip) {
 
     from "$buildDir/packageDir"
     doLast {
-        println("Creating package: " + archiveFileName +
-                ", folder: " + destinationDirectory)
+        println("Creating package: " + packageDistribution.getArchiveName() +
+                ", folder: " + packageDistribution.getDestinationDir())
     }
 }
 
@@ -129,9 +130,9 @@ task writeToFile {
                                 "-Djinput.enable=true -Djinput.native.location=lib",
                                 "-jar", "$jarName"] as String[]
     sampleBase.addAll(1, javaAdvOpts)
-    List<String> sampleUx = sampleBase.clone()
+    List<String> sampleUx = new ArrayList<>(sampleBase)
     sampleUx.add("\"\$@\"" + "\n")
-    List<String> sampleWin = sampleBase.clone()
+    List<String> sampleWin = new ArrayList<>(sampleBase)
     sampleWin.addAll(1, winOpts)
     sampleWin.add("\"%1\"" + "\n")
     // create the folders if it does not exist.(otherwise it will throw exception)
