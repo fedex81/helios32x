@@ -158,7 +158,7 @@ public final class Sh2Memory implements IMemory {
 				} else if (address >= START_SDRAM && address < END_SDRAM) {
 					writeBuffer(sdram, address & SDRAM_MASK, val, size);
 					S32xMemAccessDelay.addWriteCpuDelay(SDRAM);
-//					checkPrefetch(address);
+					checkPrefetch(address, val, size);
 				} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
 					if (s32XMMREG.fm > 0) {
 						s32XMMREG.write(address, val, size);
@@ -178,7 +178,7 @@ public final class Sh2Memory implements IMemory {
 			case CACHE_IO_H3: //0xF
 				if ((address & ONCHIP_REG_MASK) == ONCHIP_REG_MASK) {
 					sh2MMREGS[cpuAccess.ordinal()].write(address & 0xFFFF, val, size);
-//					checkPrefetch(address);
+					checkPrefetch(address, val, size);
 				} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
 					sh2MMREGS[cpuAccess.ordinal()].writeDramMode(address & 0xFFFF, val, size);
 				} else {
@@ -192,12 +192,16 @@ public final class Sh2Memory implements IMemory {
 		}
 	}
 
-	private void checkPrefetch(int writeAddr) {
+	private void checkPrefetch(int writeAddr, int val, Size size) {
+		writeAddr &= 0xFFF_FFFF; //drop cached vs uncached
 		for (int i = 0; i < 2; i++) {
-			int start = Math.max(0, prefetchContexts[i].prefetchPc - prefetchContexts[i].prefetchLookahead);
-			int end = prefetchContexts[i].prefetchPc + prefetchContexts[i].prefetchLookahead;
+			int start = Math.max(0, prefetchContexts[i].prefetchPc - (prefetchContexts[i].prefetchLookahead << 1));
+			int end = prefetchContexts[i].prefetchPc + (prefetchContexts[i].prefetchLookahead << 1);
 			if (writeAddr >= start && writeAddr <= end) {
-				LOG.warn("{} {}, [{},{}]", i, th(writeAddr), th(start), th(end));
+				CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
+				LOG.warn("{} write, addr: {} val: {} {}, {} PF window: [{},{}]", cpuAccess,
+						th(writeAddr), th(val), size, CpuDeviceAccess.cdaValues[i], th(start), th(end));
+				prefetch(prefetchContexts[i].prefetchPc, CpuDeviceAccess.cdaValues[i]);
 			}
 		}
 	}

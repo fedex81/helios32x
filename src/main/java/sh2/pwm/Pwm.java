@@ -229,7 +229,7 @@ public class Pwm implements StepDevice {
 
     @Override
     public void step(int cycles) {
-        stepsPerFrame += cycles;
+        if (verbose) stepsPerFrame += cycles;
         if (pwmEnable) {
             stepOne();
             stepOne();

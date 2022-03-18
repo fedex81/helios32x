@@ -136,6 +136,9 @@ public class IntControl implements StepDevice {
 
     public void setExternalIntPending(Sh2DeviceType deviceType, int intData, boolean isPending) {
         int level = sh2DeviceInt.get(deviceType);
+        if (interruptLevel > 0 && interruptLevel < level) {
+            LOG.info("{} {}{} ext interrupt pending: {}, level: {}", cpu, deviceType, intData, level, interruptLevel);
+        }
         if (level > 0) {
             setIntPending(level, isPending);
             additionalIntData = intData;

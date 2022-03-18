@@ -88,6 +88,7 @@ public class Sh2Impl implements Sh2 {
 				Sh2Helper.toDebuggingString(ctx));
 		ctx.PC = memory.read32i(ctx.VBR + (ILLEGAL_INST_VN << 2));
 		ctx.cycles -= 5;
+//		if(true) throw new RuntimeException();
 	}
 
 	protected final void MOVI(int code) {
@@ -1126,7 +1127,7 @@ public class Sh2Impl implements Sh2 {
 		int value = (byte) memory.read8i(ctx.GBR + ctx.registers[0]);
 		memory.write8i(ctx.GBR + ctx.registers[0], ((byte) (value & i)));
 
-		ctx.cycles -= 4;
+		ctx.cycles -= 3;
 		ctx.PC += 2;
 	}
 
@@ -1168,7 +1169,7 @@ public class Sh2Impl implements Sh2 {
 		int value = memory.read8i(ctx.GBR + ctx.registers[0]);
 		memory.write8i(ctx.GBR + ctx.registers[0], ((byte) (value | i)));
 
-		ctx.cycles -= 4;
+		ctx.cycles -= 3;
 		ctx.PC += 2;
 	}
 
@@ -1181,9 +1182,10 @@ public class Sh2Impl implements Sh2 {
 		else ctx.SR &= ~0x1;
 		memory.write8i(ctx.registers[n], ((byte) (value | 0x80)));
 
-		ctx.cycles -= 5;
+		ctx.cycles -= 4;
 
 		ctx.PC += 2;
+		if (true) new RuntimeException();
 	}
 
 	protected final void TST(int code) {
@@ -1250,7 +1252,7 @@ public class Sh2Impl implements Sh2 {
 		int value = memory.read8i(ctx.GBR + ctx.registers[0]);
 		memory.write8i(ctx.GBR + ctx.registers[0], ((byte) (value ^ i)));
 
-		ctx.cycles -= 4;
+		ctx.cycles -= 3;
 		ctx.PC += 2;
 	}
 
@@ -1467,8 +1469,7 @@ public class Sh2Impl implements Sh2 {
 			//8 bit sign extend, then double
 			int d = (byte) (code & 0xFF) << 1;
 			ctx.PC += d + 4;
-
-			ctx.cycles--;
+			ctx.cycles -= 3;
 		} else {
 			ctx.cycles--;
 			ctx.PC += 2;
@@ -1494,7 +1495,7 @@ public class Sh2Impl implements Sh2 {
 			int d = (byte) (code & 0xFF) << 1;
 			ctx.PC = ctx.PC + d + 4;
 
-			ctx.cycles--;
+			ctx.cycles -= 3;
 		} else {
 			ctx.cycles--;
 			ctx.PC += 2;
@@ -1594,7 +1595,7 @@ public class Sh2Impl implements Sh2 {
 		ctx.PC = pop();
 		ctx.SR = pop() & SR_MASK;
 		delaySlot(prevPc + 2);
-		ctx.cycles -= 5;
+		ctx.cycles -= 4;
 	}
 
 	private void delaySlot(int pc) {
@@ -1624,8 +1625,7 @@ public class Sh2Impl implements Sh2 {
 	protected final void LDCSR(int code) {
 		int m = RN(code);
 		ctx.SR = ctx.registers[m] & SR_MASK;
-
-		ctx.cycles -= 4;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1633,8 +1633,7 @@ public class Sh2Impl implements Sh2 {
 		int m = RN(code);
 
 		ctx.GBR = ctx.registers[m];
-
-		ctx.cycles -= 3;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1642,10 +1641,8 @@ public class Sh2Impl implements Sh2 {
 		int m = RN(code);
 
 		ctx.VBR = ctx.registers[m];
-
-		ctx.cycles -= 2;
+		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void LDCMSR(int code) {
@@ -1654,7 +1651,7 @@ public class Sh2Impl implements Sh2 {
 		ctx.SR = memory.read32i(ctx.registers[m]) & SR_MASK;
 		ctx.registers[m] += 4;
 
-		ctx.cycles -= 4;
+		ctx.cycles -= 3;
 		ctx.PC += 2;
 	}
 
@@ -1674,7 +1671,7 @@ public class Sh2Impl implements Sh2 {
 		ctx.VBR = memory.read32i(ctx.registers[m]);
 		ctx.registers[m] += 4;
 
-		ctx.cycles -= 2;
+		ctx.cycles -= 3;
 		ctx.PC += 2;
 
 	}
@@ -1703,13 +1700,8 @@ public class Sh2Impl implements Sh2 {
 		int m = RN(code);
 
 		ctx.PR = ctx.registers[m];
-
-//		System.out.println("LDS " + Integer.toHexString(PR));
-
 		ctx.PC += 2;
-
-		ctx.cycles -= 2;
-
+		ctx.cycles--;
 	}
 
 	protected final void LDSMMACH(int code) {
@@ -1719,7 +1711,7 @@ public class Sh2Impl implements Sh2 {
 		ctx.registers[m] += 4;
 
 
-		ctx.cycles -= 2;
+		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
@@ -1729,7 +1721,7 @@ public class Sh2Impl implements Sh2 {
 		ctx.MACL = memory.read32i(ctx.registers[m]);
 		ctx.registers[m] += 4;
 
-		ctx.cycles -= 2;
+		ctx.cycles--;
 		ctx.PC += 2;
 
 	}
@@ -1744,11 +1736,6 @@ public class Sh2Impl implements Sh2 {
 
 		ctx.registers[m] += 4;
 
-		ctx.cycles -= 2;
-		ctx.PC += 2;
-	}
-
-	protected final void LDTLB(int code) {
 		ctx.cycles--;
 		ctx.PC += 2;
 	}

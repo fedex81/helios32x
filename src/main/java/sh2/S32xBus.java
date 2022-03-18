@@ -207,7 +207,7 @@ public class S32xBus extends GenesisBus {
             //NOTE it could be writing to SRAM via the rom mirror
             super.write((address & ROM_MIRROR_MASK) | bankSetShift, data, size);
         } else if (address >= START_ROM_MIRROR && address < END_ROM_MIRROR) {
-            //TODO should not happen
+            //TODO should not happen, SoulStar
             super.write(address & ROM_WINDOW_MASK, data, size);
             if (true) throw new RuntimeException();
         } else if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {

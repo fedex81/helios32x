@@ -278,8 +278,14 @@ public class Sh2CacheImpl implements Sh2Cache {
     private void refillCache(int[] data, int addr) {
         Md32xRuntimeData.addCpuDelayExt(4);
         for (int i = 0; i < 16; i += 4) {
-            int val = readMemoryUncached(memory, (addr & 0xFFFFFFF0) + i, Size.LONG);
-            setCachedData(data, i & LINE_MASK, val, Size.LONG);
+            //TODO afterBurner reads @ 0x4000
+            try {
+                int val = readMemoryUncached(memory, (addr & 0xFFFFFFF0) + i, Size.LONG);
+                setCachedData(data, i & LINE_MASK, val, Size.LONG);
+            } catch (Exception e) {
+                e.printStackTrace();
+                return;
+            }
         }
     }
 
