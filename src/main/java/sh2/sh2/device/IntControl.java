@@ -193,7 +193,12 @@ public class IntControl implements StepDevice {
     }
 
     public void clearCurrentInterrupt() {
-        clearInterrupt(interruptLevel);
+        Sh2Interrupt intType = intVals[interruptLevel];
+        //TODO check internal vs external
+        //only autoclear external (ie.DMA,SCI, etc) interrupts
+        if (intType.internal == 0) {
+            clearInterrupt(interruptLevel);
+        }
     }
 
     public int getInterruptLevel() {

@@ -195,6 +195,9 @@ public final class Sh2Memory implements IMemory {
 	private void checkPrefetch(int writeAddr, int val, Size size) {
 		writeAddr &= 0xFFF_FFFF; //drop cached vs uncached
 		for (int i = 0; i < 2; i++) {
+			if (cache[i].getCacheContext().cacheEn == 0) {
+				continue;
+			}
 			int start = Math.max(0, prefetchContexts[i].prefetchPc - (prefetchContexts[i].prefetchLookahead << 1));
 			int end = prefetchContexts[i].prefetchPc + (prefetchContexts[i].prefetchLookahead << 1);
 			if (writeAddr >= start && writeAddr <= end) {
