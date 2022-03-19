@@ -87,6 +87,7 @@ public final class Sh2Memory implements IMemory {
 	@Override
 	public int read(int address, Size size) {
 		CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
+		address &= 0xFFFF_FFFF;
 		int res = 0;
 		switch ((address >>> CACHE_ADDRESS_BITS) & 0xFF) {
 			case CACHE_USE_H3:

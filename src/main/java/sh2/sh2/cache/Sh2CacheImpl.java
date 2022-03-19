@@ -78,6 +78,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                 Arrays.fill(line.data, 0);
             }
         }
+        if (verbose) LOG.info("{} Cache clear", cpu);
         //TODO check, Chaotix
 //        if(ca.enable == 0) {
 //            Arrays.fill(data_array.array(), 0, data_array.capacity() >> ctx.twoWay, (byte) 0);
@@ -126,7 +127,9 @@ public class Sh2CacheImpl implements Sh2Cache {
                     Sh2CacheLine line = ca.way[i][entry];
                     if ((line.v > 0) && (line.tag == tagaddr)) {
                         updateLru(i, ca.lru, entry);
-                        return getCachedData(line.data, addr & LINE_MASK, size);
+                        int r = getCachedData(line.data, addr & LINE_MASK, size);
+                        if (verbose) LOG.info("Cache read at {} {}, val: {}", th(addr), size, r);
+                        return r;
                     }
                 }
                 // cache miss
@@ -142,6 +145,8 @@ public class Sh2CacheImpl implements Sh2Cache {
             }
             case CACHE_DATA_ARRAY:
                 assert ca.enable == 0 || ctx.twoWay == 1;
+//                LOG.info("{} Cache data array read: {}({}) {}, val: {}", cpu, th(addr),
+//                        th(addr & (DATA_ARRAY_MASK >> ctx.twoWay)), size, th(readBuffer(data_array, addr & (DATA_ARRAY_MASK >> ctx.twoWay), size)));
                 return readBuffer(data_array, addr & (DATA_ARRAY_MASK >> ctx.twoWay), size);
             case CACHE_PURGE:
                 LOG.warn("{} CACHE_PURGE read: {}, {}", cpu, th(addr), size);
@@ -173,6 +178,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                     if ((line.v > 0) && (line.tag == tagaddr)) {
                         setCachedData(line.data, addr & LINE_MASK, val, size);
                         updateLru(i, ca.lru, entry);
+                        if (verbose) LOG.info("Cache write at {}, val: {} {}", th(addr), th(val), size);
                         break;
                     }
                 }
@@ -182,6 +188,7 @@ public class Sh2CacheImpl implements Sh2Cache {
             break;
             case CACHE_DATA_ARRAY:
                 assert ca.enable == 0 || ctx.twoWay == 1;
+//                LOG.info("{} Cache data array write: {}({}) {}, val: {}", cpu, th(addr), th(addr & (DATA_ARRAY_MASK >> ctx.twoWay)), size, th(val));
                 writeBuffer(data_array, addr & (DATA_ARRAY_MASK >> ctx.twoWay), val, size);
                 break;
             case CACHE_PURGE://associative purge
@@ -197,6 +204,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                         Md32xRuntimeData.addCpuDelayExt(CACHE_PURGE_DELAY);
                     }
                 }
+                if (verbose) LOG.info("{} Cache purge: {}", cpu, th(addr));
             }
             break;
             case CACHE_ADDRESS_ARRAY:

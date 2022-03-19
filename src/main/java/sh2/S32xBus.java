@@ -209,7 +209,7 @@ public class S32xBus extends GenesisBus {
         } else if (address >= START_ROM_MIRROR && address < END_ROM_MIRROR) {
             //TODO should not happen, SoulStar
             super.write(address & ROM_WINDOW_MASK, data, size);
-            if (true) throw new RuntimeException();
+//            if (true) throw new RuntimeException();
         } else if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {
             LOG.info("HINT vector write, address: {}, data: {}, size: {}", Long.toHexString(address),
                     Integer.toHexString(data), size);

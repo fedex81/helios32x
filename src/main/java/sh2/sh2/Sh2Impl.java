@@ -94,7 +94,7 @@ public class Sh2Impl implements Sh2 {
 	protected final void MOVI(int code) {
 		int n = ((code >> 8) & 0x0f);
 		//8 bit sign extend
-		ctx.registers[n] = (byte) (code & 0xFF);
+		ctx.registers[n] = (int) (byte) code;
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
@@ -103,10 +103,8 @@ public class Sh2Impl implements Sh2 {
 		int d = (code & 0xff);
 		int n = ((code >> 8) & 0x0f);
 
-		ctx.registers[n] = memory.read16i(ctx.PC + 4 + (d << 1));
+		ctx.registers[n] = (int) (short) memory.read16i(ctx.PC + 4 + (d << 1));
 
-		if ((ctx.registers[n] & 0x8000) == 0) ctx.registers[n] &= 0x0000FFFF;
-		else ctx.registers[n] |= 0xFFFF0000;
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
@@ -119,7 +117,6 @@ public class Sh2Impl implements Sh2 {
 
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void MOV(int code) {
@@ -156,8 +153,6 @@ public class Sh2Impl implements Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		//	System.out.println("MOVLS source " + Integer.toHexString(ctx.registers[n]) + "destination " + Integer.toHexString(ctx.registers[m]));
-
 		memory.write32i(ctx.registers[n], ctx.registers[m]);
 
 		ctx.cycles--;
@@ -167,15 +162,8 @@ public class Sh2Impl implements Sh2 {
 	protected final void MOVBL(int code) {
 		int m = RM(code);
 		int n = RN(code);
-		byte c;
 
-		c = (byte) (memory.read8i(ctx.registers[m]) & 0xFF);
-
-		ctx.registers[n] = (int) c;
-
-		//Logger.log(Logger.CPU, String.format("movb7: r[%d]=%x,%d r[%d]=%x,%d\r", m, ctx.registers[m], ctx.registers[m], n, ctx.registers[n], ctx.registers[n]));
-
-		//System.out.println("MOVBL @" + Integer.toHexString(ctx.registers[m]) + " value read " + ctx.registers[n] + " ctx.PC " + Integer.toHexString(PC));
+		ctx.registers[n] = (int) (byte) memory.read8i(ctx.registers[m]);
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -185,9 +173,7 @@ public class Sh2Impl implements Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		short w = (short) (memory.read16i(ctx.registers[m]) & 0xFFFF);
-
-		ctx.registers[n] = (int) w;
+		ctx.registers[n] = (int) (short) memory.read16i(ctx.registers[m]);
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -198,7 +184,6 @@ public class Sh2Impl implements Sh2 {
 		int n = RN(code);
 
 		ctx.registers[n] = memory.read32i(ctx.registers[m]);
-
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -220,7 +205,6 @@ public class Sh2Impl implements Sh2 {
 		int n = RN(code);
 
 		ctx.registers[n] -= 2;
-
 		memory.write16i(ctx.registers[n], ctx.registers[m]);
 
 		ctx.cycles--;
@@ -233,7 +217,6 @@ public class Sh2Impl implements Sh2 {
 		int n = RN(code);
 
 		ctx.registers[n] -= 4;
-
 		memory.write32i(ctx.registers[n], ctx.registers[m]);
 
 		ctx.cycles--;
@@ -245,8 +228,7 @@ public class Sh2Impl implements Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		byte b = (byte) (memory.read8i(ctx.registers[m]) & 0xFF);
-		ctx.registers[n] = (int) b;
+		ctx.registers[n] = (int) (byte) memory.read8i(ctx.registers[m]);
 		if (n != m) ctx.registers[m] += 1;
 
 		ctx.cycles--;
@@ -258,13 +240,11 @@ public class Sh2Impl implements Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		short w = (short) memory.read16i(ctx.registers[m]);
-		ctx.registers[n] = (int) w;
+		ctx.registers[n] = (int) (short) memory.read16i(ctx.registers[m]);
 		if (n != m) ctx.registers[m] += 2;
 
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void MOVLP(int code) {
@@ -276,7 +256,6 @@ public class Sh2Impl implements Sh2 {
 
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void MOVBS4(int code) {
@@ -307,20 +286,15 @@ public class Sh2Impl implements Sh2 {
 		int n = RN(code);
 
 		memory.write32i(ctx.registers[n] + (d << 2), ctx.registers[m]);
-
-		//System.out.println("MOVLS4 " + Integer.toHexString(ctx.registers[n]));
-
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void MOVBL4(int code) {
 		int d = ((code >> 0) & 0x0f);
 		int m = RM(code);
 
-		byte b = (byte) (memory.read8i(ctx.registers[m] + d) & 0xFF);
-		ctx.registers[0] = (int) b;
+		ctx.registers[0] = (int) (byte) memory.read8i(ctx.registers[m] + d);
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -330,9 +304,7 @@ public class Sh2Impl implements Sh2 {
 		int d = ((code >> 0) & 0x0f);
 		int m = RM(code);
 
-		short w = (short) memory.read16i(ctx.registers[m] + (d << 1));
-		ctx.registers[0] = (int) w;
-
+		ctx.registers[0] = (int) (short) memory.read16i(ctx.registers[m] + (d << 1));
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -345,8 +317,6 @@ public class Sh2Impl implements Sh2 {
 
 		ctx.registers[n] = memory.read32i(ctx.registers[m] + (d << 2));
 
-
-		//System.out.println("MOVLL4 " + Integer.toHexString(ctx.registers[n]) + " @" + Integer.toHexString(ctx.registers[m] + (d *4)) );
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
@@ -379,15 +349,13 @@ public class Sh2Impl implements Sh2 {
 
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void MOVBL0(int code) {
 		int m = RM(code);
 		int n = RN(code);
 
-		byte b = (byte) memory.read8i(ctx.registers[m] + ctx.registers[0]);
-		ctx.registers[n] = (int) b;
+		ctx.registers[n] = (int) (byte) memory.read8i(ctx.registers[m] + ctx.registers[0]);
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -398,8 +366,7 @@ public class Sh2Impl implements Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		short w = (short) memory.read16i(ctx.registers[m] + ctx.registers[0]);
-		ctx.registers[n] = (int) w;
+		ctx.registers[n] = (int) (short) memory.read16i(ctx.registers[m] + ctx.registers[0]);
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -450,19 +417,16 @@ public class Sh2Impl implements Sh2 {
 	protected final void MOVBLG(int code) {
 		int d = ((code >> 0) & 0xff);
 
-		byte b = (byte) memory.read8i(ctx.GBR + (d << 0));
-		ctx.registers[0] = (int) b;
+		ctx.registers[0] = (int) (byte) memory.read8i(ctx.GBR + (d << 0));
 
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void MOVWLG(int code) {
 		int d = ((code >> 0) & 0xff);
 
-		short w = (short) memory.read16i(ctx.GBR + (d << 1));
-		ctx.registers[0] = (int) w;
+		ctx.registers[0] = (int) (short) memory.read16i(ctx.GBR + (d << 1));
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -473,7 +437,6 @@ public class Sh2Impl implements Sh2 {
 		int d = ((code >> 0) & 0xff);
 
 		ctx.registers[0] = memory.read32i(ctx.GBR + (d << 2));
-
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -500,7 +463,6 @@ public class Sh2Impl implements Sh2 {
 
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void SWAPB(int code) {
@@ -545,12 +507,7 @@ public class Sh2Impl implements Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		ctx.registers[n] += ctx.registers[m]; 
-		
-
-		/*Logger.log(Logger.CPU,String.format("add39: r[%d]=%x,%d r[%d]=%x,%d\r\n",
-	            n, ctx.registers[n], ctx.registers[n],
-	            m, ctx.registers[m], ctx.registers[m]));*/
+		ctx.registers[n] += ctx.registers[m];
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
@@ -562,9 +519,6 @@ public class Sh2Impl implements Sh2 {
 
 		ctx.registers[n] += (int) b;
 
-		/*Logger.log(Logger.CPU,String.format("add40: r[%d]=%x,%d\r\n",
-	            n, ctx.registers[n], ctx.registers[n])); */
-
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
@@ -572,55 +526,31 @@ public class Sh2Impl implements Sh2 {
 	protected final void ADDC(int code) {
 		int m = RM(code);
 		int n = RN(code);
-
 		long tmp0 = ctx.registers[n] & 0xFFFF_FFFFL;
-		long tmp1 = (ctx.registers[n] + ctx.registers[m]) & 0xFFFF_FFFFL;
-		long regN = tmp1 + (ctx.SR & flagT);
+		long tmp1 = (tmp0 + ctx.registers[m]) & 0xFFFF_FFFFL;
+		long regN = (int) (tmp1 + (ctx.SR & flagT)) & 0xFFFF_FFFFL;
+		boolean tb = tmp0 > tmp1 || tmp1 > regN;
+		ctx.SR &= (~flagT);
+		ctx.SR |= tb ? flagT : 0;
 		ctx.registers[n] = (int) regN;
-		if (tmp0 > tmp1)
-			ctx.SR |= flagT;
-		else ctx.SR &= (~flagT);
-		if (tmp1 > regN) ctx.SR |= flagT;
 
 		ctx.cycles--;
 		ctx.PC += 2;
-		
-		/*Logger.log(Logger.CPU,String.format("addc41: r[%d]=%x,%d r[%d]=%x,%d tmp0=%x,%d, tmp1=%x,%d\r\n",
-	            m, ctx.registers[m], ctx.registers[m],
-	            n, ctx.registers[n], ctx.registers[n],
-	            tmp0, tmp0, tmp1, tmp1)); */
 	}
 
 	protected final void ADDV(int code) {
-		int ans;
 		int m = RM(code);
 		int n = RN(code);
-		int dest = 0, src = 0;
 
-		if (ctx.registers[n] >= 0) dest = 0;
-		else dest = 1;
-		if (ctx.registers[m] >= 0) src = 0;
-		else src = 1;
-
-		src += dest;
+		long d = (ctx.registers[n] < 0) ? 1 : 0;
+		long s = ((ctx.registers[m] < 0) ? 1 : 0) + d;
 		ctx.registers[n] += ctx.registers[m];
-
-		if (ctx.registers[n] >= 0)
-			ans = 0;
-		else ans = 1;
-
-		ans += dest;
-
-		if ((src == 0) || (src == 2)) {
-			if (ans == 1)
-				ctx.SR |= ans;
-			else ctx.SR &= (~flagT);
-		} else
-			ctx.SR &= (~flagT);
+		long r = ((ctx.registers[n] < 0) ? 1 : 0) + d;
+		ctx.SR &= (~flagT);
+		ctx.SR = s != 1 ? (r == 1 ? 1 : 0) : 0;
 
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void CMPIM(int code) {
@@ -879,11 +809,7 @@ public class Sh2Impl implements Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-
-		ctx.registers[n] = ctx.registers[m];
-		if ((ctx.registers[m] & 0x00000080) == 0) ctx.registers[n] &= 0x000000FF;
-		else ctx.registers[n] |= 0xFFFFFF00;
-
+		ctx.registers[n] = (int) (byte) ctx.registers[m];
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
@@ -892,11 +818,7 @@ public class Sh2Impl implements Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		ctx.registers[n] = ctx.registers[m];
-		if ((ctx.registers[m] & 0x00008000) == 0) ctx.registers[n] &= 0x0000FFFF;
-		else ctx.registers[n] |= 0xFFFF0000;
-
-
+		ctx.registers[n] = (int) (short) ctx.registers[m];
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
@@ -905,7 +827,7 @@ public class Sh2Impl implements Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		ctx.registers[n] = (ctx.registers[m] & 0x000000FF);
+		ctx.registers[n] = ctx.registers[m] & 0x000000FF;
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -915,8 +837,7 @@ public class Sh2Impl implements Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		ctx.registers[n] = ctx.registers[m];
-		ctx.registers[n] &= 0x0000FFFF;
+		ctx.registers[n] = ctx.registers[m] & 0x0000FFFF;
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -945,7 +866,6 @@ public class Sh2Impl implements Sh2 {
 		ctx.PC += 2;
 	}
 
-	//TODO test Shadow Squadron ~ Stellar Assault, VR deluxe
 	protected final void MACW(int code) {
 		final int m = RM(code);
 		final int n = RN(code);
@@ -1065,38 +985,24 @@ public class Sh2Impl implements Sh2 {
 		long tmp1 = (ctx.registers[n] - ctx.registers[m]) & 0xFFFF_FFFFL;
 		long regN = (tmp1 - (ctx.SR & flagT)) & 0xFFFF_FFFFL;
 		ctx.registers[n] = (int) regN;
-		if (tmp0 < tmp1)
-			ctx.SR |= flagT;
-		else ctx.SR &= (~flagT);
-
-		if (tmp1 < regN)
-			ctx.SR |= flagT;
+		ctx.SR &= (~flagT);
+		ctx.SR |= tmp0 < tmp1 || tmp1 < regN ? flagT : 0;
 
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void SUBV(int code) {
-		int ans;
 		int m = RM(code);
 		int n = RN(code);
 
 		int dest = (ctx.registers[n] >> 31) & 1;
-		int src = (ctx.registers[m] >> 31) & 1;
+		int src = ((ctx.registers[m] >> 31) & 1) + dest;
 
-		src += dest;
 		ctx.registers[n] -= ctx.registers[m];
-
-		ans = (ctx.registers[n] >> 31) & 1;
-		ans += dest;
-
-		if (src == 1)
-			if (ans == 1)
-				ctx.SR |= flagT;
-			else ctx.SR &= (~flagT);
-		else
-			ctx.SR &= (~flagT);
+		int r = ((ctx.registers[n] >> 31) & 1) + dest;
+		ctx.SR &= (~flagT);
+		ctx.SR |= src == 1 && r == 1 ? flagT : 0;
 
 		ctx.cycles--;
 		ctx.PC += 2;
