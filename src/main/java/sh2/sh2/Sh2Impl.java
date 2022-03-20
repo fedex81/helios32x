@@ -1165,18 +1165,9 @@ public class Sh2Impl implements Sh2 {
 	protected final void ROTR(int code) {
 		int n = RN(code);
 
-		if ((ctx.registers[n] & flagT) != 0) {
-			ctx.SR |= flagT;
-		} else ctx.SR &= ~flagT;
-
-		ctx.registers[n] >>>= 1;
-
-		if ((ctx.SR & flagT) != 0)
-			ctx.registers[n] |= 0x80000000;
-		else
-			ctx.registers[n] &= 0x7FFFFFFF;
-
-		//Logger.log(Logger.CPU,String.format("rotr: despues %x\r", ctx.registers[n]));
+		ctx.SR &= ~flagT;
+		ctx.SR |= ctx.registers[n] & flagT;
+		ctx.registers[n] = (ctx.registers[n] >>> 1) | (ctx.registers[n] << 31);
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -1184,21 +1175,11 @@ public class Sh2Impl implements Sh2 {
 
 	protected final void ROTCR(int code) {
 		int n = RN(code);
-		int temp = 0;
 
-		if ((ctx.registers[n] & 0x00000001) == 0) temp = 0;
-		else temp = 1;
-		ctx.registers[n] >>= 1;
-		if ((ctx.SR & flagT) != 0)
-			ctx.registers[n] |= 0x80000000;
-		else
-			ctx.registers[n] &= 0x7FFFFFFF;
-		if (temp == 1) {
-			ctx.SR |= flagT;
-		} else ctx.SR &= ~flagT;
-
-
-		//Logger.log(Logger.CPU,String.format("rotcr89: r[%d]=%x\r", n, ctx.registers[n]));
+		int temp = ctx.registers[n] & 1;
+		ctx.registers[n] = (ctx.registers[n] >>> 1) | ((ctx.SR & flagT) << 31);
+		ctx.SR &= ~flagT;
+		ctx.SR |= temp;
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -1206,21 +1187,9 @@ public class Sh2Impl implements Sh2 {
 
 	protected final void ROTL(int code) {
 		int n = RN(code);
-
-		if ((ctx.registers[n] & 0x80000000) != 0)
-			ctx.SR |= flagT;
-		else
-			ctx.SR &= ~flagT;
-
-		ctx.registers[n] <<= 1;
-
-		if ((ctx.SR & flagT) != 0) {
-			ctx.registers[n] |= 0x1;
-		} else {
-			ctx.registers[n] &= 0xFFFFFFFE;
-		}
-
-		//	Logger.log(Logger.CPU,String.format("rotl: despues %x\r", ctx.registers[n]));
+		ctx.SR &= ~flagT;
+		ctx.SR |= (ctx.registers[n] >>> 31) & flagT;
+		ctx.registers[n] = (ctx.registers[n] << 1) | (ctx.registers[n] >>> 31);
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -1228,67 +1197,46 @@ public class Sh2Impl implements Sh2 {
 
 	protected final void ROTCL(int code) {
 		int n = RN(code);
-		int temp = 0;
 
-		if ((ctx.registers[n] & 0x80000000) == 0) temp = 0;
-		else temp = 1;
+		int temp = (ctx.registers[n] >>> 31) & 1;
+		ctx.registers[n] = (ctx.registers[n] << 1) | (ctx.SR & flagT);
+		ctx.SR &= ~flagT;
+		ctx.SR |= temp;
 
-		ctx.registers[n] <<= 1;
-		if ((ctx.SR & flagT) != 0) ctx.registers[n] |= 0x00000001;
-		else ctx.registers[n] &= 0xFFFFFFFE;
-
-		if (temp == 1)
-			ctx.SR |= flagT;
-		else
-			ctx.SR &= ~flagT;
-
-
-		// Logger.log(Logger.CPU,String.format("rotcl: r[%d]=%x\r", n, ctx.registers[n]));
 		ctx.cycles--;
 		ctx.PC += 2;
 	}
 
 	protected final void SHAR(int code) {
 		int n = RN(code);
-		int temp = 0;
-		if ((ctx.registers[n] & 0x00000001) == 0) ctx.SR &= (~flagT);
-		else ctx.SR |= flagT;
-		if ((ctx.registers[n] & 0x80000000) == 0) temp = 0;
-		else temp = 1;
-		ctx.registers[n] >>= 1;
-		if (temp == 1) ctx.registers[n] |= 0x80000000;
-		else ctx.registers[n] &= 0x7FFFFFFF;
 
-		//Logger.log(Logger.CPU,String.format("shar: despues %x\r", ctx.registers[n]));
+		ctx.SR &= (~flagT);
+		ctx.SR |= ctx.registers[n] & 1;
+		ctx.registers[n] = ctx.registers[n] >> 1;
+
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void SHAL(int code) {
 		int n = RN(code);
 
-		if ((ctx.registers[n] & 0x80000000) == 0)
-			ctx.SR &= (~flagT);
-		else ctx.SR |= flagT;
-		ctx.registers[n] <<= 1;
+		ctx.SR &= (~flagT);
+		ctx.SR |= (ctx.registers[n] >>> 31) & 1;
+		ctx.registers[n] = ctx.registers[n] << 1;
 
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void SHLL(int code) {
 		int n = RN(code);
 
-		//	Logger.log(Logger.CPU,String.format("shll: antes %x\r", ctx.registers[n]));
 		ctx.SR = (ctx.SR & ~flagT) | ((ctx.registers[n] >>> 31) & 1);
 		ctx.registers[n] <<= 1;
 
-		//Logger.log(Logger.CPU,String.format("shll: despues %x\r", ctx.registers[n]));
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void SHLR(int code) {
@@ -1296,13 +1244,9 @@ public class Sh2Impl implements Sh2 {
 
 		ctx.SR = (ctx.SR & ~flagT) | (ctx.registers[n] & 1);
 		ctx.registers[n] >>>= 1;
-		ctx.registers[n] &= 0x7FFFFFFF;
-
-		//Logger.log(Logger.CPU,String.format("shlr: r[%d]=%x\r\n", n, ctx.registers[n]));
 
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void SHLL2(int code) {
@@ -1312,20 +1256,15 @@ public class Sh2Impl implements Sh2 {
 
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void SHLR2(int code) {
 		int n = RN(code);
 
 		ctx.registers[n] >>>= 2;
-		ctx.registers[n] &= 0x3FFFFFFF;
-
-//		System.out.println(String.format("shlr2: r[%d]=%x\r\n", n, ctx.registers[n]));
 
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void SHLL8(int code) {
@@ -1363,11 +1302,8 @@ public class Sh2Impl implements Sh2 {
 
 		ctx.registers[n] >>>= 16;
 
-		ctx.registers[n] &= 0x0000FFFF;
-
 		ctx.cycles--;
 		ctx.PC += 2;
-
 	}
 
 	protected final void BF(int code) {
