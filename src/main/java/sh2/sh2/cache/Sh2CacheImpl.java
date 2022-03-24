@@ -49,7 +49,7 @@ public class Sh2CacheImpl implements Sh2Cache {
     private static final Logger LOG = LogManager.getLogger(Sh2CacheImpl.class.getSimpleName());
     private static final boolean verbose = false;
 
-    private Sh2CacheEntry ca;
+    protected Sh2CacheEntry ca;
     private CpuDeviceAccess cpu;
     private IMemory memory;
     private CacheContext ctx;
@@ -127,9 +127,13 @@ public class Sh2CacheImpl implements Sh2Cache {
                     Sh2CacheLine line = ca.way[i][entry];
                     if ((line.v > 0) && (line.tag == tagaddr)) {
                         updateLru(i, ca.lru, entry);
-                        int r = getCachedData(line.data, addr & LINE_MASK, size);
-                        if (verbose) LOG.info("Cache read at {} {}, val: {}", th(addr), size, r);
-                        return r;
+//                        LOG.info("{} Cache read at {} {}", cpu, th(addr), size);
+//                        if(addr == 0x15){
+//                            System.out.println("here");
+//                        }
+                        if (verbose) LOG.info("{} Cache read at {} {}, val: {}", cpu, th(addr), size,
+                                getCachedData(line.data, addr & LINE_MASK, size));
+                        return getCachedData(line.data, addr & LINE_MASK, size);
                     }
                 }
                 // cache miss

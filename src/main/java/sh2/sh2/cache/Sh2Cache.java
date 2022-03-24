@@ -87,7 +87,7 @@ public interface Sh2Cache {
             @Override
             public CacheContext updateState(int value) {
                 CacheContext ctx = super.updateState(value);
-                ctx.cacheEn = 0; //always disabled
+                ca.enable = ctx.cacheEn = 0; //always disabled
                 return ctx;
             }
         };

@@ -196,6 +196,16 @@ public class DmaC implements StepDevice {
         oneDmaInProgress = dmaChannelSetup[0].dmaInProgress || dmaChannelSetup[1].dmaInProgress;
     }
 
+    @Override
+    public void reset() {
+        writeBufferForChannel(0, DMA_CHCR0.addr, 0, Size.LONG);
+        writeBufferForChannel(1, DMA_CHCR0.addr, 0, Size.LONG);
+        writeBuffer(regs, DMA_DRCR0.addr, 0, Size.BYTE);
+        writeBuffer(regs, DMA_DRCR1.addr, 0, Size.BYTE);
+        writeBuffer(regs, DMA_DMAOR.addr, 0, Size.LONG);
+        oneDmaInProgress = false;
+    }
+
     public DmaChannelSetup[] getDmaChannelSetup() {
         return dmaChannelSetup;
     }

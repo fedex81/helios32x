@@ -32,12 +32,12 @@ public class MemoryTest {
         memory = new Sh2Memory(new S32XMMREG(), b);
         Assertions.assertEquals(0xA0, memory.romSize);
         Assertions.assertEquals(0xFF, memory.romMask);
-        int res = memory.read8i(START_ROM + 0xA0);
-        int res1 = memory.read8i(START_ROM + 0);
+        int res = memory.read8(START_ROM + 0xA0);
+        int res1 = memory.read8(START_ROM + 0);
         Assertions.assertEquals(res, res1);
 
-        res = memory.read8i(START_ROM_CACHE + 0xA1);
-        res1 = memory.read8i(START_ROM_CACHE + 1);
+        res = memory.read8(START_ROM_CACHE + 0xA1);
+        res1 = memory.read8(START_ROM_CACHE + 1);
         Assertions.assertEquals(res, res1);
     }
 }

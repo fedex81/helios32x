@@ -2,10 +2,6 @@ package sh2;
 
 import omegadrive.util.Size;
 
-import java.nio.ByteBuffer;
-
-import static omegadrive.util.Util.th;
-
 /**
  * Federico Berti
  * <p>
@@ -13,84 +9,43 @@ import static omegadrive.util.Util.th;
  */
 public interface IMemory {
 
-    public static class PrefetchContext {
-        public static final int DEFAULT_PREFETCH_LOOKAHEAD = 0x16;
+    void write(int register, int value, Size size);
 
-        public final int prefetchLookahead;
-        public final int[] prefetchWords;
-
-        public int start, end, prefetchPc, pcMasked;
-        public int memAccessDelay;
-        public ByteBuffer buf;
-
-        public PrefetchContext() {
-            this(DEFAULT_PREFETCH_LOOKAHEAD);
-        }
-
-        public PrefetchContext(int lookahead) {
-            prefetchLookahead = lookahead;
-            prefetchWords = new int[lookahead << 1];
-        }
-
-        @Override
-        public String toString() {
-            return "PrefetchContext{" +
-                    "prefetchLookahead=" + th(prefetchLookahead) +
-                    ", start=" + th(start) +
-                    ", end=" + th(end) +
-                    ", prefetchPc=" + th(prefetchPc) +
-                    ", pcMasked=" + th(pcMasked) +
-                    '}';
-        }
-    }
-
-    void write8i(int reg, byte val);
-
-    void write16i(int reg, int val);
-
-    void write32i(int reg, int val);
-
-    int read8i(int reg);
-
-    int read16i(int reg);
-
-    int read32i(int i);
+    int read(int register, Size size);
 
     void prefetch(int pc, S32xUtil.CpuDeviceAccess cpu);
 
     void resetSh2();
 
     default int fetch(int pc, S32xUtil.CpuDeviceAccess cpu) {
-        return read16i(pc);
+        return read16(pc);
     }
 
     default int fetchDelaySlot(int pc, S32xUtil.CpuDeviceAccess cpu) {
-        return read16i(pc);
+        return read16(pc);
     }
 
-    default void write(int register, int value, Size size) {
-        switch (size) {
-            case BYTE:
-                write8i(register, (byte) value);
-                break;
-            case WORD:
-                write16i(register, value);
-                break;
-            case LONG:
-                write32i(register, value);
-                break;
-        }
+    default void write8(int addr, byte val) {
+        write(addr, val, Size.BYTE);
     }
 
-    default int read(int register, Size size) {
-        switch (size) {
-            case BYTE:
-                return read8i(register);
-            case WORD:
-                return read16i(register);
-            case LONG:
-                return read32i(register);
-        }
-        return (int) size.getMask();
+    default void write16(int addr, int val) {
+        write(addr, val, Size.WORD);
+    }
+
+    default void write32(int addr, int val) {
+        write(addr, val, Size.LONG);
+    }
+
+    default int read8(int addr) {
+        return read(addr, Size.BYTE);
+    }
+
+    default int read16(int addr) {
+        return read(addr, Size.WORD);
+    }
+
+    default int read32(int addr) {
+        return read(addr, Size.LONG);
     }
 }

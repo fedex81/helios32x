@@ -86,18 +86,26 @@ public class Sh2MMREG {
                 wdt.write(regSpec, value, size);
                 break;
             case FRT:
+                handleWriteFRT(regSpec, value, size);
+                break;
             case BSC:
+//                LOG.error("{} Unexpected BSC reg {} write: {} {}", cpu, regSpec, th(value) ,size);
+                assert size != Size.BYTE;
+                if (size == Size.LONG) {
+                    assert value >>> 16 == 0xa55a;
+                    value &= 0xFFFF;
+                    size = Size.WORD;
+                }
+                if (regSpec == RegSpec.BSC_BCR1) {
+                    value &= 0x1ff7;
+                    value |= ((cpu.ordinal() + 1) & 1) << 15;
+                }
             case UBC:
             case NONE:
             default:
                 //logAccess("write", reg, value, size);
                 if (regSpec == RegSpec.NONE_CCR) {
-                    int prev = readBuffer(regs, reg & SH2_REG_MASK, size);
-                    if (prev != value) {
-                        Sh2Cache.CacheContext ctx = cache.updateState(value);
-                        //purge always reverts to 0
-                        value = ctx.ccr;
-                    }
+                    value = handleWriteCCR(regSpec, value, size);
                 }
                 writeBuffer(regs, reg & SH2_REG_MASK, value, size);
                 break;
@@ -141,6 +149,18 @@ public class Sh2MMREG {
                     break;
                 case DIV:
                     res = divUnit.read(regSpec, reg & SH2_REG_MASK, size);
+                    break;
+                case FRT:
+                    res = readBuffer(regs, reg & SH2_REG_MASK, size);
+                    if (regSpec != RegSpec.FRT_TIER && regSpec != RegSpec.FRT_TOCR) {
+                        LOG.error("{} Unexpected FRT reg {} read: {} {}", cpu, regSpec, th(res), size);
+                    }
+                    break;
+                case BSC:
+                    assert size != Size.BYTE;
+                    res = readBuffer(regs, reg & SH2_REG_MASK, Size.WORD);
+                    LOG.error("{} Unexpected BSC reg {} read: {} {}", cpu, regSpec, th(res), size);
+                    break;
                 default:
                     res = readBuffer(regs, reg & SH2_REG_MASK, size);
                     break;
@@ -150,6 +170,28 @@ public class Sh2MMREG {
             logAccess("read", reg, res, size);
         }
         return res;
+    }
+
+    private void handleWriteFRT(RegSpec r, int v, Size size) {
+        assert size == Size.BYTE;
+        if (r == RegSpec.FRT_TIER) {
+            v = (v & 0x8e) | 1;
+        } else if (r == RegSpec.FRT_TOCR) {
+            v |= 0xe0;
+        } else {
+//            LOG.error("{} Unexpected FRT reg {} write: {} {}", cpu, r, th(v) ,size);
+        }
+        writeBuffer(regs, r.addr & SH2_REG_MASK, v, size);
+    }
+
+    private int handleWriteCCR(RegSpec r, int v, Size size) {
+        int prev = readBuffer(regs, r.addr, size);
+        if (prev != v) {
+            Sh2Cache.CacheContext ctx = cache.updateState(v);
+            //purge always reverts to 0
+            v = ctx.ccr;
+        }
+        return v;
     }
 
     public ByteBuffer getRegs() {
@@ -177,8 +219,12 @@ public class Sh2MMREG {
         sci.reset();
         divUnit.reset();
         wdt.reset();
-        writeBuffer(regs, RegSpec.FRT_TIER.addr, 0x11, Size.BYTE);
-        writeBuffer(regs, RegSpec.FRT_TOCR.addr, 0x17, Size.BYTE);
+        dmaC.reset();
+        intC.reset();
+        writeBuffer(regs, RegSpec.FRT_TIER.addr, 0x1, Size.BYTE);
+        writeBuffer(regs, RegSpec.FRT_TOCR.addr, 0xE0, Size.BYTE);
+        writeBuffer(regs, RegSpec.FRT_OCRAB_H.addr, 0xFF, Size.BYTE);
+        writeBuffer(regs, RegSpec.FRT_OCRAB_L.addr, 0xFF, Size.BYTE);
     }
 
     public void deviceStep() {

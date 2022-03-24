@@ -116,7 +116,7 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
 
     @Override
     public String getInstructionOnly(int pc) {
-        return Sh2Helper.getInstString(ctx.sh2TypeCode, pc, memory.read16i(pc));
+        return Sh2Helper.getInstString(ctx.sh2TypeCode, pc, memory.read16(pc));
     }
 
     @Override

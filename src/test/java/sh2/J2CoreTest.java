@@ -108,21 +108,6 @@ public class J2CoreTest {
         final ByteBuffer ram = ByteBuffer.allocateDirect(ramSize);
         return new IMemory() {
             @Override
-            public void write8i(int reg, byte val) {
-                write(reg, val, Size.BYTE);
-            }
-
-            @Override
-            public void write16i(int reg, int val) {
-                write(reg, val, Size.WORD);
-            }
-
-            @Override
-            public void write32i(int reg, int val) {
-                write(reg, val, Size.LONG);
-            }
-
-            @Override
             public void write(int address, int value, Size size) {
                 long lreg = address & 0xFFFF_FFFFL;
                 if (lreg < romSize) {
@@ -151,23 +136,7 @@ public class J2CoreTest {
             }
 
             @Override
-            public int read8i(int addr) {
-                return read(addr, Size.BYTE);
-            }
-
-            @Override
-            public int read16i(int addr) {
-                return read(addr, Size.WORD);
-            }
-
-            @Override
-            public int read32i(int addr) {
-                return read(addr, Size.LONG);
-            }
-
-            @Override
             public void prefetch(int pc, S32xUtil.CpuDeviceAccess cpu) {
-
             }
 
             @Override

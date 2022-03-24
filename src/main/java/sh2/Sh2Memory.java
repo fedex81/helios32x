@@ -8,6 +8,7 @@ import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.cache.Sh2CacheImpl;
+import sh2.sh2.prefetch.Sh2Prefetch;
 
 import java.nio.ByteBuffer;
 
@@ -26,7 +27,7 @@ public final class Sh2Memory implements IMemory {
 	private static final int BOOT_ROM_SIZE = 0x4000; // 16kb
 	private static final int SDRAM_SIZE = 0x4_0000; // 256kb
 	private static final int MAX_ROM_SIZE = 0x40_0000; // 256kb
-	private static final int SDRAM_MASK = SDRAM_SIZE - 1;
+	public static final int SDRAM_MASK = SDRAM_SIZE - 1;
 	private static final int ROM_MASK = MAX_ROM_SIZE - 1;
 
 	public static final int CACHE_THROUGH_OFFSET = 0x2000_0000;
@@ -49,14 +50,13 @@ public final class Sh2Memory implements IMemory {
 	public static final int END_DRAM_MODE = 0xFFFF_C000;
 
 	private static final boolean SH2_ENABLE_CACHE = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "true"));
-	private static final boolean SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
 
 	public ByteBuffer[] bios = new ByteBuffer[2];
-	private ByteBuffer sdram;
+	public ByteBuffer sdram;
 	public ByteBuffer rom;
 
 	private Sh2Cache[] cache = new Sh2Cache[2];
-	private final PrefetchContext[] prefetchContexts = {new PrefetchContext(), new PrefetchContext()};
+	private Sh2Prefetch prefetch;
 
 	public int romSize = SDRAM_SIZE,
 			romMask = SDRAM_MASK;
@@ -82,6 +82,7 @@ public final class Sh2Memory implements IMemory {
 		cache[SLAVE.ordinal()] = SH2_ENABLE_CACHE ? new Sh2CacheImpl(SLAVE, this) : Sh2Cache.createNoCacheInstance(SLAVE, this);
 		sh2MMREGS[MASTER.ordinal()] = new Sh2MMREG(MASTER, cache[MASTER.ordinal()]);
 		sh2MMREGS[SLAVE.ordinal()] = new Sh2MMREG(SLAVE, cache[SLAVE.ordinal()]);
+		prefetch = new Sh2Prefetch(this, cache);
 	}
 
 	@Override
@@ -159,7 +160,7 @@ public final class Sh2Memory implements IMemory {
 				} else if (address >= START_SDRAM && address < END_SDRAM) {
 					writeBuffer(sdram, address & SDRAM_MASK, val, size);
 					S32xMemAccessDelay.addWriteCpuDelay(SDRAM);
-					checkPrefetch(address, val, size);
+//					checkPrefetch(address, val, size);
 				} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
 					if (s32XMMREG.fm > 0) {
 						s32XMMREG.write(address, val, size);
@@ -179,7 +180,7 @@ public final class Sh2Memory implements IMemory {
 			case CACHE_IO_H3: //0xF
 				if ((address & ONCHIP_REG_MASK) == ONCHIP_REG_MASK) {
 					sh2MMREGS[cpuAccess.ordinal()].write(address & 0xFFFF, val, size);
-					checkPrefetch(address, val, size);
+//					checkPrefetch(address, val, size);
 				} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
 					sh2MMREGS[cpuAccess.ordinal()].writeDramMode(address & 0xFFFF, val, size);
 				} else {
@@ -193,119 +194,19 @@ public final class Sh2Memory implements IMemory {
 		}
 	}
 
-	private void checkPrefetch(int writeAddr, int val, Size size) {
-		writeAddr &= 0xFFF_FFFF; //drop cached vs uncached
-		for (int i = 0; i < 2; i++) {
-			if (cache[i].getCacheContext().cacheEn == 0) {
-				continue;
-			}
-			int start = Math.max(0, prefetchContexts[i].prefetchPc - (prefetchContexts[i].prefetchLookahead << 1));
-			int end = prefetchContexts[i].prefetchPc + (prefetchContexts[i].prefetchLookahead << 1);
-			if (writeAddr >= start && writeAddr <= end) {
-				CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
-				LOG.warn("{} write, addr: {} val: {} {}, {} PF window: [{},{}]", cpuAccess,
-						th(writeAddr), th(val), size, CpuDeviceAccess.cdaValues[i], th(start), th(end));
-				prefetch(prefetchContexts[i].prefetchPc, CpuDeviceAccess.cdaValues[i]);
-			}
-		}
-	}
-
 	@Override
 	public void prefetch(int pc, CpuDeviceAccess cpu) {
-		if (!SH2_ENABLE_PREFETCH) return;
-
-		final PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
-		pctx.start = (pc & 0xFF_FFFF) + (-pctx.prefetchLookahead << 1);
-		pctx.end = (pc & 0xFF_FFFF) + (pctx.prefetchLookahead << 1);
-		switch (pc >> 24) {
-			case 6:
-			case 0x26:
-				pctx.start = Math.max(0, pctx.start) & SDRAM_MASK;
-				pctx.end = Math.min(romSize - 1, pctx.end) & SDRAM_MASK;
-				pctx.pcMasked = pc & SDRAM_MASK;
-				pctx.memAccessDelay = SDRAM;
-				pctx.buf = sdram;
-				break;
-			case 2:
-			case 0x22:
-				pctx.start = Math.max(0, pctx.start) & romMask;
-				pctx.end = Math.min(romSize - 1, pctx.end) & romMask;
-				pctx.pcMasked = pc & romMask;
-				pctx.memAccessDelay = S32xMemAccessDelay.ROM;
-				pctx.buf = rom;
-				break;
-			case 0:
-			case 0x20:
-				pctx.buf = bios[cpu.ordinal()];
-				pctx.start = Math.max(0, pctx.start);
-				pctx.end = Math.min(pctx.buf.capacity() - 1, pctx.end);
-				pctx.pcMasked = pc;
-				pctx.memAccessDelay = S32xMemAccessDelay.BOOT_ROM;
-				break;
-			default:
-				if ((pc >>> 28) == 0xC) {
-					pctx.start = Math.max(0, pctx.start) & Sh2Cache.DATA_ARRAY_MASK;
-					pctx.end = Math.min(Sh2Cache.DATA_ARRAY_SIZE - 1, pctx.end) & Sh2Cache.DATA_ARRAY_MASK;
-					pctx.memAccessDelay = S32xMemAccessDelay.SYS_REG;
-					pctx.buf = cache[cpu.ordinal()].getDataArray();
-					pctx.pcMasked = pc & Sh2Cache.DATA_ARRAY_MASK;
-				} else {
-					LOG.error("{} Unhandled prefetch: {}", cpu, th(pc));
-					throw new RuntimeException("Unhandled prefetch: " + th(pc));
-				}
-				break;
-		}
-		pctx.prefetchPc = pc;
-//		final Sh2Cache sh2Cache = cache[cpu.ordinal()];
-//		int cacheOn = sh2Cache.getCacheContext().cacheEn;
-//		boolean isCachedAccess = (cacheOn > 0) && (pc & CACHE_THROUGH_OFFSET) != CACHE_THROUGH_OFFSET;
-//		final int pcBase = pc & 0xFF00_0000;
-		for (int bytePos = pctx.start; bytePos < pctx.end; bytePos += 2) {
-			int w = ((bytePos - pctx.pcMasked) >> 1) + pctx.prefetchLookahead;
-			pctx.prefetchWords[w] = pctx.buf.getShort(bytePos) & 0xFFFF;
-//			pctx.prefetchWords[w] = isCachedAccess ? sh2Cache.readDirect(pcBase + bytePos, Size.WORD) : pctx.buf.getShort(bytePos) & 0xFFFF;
-//			pctx.prefetchWords[w] = sh2Cache.readDirect(pcBase + bytePos, Size.WORD);
-		}
+		prefetch.prefetch(pc, cpu);
 	}
 
 	@Override
 	public int fetch(int pc, S32xUtil.CpuDeviceAccess cpu) {
-		if (!SH2_ENABLE_PREFETCH) {
-			return read(pc, Size.WORD);
-		}
-		final Sh2Memory.PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
-		int pcDeltaWords = (pc - pctx.prefetchPc) >> 1;
-		if (Math.abs(pcDeltaWords) >= pctx.prefetchLookahead) {
-			prefetch(pc, cpu);
-			pcDeltaWords = 0;
-//			if ((pfMiss++ & 0x7F_FFFF) == 0) {
-//				LOG.info("pfTot: {}, pfMiss%: {}", pfTotal, 1.0 * pfMiss / pfTotal);
-//			}
-		}
-//		pfTotal++;
-		S32xMemAccessDelay.addReadCpuDelay(pctx.memAccessDelay);
-		return pctx.prefetchWords[pctx.prefetchLookahead + pcDeltaWords];
+		return prefetch.fetch(pc, cpu);
 	}
 
 	@Override
 	public int fetchDelaySlot(int pc, S32xUtil.CpuDeviceAccess cpu) {
-		if (!SH2_ENABLE_PREFETCH) {
-			return read(pc, Size.WORD);
-		}
-		final Sh2Memory.PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
-		int pcDeltaWords = (pc - pctx.prefetchPc) >> 1;
-//		pfTotal++;
-		int res;
-		if (Math.abs(pcDeltaWords) < pctx.prefetchLookahead) {
-			S32xMemAccessDelay.addReadCpuDelay(pctx.memAccessDelay);
-			res = pctx.prefetchWords[pctx.prefetchLookahead + pcDeltaWords];
-		} else {
-			res = read(pc, Size.WORD);
-//			if ((pfMiss++ & 0x7F_FFFF) == 0) {
-//				LOG.info("pfTot: {}, pfMiss%: {}", pfTotal, 1.0 * pfMiss / pfTotal);
-//			}
-		}
-		return res;
+		return prefetch.fetchDelaySlot(pc, cpu);
 	}
 
 	public Sh2MMREG getSh2MMREGS(CpuDeviceAccess cpu) {
@@ -316,35 +217,5 @@ public final class Sh2Memory implements IMemory {
 	public void resetSh2() {
 		sh2MMREGS[MASTER.ordinal()].reset();
 		sh2MMREGS[SLAVE.ordinal()].reset();
-	}
-
-	@Override
-	public int read8i(int address) {
-		return read(address, Size.BYTE);
-	}
-
-	@Override
-	public int read16i(int address) {
-		return read(address, Size.WORD);
-	}
-
-	@Override
-	public int read32i(int address) {
-		return read(address, Size.LONG);
-	}
-
-	@Override
-	public void write8i(int address, byte val) {
-		write(address, val, Size.BYTE);
-	}
-
-	@Override
-	public void write16i(int address, int val) {
-		write(address, val, Size.WORD);
-	}
-
-	@Override
-	public void write32i(int address, int val) {
-		write(address, val, Size.LONG);
 	}
 }

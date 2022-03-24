@@ -182,7 +182,6 @@ public class SerialCommInterface implements StepDevice {
         writeBuffer(regs, SCI_SSR.addr, 0x84, Size.BYTE);
         writeBuffer(regs, SCI_RDR.addr, 0, Size.BYTE);
 
-        int scr = readBuffer(regs, SCI_SCR.addr, Size.BYTE);
         tdre = 1;
         rdrf = 0;
         txDataReady = rxDataReady = txEn = rxEn = false;
