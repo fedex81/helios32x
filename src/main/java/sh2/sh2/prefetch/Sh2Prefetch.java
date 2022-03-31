@@ -8,6 +8,10 @@ import sh2.Md32xRuntimeData;
 import sh2.S32xUtil;
 import sh2.Sh2Memory;
 import sh2.dict.S32xMemAccessDelay;
+import sh2.sh2.Sh2.FetchResult;
+import sh2.sh2.Sh2Impl;
+import sh2.sh2.Sh2Instructions;
+import sh2.sh2.Sh2Instructions.Sh2Instruction;
 import sh2.sh2.cache.Sh2Cache;
 
 import java.nio.ByteBuffer;
@@ -30,12 +34,14 @@ public class Sh2Prefetch {
     private static final Logger LOG = LogManager.getLogger(Sh2Prefetch.class.getSimpleName());
 
     private static final boolean SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
+    private static final boolean SH2_NEW_PREFETCH = true;
 
     public static class PrefetchContext {
         public static final int DEFAULT_PREFETCH_LOOKAHEAD = 8;
 
         public final int prefetchLookahead;
         public final int[] prefetchWords;
+        public Sh2Instruction[] inst;
 
         public int start, end, prefetchPc, pcMasked, hits;
         public int memAccessDelay;
@@ -48,18 +54,6 @@ public class Sh2Prefetch {
         public PrefetchContext(int lookahead) {
             prefetchLookahead = lookahead;
             prefetchWords = new int[lookahead << 1];
-        }
-
-        public static PrefetchContext copyOf(PrefetchContext pctx) {
-            PrefetchContext c = new PrefetchContext();
-            c.start = pctx.start;
-            c.end = pctx.end;
-            c.prefetchPc = pctx.prefetchPc;
-            c.pcMasked = pctx.pcMasked;
-            c.memAccessDelay = pctx.memAccessDelay;
-            c.buf = pctx.buf;
-            System.arraycopy(pctx.prefetchWords, 0, c.prefetchWords, 0, pctx.prefetchWords.length);
-            return c;
         }
 
         @Override
@@ -121,7 +115,7 @@ public class Sh2Prefetch {
 
     public final PrefetchContext[] prefetchContexts = {new PrefetchContext(), new PrefetchContext()};
 
-    public Sh2Prefetch(Sh2Memory memory, Sh2Cache[] cache) {
+    public Sh2Prefetch(Sh2Impl sh2, Sh2Memory memory, Sh2Cache[] cache) {
         this.cache = cache;
         this.memory = memory;
         romMask = memory.romMask;
@@ -129,12 +123,12 @@ public class Sh2Prefetch {
         sdram = memory.sdram;
         rom = memory.rom;
         bios = memory.bios;
+        Sh2Instructions.createOpcodeMap(sh2);
     }
 
     public PrefetchContext prefetchCreate(int pc, S32xUtil.CpuDeviceAccess cpu) {
         PrefetchContext p = new PrefetchContext();
         prefetchSimple(p, pc, cpu);
-//        PrefetchContext p =  PrefetchContext.copyOf(prefetchContexts[cpu.ordinal()]);
 //        System.out.println(cpu + "," + p);
         return p;
     }
@@ -189,8 +183,8 @@ public class Sh2Prefetch {
     }
 
     public void prefetch(int pc, S32xUtil.CpuDeviceAccess cpu) {
-//        prefetchNew(pc, cpu);
-        prefetchSimple(prefetchContexts[cpu.ordinal()], pc, cpu);
+        if (SH2_NEW_PREFETCH) prefetchNew(pc, cpu);
+        if (!SH2_NEW_PREFETCH) prefetchSimple(prefetchContexts[cpu.ordinal()], pc, cpu);
         assert prefetchContexts[cpu.ordinal()] != null;
     }
 
@@ -202,8 +196,9 @@ public class Sh2Prefetch {
         PrefetchContext pctxStored = pMap.get(pc);
         if (pctxStored != null) {
             pctxStored.hits++;
-            if (pctxStored.hits == 10_000) {
-//                LOG.info(pctxStored);
+            if (((pctxStored.hits + 1) & 0xFFFF) == 0) {
+                pctxStored.inst = Sh2Instructions.generateInst(pctxStored.prefetchWords);
+//                LOG.info("{}\n{}", th(pctxStored.hits), Sh2Instructions.toListOfInst(pctxStored));
 //                System.out.println(cpu + "," + pctxStored);
             }
             if (checkPrefetch) {
@@ -228,9 +223,12 @@ public class Sh2Prefetch {
     }
 
 
-    public int fetch(int pc, S32xUtil.CpuDeviceAccess cpu) {
+    public void fetch(FetchResult fetchResult, S32xUtil.CpuDeviceAccess cpu) {
+        final int pc = fetchResult.pc;
+        fetchResult.inst = null;
         if (!SH2_ENABLE_PREFETCH) {
-            return memory.read(pc, Size.WORD);
+            fetchResult.opcode = memory.read(pc, Size.WORD);
+            return;
         }
         PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
         int pcDeltaWords = (pc - pctx.prefetchPc) >> 1;
@@ -244,7 +242,9 @@ public class Sh2Prefetch {
         }
 //		pfTotal++;
         S32xMemAccessDelay.addReadCpuDelay(pctx.memAccessDelay);
-        return pctx.prefetchWords[pctx.prefetchLookahead + pcDeltaWords];
+        fetchResult.opcode = pctx.prefetchWords[pctx.prefetchLookahead + pcDeltaWords];
+        fetchResult.inst = pctx.inst != null ? pctx.inst[pctx.prefetchLookahead + pcDeltaWords] : null;
+        return;
     }
 
 

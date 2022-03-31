@@ -81,7 +81,7 @@ public class Sh2Impl implements Sh2 {
 		return res;
 	}
 
-	private void ILLEGAL(int code) {
+	protected final void ILLEGAL(int code) {
 		push(ctx.SR);
 		push(ctx.PC);
 		LOG.error("{} illegal instruction: {}\n{}", ctx.cpuAccess, th(code),
@@ -1769,6 +1769,8 @@ public class Sh2Impl implements Sh2 {
 		ctx.cycles -= 5;
 	}
 
+	private FetchResult fetchResult = new FetchResult();
+
 	/*
 	 * Because an instruction in a delay slot cannot alter the PC we can do this.
 	 * Perf: better to keep run() close to decode()
@@ -1778,16 +1780,26 @@ public class Sh2Impl implements Sh2 {
 		final Sh2MMREG sh2MMREG = ctx.devices.sh2MMREG;
 		final IntControl intControl = ctx.devices.intC;
 		for (; ctx.cycles >= 0; ) {
-			decode(memory.fetch(ctx.PC, ctx.cpuAccess));
+			decode();
 			sh2MMREG.deviceStep();
+			boolean res = acceptInterrupts(intControl.getInterruptLevel());
 			ctx.cycles -= Md32xRuntimeData.resetCpuDelayExt(); //TODO check perf
-			if (acceptInterrupts(intControl.getInterruptLevel())) {
-				ctx.cycles -= Md32xRuntimeData.resetCpuDelayExt();
+			if (res) {
 				break;
 			}
 		}
 		ctx.cycles_ran = Sh2Context.burstCycles - ctx.cycles;
 		ctx.cycles = Sh2Context.burstCycles;
+	}
+
+	protected final void decode() {
+		fetchResult.pc = ctx.PC;
+		memory.fetch(fetchResult, ctx.cpuAccess);
+		if (fetchResult.inst != null) {
+			fetchResult.inst.run();
+		} else {
+			decode(fetchResult.opcode);
+		}
 	}
 
 	protected final void decode(int instruction) {

@@ -29,4 +29,10 @@ public interface Sh2 extends Device {
     void run(Sh2Context masterCtx);
 
     void setCtx(Sh2Context ctx);
+
+    static class FetchResult {
+        public int pc;
+        public int opcode;
+        public Sh2Instructions.Sh2Instruction inst;
+    }
 }

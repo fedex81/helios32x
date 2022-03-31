@@ -1,6 +1,7 @@
 package sh2;
 
 import omegadrive.util.Size;
+import sh2.sh2.Sh2;
 
 /**
  * Federico Berti
@@ -17,8 +18,8 @@ public interface IMemory {
 
     void resetSh2();
 
-    default int fetch(int pc, S32xUtil.CpuDeviceAccess cpu) {
-        return read16(pc);
+    default void fetch(Sh2.FetchResult ft, S32xUtil.CpuDeviceAccess cpu) {
+        ft.opcode = read16(ft.pc);
     }
 
     default int fetchDelaySlot(int pc, S32xUtil.CpuDeviceAccess cpu) {
