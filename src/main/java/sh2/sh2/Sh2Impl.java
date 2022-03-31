@@ -103,7 +103,10 @@ public class Sh2Impl implements Sh2 {
 		int d = (code & 0xff);
 		int n = ((code >> 8) & 0x0f);
 
-		ctx.registers[n] = (int) (short) memory.read16(ctx.PC + 4 + (d << 1));
+		//If this instruction is placed immediately after a delayed branch instruction, the PC must
+		//point to an address specified by (the starting address of the branch destination) + 2.
+		int memAddr = !ctx.delaySlot ? ctx.PC + 4 + (d << 1) : ctx.delayPC + 2 + (d << 1);
+		ctx.registers[n] = (int) (short) memory.read16(memAddr);
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -113,7 +116,10 @@ public class Sh2Impl implements Sh2 {
 		int d = (code & 0xff);
 		int n = ((code >> 8) & 0x0f);
 
-		ctx.registers[n] = memory.read32((ctx.PC & 0xfffffffc) + 4 + (d << 2));
+		//If this instruction is placed immediately after a delayed branch instruction, the PC must
+		//point to an address specified by (the starting address of the branch destination) + 2.
+		int memAddr = !ctx.delaySlot ? (ctx.PC & 0xfffffffc) + 4 + (d << 2) : ((ctx.delayPC + 2) & 0xfffffffc) + (d << 2);
+		ctx.registers[n] = memory.read32(memAddr);
 
 		ctx.cycles--;
 		ctx.PC += 2;
