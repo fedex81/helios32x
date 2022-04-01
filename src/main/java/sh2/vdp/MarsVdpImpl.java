@@ -504,13 +504,13 @@ public class MarsVdpImpl implements MarsVdp {
         }
         updateVdpBitmapMode(videoMode);
         updateVideoModeInternal(videoMode);
-        vdpContext.videoMode = videoMode;
     }
 
     private void updateVideoModeInternal(VideoMode videoMode) {
         this.buffer = new int[videoMode.getDimension().width * videoMode.getDimension().height];
         renderContext.screen = buffer;
-        LOG.info("Updating videoMode, {} -> {}", vdpContext.videoMode, videoMode);
+        LOG.info("Updating videoMode, {} <- {}", videoMode, vdpContext.videoMode);
+        vdpContext.videoMode = videoMode;
     }
 
     @Override

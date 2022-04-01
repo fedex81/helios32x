@@ -27,6 +27,7 @@ public final class Sh2Memory implements IMemory {
 	private static final Logger LOG = LogManager.getLogger(Sh2Memory.class.getSimpleName());
 
 	private static final int BOOT_ROM_SIZE = 0x4000; // 16kb
+	private static final int BOOT_ROM_MASK = BOOT_ROM_SIZE - 1;
 	private static final int SDRAM_SIZE = 0x4_0000; // 256kb
 	private static final int MAX_ROM_SIZE = 0x40_0000; // 256kb
 	public static final int SDRAM_MASK = SDRAM_SIZE - 1;
@@ -121,8 +122,7 @@ public final class Sh2Memory implements IMemory {
 					res = s32XMMREG.read(address, size);
 					S32xMemAccessDelay.addReadCpuDelay(FRAME_BUFFER);
 				} else if (address >= CACHE_THROUGH_OFFSET && address < CACHE_THROUGH_OFFSET + BOOT_ROM_SIZE) {
-					address &= bios[cpuAccess.ordinal()].capacity() - 1; //TODO t-mek
-					res = readBuffer(bios[cpuAccess.ordinal()], address, size);
+					res = readBuffer(bios[cpuAccess.ordinal()], address & BOOT_ROM_MASK, size);
 					S32xMemAccessDelay.addReadCpuDelay(BOOT_ROM);
 				}
 				break;

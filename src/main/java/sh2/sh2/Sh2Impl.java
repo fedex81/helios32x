@@ -1604,7 +1604,6 @@ public class Sh2Impl implements Sh2 {
 
 	protected final void SLEEP(int code) {
 		ctx.cycles -= 4;
-		ctx.PC += 2;
 	}
 
 	protected final void STCSR(int code) {

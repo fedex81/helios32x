@@ -35,6 +35,10 @@ public class BiosHolder {
         biosData[CpuDeviceAccess.MASTER.ordinal()] = ByteBuffer.wrap(FileUtil.readFileSafe(sh2m));
         biosData[CpuDeviceAccess.SLAVE.ordinal()] = ByteBuffer.wrap(FileUtil.readFileSafe(sh2s));
         biosData[CpuDeviceAccess.M68K.ordinal()] = ByteBuffer.wrap(FileUtil.readFileSafe(m68k));
+
+        assert biosData[CpuDeviceAccess.MASTER.ordinal()].capacity() > 0;
+        assert biosData[CpuDeviceAccess.SLAVE.ordinal()].capacity() > 0;
+        assert biosData[CpuDeviceAccess.M68K.ordinal()].capacity() > 0;
     }
 
     public ByteBuffer getBiosData(CpuDeviceAccess type) {
