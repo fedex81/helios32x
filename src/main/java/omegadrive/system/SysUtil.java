@@ -12,13 +12,20 @@ import omegadrive.sound.javasound.AbstractSoundManager;
 import omegadrive.sound.psg.PsgProvider;
 import omegadrive.system.gb.GbSoundWrapper;
 import omegadrive.system.nes.NesSoundWrapper;
+import omegadrive.ui.DisplayWindow;
 import omegadrive.util.Size;
 import omegadrive.vdp.model.BaseVdpAdapter;
 import omegadrive.vdp.model.BaseVdpProvider;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import sh2.Md32x;
 import sh2.pwm.S32xPwmProvider;
 
+import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Stream;
 
+import static omegadrive.SystemLoader.handleCompressedFiles;
 import static omegadrive.sound.SoundDevice.SoundDeviceType.*;
 import static omegadrive.sound.SoundProvider.SAMPLE_RATE_HZ;
 import static omegadrive.util.RegionDetector.Region;
@@ -29,6 +36,45 @@ import static omegadrive.util.RegionDetector.Region;
  * Copyright 2021
  */
 public class SysUtil {
+
+    private final static Logger LOG = LogManager.getLogger(SysUtil.class.getSimpleName());
+
+    public static final String SMD_INTERLEAVED_EXT = ".smd";
+
+    public static final String[] mdBinaryTypes = {".md", ".bin", SMD_INTERLEAVED_EXT};
+    public static final String[] sgBinaryTypes = {".sg", ".sc"};
+    public static final String[] cvBinaryTypes = {".col"};
+    public static final String[] msxBinaryTypes = {".rom"};
+    public static final String[] smsBinaryTypes = {".sms"};
+    public static final String[] ggBinaryTypes = {".gg"};
+    public static final String[] nesBinaryTypes = {".nes"};
+    public static final String[] gbBinaryTypes = {".gb"};
+    public static String[] s32xBinaryTypes = {".32x", ".bin", ".md"};
+    public static final String[] compressedBinaryTypes = {".gz", ".zip"};
+
+    public static final String[] binaryTypes = Stream.of(
+            mdBinaryTypes, s32xBinaryTypes, compressedBinaryTypes
+    ).flatMap(Stream::of).toArray(String[]::new);
+
+    public static SystemProvider createSystemProvider(Path file, DisplayWindow display, boolean debugPerf) {
+        String lowerCaseName = handleCompressedFiles(file, file.toString().toLowerCase());
+        if (lowerCaseName == null) {
+            LOG.error("Unable to load file: " + file != null ? file.toAbsolutePath() : "null");
+            return null;
+        }
+        SystemProvider systemProvider = null;
+        boolean isGen = Arrays.stream(mdBinaryTypes).anyMatch(lowerCaseName::endsWith);
+        boolean is32x = Arrays.stream(s32xBinaryTypes).anyMatch(lowerCaseName::endsWith);
+        if (isGen) {
+            systemProvider = Genesis.createNewInstance(display, debugPerf);
+        } else if (is32x) {
+            systemProvider = Md32x.createNewInstance32x(display, debugPerf);
+        }
+        if (systemProvider == null) {
+            LOG.error("Unable to find a system to load: {}", file.toAbsolutePath());
+        }
+        return systemProvider;
+    }
 
 
     public static Map<SoundDevice.SoundDeviceType, SoundDevice> getSoundDevices(SystemType systemType, Region region) {

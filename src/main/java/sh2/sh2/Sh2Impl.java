@@ -41,9 +41,85 @@ public class Sh2Impl implements Sh2 {
 
 	protected Sh2Context ctx;
 	protected IMemory memory;
+	protected FetchResult fetchResult = new FetchResult();
+	protected final Sh2Instructions.Sh2Instruction[] opcodeMap;
 
 	public Sh2Impl(IMemory memory) {
 		this.memory = memory;
+		this.opcodeMap = Sh2Instructions.createOpcodeMap(this);
+	}
+
+	//NO-OP
+	protected void printDebugMaybe() {
+	}
+
+	// get interrupt masks bits int the SR register
+	private int getIMASK() {
+		return (ctx.SR & flagIMASK) >>> 4;
+	}
+
+	private boolean acceptInterrupts(final int level) {
+		if (level > getIMASK()) {
+			processInterrupt(ctx, level);
+			ctx.devices.intC.clearCurrentInterrupt();
+			return true;
+		}
+		return false;
+	}
+
+	private void processInterrupt(final Sh2Context ctx, final int level) {
+//		System.out.println(ctx.cpuAccess + " Interrupt processed: " + level);
+		assert Md32xRuntimeData.getAccessTypeExt() == ctx.cpuAccess;
+		push(ctx.SR);
+		push(ctx.PC); //stores the next inst to be executed
+		//SR 7-4
+		ctx.SR &= 0xF0F;
+		ctx.SR |= (level << 4);
+
+		int vectorNum = ctx.devices.intC.getVectorNumber();
+		ctx.PC = memory.read32(ctx.VBR + (vectorNum << 2));
+		//5 + 3 mem accesses
+		ctx.cycles -= 5;
+	}
+
+	/*
+	 * Because an instruction in a delay slot cannot alter the PC we can do this.
+	 * Perf: better to keep run() close to decode()
+	 */
+	public void run(final Sh2Context ctx) {
+		this.ctx = ctx;
+		final Sh2MMREG sh2MMREG = ctx.devices.sh2MMREG;
+		final IntControl intControl = ctx.devices.intC;
+		for (; ctx.cycles >= 0; ) {
+			decode();
+			sh2MMREG.deviceStep();
+			boolean res = acceptInterrupts(intControl.getInterruptLevel());
+			ctx.cycles -= Md32xRuntimeData.resetCpuDelayExt(); //TODO check perf
+			if (res) {
+				break;
+			}
+		}
+		ctx.cycles_ran = Sh2Context.burstCycles - ctx.cycles;
+		ctx.cycles = Sh2Context.burstCycles;
+	}
+
+	protected final void decodeDelaySlot(int opcode) {
+		opcodeMap[opcode].runnable.run();
+	}
+
+	protected final void decode() {
+		fetchResult.pc = ctx.PC;
+		memory.fetch(fetchResult, ctx.cpuAccess);
+		printDebugMaybe();
+		if (fetchResult.inst != null) {
+			fetchResult.inst.runnable.run();
+		} else {
+			opcodeMap[fetchResult.opcode].runnable.run();
+		}
+	}
+
+	public void setCtx(Sh2Context ctx) {
+		this.ctx = ctx;
 	}
 
 	public static final int RN(int x) {
@@ -1450,7 +1526,7 @@ public class Sh2Impl implements Sh2 {
 		ctx.delayPC = ctx.PC;
 		ctx.PC = pc;
 		ctx.delaySlot = true;
-		decode(memory.fetchDelaySlot(pc, ctx.cpuAccess));
+		decodeDelaySlot(memory.fetchDelaySlot(pc, ctx.cpuAccess));
 		ctx.delaySlot = false;
 		ctx.PC = ctx.delayPC;
 	}
@@ -1739,689 +1815,5 @@ public class Sh2Impl implements Sh2 {
 		ctx.PC = memory.read32(ctx.VBR + (imm << 2)) + 4;
 		if (true) new RuntimeException("TRAPA");
 		ctx.cycles -= 8;
-	}
-
-	//NO-OP
-	protected void printDebugMaybe(Sh2Context ctx) {
-	}
-
-	// get interrupt masks bits int the SR register
-	private int getIMASK() {
-		return (ctx.SR & flagIMASK) >>> 4;
-	}
-
-	private boolean acceptInterrupts(final int level) {
-		if (level > getIMASK()) {
-			processInterrupt(ctx, level);
-			ctx.devices.intC.clearCurrentInterrupt();
-			return true;
-		}
-		return false;
-	}
-
-	private void processInterrupt(final Sh2Context ctx, final int level) {
-//		System.out.println(ctx.cpuAccess + " Interrupt processed: " + level);
-		assert Md32xRuntimeData.getAccessTypeExt() == ctx.cpuAccess;
-		push(ctx.SR);
-		push(ctx.PC); //stores the next inst to be executed
-		//SR 7-4
-		ctx.SR &= 0xF0F;
-		ctx.SR |= (level << 4);
-
-		int vectorNum = ctx.devices.intC.getVectorNumber();
-		ctx.PC = memory.read32(ctx.VBR + (vectorNum << 2));
-		//5 + 3 mem accesses
-		ctx.cycles -= 5;
-	}
-
-	private FetchResult fetchResult = new FetchResult();
-
-	/*
-	 * Because an instruction in a delay slot cannot alter the PC we can do this.
-	 * Perf: better to keep run() close to decode()
-	 */
-	public void run(final Sh2Context ctx) {
-		this.ctx = ctx;
-		final Sh2MMREG sh2MMREG = ctx.devices.sh2MMREG;
-		final IntControl intControl = ctx.devices.intC;
-		for (; ctx.cycles >= 0; ) {
-			decode();
-			sh2MMREG.deviceStep();
-			boolean res = acceptInterrupts(intControl.getInterruptLevel());
-			ctx.cycles -= Md32xRuntimeData.resetCpuDelayExt(); //TODO check perf
-			if (res) {
-				break;
-			}
-		}
-		ctx.cycles_ran = Sh2Context.burstCycles - ctx.cycles;
-		ctx.cycles = Sh2Context.burstCycles;
-	}
-
-	protected final void decode() {
-		fetchResult.pc = ctx.PC;
-		memory.fetch(fetchResult, ctx.cpuAccess);
-		if (fetchResult.inst != null) {
-			fetchResult.inst.run();
-		} else {
-			decode(fetchResult.opcode);
-		}
-	}
-
-	protected final void decode(int instruction) {
-		ctx.opcode = instruction;
-		printDebugMaybe(ctx);
-		switch ((instruction >>> 12) & 0xf) {
-			case 0:
-				switch ((instruction >>> 0) & 0xf) {
-					case 2:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								STCSR(instruction);
-								return;
-							case 1:
-								STCGBR(instruction);
-								return;
-							case 2:
-								STCVBR(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 3:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								BSRF(instruction);
-								return;
-							case 2:
-								BRAF(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 4:
-						MOVBS0(instruction);
-						return;
-					case 5:
-						MOVWS0(instruction);
-						return;
-					case 6:
-						MOVLS0(instruction);
-						return;
-					case 7:
-						MULL(instruction);
-						return;
-
-					case 8:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								CLRT(instruction);
-								return;
-							case 1:
-								SETT(instruction);
-								return;
-							case 2:
-								CLRMAC(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 9:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								NOP(instruction);
-								return;
-							case 1:
-								DIV0U(instruction);
-								return;
-							case 2:
-								MOVT(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 10:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								STSMACH(instruction);
-								return;
-							case 1:
-								STSMACL(instruction);
-								return;
-							case 2:
-								STSPR(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 11:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								RTS(instruction);
-								return;
-							case 1:
-								SLEEP(instruction);
-								return;
-							case 2:
-								RTE(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 12:
-						MOVBL0(instruction);
-						return;
-					case 13:
-						MOVWL0(instruction);
-						return;
-					case 14:
-						MOVLL0(instruction);
-						return;
-					case 15:
-						MACL(instruction);
-						return;
-					default:
-						ILLEGAL(instruction);
-						return;
-				}
-
-			case 1:
-				MOVLS4(instruction);
-				return;
-
-			case 2:
-				switch ((instruction >>> 0) & 0xf) {
-					case 0:
-						MOVBS(instruction);
-						return;
-					case 1:
-						MOVWS(instruction);
-						return;
-					case 2:
-						MOVLS(instruction);
-						return;
-					case 4:
-						MOVBM(instruction);
-						return;
-					case 5:
-						MOVWM(instruction);
-						return;
-					case 6:
-						MOVLM(instruction);
-						return;
-					case 7:
-						DIV0S(instruction);
-						return;
-					case 8:
-						TST(instruction);
-						return;
-					case 9:
-						AND(instruction);
-						return;
-					case 10:
-						XOR(instruction);
-						return;
-					case 11:
-						OR(instruction);
-						return;
-					case 12:
-						CMPSTR(instruction);
-						return;
-					case 13:
-						XTRCT(instruction);
-						return;
-					case 14:
-						MULSU(instruction);
-						return;
-					case 15:
-						MULSW(instruction);
-						return;
-					default:
-						ILLEGAL(instruction);
-						return;
-				}
-
-			case 3:
-				switch ((instruction >>> 0) & 0xf) {
-					case 0:
-						CMPEQ(instruction);
-						return;
-					case 2:
-						CMPHS(instruction);
-						return;
-					case 3:
-						CMPGE(instruction);
-						return;
-					case 4:
-						DIV1(instruction);
-						return;
-					case 5:
-						DMULU(instruction);
-						return;
-					case 6:
-						CMPHI(instruction);
-						return;
-					case 7:
-						CMPGT(instruction);
-						return;
-					case 8:
-						SUB(instruction);
-						return;
-					case 10:
-						SUBC(instruction);
-						return;
-					case 11:
-						SUBV(instruction);
-						return;
-					case 12:
-						ADD(instruction);
-						return;
-					case 13:
-						DMULS(instruction);
-						return;
-					case 14:
-						ADDC(instruction);
-						return;
-					case 15:
-						ADDV(instruction);
-						return;
-					default:
-						ILLEGAL(instruction);
-						return;
-				}
-
-			case 4:
-				switch ((instruction >>> 0) & 0xf) {
-					case 0:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								SHLL(instruction);
-								return;
-							case 1:
-								DT(instruction);
-								return;
-							case 2:
-								SHAL(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 1:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								SHLR(instruction);
-								return;
-							case 1:
-								CMPPZ(instruction);
-								return;
-							case 2:
-								SHAR(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 2:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								STSMMACH(instruction);
-								return;
-							case 1:
-								STSMMACL(instruction);
-								return;
-							case 2:
-								STSMPR(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 3:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								STCMSR(instruction);
-								return;
-							case 1:
-								STCMGBR(instruction);
-								return;
-							case 2:
-								STCMVBR(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 4:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								ROTL(instruction);
-								return;
-							case 2:
-								ROTCL(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 5:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								ROTR(instruction);
-								return;
-							case 1:
-								CMPPL(instruction);
-								return;
-							case 2:
-								ROTCR(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 6:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								LDSMMACH(instruction);
-								return;
-							case 1:
-								LDSMMACL(instruction);
-								return;
-							case 2:
-								LDSMPR(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 7:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								LDCMSR(instruction);
-								return;
-							case 1:
-								LDCMGBR(instruction);
-								return;
-							case 2:
-								LDCMVBR(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 8:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								SHLL2(instruction);
-								return;
-							case 1:
-								SHLL8(instruction);
-								return;
-							case 2:
-								SHLL16(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 9:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								SHLR2(instruction);
-								return;
-							case 1:
-								SHLR8(instruction);
-								return;
-							case 2:
-								SHLR16(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 10:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								LDSMACH(instruction);
-								return;
-							case 1:
-								LDSMACL(instruction);
-								return;
-							case 2:
-								LDSPR(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 11:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								JSR(instruction);
-								return;
-							case 1:
-								TAS(instruction);
-								return;
-							case 2:
-								JMP(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-					case 14:
-						switch ((instruction >>> 4) & 0xf) {
-							case 0:
-								LDCSR(instruction);
-								return;
-							case 1:
-								LDCGBR(instruction);
-								return;
-							case 2:
-								LDCVBR(instruction);
-								return;
-							default:
-								ILLEGAL(instruction);
-								return;
-						}
-
-					case 15:
-						MACW(instruction);
-						return;
-					default:
-						ILLEGAL(instruction);
-						return;
-				}
-
-			case 5:
-				MOVLL4(instruction);
-				return;
-
-			case 6:
-				switch ((instruction >>> 0) & 0xf) {
-					case 0:
-						MOVBL(instruction);
-						return;
-					case 1:
-						MOVWL(instruction);
-						return;
-					case 2:
-						MOVLL(instruction);
-						return;
-					case 3:
-						MOV(instruction);
-						return;
-					case 4:
-						MOVBP(instruction);
-						return;
-					case 5:
-						MOVWP(instruction);
-						return;
-					case 6:
-						MOVLP(instruction);
-						return;
-					case 7:
-						NOT(instruction);
-						return;
-					case 8:
-						SWAPB(instruction);
-						return;
-					case 9:
-						SWAPW(instruction);
-						return;
-					case 10:
-						NEGC(instruction);
-						return;
-					case 11:
-						NEG(instruction);
-						return;
-					case 12:
-						EXTUB(instruction);
-						return;
-					case 13:
-						EXTUW(instruction);
-						return;
-					case 14:
-						EXTSB(instruction);
-						return;
-					case 15:
-						EXTSW(instruction);
-						return;
-				}
-
-			case 7:
-				ADDI(instruction);
-				return;
-
-			case 8:
-				switch ((instruction >>> 8) & 0xf) {
-					case 0:
-						MOVBS4(instruction);
-						return;
-					case 1:
-						MOVWS4(instruction);
-						return;
-					case 4:
-						MOVBL4(instruction);
-						return;
-					case 5:
-						MOVWL4(instruction);
-						return;
-					case 8:
-						CMPIM(instruction);
-						return;
-					case 9:
-						BT(instruction);
-						return;
-					case 11:
-						BF(instruction);
-						return;
-					case 13:
-						BTS(instruction);
-						return;
-					case 15:
-						BFS(instruction);
-						return;
-					default:
-						ILLEGAL(instruction);
-						return;
-				}
-
-			case 9:
-				MOVWI(instruction);
-				return;
-			case 10:
-				BRA(instruction);
-				return;
-			case 11:
-				BSR(instruction);
-				return;
-
-			case 12:
-				switch ((instruction >>> 8) & 0xf) {
-					case 0:
-						MOVBSG(instruction);
-						return;
-					case 1:
-						MOVWSG(instruction);
-						return;
-					case 2:
-						MOVLSG(instruction);
-						return;
-					case 3:
-						TRAPA(instruction);
-						return;
-					case 4:
-						MOVBLG(instruction);
-						return;
-					case 5:
-						MOVWLG(instruction);
-						return;
-					case 6:
-						MOVLLG(instruction);
-						return;
-					case 7:
-						MOVA(instruction);
-						return;
-					case 8:
-						TSTI(instruction);
-						return;
-					case 9:
-						ANDI(instruction);
-						return;
-					case 10:
-						XORI(instruction);
-						return;
-					case 11:
-						ORI(instruction);
-						return;
-					case 12:
-						TSTM(instruction);
-						return;
-					case 13:
-						ANDM(instruction);
-						return;
-					case 14:
-						XORM(instruction);
-						return;
-					case 15:
-						ORM(instruction);
-						return;
-				}
-
-			case 13:
-				MOVLI(instruction);
-				return;
-			case 14:
-				MOVI(instruction);
-				return;
-		}
-		ILLEGAL(instruction);
-	}
-
-	public void setCtx(Sh2Context ctx) {
-		this.ctx = ctx;
 	}
 }

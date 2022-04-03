@@ -125,55 +125,29 @@ public class Sh2Disassembler {
     public static final int RTS = 0x000b;    /* RTS				*/
     /* System Control Instructions */
     public static final int CLRMAC = 0x0028;    /* CLRMAC			*/
-    public static final int CLRS = 0x0048;    /* CLRS				*/
     public static final int CLRT = 0x0008;    /* CLRT				*/
     public static final int LDC0 = 0x400e;    /* LDC		Rm,SR		*/
     public static final int LDC1 = 0x401e;    /* LDC		Rm,GBR		*/
     public static final int LDC2 = 0x402e;    /* LDC		Rm,VBR		*/
-    public static final int LDC3 = 0x403e;    /* LDC		Rm,SSR		*/
-    public static final int LDC4 = 0x404e;    /* LDC		Rm,SPC		*/
-    public static final int LDC5 = 0x40fa;    /* LDC		Rm,DBR		*/
-    public static final int LDC6 = 0x408e;    /* LDC		Rm,Rn_BANK(opcode)	*/
     public static final int LDCL0 = 0x4007;    /* LDC.L	@Rm+,SR		*/
     public static final int LDCL1 = 0x4017;    /* LDC.L	@Rm+,GBR	*/
     public static final int LDCL2 = 0x4027;    /* LDC.L	@Rm+,VBR	*/
-    public static final int LDCL3 = 0x4037;    /* LDC.L	@Rm+,SSR	*/
-    public static final int LDCL4 = 0x4047;    /* LDC.L	@Rm+,SPC	*/
-    public static final int LDCL5 = 0x40f6;    /* LDC.L	@Rm+,DBR	*/
-    public static final int LDCL6 = 0x4087;    /* LDC.L	@Rm+,Rn_BANK(opcode)	*/
     public static final int LDS0 = 0x400a;    /* LDS		Rm,MACH		*/
     public static final int LDS1 = 0x401a;    /* LDS		Rm,MACL		*/
     public static final int LDS2 = 0x402a;    /* LDS		Rm,PR		*/
     public static final int LDSL0 = 0x4006;    /* LDS.L	@Rm+,MACH	*/
     public static final int LDSL1 = 0x4016;    /* LDS.L	@Rm+,MACL	*/
     public static final int LDSL2 = 0x4026;    /* LDS.L	@Rm+,PR		*/
-    public static final int LDTLB = 0x0038;    /* LDTLB			*/
-    public static final int MOVCAL = 0x00c3;    /* MOVCA.L	R0,@Rn		*/
     public static final int NOP = 0x0009;    /* NOP				*/
-    public static final int OCBI = 0x0093;    /* OCBI		@Rn		*/
-    public static final int OCBP = 0x00a3;    /* OCBP		@Rn		*/
-    public static final int OCBWB = 0x00b3;    /* OCBWB	@Rn		*/
-    public static final int PREF = 0x0083;    /* PREF		@Rn		*/
     public static final int RTE = 0x002b;    /* RTE				*/
-    public static final int SETS = 0x0058;    /* SETS				*/
     public static final int SETT = 0x0018;    /* SETT				*/
     public static final int SLEEP = 0x001b;    /* SLEEP			*/
     public static final int STC0 = 0x0002;    /* STC		SR,Rn		*/
     public static final int STC1 = 0x0012;    /* STC		GBR,Rn		*/
     public static final int STC2 = 0x0022;    /* STC		VBR,Rn		*/
-    public static final int STC3 = 0x0032;    /* STC		SSR,Rn		*/
-    public static final int STC4 = 0x0042;    /* STC		SPC,Rn		*/
-    public static final int STC5 = 0x003a;    /* STC		SGR,Rn		*/
-    public static final int STC6 = 0x00fa;    /* STC		DBR,Rn		*/
-    public static final int STC7 = 0x0082;    /* STC		Rm_BANK(opcode),Rn	*/
     public static final int STCL0 = 0x4003;    /* STC.L	SR,@-Rn		*/
     public static final int STCL1 = 0x4013;    /* STC.L	GBR,@-Rn	*/
     public static final int STCL2 = 0x4023;    /* STC.L	VBR,@-Rn	*/
-    public static final int STCL3 = 0x4033;    /* STC.L	SSR,@-Rn	*/
-    public static final int STCL4 = 0x4043;    /* STC.L	SPC,@-Rn	*/
-    public static final int STCL5 = 0x4032;    /* STC.L	SGR,@-Rn	*/
-    public static final int STCL6 = 0x40f2;    /* STC.L	DBR,@-Rn	*/
-    public static final int STCL7 = 0x4083;    /* STC.L	Rm_BANK(opcode),@-Rn	*/
     public static final int STS0 = 0x000a;    /* STS		MACH,Rn		*/
     public static final int STS1 = 0x001a;    /* STS		MACL,Rn		*/
     public static final int STS2 = 0x002a;    /* STS		PR,Rn		*/
@@ -247,8 +221,7 @@ public class Sh2Disassembler {
 
             case ADD1:
                 temp = (((IMM(opcode) << 24)) >> 24);
-                return String.format((temp < 0) ? "sub H'%02x, R%d" : "add H'%02x, R%d", temp < 0 ? 0 - temp : temp, RN(opcode));
-
+                return String.format("add H'%s%02x, R%d", temp < 0 ? "-" : "", temp & 0xFF, RN(opcode));
 
             case BRA:
                 temp = (((LABEL(opcode) << 20)) >> 20) * 2;
@@ -479,14 +452,6 @@ public class Sh2Disassembler {
 
             case XOR0:
                 return String.format("xor R%d, R%d", RM(opcode), RN(opcode));
-
-
-            case SHAD:
-                return String.format("shad R%d, R%d", RM(opcode), RN(opcode));
-
-
-            case SHLD:
-                return String.format("shld R%d, R%d", RM(opcode), RN(opcode));
         }
 
         op = opcode & 0xff00;
@@ -704,19 +669,6 @@ public class Sh2Disassembler {
             case LDC2:
                 return String.format("ldc R%d, VBR", RN(opcode));
 
-
-            case LDC3:
-                return String.format("ldc R%d, SSR", RN(opcode));
-
-
-            case LDC4:
-                return String.format("ldc R%d, SPC", RN(opcode));
-
-
-            case LDC5:
-                return String.format("ldc R%d, DBR", RN(opcode));
-
-
             case LDCL0:
                 return String.format("ldc.l @R%d+, SR", RN(opcode));
 
@@ -727,19 +679,6 @@ public class Sh2Disassembler {
 
             case LDCL2:
                 return String.format("ldc.l @R%d+, VBR", RN(opcode));
-
-
-            case LDCL3:
-                return String.format("ldc.l @R%d+, SSR", RN(opcode));
-
-
-            case LDCL4:
-                return String.format("ldc.l @R%d+, SPC", RN(opcode));
-
-
-            case LDCL5:
-                return String.format("ldc.l @R%d+, DBR", RN(opcode));
-
 
             case LDS0:
                 return String.format("lds R%d, MACH", RN(opcode));
@@ -763,28 +702,6 @@ public class Sh2Disassembler {
 
             case LDSL2:
                 return String.format("lds.l @R%d+, PR", RN(opcode));
-
-
-            case MOVCAL:
-                return String.format("movca.l R0, @R%d", RN(opcode));
-
-
-            case OCBI:
-                return String.format("ocbi @R%d", RN(opcode));
-
-
-            case OCBP:
-                return String.format("ocbp @R%d", RN(opcode));
-
-
-            case OCBWB:
-                return String.format("ocbwb @R%d", RN(opcode));
-
-
-            case PREF:
-                return String.format("pref @R%d", RN(opcode));
-
-
             case STC0:
                 return String.format("stc SR, R%d", RN(opcode));
 
@@ -796,23 +713,6 @@ public class Sh2Disassembler {
             case STC2:
                 return String.format("stc VBR, R%d", RN(opcode));
 
-
-            case STC3:
-                return String.format("stc SSR, R%d", RN(opcode));
-
-
-            case STC4:
-                return String.format("stc SPC, R%d", RN(opcode));
-
-
-            case STC5:
-                return String.format("stc SGR, R%d", RN(opcode));
-
-
-            case STC6:
-                return String.format("stc DBR, R%d", RN(opcode));
-
-
             case STCL0:
                 return String.format("stc.l SR, @-R%d", RN(opcode));
 
@@ -823,23 +723,6 @@ public class Sh2Disassembler {
 
             case STCL2:
                 return String.format("stc.l VBR, @-R%d", RN(opcode));
-
-
-            case STCL3:
-                return String.format("stc.l SSR, @-R%d", RN(opcode));
-
-
-            case STCL4:
-                return String.format("stc.l SPC, @-R%d", RN(opcode));
-
-
-            case STCL5:
-                return String.format("stc.l SGR, @-R%d", RN(opcode));
-
-
-            case STCL6:
-                return String.format("stc.l DBR, @-R%d", RN(opcode));
-
 
             case STS0:
                 return String.format("sts MACH, R%d", RN(opcode));
@@ -880,19 +763,8 @@ public class Sh2Disassembler {
 
             case CLRMAC:
                 return String.format("clrmac");
-
-
-            case CLRS:
-                return String.format("clrs");
-
-
             case CLRT:
                 return String.format("clrt");
-
-
-            case LDTLB:
-                return String.format("ldtlb");
-
 
             case NOP:
                 return String.format("nop");
@@ -901,11 +773,6 @@ public class Sh2Disassembler {
             case RTE:
                 return String.format("rte");
 
-
-            case SETS:
-                return String.format("sets");
-
-
             case SETT:
                 return String.format("sett");
 
@@ -913,25 +780,6 @@ public class Sh2Disassembler {
             case SLEEP:
                 return String.format("sleep");
             default:
-
-        }
-
-        op = opcode & 0xf08f;
-        switch (op) {
-            case LDC6:
-                return String.format("ldc R%d, R%d_BANK(opcode)", RN(opcode), BANK(opcode));
-
-
-            case LDCL6:
-                return String.format("ldc @R%d+, R%d_BANK(opcode)", RN(opcode), BANK(opcode));
-
-
-            case STC7:
-                return String.format("stc R%d_BANK(opcode), R%d", BANK(opcode), (opcode), RN(opcode));
-
-
-            case STCL7:
-                return String.format("stc.l R%d_BANK(opcode)(opcode), @-R%d", BANK(opcode), RN(opcode));
 
         }
         return "??? (" + Integer.toHexString(opcode) + ")";

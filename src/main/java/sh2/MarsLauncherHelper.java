@@ -1,6 +1,6 @@
 package sh2;
 
-import omegadrive.SystemLoader;
+import omegadrive.system.SysUtil;
 import omegadrive.util.FileUtil;
 import sh2.pwm.Pwm;
 import sh2.sh2.Sh2;
@@ -45,7 +45,7 @@ public class MarsLauncherHelper {
     }
 
     public static Sh2LaunchContext setupRom(S32xBus bus, Path romFile) {
-        return setupRom(bus, ByteBuffer.wrap(FileUtil.readBinaryFile(romFile, SystemLoader.s32xBinaryTypes)), initBios());
+        return setupRom(bus, ByteBuffer.wrap(FileUtil.readBinaryFile(romFile, SysUtil.s32xBinaryTypes)), initBios());
     }
 
     public static Sh2LaunchContext setupRom(S32xBus bus, ByteBuffer rom, BiosHolder biosHolder) {
@@ -66,7 +66,6 @@ public class MarsLauncherHelper {
         ctx.sDevCtx = Sh2DeviceHelper.createDevices(SLAVE, ctx);
         ctx.sh2 = (ctx.masterCtx.debug || ctx.slaveCtx.debug) ?
                 new Sh2Debug(ctx.memory) : new Sh2Impl(ctx.memory);
-        ctx.memory.setSh2((Sh2Impl) ctx.sh2);
         ctx.pwm = new Pwm(ctx.s32XMMREG.regContext);
         ctx.masterCtx.devices = ctx.mDevCtx;
         ctx.slaveCtx.devices = ctx.sDevCtx;

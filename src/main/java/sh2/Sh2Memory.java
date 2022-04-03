@@ -7,7 +7,6 @@ import org.apache.logging.log4j.Logger;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.sh2.Sh2;
-import sh2.sh2.Sh2Impl;
 import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.cache.Sh2CacheImpl;
 import sh2.sh2.prefetch.Sh2Prefetch;
@@ -58,8 +57,8 @@ public final class Sh2Memory implements IMemory {
 	public ByteBuffer sdram;
 	public ByteBuffer rom;
 
-	private Sh2Cache[] cache = new Sh2Cache[2];
-	private Sh2Prefetch prefetch;
+	private final Sh2Cache[] cache = new Sh2Cache[2];
+	private final Sh2Prefetch prefetch;
 
 	public int romSize = SDRAM_SIZE,
 			romMask = SDRAM_MASK;
@@ -76,10 +75,6 @@ public final class Sh2Memory implements IMemory {
 		LOG.info("Rom size: {}, mask: {}", th(romSize), th(romMask));
 	}
 
-	public void setSh2(Sh2Impl sh2) {
-		prefetch = new Sh2Prefetch(sh2, this, cache);
-	}
-
 	private Sh2Memory() {
 		bios[MASTER.ordinal()] = ByteBuffer.allocate(BOOT_ROM_SIZE);
 		bios[SLAVE.ordinal()] = ByteBuffer.allocate(BOOT_ROM_SIZE);
@@ -89,6 +84,7 @@ public final class Sh2Memory implements IMemory {
 		cache[SLAVE.ordinal()] = SH2_ENABLE_CACHE ? new Sh2CacheImpl(SLAVE, this) : Sh2Cache.createNoCacheInstance(SLAVE, this);
 		sh2MMREGS[MASTER.ordinal()] = new Sh2MMREG(MASTER, cache[MASTER.ordinal()]);
 		sh2MMREGS[SLAVE.ordinal()] = new Sh2MMREG(SLAVE, cache[SLAVE.ordinal()]);
+		prefetch = new Sh2Prefetch(this, cache);
 	}
 
 	@Override

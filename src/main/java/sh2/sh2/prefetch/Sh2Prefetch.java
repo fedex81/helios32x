@@ -9,7 +9,6 @@ import sh2.S32xUtil;
 import sh2.Sh2Memory;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.sh2.Sh2.FetchResult;
-import sh2.sh2.Sh2Impl;
 import sh2.sh2.Sh2Instructions;
 import sh2.sh2.Sh2Instructions.Sh2Instruction;
 import sh2.sh2.cache.Sh2Cache;
@@ -34,7 +33,7 @@ public class Sh2Prefetch {
     private static final Logger LOG = LogManager.getLogger(Sh2Prefetch.class.getSimpleName());
 
     private static final boolean SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
-    private static final boolean SH2_NEW_PREFETCH = true;
+    private static final boolean SH2_NEW_PREFETCH = false;
 
     public static class PrefetchContext {
         public static final int DEFAULT_PREFETCH_LOOKAHEAD = 8;
@@ -115,7 +114,7 @@ public class Sh2Prefetch {
 
     public final PrefetchContext[] prefetchContexts = {new PrefetchContext(), new PrefetchContext()};
 
-    public Sh2Prefetch(Sh2Impl sh2, Sh2Memory memory, Sh2Cache[] cache) {
+    public Sh2Prefetch(Sh2Memory memory, Sh2Cache[] cache) {
         this.cache = cache;
         this.memory = memory;
         romMask = memory.romMask;
@@ -123,7 +122,6 @@ public class Sh2Prefetch {
         sdram = memory.sdram;
         rom = memory.rom;
         bios = memory.bios;
-        Sh2Instructions.createOpcodeMap(sh2);
     }
 
     public PrefetchContext prefetchCreate(int pc, S32xUtil.CpuDeviceAccess cpu) {
@@ -196,7 +194,7 @@ public class Sh2Prefetch {
         PrefetchContext pctxStored = pMap.get(pc);
         if (pctxStored != null) {
             pctxStored.hits++;
-            if (((pctxStored.hits + 1) & 0xFFFF) == 0) {
+            if (((pctxStored.hits + 1) & 0xFFF) == 0 && pctxStored.inst == null) {
                 pctxStored.inst = Sh2Instructions.generateInst(pctxStored.prefetchWords);
 //                LOG.info("{}\n{}", th(pctxStored.hits), Sh2Instructions.toListOfInst(pctxStored));
 //                System.out.println(cpu + "," + pctxStored);
@@ -222,7 +220,6 @@ public class Sh2Prefetch {
         return;
     }
 
-
     public void fetch(FetchResult fetchResult, S32xUtil.CpuDeviceAccess cpu) {
         final int pc = fetchResult.pc;
         fetchResult.inst = null;
@@ -246,7 +243,6 @@ public class Sh2Prefetch {
         fetchResult.inst = pctx.inst != null ? pctx.inst[pctx.prefetchLookahead + pcDeltaWords] : null;
         return;
     }
-
 
     public int fetchDelaySlot(int pc, S32xUtil.CpuDeviceAccess cpu) {
         if (!SH2_ENABLE_PREFETCH) {

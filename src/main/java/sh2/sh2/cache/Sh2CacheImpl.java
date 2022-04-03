@@ -313,13 +313,13 @@ public class Sh2CacheImpl implements Sh2Cache {
                 break;
             case WORD:
                 data[addr] = val >> 8;
-                data[addr + 1] = val;
+                data[(addr + 1) & LINE_MASK] = val;
                 break;
             case LONG:
                 data[addr] = ((val >> 24) & 0xFF);
-                data[addr + 1] = ((val >> 16) & 0xFF);
-                data[addr + 2] = ((val >> 8) & 0xFF);
-                data[addr + 3] = ((val >> 0) & 0xFF);
+                data[(addr + 1) & LINE_MASK] = ((val >> 16) & 0xFF);
+                data[(addr + 2) & LINE_MASK] = ((val >> 8) & 0xFF);
+                data[(addr + 3) & LINE_MASK] = ((val >> 0) & 0xFF);
                 break;
             default:
                 throw new RuntimeException();
@@ -331,12 +331,12 @@ public class Sh2CacheImpl implements Sh2Cache {
             case BYTE:
                 return data[addr];
             case WORD:
-                return ((data[addr]) << 8) | data[(addr + 1) & LINE_MASK]; //chaotix buggy
+                return ((data[addr]) << 8) | data[(addr + 1) & LINE_MASK];
             case LONG:
                 return ((data[addr]) << 24) |
-                        ((data[addr + 1]) << 16) |
-                        ((data[addr + 2]) << 8) |
-                        ((data[addr + 3]) << 0);
+                        ((data[(addr + 1) & LINE_MASK]) << 16) |   //x-men
+                        ((data[(addr + 2) & LINE_MASK]) << 8) |
+                        ((data[(addr + 3) & LINE_MASK]) << 0);
             default:
                 throw new RuntimeException();
         }

@@ -54,8 +54,6 @@ import static sh2.S32xUtil.CpuDeviceAccess.M68K;
  */
 public class Genesis extends BaseSystem<GenesisBusProvider> {
 
-    private final static Logger LOG = LogManager.getLogger(Genesis.class.getSimpleName());
-
     public final static boolean verbose = false;
     public final static int NTSC_MCLOCK_MHZ = 53693175;
     public final static int PAL_MCLOCK_MHZ = 53203424;
@@ -66,7 +64,7 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
     final static double[] vdpVals = {VDP_RATIO * BaseVdpProvider.MCLK_DIVIDER_FAST_VDP, VDP_RATIO * BaseVdpProvider.MCLK_DIVIDER_SLOW_VDP};
     protected final static int Z80_DIVIDER = 14 / MCLK_DIVIDER;
     protected final static int FM_DIVIDER = 42 / MCLK_DIVIDER;
-
+    private final static Logger LOG = LogManager.getLogger(Genesis.class.getSimpleName());
 
     protected Z80Provider z80;
     protected M68kProvider cpu;
@@ -78,6 +76,7 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
 
     protected Genesis(DisplayWindow emuFrame) {
         super(emuFrame);
+        systemType = SystemLoader.SystemType.GENESIS;
     }
 
     public static SystemProvider createNewInstance(DisplayWindow emuFrame) {
@@ -114,39 +113,28 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
 
 
     protected void loop() {
-        LOG.info("Starting game loop");
         updateVideoMode(true);
-        int cnt;
-
-        try {
-            do {
-                cnt = counter;
-                run68k(cnt);
-                runZ80(cnt);
-                runFM(cnt);
-                runVdp(cnt);
-                if (hasSvp && (counter & SVP_CYCLES_MASK) == 0) {
-                    ssp16.ssp1601_run(SVP_RUN_CYCLES);
-                }
-                counter++;
-            } while (!futureDoneFlag);
-        } catch (Exception e) {
-            LOG.error("Error main cycle", e);
-        }
-        LOG.info("Exiting rom thread loop");
+        do {
+            run68k();
+            runZ80();
+            runFM();
+            if (hasSvp && (counter & SVP_CYCLES_MASK) == 0) {
+                ssp16.ssp1601_run(SVP_RUN_CYCLES);
+            }
+            //this should be last as it could change the counter
+            runVdp();
+            counter++;
+        } while (!futureDoneFlag);
     }
 
-    int cVdp;
-
-    protected final void runVdp(int counter) {
+    protected final void runVdp() {
         if (counter >= nextVdpCycle) {
             int vdpMclk = vdp.runSlot();
-            cVdp++;
             nextVdpCycle += vdpVals[vdpMclk - 4];
         }
     }
 
-    protected final void run68k(int counter) {
+    protected final void run68k() {
         if (counter == next68kCycle) {
             boolean isRunning = bus.is68kRunning();
             boolean canRun = !cpu.isStopped() && isRunning;
@@ -167,7 +155,7 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
         }
     }
 
-    protected final void runZ80(int counter) {
+    protected final void runZ80() {
         if (counter == nextZ80Cycle) {
             int cycleDelay = 0;
             boolean running = bus.isZ80Running();
@@ -180,8 +168,8 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
         }
     }
 
-    protected final void runFM(int counter) {
-        if (counter % FM_DIVIDER == 0) {
+    protected final void runFM() {
+        if ((counter & 1) == 0 && (counter % FM_DIVIDER) == 0) { //perf, avoid some divs
             bus.getFm().tick();
         }
     }
@@ -228,6 +216,9 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
         hasSvp = ssp16 != Ssp16.NO_SVP;
     }
 
+    /**
+     * Counters can go negative when the video mode changes
+     */
     @Override
     protected void resetCycleCounters(int counter) {
         nextZ80Cycle = Math.max(1, nextZ80Cycle - counter);
@@ -256,10 +247,5 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
             cpu.softReset();
         }
         super.handleSoftReset();
-    }
-
-    @Override
-    public SystemLoader.SystemType getSystemType() {
-        return SystemLoader.SystemType.GENESIS;
     }
 }

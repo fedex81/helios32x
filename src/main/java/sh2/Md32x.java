@@ -43,7 +43,7 @@ public class Md32x extends Genesis {
     static {
         ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "false"));
         ENABLE_PWM = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.enable", "true"));
-        SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "64")); //64;
+        SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "64")); //64
         Sh2Context.burstCycles = SH2_CYCLES_PER_STEP;
 //        System.setProperty("68k.debug", "true");
 //        System.setProperty("z80.debug", "true");                                              wee
@@ -61,6 +61,7 @@ public class Md32x extends Genesis {
 
     public Md32x(DisplayWindow emuFrame) {
         super(emuFrame);
+        systemType = SystemLoader.SystemType.S32X;
     }
 
     @Override
@@ -87,22 +88,21 @@ public class Md32x extends Genesis {
     @Override
     protected void loop() {
         updateVideoMode(true);
-        int cnt;
         do {
-            cnt = counter;
-            run68k(cnt);
-            runZ80(cnt);
-            runFM(cnt);
-            runVdp(cnt);
-            runSh2(cnt);
+            run68k();
+            runZ80();
+            runFM();
+            runSh2();
             runDevices();
+            //this should be last as it could change the counter
+            runVdp();
             counter++;
         } while (!futureDoneFlag);
     }
 
     //PAL: 1/3.0 gives ~ 450k per frame, 22.8Mhz. but the games are too slow!!!
     //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
-    protected final void runSh2(int counter) {
+    protected final void runSh2() {
         if (nextMSh2Cycle == counter) {
             rt.setAccessType(MASTER);
             sh2.run(masterCtx);
@@ -139,16 +139,15 @@ public class Md32x extends Genesis {
             marsVdp.dumpMarsData();
         }
         int[] fg = marsVdp.doCompositeRendering(data, ctx);
-        renderScreenLinearInternal(fg, stats);
+        super.doRendering(fg, stats);
     }
 
     @Override
     protected void resetCycleCounters(int counter) {
         super.resetCycleCounters(counter);
-        nextMSh2Cycle = Math.max(1, nextMSh2Cycle - counter);
-        nextSSh2Cycle = Math.max(1, nextMSh2Cycle - counter);
         //NOTE Sh2s will only start at the next vblank, not immediately when aden switches
-        nextSSh2Cycle = nextMSh2Cycle = ctx.s32XMMREG.aden & 1;
+        nextMSh2Cycle = Math.max(ctx.s32XMMREG.aden & 1, nextMSh2Cycle - counter);
+        nextSSh2Cycle = Math.max(ctx.s32XMMREG.aden & 1, nextMSh2Cycle - counter);
         ctx.pwm.newFrame();
         ctx.mDevCtx.sh2MMREG.newFrame();
         ctx.sDevCtx.sh2MMREG.newFrame();
@@ -166,10 +165,5 @@ public class Md32x extends Genesis {
     public void handleNewRom(Path file) {
         super.handleNewRom(file);
         rt = Md32xRuntimeData.newInstance();
-    }
-
-    @Override
-    public SystemLoader.SystemType getSystemType() {
-        return SystemLoader.SystemType.S32X;
     }
 }
