@@ -25,7 +25,7 @@ public final class Sh2Memory implements IMemory {
 	private static final Logger LOG = LogManager.getLogger(Sh2Memory.class.getSimpleName());
 
 	private static final int BOOT_ROM_SIZE = 0x4000; // 16kb
-	private static final int SDRAM_SIZE = 0x4_0000; // 256kb
+	public static final int SDRAM_SIZE = 0x4_0000; // 256kb
 	private static final int MAX_ROM_SIZE = 0x40_0000; // 256kb
 	public static final int SDRAM_MASK = SDRAM_SIZE - 1;
 	private static final int ROM_MASK = MAX_ROM_SIZE - 1;
@@ -70,6 +70,7 @@ public final class Sh2Memory implements IMemory {
 		this.rom = rom;
 		romSize = rom.capacity();
 		romMask = Util.getRomMask(romSize);
+		prefetch = new Sh2Prefetch(this, cache);
 		LOG.info("Rom size: {}, mask: {}", th(romSize), th(romMask));
 	}
 
@@ -82,7 +83,6 @@ public final class Sh2Memory implements IMemory {
 		cache[SLAVE.ordinal()] = SH2_ENABLE_CACHE ? new Sh2CacheImpl(SLAVE, this) : Sh2Cache.createNoCacheInstance(SLAVE, this);
 		sh2MMREGS[MASTER.ordinal()] = new Sh2MMREG(MASTER, cache[MASTER.ordinal()]);
 		sh2MMREGS[SLAVE.ordinal()] = new Sh2MMREG(SLAVE, cache[SLAVE.ordinal()]);
-		prefetch = new Sh2Prefetch(this, cache);
 	}
 
 	@Override
