@@ -3,6 +3,7 @@ package s32x.util;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import sh2.BiosHolder;
 import sh2.Md32xRuntimeData;
 import sh2.S32XMMREG;
 import sh2.Sh2Memory;
@@ -29,7 +30,7 @@ public class MemoryTest {
         for (int i = 0; i < b.capacity(); i++) {
             b.put(i, (byte) (i + 0xF));
         }
-        memory = new Sh2Memory(new S32XMMREG(), b);
+        memory = new Sh2Memory(new S32XMMREG(), b, BiosHolder.NO_BIOS);
         Assertions.assertEquals(0xA0, memory.romSize);
         Assertions.assertEquals(0xFF, memory.romMask);
         int res = memory.read8(START_ROM + 0xA0);

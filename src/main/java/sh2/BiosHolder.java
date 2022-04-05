@@ -13,6 +13,9 @@ import java.nio.file.Path;
  */
 public class BiosHolder {
 
+    public final static BiosHolder NO_BIOS =
+            new BiosHolder(new ByteBuffer[]{ByteBuffer.allocate(0), ByteBuffer.allocate(0), ByteBuffer.allocate(0)});
+
     private ByteBuffer[] biosData = new ByteBuffer[CpuDeviceAccess.values().length];
     private Path sh2m, sh2s, m68k;
 
