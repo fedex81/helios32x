@@ -6,6 +6,7 @@ import org.apache.logging.log4j.Logger;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
+import sh2.sh2.Sh2Instructions.Sh2Instruction;
 import sh2.sh2.device.IntControl;
 
 import static omegadrive.util.Util.th;
@@ -42,7 +43,7 @@ public class Sh2Impl implements Sh2 {
 	protected Sh2Context ctx;
 	protected IMemory memory;
 	protected FetchResult fetchResult = new FetchResult();
-	protected final Sh2Instructions.Sh2Instruction[] opcodeMap;
+	protected final Sh2Instruction[] opcodeMap;
 
 	public Sh2Impl(IMemory memory) {
 		this.memory = memory;
@@ -164,7 +165,7 @@ public class Sh2Impl implements Sh2 {
 				Sh2Helper.toDebuggingString(ctx));
 		ctx.PC = memory.read32(ctx.VBR + (ILLEGAL_INST_VN << 2));
 		ctx.cycles -= 5;
-//		if(true) throw new RuntimeException();
+		if (true) throw new RuntimeException();
 	}
 
 	protected final void MOVI(int code) {

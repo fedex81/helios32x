@@ -2,13 +2,14 @@ package sh2;
 
 import omegadrive.util.Size;
 import sh2.sh2.Sh2;
+import sh2.sh2.prefetch.Sh2Prefetcher;
 
 /**
  * Federico Berti
  * <p>
  * Copyright 2021
  */
-public interface IMemory {
+public interface IMemory extends Sh2Prefetcher {
 
     void write(int register, int value, Size size);
 

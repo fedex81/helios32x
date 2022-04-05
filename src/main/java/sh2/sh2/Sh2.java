@@ -1,6 +1,7 @@
 package sh2.sh2;
 
 import omegadrive.Device;
+import sh2.sh2.prefetch.Sh2Prefetcher;
 
 /**
  * Federico Berti
@@ -34,5 +35,6 @@ public interface Sh2 extends Device {
         public int pc;
         public int opcode;
         public Sh2Instructions.Sh2Instruction inst;
+        public Sh2Prefetcher.PrefetchContext pfCtx;
     }
 }

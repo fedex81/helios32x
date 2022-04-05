@@ -18,6 +18,10 @@ public class Sh2Helper {
         return String.format(simpleFormat, ctx.sh2TypeCode, ctx.PC, ctx.opcode, disasm.disassemble(ctx.PC, ctx.opcode));
     }
 
+    public static String getInstString(int pc, int opcode) {
+        return disasm.disassemble(pc, opcode);
+    }
+
     public static String getInstString(String sh2Type, int pc, int opcode) {
         return String.format(simpleFormat, sh2Type, pc, opcode, disasm.disassemble(pc, opcode));
     }
