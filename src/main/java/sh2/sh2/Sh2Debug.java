@@ -8,6 +8,8 @@ import sh2.IMemory;
 
 import java.util.function.Predicate;
 
+import static omegadrive.util.Util.th;
+
 /**
  * Federico Berti
  * <p>
@@ -97,6 +99,10 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
         final int n = ctx.cpuAccess.ordinal();
         ctx.cycles -= fastDebug[n].isBusyLoop(ctx.PC & 0x0FFF_FFFF, ctx.opcode);
         fastDebug[n].printDebugMaybe();
+        if ((ctx.PC & 1) > 0) {
+            LOG.error("Odd PC: {}", th(ctx.PC));
+            throw new RuntimeException("Odd PC");
+        }
     }
 
     //00_00_0000 - 00_00_4000 BOOT ROM

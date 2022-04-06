@@ -6,10 +6,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
-import sh2.S32xUtil;
+import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.Sh2Memory;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.sh2.Sh2.FetchResult;
+import sh2.sh2.Sh2Helper;
 import sh2.sh2.Sh2Instructions;
 import sh2.sh2.cache.Sh2Cache;
 
@@ -36,13 +37,14 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private static final boolean SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
 
     private static final boolean SH2_REUSE_FETCH_DATA = true;
+    private static final int OPT_THRESHOLD = 0xFF; //needs to be (powerOf2 - 1)
     static final boolean checkPrefetch = false;
 
     Map<Integer, PrefetchContext> mPrefetch = new HashMap<>();
     Map<Integer, PrefetchContext> sPrefetch = new HashMap<>();
 
-    private IMemory memory;
-    private Sh2Cache[] cache;
+    private final IMemory memory;
+    private final Sh2Cache[] cache;
 
     public final int romSize, romMask;
     public final ByteBuffer[] bios;
@@ -61,15 +63,15 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         bios = memory.bios;
     }
 
-    public PrefetchContext prefetchCreate(int pc, S32xUtil.CpuDeviceAccess cpu) {
+    public PrefetchContext prefetchCreate(int pc, CpuDeviceAccess cpu) {
         PrefetchContext p = new PrefetchContext();
         doPrefetch(p, pc, cpu);
         return p;
     }
 
-    private List<Integer> opcodes = new ArrayList<>(10);
+    private final List<Integer> opcodes = new ArrayList<>(10);
 
-    private void doPrefetch(final PrefetchContext pctx, int pc, S32xUtil.CpuDeviceAccess cpu) {
+    private void doPrefetch(final PrefetchContext pctx, int pc, CpuDeviceAccess cpu) {
         pctx.prefetchPc = pc;
         setupPrefetch(pctx, cpu);
         int bytePos = pctx.start;
@@ -78,8 +80,9 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         do {
             int val = pctx.buf.getShort(bytePos) & 0xFFFF;
             if (val == 0) {
-                LOG.error("Invalid fetch @ PC :{}, opcode: {}", th(pc), val);
-//                val = pctx.buf.getShort(bytePos) & 0xFFFF;
+                LOG.error("Invalid fetch, start PC: {}, current: {} opcode: {}", th(pc), th(bytePos), th(val));
+                pctx.inst = Sh2Instructions.generateInst(Ints.toArray(opcodes));
+                LOG.info(instToString(pctx, cpu));
                 break;
             }
             opcodes.add(val);
@@ -96,7 +99,17 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 //        LOG.info("{} prefetch @ pc: {}\n{}", cpu, th(pc), pctx);
     }
 
-    private void setupPrefetch(final PrefetchContext pctx, S32xUtil.CpuDeviceAccess cpu) {
+    private static String instToString(PrefetchContext pctx, CpuDeviceAccess cpu) {
+        StringBuilder sb = new StringBuilder("\n");
+        final int pc = pctx.prefetchPc;
+        final String type = cpu.name().substring(0, 1);
+        for (int i = 0; i < pctx.inst.length; i++) {
+            sb.append(Sh2Helper.getInstString(type, pc + (i << 1), pctx.inst[i].opcode)).append("\n");
+        }
+        return sb.toString();
+    }
+
+    private void setupPrefetch(final PrefetchContext pctx, CpuDeviceAccess cpu) {
         final int pc = pctx.prefetchPc;
         pctx.start = pc & 0xFF_FFFF;
         switch (pc >> 24) {
@@ -123,10 +136,12 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                 break;
             default:
                 if ((pc >>> 28) == 0xC) {
-                    pctx.start = Math.max(0, pctx.start) & Sh2Cache.DATA_ARRAY_MASK;
+                    int twoWay = cache[cpu.ordinal()].getCacheContext().twoWay;
+                    final int mask = Sh2Cache.DATA_ARRAY_MASK >> twoWay;
+                    pctx.start = Math.max(0, pctx.start) & mask;
                     pctx.memAccessDelay = S32xMemAccessDelay.SYS_REG;
                     pctx.buf = cache[cpu.ordinal()].getDataArray();
-                    pctx.pcMasked = pc & Sh2Cache.DATA_ARRAY_MASK;
+                    pctx.pcMasked = pc & mask;
                 } else {
                     LOG.error("{} Unhandled prefetch: {}", cpu, th(pc));
                     throw new RuntimeException("Unhandled prefetch: " + th(pc));
@@ -136,13 +151,15 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         pctx.start = pctx.pcMasked;
     }
 
-    public void prefetch(int pc, S32xUtil.CpuDeviceAccess cpu) {
+    private int limit = 50;
+
+    public void prefetch(int pc, CpuDeviceAccess cpu) {
         if (!SH2_ENABLE_PREFETCH) return;
         Map<Integer, PrefetchContext> pMap = cpu == MASTER ? mPrefetch : sPrefetch;
         PrefetchContext pctxStored = pMap.get(pc);
         if (pctxStored != null) {
             pctxStored.hits++;
-            if (((pctxStored.hits + 1) & 0xFFFF) == 0) {
+            if (((pctxStored.hits + 1) & OPT_THRESHOLD) == 0) {
                 if (pctxStored.inst == null) {
                     pctxStored.inst = Sh2Instructions.generateInst(pctxStored.prefetchWords);
                 }
@@ -164,6 +181,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         PrefetchContext pctx = prefetchCreate(pc, cpu);
         prefetchContexts[cpu.ordinal()] = pctx;
         if (SH2_REUSE_FETCH_DATA) {
+            handleMapLoad(pMap, cpu);
             PrefetchContext prev = pMap.put(pc, pctx);
             if (prev != null) {
                 throw new RuntimeException("PC has been rewritten: " + th(pc));
@@ -172,10 +190,30 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         assert pctx != null;
     }
 
-    public void fetch(FetchResult fetchResult, S32xUtil.CpuDeviceAccess cpu) {
+    private void handleMapLoad(Map<Integer, PrefetchContext> pMap, CpuDeviceAccess cpu) {
+        if (pMap.size() > limit) {
+            int size = pMap.size();
+            pMap.entrySet().removeIf(e -> e.getValue().inst == null);
+            int newSize = pMap.size();
+            int prevLimit = limit;
+            limit = limit << ((newSize > limit * 0.75) ? 1 : 0);
+            limit = limit >> ((newSize < limit >> 2) ? 1 : 0);
+            limit = Math.max(24, limit);
+            if (limit != prevLimit) {
+//                LOG.info("{} clear {}->{}, limit {}", cpu, size, newSize, limit);
+            }
+        }
+    }
+
+    public void fetch(FetchResult fetchResult, CpuDeviceAccess cpu) {
         final int pc = fetchResult.pc;
         fetchResult.inst = null;
         if (!SH2_ENABLE_PREFETCH) {
+            fetchResult.opcode = memory.read(pc, Size.WORD);
+            return;
+        }
+        //TODO vr, vf are fetching from the cache data array, avoid using stale data
+        if ((fetchResult.pc >>> 28) == 0xC) { //vr, vf
             fetchResult.opcode = memory.read(pc, Size.WORD);
             return;
         }
@@ -195,11 +233,17 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 //        System.out.println("Fetch PC: " + th(pc) + ", deltaW: " + pcDeltaWords);
         fetchResult.opcode = pctx.prefetchWords[pcDeltaWords];
         fetchResult.inst = pctx.inst != null ? pctx.inst[pcDeltaWords] : null;
-//        fetchResult.pfCtx = pctx.inst != null ? pctx : null;
+        if (false) { //double check
+            int memVal = memory.read(pc, Size.WORD);
+            if (memVal != fetchResult.opcode) { //vr, vf
+                invalidatePrefetch(cpu, pctx, pc, fetchResult);
+                fetchResult.opcode = memVal;
+            }
+        }
         return;
     }
 
-    public int fetchDelaySlot(int pc, S32xUtil.CpuDeviceAccess cpu) {
+    public int fetchDelaySlot(int pc, CpuDeviceAccess cpu) {
         if (!SH2_ENABLE_PREFETCH) {
             return memory.read(pc, Size.WORD);
         }
@@ -220,6 +264,14 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         return res;
     }
 
+    private void invalidatePrefetch(CpuDeviceAccess cpu, PrefetchContext pctx, int pc, FetchResult fetchResult) {
+        Map<Integer, PrefetchContext> pMap = cpu == MASTER ? mPrefetch : sPrefetch;
+        pMap.remove(pctx.prefetchPc);
+        LOG.info("Mismatch on {}, remove fetched data for PC: {}", th(pc), th(pctx.prefetchPc));
+        pctx.prefetchPc = -1000;
+        fetchResult.inst = null;
+    }
+
     private void checkPrefetch(int writeAddr, int val, Size size) {
         writeAddr &= 0xFFF_FFFF; //drop cached vs uncached
         for (int i = 0; i < 2; i++) {
@@ -228,7 +280,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             }
             PrefetchContext pctx = prefetchContexts[i];
             if (writeAddr >= pctx.start && writeAddr <= pctx.end) {
-                S32xUtil.CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
+                CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
 //				LOG.warn("{} write, addr: {} val: {} {}, {} PF window: [{},{}]", cpuAccess,
 //						th(writeAddr), th(val), size, CpuDeviceAccess.cdaValues[i], th(start), th(end));
 //				prefetch(prefetchContexts[i].prefetchPc, CpuDeviceAccess.cdaValues[i]);
