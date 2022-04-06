@@ -59,9 +59,7 @@ public class MarsLauncherHelper {
         ctx.rom = rom;
         ctx.s32XMMREG = new S32XMMREG();
         ctx.dmaFifo68k = new DmaFifo68k(ctx.s32XMMREG.regContext);
-        ctx.memory = new Sh2Memory(ctx.s32XMMREG, ctx.rom);
-        ctx.memory.bios[MASTER.ordinal()] = ctx.biosHolder.getBiosData(MASTER);
-        ctx.memory.bios[SLAVE.ordinal()] = ctx.biosHolder.getBiosData(SLAVE);
+        ctx.memory = new Sh2Memory(ctx.s32XMMREG, ctx.rom, biosHolder);
         ctx.mDevCtx = Sh2DeviceHelper.createDevices(MASTER, ctx);
         ctx.sDevCtx = Sh2DeviceHelper.createDevices(SLAVE, ctx);
         ctx.sh2 = (ctx.masterCtx.debug || ctx.slaveCtx.debug) ?

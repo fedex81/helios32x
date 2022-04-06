@@ -126,11 +126,12 @@ public class Sh2Prefetch {
                 break;
             default:
                 if ((pc >>> 28) == 0xC) {
-                    pctx.start = Math.max(0, pctx.start) & Sh2Cache.DATA_ARRAY_MASK;
-                    pctx.end = Math.min(Sh2Cache.DATA_ARRAY_SIZE - 1, pctx.end) & Sh2Cache.DATA_ARRAY_MASK;
+                    int twoWay = cache[cpu.ordinal()].getCacheContext().twoWay;
+                    final int mask = Sh2Cache.DATA_ARRAY_MASK >> twoWay;
+                    pctx.start = Math.max(0, pctx.start) & mask;
                     pctx.memAccessDelay = S32xMemAccessDelay.SYS_REG;
                     pctx.buf = cache[cpu.ordinal()].getDataArray();
-                    pctx.pcMasked = pc & Sh2Cache.DATA_ARRAY_MASK;
+                    pctx.pcMasked = pc & mask;
                 } else {
                     LOG.error("{} Unhandled prefetch: {}", cpu, th(pc));
                     throw new RuntimeException("Unhandled prefetch: " + th(pc));

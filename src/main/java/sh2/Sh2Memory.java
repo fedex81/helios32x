@@ -58,31 +58,26 @@ public final class Sh2Memory implements IMemory {
 	private Sh2Cache[] cache = new Sh2Cache[2];
 	private Sh2Prefetch prefetch;
 
-	public int romSize = SDRAM_SIZE,
-			romMask = SDRAM_MASK;
+	public int romSize, romMask;
 
 	private Sh2MMREG[] sh2MMREGS = new Sh2MMREG[2];
 	private S32XMMREG s32XMMREG;
 
-	public Sh2Memory(S32XMMREG s32XMMREG, ByteBuffer rom) {
-		this();
+	public Sh2Memory(S32XMMREG s32XMMREG, ByteBuffer rom, BiosHolder biosHolder) {
 		this.s32XMMREG = s32XMMREG;
 		this.rom = rom;
-		romSize = rom.capacity();
-		romMask = Util.getRomMask(romSize);
-		prefetch = new Sh2Prefetch(this, cache);
-		LOG.info("Rom size: {}, mask: {}", th(romSize), th(romMask));
-	}
-
-	private Sh2Memory() {
-		bios[MASTER.ordinal()] = ByteBuffer.allocate(BOOT_ROM_SIZE);
-		bios[SLAVE.ordinal()] = ByteBuffer.allocate(BOOT_ROM_SIZE);
+		bios[MASTER.ordinal()] = biosHolder.getBiosData(MASTER);
+		bios[SLAVE.ordinal()] = biosHolder.getBiosData(SLAVE);
 		sdram = ByteBuffer.allocateDirect(SDRAM_SIZE);
-		rom = ByteBuffer.allocateDirect(SDRAM_SIZE);
 		cache[MASTER.ordinal()] = SH2_ENABLE_CACHE ? new Sh2CacheImpl(MASTER, this) : Sh2Cache.createNoCacheInstance(MASTER, this);
 		cache[SLAVE.ordinal()] = SH2_ENABLE_CACHE ? new Sh2CacheImpl(SLAVE, this) : Sh2Cache.createNoCacheInstance(SLAVE, this);
 		sh2MMREGS[MASTER.ordinal()] = new Sh2MMREG(MASTER, cache[MASTER.ordinal()]);
 		sh2MMREGS[SLAVE.ordinal()] = new Sh2MMREG(SLAVE, cache[SLAVE.ordinal()]);
+
+		romSize = rom.capacity();
+		romMask = Util.getRomMask(romSize);
+		prefetch = new Sh2Prefetch(this, cache);
+		LOG.info("Rom size: {}, mask: {}", th(romSize), th(romMask));
 	}
 
 	@Override
