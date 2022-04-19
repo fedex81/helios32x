@@ -230,12 +230,12 @@ public class Sh2MMREG {
     public void deviceStep() {
         dmaC.step(0);
         sci.step(0);
-        ticksPerFrame++;
+        if (verbose) ticksPerFrame++;
     }
 
     //23 Mhz
     public void deviceStepSh2Rate(int cycles) {
         wdt.step(cycles);
-        sh2TicksPerFrame += cycles;
+        if (verbose) sh2TicksPerFrame += cycles;
     }
 }

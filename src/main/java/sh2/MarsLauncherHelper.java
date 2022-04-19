@@ -1,6 +1,6 @@
 package sh2;
 
-import omegadrive.SystemLoader;
+import omegadrive.system.SysUtil;
 import omegadrive.util.FileUtil;
 import sh2.pwm.Pwm;
 import sh2.sh2.Sh2;
@@ -45,7 +45,7 @@ public class MarsLauncherHelper {
     }
 
     public static Sh2LaunchContext setupRom(S32xBus bus, Path romFile) {
-        return setupRom(bus, ByteBuffer.wrap(FileUtil.readBinaryFile(romFile, SystemLoader.s32xBinaryTypes)), initBios());
+        return setupRom(bus, ByteBuffer.wrap(FileUtil.readBinaryFile(romFile, SysUtil.s32xBinaryTypes)), initBios());
     }
 
     public static Sh2LaunchContext setupRom(S32xBus bus, ByteBuffer rom, BiosHolder biosHolder) {

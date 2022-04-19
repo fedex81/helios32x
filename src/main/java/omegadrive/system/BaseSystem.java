@@ -21,6 +21,7 @@ package omegadrive.system;
 
 import omegadrive.Device;
 import omegadrive.SystemLoader;
+import omegadrive.SystemLoader.SystemType;
 import omegadrive.bus.model.BaseBusProvider;
 import omegadrive.input.InputProvider;
 import omegadrive.input.KeyboardInput;
@@ -57,6 +58,7 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
     protected SoundProvider sound;
     protected InputProvider inputProvider;
     protected BUS bus;
+    protected SystemType systemType;
 
     protected RegionDetector.Region region = RegionDetector.Region.USA;
     protected VideoMode videoMode = VideoMode.PAL_H40_V30;
@@ -75,6 +77,7 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
     private volatile boolean pauseFlag = false;
     protected volatile boolean futureDoneFlag = false;
     protected volatile boolean softReset = false;
+    private boolean soundEnFlag = true;
 
     //frame pacing stuff
     protected Telemetry telemetry = Telemetry.getInstance();
@@ -129,8 +132,9 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
             case TOGGLE_PAUSE:
                 handlePause();
                 break;
-            case TOGGLE_MUTE:
-                sound.setEnabled(!sound.isMute());
+            case SOUND_ENABLED:
+                soundEnFlag = (boolean) parameter;
+                Optional.ofNullable(sound).ifPresent(s -> s.setEnabled(soundEnFlag));
                 break;
             case TOGGLE_SOUND_RECORD:
                 sound.setRecording(!sound.isRecording());
@@ -177,6 +181,7 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
 
     private void handleCloseApp() {
         try {
+            emuFrame.close();
             handleCloseRom();
             sound.close();
             Util.executorService.shutdown();
@@ -285,6 +290,7 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
             handlePause();
         }
         if (isRomRunning()) {
+            futureDoneFlag = true;
             runningRomFuture.cancel(true);
             while (isRomRunning()) {
                 Util.sleep(100);
@@ -332,10 +338,6 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
 //        LOG.info("{}, {}", elapsedWaitNs, frameProcessingDelayNs);
     }
 
-    protected void doRendering(int[] data, Optional<String> stats) {
-        renderScreenLinearInternal(data, stats);
-    }
-
     final Consumer<String> statsConsumer = st -> stats = Optional.of(st);
 
     class RomRunnable implements Runnable {
@@ -363,7 +365,10 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
                 region = getRegionInternal(memory, emuFrame.getRegionOverride());
                 LOG.info("Running rom: {}, region: {}", romName, region);
                 initAfterRomLoad();
+                sound.setEnabled(soundEnFlag);
+                LOG.info("Starting game loop");
                 loop();
+                LOG.info("Exiting rom thread loop");
             } catch (Exception | Error e) {
                 e.printStackTrace();
                 LOG.error(e);
@@ -379,7 +384,7 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
         }
     }
 
-    protected void renderScreenLinearInternal(int[] data, Optional<String> label) {
+    protected void doRendering(int[] data, Optional<String> label) {
         emuFrame.renderScreenLinear(data, label, videoMode);
     }
 
@@ -405,5 +410,10 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
         vdp.init();
         bus.init();
         futureDoneFlag = false;
+    }
+
+    @Override
+    public final SystemType getSystemType() {
+        return systemType;
     }
 }

@@ -20,6 +20,7 @@
 package s32x;
 
 import omegadrive.SystemLoader;
+import omegadrive.system.SysUtil;
 import omegadrive.system.SystemProvider;
 import omegadrive.util.FileUtil;
 import omegadrive.util.Util;
@@ -57,7 +58,7 @@ public class S32xAutomatedGameTester {
             , "blacklist.txt"));
 
     private static Predicate<Path> testAllRomsPredicate = p ->
-            Arrays.stream(SystemLoader.binaryTypes).anyMatch(p.toString()::endsWith);
+            Arrays.stream(SysUtil.binaryTypes).anyMatch(p.toString()::endsWith);
 
     static {
         System.setProperty("helios.headless", "false");

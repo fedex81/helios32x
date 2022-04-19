@@ -20,14 +20,17 @@ import sh2.vdp.debug.DebugVideoRenderContext;
 import java.nio.file.Path;
 import java.util.Optional;
 
-import static sh2.S32xUtil.CpuDeviceAccess.*;
+import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
+import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 
 /**
  * Federico Berti
  * <p>
  * Copyright 2021
+ * <p>
+ * TODO sync issues with VR, etc
  */
-public class Md32x extends Genesis {
+public class Md32xNew extends Genesis {
 
     private static final Logger LOG = LogManager.getLogger(Md32x.class.getSimpleName());
 
@@ -40,12 +43,12 @@ public class Md32x extends Genesis {
     private Md32xRuntimeData rt;
 
     static {
-        ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "false"));
+        ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "true"));
         ENABLE_PWM = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.enable", "true"));
         SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "64")); //64;
         Sh2Context.burstCycles = SH2_CYCLES_PER_STEP;
 //        System.setProperty("68k.debug", "true");
-//        System.setProperty("z80.debug", "true");                                              wee
+//        System.setProperty("z80.debug", "true");
 //        System.setProperty("sh2.master.debug", "true");
 //        System.setProperty("sh2.slave.debug", "true");
         LOG.info("Enable FM: {}, Enable PWM: {}, Sh2Cycles: {}", ENABLE_FM, ENABLE_PWM, SH2_CYCLES_PER_STEP);
@@ -58,7 +61,7 @@ public class Md32x extends Genesis {
     private Sh2Context masterCtx, slaveCtx;
     private MarsVdp marsVdp;
 
-    public Md32x(DisplayWindow emuFrame) {
+    public Md32xNew(DisplayWindow emuFrame) {
         super(emuFrame);
         systemType = SystemLoader.SystemType.S32X;
     }
@@ -72,7 +75,7 @@ public class Md32x extends Genesis {
         sh2 = ctx.sh2;
         marsVdp = ctx.marsVdp;
         //aden 0 -> cycle = 0 = not running
-        nextSSh2Cycle = nextMSh2Cycle = ctx.s32XMMREG.aden & 1;
+        nextSSh2Cycle = nextMSh2Cycle = sh2DevCycle = (~ctx.s32XMMREG.aden & 1) << 30;
         marsVdp.updateDebugView(((GenesisVdp) vdp).getDebugViewer());
         super.initAfterRomLoad(); //needs to be last
         //TODO super inits the soundProvider
@@ -84,80 +87,77 @@ public class Md32x extends Genesis {
         return debugPerf ? null : new Md32x(emuFrame);
     }
 
+    @Override
     protected void loop() {
         updateVideoMode(true);
+        int cnt;
         do {
-            run68k();
-            runZ80();
-            runFM();
-            runSh2();
-            runDevices();
+            cnt = counter;
+            runZ80(cnt);
+            run68k(cnt);
+            runSh2(cnt);
+            cnt = runFM(cnt);
             //this should be last as it could change the counter
-            runVdp();
-            counter++;
+            cnt = runVdp(cnt);
+            counter = cnt;
         } while (!futureDoneFlag);
     }
 
-    protected final void runVdp() {
-        if (counter >= nextVdpCycle) {
-            int vdpMclk = vdp.runSlot();
-            nextVdpCycle += vdpVals[vdpMclk - 4];
-        }
-    }
-
-    protected final void run68k() {
-        if (counter == next68kCycle) {
-            boolean isRunning = bus.is68kRunning();
-            boolean canRun = !cpu.isStopped() && isRunning;
-            int cycleDelay = 1;
-            if (canRun) {
-                Md32xRuntimeData.setAccessTypeExt(M68K);
-                cycleDelay = cpu.runInstruction() + Md32xRuntimeData.resetCpuDelayExt();
-            }
-            //interrupts are processed after the current instruction
-            if (isRunning) {
-                bus.handleVdpInterrupts68k();
-            }
-            cycleDelay = Math.max(1, cycleDelay);
-            next68kCycle += M68K_DIVIDER * cycleDelay;
-            assert Md32xRuntimeData.resetCpuDelayExt() == 0;
-        }
-    }
-
-    protected final void runZ80() {
-        if (counter == nextZ80Cycle) {
-            int cycleDelay = 0;
-            boolean running = bus.isZ80Running();
-            if (running) {
-                cycleDelay = z80.executeInstruction();
-                bus.handleVdpInterruptsZ80();
-            }
-            cycleDelay = Math.max(1, cycleDelay);
-            nextZ80Cycle += Z80_DIVIDER * cycleDelay;
-        }
-    }
-
-    protected final void runFM() {
-        if ((counter & 1) == 0 && (counter % FM_DIVIDER) == 0) { //perf, avoid some divs
-            bus.getFm().tick();
-        }
-    }
+    int sh2DevCycle = 0;
 
     //PAL: 1/3.0 gives ~ 450k per frame, 22.8Mhz. but the games are too slow!!!
     //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
-    protected final void runSh2() {
-        if (nextMSh2Cycle == counter) {
+    protected final void runSh2(int untilClock) {
+        int start = untilClock;
+        while (nextMSh2Cycle < untilClock && nextSSh2Cycle < untilClock) {
             rt.setAccessType(MASTER);
             sh2.run(masterCtx);
-            nextMSh2Cycle += Math.max(1, (masterCtx.cycles_ran * 5) >> 5); //5/16 ~= 1/3
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
-        }
-        if (nextSSh2Cycle == counter) {
+            nextMSh2Cycle += Math.max(1, masterCtx.cycles_ran * mult); //5/16 ~= 1/3
             rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
-            nextSSh2Cycle += Math.max(1, (slaveCtx.cycles_ran * 5) >> 5);
+            assert Md32xRuntimeData.resetCpuDelayExt() == 0;
+            nextSSh2Cycle += Math.max(1, slaveCtx.cycles_ran * mult); //5/16 ~= 1/3
+            ctx.pwm.step(SH2_CYCLE_RATIO);
+            ctx.sDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
+            ctx.mDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
         }
+    }
+
+    protected final void runSh2_1(int untilClock) {
+        int start = untilClock;
+        runSh2M(untilClock);
+        runSh2S(untilClock);
+        int end = Math.min(nextMSh2Cycle, nextSSh2Cycle);
+        int diff = end - sh2DevCycle;
+        if (diff > 0) {
+            int devCycles = diff * SH2_CYCLE_RATIO;
+            ctx.pwm.step(devCycles);
+            ctx.sDevCtx.sh2MMREG.deviceStepSh2Rate(devCycles);
+            ctx.mDevCtx.sh2MMREG.deviceStepSh2Rate(devCycles);
+            sh2DevCycle = end;
+        }
+    }
+
+    static final double mult = 1 / 3.0;
+
+    protected final void runSh2M(int untilClock) {
+        while (nextMSh2Cycle < untilClock) {
+            rt.setAccessType(MASTER);
+            sh2.run(masterCtx);
+            nextMSh2Cycle += Math.max(1, masterCtx.cycles_ran * mult); //5/16 ~= 1/3
+        }
+        assert Md32xRuntimeData.resetCpuDelayExt() == 0;
+    }
+
+    protected final void runSh2S(int untilClock) {
+        while (nextSSh2Cycle < untilClock) {
+            rt.setAccessType(SLAVE);
+            sh2.run(slaveCtx);
+            nextSSh2Cycle += Math.max(1, slaveCtx.cycles_ran * mult); //5/16 ~= 1/3
+        }
+        assert Md32xRuntimeData.resetCpuDelayExt() == 0;
     }
 
     private void runDevices() {
@@ -190,8 +190,9 @@ public class Md32x extends Genesis {
         super.resetCycleCounters(counter);
         nextMSh2Cycle = Math.max(1, nextMSh2Cycle - counter);
         nextSSh2Cycle = Math.max(1, nextMSh2Cycle - counter);
+        sh2DevCycle = Math.max(1, sh2DevCycle - counter);
         //NOTE Sh2s will only start at the next vblank, not immediately when aden switches
-        nextSSh2Cycle = nextMSh2Cycle = ctx.s32XMMREG.aden & 1;
+        nextSSh2Cycle = nextMSh2Cycle = sh2DevCycle = (~ctx.s32XMMREG.aden & 1) << 30;
         ctx.pwm.newFrame();
         ctx.mDevCtx.sh2MMREG.newFrame();
         ctx.sDevCtx.sh2MMREG.newFrame();
