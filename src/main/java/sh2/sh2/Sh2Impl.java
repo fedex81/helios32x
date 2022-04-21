@@ -8,8 +8,10 @@ import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
 import sh2.sh2.Sh2Instructions.Sh2Instruction;
 import sh2.sh2.device.IntControl;
+import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import static omegadrive.util.Util.th;
+import static sh2.sh2.prefetch.Sh2Prefetcher.Sh2Block.INVALID_BLOCK;
 
 /*
  *  Revision 1 -  port the code from Dcemu and use information provided by dark||raziel (done)
@@ -42,16 +44,11 @@ public class Sh2Impl implements Sh2 {
 
 	protected Sh2Context ctx;
 	protected IMemory memory;
-	protected FetchResult fetchResult = new FetchResult();
 	protected final Sh2Instruction[] opcodeMap;
 
 	public Sh2Impl(IMemory memory) {
 		this.memory = memory;
 		this.opcodeMap = Sh2Instructions.createOpcodeMap(this);
-	}
-
-	//NO-OP
-	protected void printDebugMaybe() {
 	}
 
 	// get interrupt masks bits int the SR register
@@ -108,14 +105,44 @@ public class Sh2Impl implements Sh2 {
 		opcodeMap[opcode].runnable.run();
 	}
 
+	long blockLoops, nextBlockTaken, blockPcMismatch, blockOuts, fetchNoBlock, mapRun, blockRunOne;
+
 	protected final void decode() {
-		fetchResult.pc = ctx.PC;
-		memory.fetch(fetchResult, ctx.cpuAccess);
-		printDebugMaybe();
-		if (fetchResult.inst != null) {
-			fetchResult.inst.runnable.run();
-		} else {
-			opcodeMap[fetchResult.opcode].runnable.run();
+		final FetchResult fr = ctx.fetchResult;
+//		if(true){
+//			fr.pc = ctx.PC;
+//			memory.fetch(fr, ctx.cpuAccess);
+//			opcodeMap[fr.opcode].runnable.run();
+//			return;
+//		}
+		fr.pc = ctx.PC;
+		if (fr.block.inst != null) {
+			if (fr.block.prefetchPc == fr.pc) {
+				blockLoops++;
+				fr.block.runBlock(this, ctx.devices.sh2MMREG);
+				boolean nextBlockOk = fr.block.nextBlock.prefetchPc == ctx.PC;
+				if (!nextBlockOk) {
+					Sh2Prefetcher.Sh2Block prevBlock = fr.block;
+					fr.pc = ctx.PC;
+					memory.fetch(fr, ctx.cpuAccess);
+					prevBlock.nextBlock = fr.block;
+				} else {
+					nextBlockTaken++;
+					fr.block = fr.block.nextBlock;
+				}
+				return;
+			}
+			blockPcMismatch++;
+			fr.block = INVALID_BLOCK;
+			return;
+		}
+		fetchNoBlock++;
+		fr.pc = ctx.PC;
+		memory.fetch(fr, ctx.cpuAccess);
+		if (fr.block == null || fr.block.inst == null) {
+			printDebugMaybe(fr.opcode);
+			opcodeMap[fr.opcode].runnable.run();
+			mapRun++;
 		}
 	}
 
@@ -1174,7 +1201,7 @@ public class Sh2Impl implements Sh2 {
 		ctx.cycles -= 4;
 
 		ctx.PC += 2;
-		if (true) new RuntimeException();
+		if (false) new RuntimeException(); //TODO DoomRes
 	}
 
 	protected final void TST(int code) {
@@ -1527,7 +1554,7 @@ public class Sh2Impl implements Sh2 {
 		ctx.delayPC = ctx.PC;
 		ctx.PC = pc;
 		ctx.delaySlot = true;
-		decodeDelaySlot(memory.fetchDelaySlot(pc, ctx.cpuAccess));
+		decodeDelaySlot(memory.fetchDelaySlot(pc, ctx.fetchResult, ctx.cpuAccess));
 		ctx.delaySlot = false;
 		ctx.PC = ctx.delayPC;
 	}

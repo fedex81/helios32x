@@ -2,6 +2,7 @@ package sh2.sh2;
 
 import sh2.S32xUtil;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceContext;
+import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import java.util.Arrays;
 
@@ -34,6 +35,7 @@ public class Sh2Context {
     public final String sh2TypeCode;
     public boolean delaySlot;
     public boolean debug;
+    public Sh2.FetchResult fetchResult;
 
     public Sh2DeviceContext devices;
 
@@ -41,6 +43,8 @@ public class Sh2Context {
         this.registers = new int[NUM_REG];
         this.cpuAccess = cpuAccess;
         this.sh2TypeCode = cpuAccess.name().substring(0, 1);
+        this.fetchResult = new Sh2.FetchResult();
+        this.fetchResult.block = Sh2Prefetcher.Sh2Block.INVALID_BLOCK;
     }
 
     @Override

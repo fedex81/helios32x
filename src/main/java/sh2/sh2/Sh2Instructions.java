@@ -1,7 +1,7 @@
 package sh2.sh2;
 
 import sh2.IMemory;
-import sh2.sh2.prefetch.Sh2Prefetch;
+import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -13,6 +13,8 @@ import java.util.Optional;
  */
 public class Sh2Instructions {
 
+    public static final String ILLEGAL_STR = "ILLEGAL";
+
     static class OpcodeCreateCtx {
         int opcode;
         IMemory memory;
@@ -22,17 +24,19 @@ public class Sh2Instructions {
         public final Runnable runnable;
         public final String name;
         public final int opcode;
-        public final boolean isBranch;
+        public final boolean isBranch, isBranchDelaySlot, isIllegal;
 
         public Sh2Instruction(int opcode, String name, Runnable r) {
             this.opcode = opcode;
             this.name = name;
             this.runnable = r;
             this.isBranch = isBranchOpcode(name);
+            this.isBranchDelaySlot = isBranchDelaySlotOpcode(name);
+            this.isIllegal = ILLEGAL_STR.equalsIgnoreCase(name);
         }
     }
 
-    public static int NUM_OPCODES = 0x10000;
+    public static final int NUM_OPCODES = 0x10000;
     public static Sh2Instruction[] opcodeMap;
 
     public static Sh2Instruction[] createOpcodeMap(Sh2Impl sh2) {
@@ -55,11 +59,21 @@ public class Sh2Instructions {
         return name.startsWith("B") || name.startsWith("J") || name.startsWith("RT") || name.startsWith("BRA");
     }
 
-    public static Sh2Instruction[] generateInst(int[] opcodes) {
-        return Arrays.stream(opcodes).mapToObj(op -> opcodeMap[op]).toArray(Sh2Instruction[]::new);
+    /**
+     * Delayed branch instructions: JMP, JSR,
+     * BRA, BSR, RTS, RTE, BF/S, BT/S, BSRF,
+     * BRAF
+     */
+    public static boolean isBranchDelaySlotOpcode(String name) {
+        return name.startsWith("J") || name.startsWith("BRA") || name.startsWith("BSR") || name.startsWith("RT")
+                || name.startsWith("BTS") || name.startsWith("BFS");
     }
 
-    public static StringBuilder toListOfInst(Sh2Prefetch.PrefetchContext ctx) {
+    public static Sh2Prefetcher.Sh2BlockUnit[] generateInst(int[] opcodes) {
+        return Arrays.stream(opcodes).mapToObj(op -> new Sh2Prefetcher.Sh2BlockUnit(opcodeMap[op])).toArray(Sh2Prefetcher.Sh2BlockUnit[]::new);
+    }
+
+    public static StringBuilder toListOfInst(Sh2Prefetcher.Sh2Block ctx) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < ctx.prefetchWords.length; i++) {
             int pc = ctx.start + (i << 1);
@@ -82,7 +96,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "STCVBR", () -> sh2.STCVBR(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 3:
                         switch ((opcode >>> 4) & 0xf) {
@@ -91,7 +105,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "BRAF", () -> sh2.BRAF(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 4:
                         return new Sh2Instruction(opcode, "MOVBS0", () -> sh2.MOVBS0(opcode));
@@ -110,7 +124,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "CLRMAC", () -> sh2.CLRMAC(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 9:
                         switch ((opcode >>> 4) & 0xfff) {
@@ -125,7 +139,7 @@ public class Sh2Instructions {
                                     case 2:
                                         return new Sh2Instruction(opcode, "MOVT", () -> sh2.MOVT(opcode));
                                     default:
-                                        return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                        return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                                 }
                         }
                     case 10:
@@ -137,7 +151,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "STSPR", () -> sh2.STSPR(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 11:
                         switch ((opcode >>> 4) & 0xfff) {
@@ -148,7 +162,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "RTE", () -> sh2.RTE(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 12:
                         return new Sh2Instruction(opcode, "MOVBL0", () -> sh2.MOVBL0(opcode));
@@ -159,7 +173,7 @@ public class Sh2Instructions {
                     case 15:
                         return new Sh2Instruction(opcode, "MACL", () -> sh2.MACL(opcode));
                     default:
-                        return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                        return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                 }
             case 1:
                 return new Sh2Instruction(opcode, "MOVLS4", () -> sh2.MOVLS4(opcode));
@@ -196,7 +210,7 @@ public class Sh2Instructions {
                     case 15:
                         return new Sh2Instruction(opcode, "MULSW", () -> sh2.MULSW(opcode));
                     default:
-                        return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                        return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                 }
             case 3:
                 switch ((opcode >>> 0) & 0xf) {
@@ -229,7 +243,7 @@ public class Sh2Instructions {
                     case 15:
                         return new Sh2Instruction(opcode, "ADDV", () -> sh2.ADDV(opcode));
                     default:
-                        return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                        return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                 }
             case 4:
                 switch ((opcode >>> 0) & 0xf) {
@@ -242,7 +256,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "SHAL", () -> sh2.SHAL(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 1:
                         switch ((opcode >>> 4) & 0xf) {
@@ -253,7 +267,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "SHAR", () -> sh2.SHAR(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 2:
                         switch ((opcode >>> 4) & 0xf) {
@@ -264,7 +278,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "STSMPR", () -> sh2.STSMPR(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 3:
                         switch ((opcode >>> 4) & 0xf) {
@@ -275,7 +289,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "STCMVBR", () -> sh2.STCMVBR(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 4:
                         switch ((opcode >>> 4) & 0xf) {
@@ -284,7 +298,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "ROTCL", () -> sh2.ROTCL(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 5:
                         switch ((opcode >>> 4) & 0xf) {
@@ -295,7 +309,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "ROTCR", () -> sh2.ROTCR(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 6:
                         switch ((opcode >>> 4) & 0xf) {
@@ -306,7 +320,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "LDSMPR", () -> sh2.LDSMPR(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 7:
                         switch ((opcode >>> 4) & 0xf) {
@@ -317,7 +331,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "LDCMVBR", () -> sh2.LDCMVBR(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 8:
                         switch ((opcode >>> 4) & 0xf) {
@@ -328,7 +342,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "SHLL16", () -> sh2.SHLL16(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 9:
                         switch ((opcode >>> 4) & 0xf) {
@@ -339,7 +353,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "SHLR16", () -> sh2.SHLR16(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 10:
                         switch ((opcode >>> 4) & 0xf) {
@@ -350,7 +364,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "LDSPR", () -> sh2.LDSPR(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 11:
                         switch ((opcode >>> 4) & 0xf) {
@@ -361,7 +375,7 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "JMP", () -> sh2.JMP(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 14:
                         switch ((opcode >>> 4) & 0xf) {
@@ -372,12 +386,12 @@ public class Sh2Instructions {
                             case 2:
                                 return new Sh2Instruction(opcode, "LDCVBR", () -> sh2.LDCVBR(opcode));
                             default:
-                                return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                         }
                     case 15:
                         return new Sh2Instruction(opcode, "MACW", () -> sh2.MACW(opcode));
                     default:
-                        return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                        return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                 }
             case 5:
                 return new Sh2Instruction(opcode, "MOVLL4", () -> sh2.MOVLL4(opcode));
@@ -439,7 +453,7 @@ public class Sh2Instructions {
                     case 15:
                         return new Sh2Instruction(opcode, "BFS", () -> sh2.BFS(opcode));
                     default:
-                        return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+                        return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
                 }
             case 9:
                 return new Sh2Instruction(opcode, "MOVWI", () -> sh2.MOVWI(opcode));
@@ -487,7 +501,7 @@ public class Sh2Instructions {
             case 14:
                 return new Sh2Instruction(opcode, "MOVI", () -> sh2.MOVI(opcode));
         }
-        return new Sh2Instruction(opcode, "ILLEGAL", () -> sh2.ILLEGAL(opcode));
+        return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
     }
 
 }

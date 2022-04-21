@@ -94,8 +94,8 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
 //    }
 
     @Override
-    protected final void printDebugMaybe() {
-        ctx.opcode = fetchResult.opcode;
+    public final void printDebugMaybe(int opcode) {
+        ctx.opcode = opcode;
         final int n = ctx.cpuAccess.ordinal();
         ctx.cycles -= fastDebug[n].isBusyLoop(ctx.PC & 0x0FFF_FFFF, ctx.opcode);
         fastDebug[n].printDebugMaybe();

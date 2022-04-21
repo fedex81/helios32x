@@ -15,15 +15,13 @@ public interface IMemory extends Sh2Prefetcher {
 
     int read(int register, Size size);
 
-    void prefetch(int pc, S32xUtil.CpuDeviceAccess cpu);
-
     void resetSh2();
 
     default void fetch(Sh2.FetchResult ft, S32xUtil.CpuDeviceAccess cpu) {
         ft.opcode = read16(ft.pc);
     }
 
-    default int fetchDelaySlot(int pc, S32xUtil.CpuDeviceAccess cpu) {
+    default int fetchDelaySlot(int pc, Sh2.FetchResult ft, S32xUtil.CpuDeviceAccess cpu) {
         return read16(pc);
     }
 

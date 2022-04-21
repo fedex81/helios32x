@@ -156,7 +156,6 @@ public final class Sh2Memory implements IMemory {
 				} else if (address >= START_SDRAM && address < END_SDRAM) {
 					writeBuffer(sdram, address & SDRAM_MASK, val, size);
 					S32xMemAccessDelay.addWriteCpuDelay(SDRAM);
-//					checkPrefetch(address, val, size);
 				} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
 					if (s32XMMREG.fm > 0) {
 						s32XMMREG.write(address, val, size);
@@ -176,7 +175,6 @@ public final class Sh2Memory implements IMemory {
 			case CACHE_IO_H3: //0xF
 				if ((address & ONCHIP_REG_MASK) == ONCHIP_REG_MASK) {
 					sh2MMREGS[cpuAccess.ordinal()].write(address & 0xFFFF, val, size);
-//					checkPrefetch(address, val, size);
 				} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
 					sh2MMREGS[cpuAccess.ordinal()].writeDramMode(address & 0xFFFF, val, size);
 				} else {
@@ -188,11 +186,7 @@ public final class Sh2Memory implements IMemory {
 				if (true) throw new RuntimeException();
 				break;
 		}
-	}
-
-	@Override
-	public void prefetch(int pc, CpuDeviceAccess cpu) {
-		prefetch.prefetch(pc, cpu);
+		prefetch.dataWrite(cpuAccess, address, val, size);
 	}
 
 	public void fetch(Sh2.FetchResult fetchResult, S32xUtil.CpuDeviceAccess cpu) {
@@ -200,8 +194,8 @@ public final class Sh2Memory implements IMemory {
 	}
 
 	@Override
-	public int fetchDelaySlot(int pc, S32xUtil.CpuDeviceAccess cpu) {
-		return prefetch.fetchDelaySlot(pc, cpu);
+	public int fetchDelaySlot(int pc, Sh2.FetchResult ft, S32xUtil.CpuDeviceAccess cpu) {
+		return prefetch.fetchDelaySlot(pc, ft, cpu);
 	}
 
 	public Sh2MMREG getSh2MMREGS(CpuDeviceAccess cpu) {

@@ -154,9 +154,9 @@ public class WatchdogTimer implements StepDevice {
     @Override
     public void step(int cycles) {
         if (wdtTimerEnable) {
-            stepOne();
-            stepOne();
-            stepOne();
+            while (cycles-- > 0) {
+                stepOne();
+            }
         }
     }
 

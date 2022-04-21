@@ -106,13 +106,13 @@ public class Md32x extends Genesis {
         if (nextMSh2Cycle == counter) {
             rt.setAccessType(MASTER);
             sh2.run(masterCtx);
-            nextMSh2Cycle += Math.max(1, (masterCtx.cycles_ran * 5) >> 5); //5/16 ~= 1/3
+            nextMSh2Cycle += Math.max(1, (masterCtx.cycles_ran * 5) >> 4); //5/16 ~= 1/3
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
         }
         if (nextSSh2Cycle == counter) {
             rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
-            nextSSh2Cycle += Math.max(1, (slaveCtx.cycles_ran * 5) >> 5);
+            nextSSh2Cycle += Math.max(1, (slaveCtx.cycles_ran * 5) >> 4);
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
         }
     }
