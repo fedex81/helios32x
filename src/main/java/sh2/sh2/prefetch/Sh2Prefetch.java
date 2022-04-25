@@ -100,7 +100,6 @@ public class Sh2Prefetch {
         pctx.end = (pc & 0xFF_FFFF) + (pctx.prefetchLookahead << 1);
         switch (pc >> 24) {
             case 6:
-            case 0x26:
                 pctx.start = Math.max(0, pctx.start) & SDRAM_MASK;
                 pctx.end = Math.min(SDRAM_SIZE - 1, pctx.end) & SDRAM_MASK;
                 pctx.pcMasked = pc & SDRAM_MASK;
@@ -108,7 +107,6 @@ public class Sh2Prefetch {
                 pctx.buf = sdram;
                 break;
             case 2:
-            case 0x22:
                 pctx.start = Math.max(0, pctx.start) & romMask;
                 pctx.end = Math.min(romSize - 1, pctx.end) & romMask;
                 pctx.pcMasked = pc & romMask;
@@ -116,7 +114,6 @@ public class Sh2Prefetch {
                 pctx.buf = rom;
                 break;
             case 0:
-            case 0x20:
                 pctx.buf = bios[cpu.ordinal()];
                 pctx.start = Math.max(0, pctx.start);
                 int biosMask = pctx.buf.capacity() - 1;
