@@ -25,6 +25,8 @@ public class Sh2Dict {
     public static Sh2DeviceType[] sh2RegDeviceMapping = new Sh2DeviceType[SH2_REG_SIZE];
     public static RegSpec[] sh2RegMapping = new RegSpec[SH2_REG_SIZE];
 
+    public static final int BSC_LONG_WRITE_MASK = 0xa55a << 16;
+
     public enum RegSpec {
 
         //serial comm interface
@@ -66,13 +68,13 @@ public class Sh2Dict {
         INTC_ICR(0xFEE0, "INTC_ICR", Size.WORD), //Interrupt control register
 
         //bus state controller
-        BSC_BCR1(0xFFE0, "BSC_BCR1", Size.LONG), //Bus Control Register 1
-        BSC_BCR2(0xFFE4, "BSC_BCR2", Size.LONG),//Bus Control Register 2
+        BSC_BCR1(0xFFE0, "BSC_BCR1", Size.LONG, 0x9ff7), //Bus Control Register 1
+        BSC_BCR2(0xFFE4, "BSC_BCR2", Size.LONG, 0xfc),//Bus Control Register 2
         BSC_WCR(0xFFE8, "BSC_WCR", Size.LONG), //Wait Control Register
-        BSC_MCR(0xFFEC, "BSC_MCR", Size.LONG), //Individual memory control register
-        BSC_RTCSR(0xFFF0, "BSC_RTCSR", Size.LONG), //Refresh Timer Control/Status Register
-        BSC_RTCNT(0xFFF4, "BSC_RTCNT", Size.LONG), //Refresh Timer Counter
-        BSC_RTCOR(0xFFF8, "BSC_RTCOR", Size.LONG), //Refresh Time Constant Register
+        BSC_MCR(0xFFEC, "BSC_MCR", Size.LONG, 0xfefc), //Individual memory control register
+        BSC_RTCSR(0xFFF0, "BSC_RTCSR", Size.LONG, 0xf8), //Refresh Timer Control/Status Register
+        BSC_RTCNT(0xFFF4, "BSC_RTCNT", Size.LONG, 0xff), //Refresh Timer Counter
+        BSC_RTCOR(0xFFF8, "BSC_RTCOR", Size.LONG, 0xff), //Refresh Time Constant Register
 
         //div unit
         DIV_DVSR(0xFF00, "DIV_DVSR", Size.LONG),
@@ -114,17 +116,22 @@ public class Sh2Dict {
         NONE_FE93(0xFE93, "NONE_FE93", Size.BYTE), //Unknown, vf uses it
         ;
 
-        public final int fullAddress, addr;
+        public final int fullAddress, addr, writeMask;
         public final String name;
         public final Size size;
 
         public static final int REG_MASK = SH2_REG_MASK;
 
         private RegSpec(int addr, String name, Size size) {
+            this(addr, name, size, (int) size.getMask());
+        }
+
+        private RegSpec(int addr, String name, Size size, int writeMask) {
             this.fullAddress = addr;
             this.addr = addr & SH2_REG_MASK;
             this.name = name;
             this.size = size;
+            this.writeMask = writeMask;
             init();
         }
 

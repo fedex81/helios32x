@@ -24,7 +24,7 @@ import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DMA;
  * <p>
  * 32X Hardware Manual Supplement 1/2,  Chaotix, Primal Rage, and Virtua Racing
  */
-public class DmaC implements StepDevice {
+public class DmaC implements Sh2Device {
 
     private static final Logger LOG = LogManager.getLogger(DmaC.class.getSimpleName());
 
@@ -49,16 +49,23 @@ public class DmaC implements StepDevice {
         this.dmaChannelSetup = new DmaChannelSetup[]{DmaHelper.createChannel(0), DmaHelper.createChannel(1)};
     }
 
-    public void write(RegSpec regSpec, int value, Size size) {
+    @Override
+    public void write(RegSpec regSpec, int pos, int value, Size size) {
         if (verbose) LOG.info("{} DMA write {}: {} {}", cpu, regSpec.name,
                 Integer.toHexString(value), size);
-        writeBuffer(regs, regSpec.addr, value, size);
+        writeBuffer(regs, pos, value, size);
         switch (cpu) {
             case MASTER:
             case SLAVE:
+                assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
                 writeSh2(cpu, regSpec, value, size);
                 break;
         }
+    }
+
+    @Override
+    public int read(RegSpec regSpec, int reg, Size size) {
+        return readBuffer(regs, reg, size);
     }
 
     @Override

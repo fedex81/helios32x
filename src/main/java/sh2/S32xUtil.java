@@ -26,6 +26,20 @@ public class S32xUtil {
         } //DO NOTHING
     }
 
+    public static interface Sh2Device extends StepDevice {
+        void write(RegSpec regSpec, int pos, int value, Size size);
+
+        int read(RegSpec regSpec, int reg, Size size);
+
+        public default void write(RegSpec regSpec, int value, Size size) {
+            write(regSpec, regSpec.addr, value, size);
+        }
+
+        public default int read(RegSpec regSpec, Size size) {
+            return read(regSpec, regSpec.addr, size);
+        }
+    }
+
     public static void writeBuffers(ByteBuffer b1, ByteBuffer b2, int pos, int value, Size size) {
         writeBuffer(b1, pos, value, size);
         writeBuffer(b2, pos, value, size);
@@ -55,6 +69,10 @@ public class S32xUtil {
         writeBuffer(b, pos, value, size);
         int newVal = readBuffer(b, baseReg, Size.WORD);
         return newVal != val;
+    }
+
+    public static void writeRegBuffer(RegSpec r, ByteBuffer b, int value, Size size) {
+        writeBuffer(b, r.addr, value & r.writeMask, size);
     }
 
     public static void writeBuffer(ByteBuffer b, int pos, int value, Size size) {

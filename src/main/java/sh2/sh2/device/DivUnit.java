@@ -18,7 +18,7 @@ import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DIV;
  * <p>
  * Copyright 2021
  */
-public class DivUnit implements StepDevice {
+public class DivUnit implements Sh2Device {
 
     private static final Logger LOG = LogManager.getLogger(DivUnit.class.getSimpleName());
 
@@ -41,8 +41,9 @@ public class DivUnit implements StepDevice {
         this.intControl = intControl;
     }
 
-    public void write(RegSpec reg, int value, Size size) {
-        writeBuffer(regs, reg.addr, value, size);
+    @Override
+    public void write(RegSpec reg, int pos, int value, Size size) {
+        writeBuffer(regs, pos, value, size);
         if (verbose) LOG.info("{} Write {} value: {} {}", cpu, reg.name, th(value), size);
         switch (reg) {
             case DIV_DVDNTL:
@@ -54,6 +55,7 @@ public class DivUnit implements StepDevice {
         }
     }
 
+    @Override
     public int read(RegSpec regSpec, int reg, Size size) {
         if (verbose) LOG.info("{} Read {} value: {} {}", cpu, regSpec.name, th(readBuffer(regs, reg, size)), size);
         return readBuffer(regs, reg, size);
