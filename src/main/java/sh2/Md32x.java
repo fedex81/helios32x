@@ -162,6 +162,10 @@ public class Md32x extends Genesis {
 
     private void runDevices() {
         ctx.pwm.step(SH2_CYCLE_RATIO);
+        //TODO if Pwm triggers dreq, who owns the cpuDelay?
+        //TODO obv. the CPU that has dreq triggered
+//        assert Md32xRuntimeData.resetCpuDelayExt() == 0;
+        Md32xRuntimeData.resetCpuDelayExt();
         ctx.mDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
         ctx.sDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
     }

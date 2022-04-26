@@ -19,7 +19,7 @@ import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.SCI;
  * <p>
  * Copyright 2021
  */
-public class SerialCommInterface implements StepDevice {
+public class SerialCommInterface implements Sh2Device {
 
     private static final Logger LOG = LogManager.getLogger(SerialCommInterface.class.getSimpleName());
 
@@ -54,18 +54,21 @@ public class SerialCommInterface implements StepDevice {
         reset();
     }
 
-    public int read(RegSpec regSpec, Size size) {
+    @Override
+    public int read(RegSpec regSpec, int pos, Size size) {
         if (size != Size.BYTE) {
             LOG.error("{} SCI read {}: {}", cpu, regSpec.name, size);
             throw new RuntimeException();
         }
+        assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
         int res = readBuffer(regs, regSpec.addr, Size.BYTE);
         if (verbose) LOG.info("{} SCI read {}: {} {}", cpu, regSpec.name,
                 Integer.toHexString(res), size);
         return res;
     }
 
-    public void write(RegSpec regSpec, int value, Size size) {
+    @Override
+    public void write(RegSpec regSpec, int pos, int value, Size size) {
         if (size != Size.BYTE) {
             LOG.error("{} SCI write {}: {} {}", cpu, regSpec.name,
                     Integer.toHexString(value), size);
@@ -74,6 +77,7 @@ public class SerialCommInterface implements StepDevice {
         if (verbose) LOG.info("{} SCI write {}: {} {}", cpu, regSpec.name,
                 Integer.toHexString(value), size);
         boolean write = true;
+        assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
 
         switch (regSpec) {
             case SCI_SCR:
@@ -107,7 +111,7 @@ public class SerialCommInterface implements StepDevice {
 
         }
         if (write) {
-            writeBuffer(regs, regSpec.addr, value, size);
+            writeBuffer(regs, pos, value, size);
         }
     }
 

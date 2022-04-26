@@ -30,7 +30,7 @@ import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.WDT;
  * 2. Read by byte access. The correct value cannot be read by word or longword access.
  * 3. Only 0 can be written in bit 7 to clear the flag.
  */
-public class WatchdogTimer implements StepDevice {
+public class WatchdogTimer implements Sh2Device {
 
     private static final Logger LOG = LogManager.getLogger(WatchdogTimer.class.getSimpleName());
 
@@ -74,17 +74,19 @@ public class WatchdogTimer implements StepDevice {
             LOG.error("{} WDT read {}: {}", cpu, regSpec.name, size);
             throw new RuntimeException();
         }
+        assert address == regSpec.addr : th(address) + ", " + th(regSpec.addr);
         if (address == WTCNT_ADDR_READ) {
             writeBuffer(regs, WTCNT_ADDR_READ, count, Size.BYTE);
         }
         return readBuffer(regs, address, size);
     }
 
-    public void write(Sh2Dict.RegSpec regSpec, int value, Size size) {
+    public void write(Sh2Dict.RegSpec regSpec, int pos, int value, Size size) {
         if (size != Size.WORD) {
             LOG.error("{} WDT write {}: {}", cpu, regSpec.name, size);
             throw new RuntimeException();
         }
+        assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
         switch (regSpec.addr) {
             case ADDR_WRITE_80:
                 handleWrite80(value);

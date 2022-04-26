@@ -22,7 +22,7 @@ import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
  * Copyright 2021
  * <p>
  */
-public class IntControl implements StepDevice {
+public class IntControl implements Sh2Device {
 
     private static final Logger LOG = LogManager.getLogger(IntControl.class.getSimpleName());
 
@@ -73,9 +73,10 @@ public class IntControl implements StepDevice {
         Arrays.stream(Sh2DeviceType.values()).forEach(d -> sh2DeviceInt.put(d, 0));
     }
 
-    public void write(RegSpec regSpec, int value, Size size) {
+    @Override
+    public void write(RegSpec regSpec, int pos, int value, Size size) {
         int val = 0;
-        writeBuffer(regs, regSpec.addr, value, size);
+        writeBuffer(regs, pos, value, size);
         switch (regSpec) {
             case INTC_IPRA:
                 val = readBuffer(regs, regSpec.addr, Size.WORD);
@@ -97,6 +98,12 @@ public class IntControl implements StepDevice {
                 }
                 break;
         }
+    }
+
+    @Override
+    public int read(RegSpec regSpec, int reg, Size size) {
+        if (verbose) LOG.info("{} Read {} value: {} {}", cpu, regSpec.name, th(readBuffer(regs, reg, size)), size);
+        return readBuffer(regs, reg, size);
     }
 
     private void setIntMasked(int ipt, boolean isValid) {

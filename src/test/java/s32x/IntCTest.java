@@ -1,12 +1,15 @@
 package s32x;
 
+import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.MarsLauncherHelper;
+import sh2.Sh2MMREG;
 import sh2.sh2.device.IntControl;
 import sh2.sh2.device.IntControl.Sh2Interrupt;
 
+import static sh2.dict.Sh2Dict.RegSpec.INTC_IPRA;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
 
 /**
@@ -18,10 +21,11 @@ public class IntCTest {
 
     private IntControl mInt, sInt;
     private Sh2Interrupt[] vals = {PWM_6, CMD_8, HINT_10, VINT_12};
+    private MarsLauncherHelper.Sh2LaunchContext lc;
 
     @BeforeEach
     public void before() {
-        MarsLauncherHelper.Sh2LaunchContext lc = MarsRegTestUtil.createTestInstance();
+        lc = MarsRegTestUtil.createTestInstance();
         mInt = lc.mDevCtx.intC;
         sInt = lc.sDevCtx.intC;
     }
@@ -148,4 +152,32 @@ public class IntCTest {
         Assertions.assertEquals(hint.ordinal(), actual);
     }
 
+    @Test
+    public void testRegWrite() {
+        Sh2MMREG s = lc.mDevCtx.sh2MMREG;
+        int val, res;
+        val = 0xffff;
+        s.write(INTC_IPRA.addr, val, Size.WORD);
+        res = s.read(INTC_IPRA.addr, Size.WORD);
+        Assertions.assertEquals(val, res);
+
+        val = 0xAA;
+        s.write(INTC_IPRA.addr, 0, Size.WORD);
+        s.write(INTC_IPRA.addr + 1, val, Size.BYTE);
+        res = s.read(INTC_IPRA.addr, Size.WORD);
+        Assertions.assertEquals(val, res);
+        res = s.read(INTC_IPRA.addr, Size.BYTE);
+        Assertions.assertEquals(0, res);
+        res = s.read(INTC_IPRA.addr + 1, Size.BYTE);
+        Assertions.assertEquals(val, res);
+
+        val = 0xBB;
+        s.write(INTC_IPRA.addr, val, Size.BYTE);
+        res = s.read(INTC_IPRA.addr, Size.WORD);
+        Assertions.assertEquals(0xBBAA, res);
+        res = s.read(INTC_IPRA.addr, Size.BYTE);
+        Assertions.assertEquals(val, res);
+        res = s.read(INTC_IPRA.addr + 1, Size.BYTE);
+        Assertions.assertEquals(0xAA, res);
+    }
 }
