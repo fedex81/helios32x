@@ -7,9 +7,14 @@ import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.Sh2MMREG;
 import sh2.sh2.Sh2.FetchResult;
 import sh2.sh2.Sh2Impl;
+import sh2.sh2.Sh2Instructions;
 import sh2.sh2.Sh2Instructions.Sh2Instruction;
+import sh2.sh2.drc.Ow2Sh2BlockRecompiler;
 
 import java.nio.ByteBuffer;
+
+import static omegadrive.util.Util.th;
+import static sh2.sh2.Sh2Instructions.generateInst;
 
 /**
  * Federico Berti
@@ -19,6 +24,11 @@ import java.nio.ByteBuffer;
 public interface Sh2Prefetcher {
 
     static final Logger LOG = LogManager.getLogger(Sh2Prefetcher.class.getSimpleName());
+
+    static final int OPT_THRESHOLD = 0xFF; //needs to be (powerOf2 - 1)
+    static final int OPT_THRESHOLD2 = 0x1FF; //needs to be (powerOf2 - 1)
+
+    static final boolean verbose = false;
 
     void fetch(FetchResult ft, CpuDeviceAccess cpu);
 
@@ -46,6 +56,8 @@ public interface Sh2Prefetcher {
         public int prefetchPc, hits, start, end, pcMasked, prefetchLenWords, memAccessDelay;
         public ByteBuffer fetchBuffer;
         public Sh2Block nextBlock = INVALID_BLOCK;
+        public Sh2Prefetch.Sh2DrcContext drcContext;
+        public Runnable stage2Drc;
 
         public boolean runOne() {
             curr.runnable.run();
@@ -54,7 +66,12 @@ public interface Sh2Prefetcher {
         }
 
         public final void runBlock(Sh2Impl sh2, Sh2MMREG sm) {
+            if (stage2Drc != null) {
+                stage2Drc.run();
+                return;
+            }
             Sh2BlockUnit prev = curr;
+            addHit();
             do {
                 sh2.printDebugMaybe(curr.opcode);
                 curr.runnable.run();
@@ -67,17 +84,38 @@ public interface Sh2Prefetcher {
             curr = prev;
         }
 
-        public void init(Sh2Prefetcher.Sh2BlockUnit[] ic) {
+        public void addHit() {
+            hits++;
+            if (inst == null) {
+                if (((hits + 1) & OPT_THRESHOLD) == 0) {
+                    stage1(generateInst(prefetchWords));
+                    if (verbose) LOG.info("{} HRC1 count: {}\n{}", "", th(hits), Sh2Instructions.toListOfInst(this));
+                }
+            } else if (stage2Drc == null && ((hits + 1) & OPT_THRESHOLD2) == 0) {
+                if (verbose) LOG.info("{} HRC2 count: {}\n{}", "", th(hits), Sh2Instructions.toListOfInst(this));
+                stage2();
+            }
+        }
+
+        public void stage1(Sh2Prefetcher.Sh2BlockUnit[] ic) {
             inst = ic;
             inst[0].next = inst.length > 1 ? inst[1] : null;
             inst[0].pc = prefetchPc;
+            int lastIdx = ic.length - 1;
             for (int i = 1; i < inst.length - 1; i++) {
                 inst[i].next = inst[i + 1];
                 inst[i].pc = prefetchPc + (i << 1);
                 assert !inst[i].isBranch || inst[i].isBranchDelaySlot;
             }
+            inst[lastIdx].pc = prefetchPc + (lastIdx << 1);
             curr = inst[0];
-            assert inst[ic.length - 1].isBranch || (inst[ic.length - 2].isBranchDelaySlot && !inst[ic.length - 1].isBranch);
+            assert inst[lastIdx].pc > 0;
+            assert inst[lastIdx].isBranch || (inst[lastIdx - 1].isBranchDelaySlot && !inst[lastIdx].isBranch);
+        }
+
+        public void stage2() {
+            assert drcContext != null;
+            stage2Drc = Ow2Sh2BlockRecompiler.createDrcClass(this, drcContext);
         }
 
         public void setCurrent(int pcDeltaWords) {
@@ -88,7 +126,8 @@ public interface Sh2Prefetcher {
             nextBlock = INVALID_BLOCK;
             inst = null;
             prefetchWords = null;
-            prefetchPc = prefetchLenWords = 0;
+            prefetchPc = prefetchLenWords = -1;
+            stage2Drc = null;
             hits = 0;
         }
     }

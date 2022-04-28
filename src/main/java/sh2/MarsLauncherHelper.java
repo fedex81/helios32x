@@ -9,6 +9,7 @@ import sh2.sh2.Sh2Debug;
 import sh2.sh2.Sh2Impl;
 import sh2.sh2.device.Sh2DeviceHelper;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceContext;
+import sh2.sh2.prefetch.Sh2Prefetch;
 import sh2.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
@@ -59,11 +60,20 @@ public class MarsLauncherHelper {
         ctx.rom = rom;
         ctx.s32XMMREG = new S32XMMREG();
         ctx.dmaFifo68k = new DmaFifo68k(ctx.s32XMMREG.regContext);
-        ctx.memory = new Sh2Memory(ctx.s32XMMREG, ctx.rom, biosHolder);
+        Sh2Prefetch.Sh2DrcContext mDrcCtx = new Sh2Prefetch.Sh2DrcContext();
+        Sh2Prefetch.Sh2DrcContext sDrcCtx = new Sh2Prefetch.Sh2DrcContext();
+        mDrcCtx.sh2Ctx = ctx.masterCtx;
+        sDrcCtx.sh2Ctx = ctx.slaveCtx;
+        mDrcCtx.cpu = ctx.masterCtx.cpuAccess;
+        sDrcCtx.cpu = ctx.slaveCtx.cpuAccess;
+
+        ctx.memory = new Sh2Memory(ctx.s32XMMREG, ctx.rom, biosHolder, mDrcCtx, sDrcCtx);
         ctx.mDevCtx = Sh2DeviceHelper.createDevices(MASTER, ctx);
         ctx.sDevCtx = Sh2DeviceHelper.createDevices(SLAVE, ctx);
         ctx.sh2 = (ctx.masterCtx.debug || ctx.slaveCtx.debug) ?
                 new Sh2Debug(ctx.memory) : new Sh2Impl(ctx.memory);
+        mDrcCtx.sh2 = sDrcCtx.sh2 = (Sh2Impl) ctx.sh2;
+        mDrcCtx.memory = sDrcCtx.memory = ctx.memory;
         ctx.pwm = new Pwm(ctx.s32XMMREG.regContext);
         ctx.masterCtx.devices = ctx.mDevCtx;
         ctx.slaveCtx.devices = ctx.sDevCtx;

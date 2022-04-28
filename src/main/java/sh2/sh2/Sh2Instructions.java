@@ -6,6 +6,7 @@ import sh2.sh2.prefetch.Sh2Prefetcher;
 import java.util.Arrays;
 import java.util.Optional;
 
+import static omegadrive.util.Util.th;
 import static sh2.sh2.Sh2Instructions.Sh2Inst.*;
 
 /**
@@ -27,6 +28,7 @@ public class Sh2Instructions {
         public final boolean isBranch, isBranchDelaySlot, isIllegal;
 
         public Sh2Instruction(int opcode, Sh2Inst inst, Runnable r) {
+            assert inst == sh2OpcodeMap[opcode] : th(opcode) + "-" + inst + "-" + sh2OpcodeMap[opcode];
             this.opcode = opcode;
             this.inst = inst;
             this.runnable = r;
@@ -44,8 +46,8 @@ public class Sh2Instructions {
         instOpcodeMap = new Sh2Instruction[NUM_OPCODES];
         sh2OpcodeMap = new Sh2Inst[NUM_OPCODES];
         for (int i = 0; i < instOpcodeMap.length; i++) {
-            instOpcodeMap[i] = getInstruction(sh2, i);
             sh2OpcodeMap[i] = getInstruction(i);
+            instOpcodeMap[i] = getInstruction(sh2, i);
         }
         return instOpcodeMap;
     }
@@ -671,9 +673,9 @@ public class Sh2Instructions {
             case MOVWL:
                 return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWL(opcode));
             case MOVWL0:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWL(opcode));
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWL0(opcode));
             case MOVWL4:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWL(opcode));
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWL4(opcode));
             case MOVWLG:
                 return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWLG(opcode));
             case MOVWM:
@@ -801,7 +803,7 @@ public class Sh2Instructions {
         }
     }
 
-    static enum Sh2Inst {
+    public static enum Sh2Inst {
         ADD,
         ADDC,
         ADDI,

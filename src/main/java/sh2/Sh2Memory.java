@@ -65,7 +65,7 @@ public final class Sh2Memory implements IMemory {
 	private Sh2MMREG[] sh2MMREGS = new Sh2MMREG[2];
 	private S32XMMREG s32XMMREG;
 
-	public Sh2Memory(S32XMMREG s32XMMREG, ByteBuffer rom, BiosHolder biosHolder) {
+	public Sh2Memory(S32XMMREG s32XMMREG, ByteBuffer rom, BiosHolder biosHolder, Sh2Prefetch.Sh2DrcContext... drcCtx) {
 		this.s32XMMREG = s32XMMREG;
 		this.rom = rom;
 		bios[MASTER.ordinal()] = biosHolder.getBiosData(MASTER);
@@ -78,7 +78,7 @@ public final class Sh2Memory implements IMemory {
 
 		romSize = rom.capacity();
 		romMask = Util.getRomMask(romSize);
-		prefetch = new Sh2Prefetch(this, cache);
+		prefetch = new Sh2Prefetch(this, cache, drcCtx);
 		LOG.info("Rom size: {}, mask: {}", th(romSize), th(romMask));
 	}
 

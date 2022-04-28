@@ -3,17 +3,16 @@ package sh2.sh2.prefetch;
 import com.google.common.primitives.Ints;
 import omegadrive.cpu.CpuFastDebug;
 import omegadrive.util.Size;
+import omegadrive.util.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.objectweb.asm.commons.LocalVariablesSorter;
 import sh2.IMemory;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.Sh2Memory;
 import sh2.dict.S32xMemAccessDelay;
-import sh2.sh2.Sh2;
+import sh2.sh2.*;
 import sh2.sh2.Sh2.FetchResult;
-import sh2.sh2.Sh2Debug;
-import sh2.sh2.Sh2Helper;
-import sh2.sh2.Sh2Instructions;
 import sh2.sh2.Sh2Instructions.Sh2Instruction;
 import sh2.sh2.cache.Sh2Cache;
 
@@ -41,12 +40,12 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private static final boolean SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
 
     private static final boolean SH2_REUSE_FETCH_DATA = true;
-    private static final int OPT_THRESHOLD = 0xFF; //needs to be (powerOf2 - 1)
     private static final int INITIAL_BLOCK_LIMIT = 50;
 
     private static final boolean verbose = false;
     private static final boolean collectStats = verbose || false;
 
+    //TODO creates a lot of garbage, int -> Integer
     private Map<Integer, Sh2Block>[] prefetchMap = new Map[]{new HashMap<Integer, Sh2Block>(), new HashMap<Integer, Sh2Block>()};
     private final Object[] pcVisited = new Object[2];
 
@@ -54,6 +53,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     private final IMemory memory;
     private final Sh2Cache[] cache;
+    private final Sh2DrcContext[] sh2Context;
 
     public final int romSize, romMask;
     public final ByteBuffer[] bios;
@@ -64,9 +64,25 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private final List<Integer> opcodes = new ArrayList<>(10);
     private int blockLimit = INITIAL_BLOCK_LIMIT;
 
-    public Sh2Prefetch(Sh2Memory memory, Sh2Cache[] cache) {
+    public static class Sh2DrcContext {
+        public CpuDeviceAccess cpu;
+        public Sh2Impl sh2;
+        public Sh2Context sh2Ctx;
+        public Sh2Memory memory;
+    }
+
+    public static class BytecodeContext {
+        public Sh2DrcContext drcCtx;
+        public String classDesc;
+        public LocalVariablesSorter mv;
+        public int opcode, pc;
+        public Sh2Instructions.Sh2Inst sh2Inst;
+    }
+
+    public Sh2Prefetch(Sh2Memory memory, Sh2Cache[] cache, Sh2DrcContext[] sh2Ctx) {
         this.cache = cache;
         this.memory = memory;
+        this.sh2Context = sh2Ctx;
         romMask = memory.romMask;
         romSize = memory.romSize;
         sdram = memory.sdram;
@@ -87,6 +103,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private Sh2Block doPrefetch(int pc, CpuDeviceAccess cpu) {
         final Sh2Block block = new Sh2Block();
         block.prefetchPc = pc;
+        block.drcContext = this.sh2Context[cpu.ordinal()];
         setupPrefetch(block, cpu);
         final boolean isCache = (pc >>> 28) == 2;
         assert !isCache; //TODO verify, Doom Resurrection?
@@ -103,16 +120,18 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             pcVisit[currentPc >>> dc.pcAreaShift][currentPc & dc.pcMask] = 1;
             if (op[val].isIllegal) {
                 LOG.error("{} Invalid fetch, start PC: {}, current: {} opcode: {}", cpu, th(pc), th(bytePos), th(val));
-                block.init(generateInst(block.prefetchWords));
-                LOG.info(instToString(pc, block.inst, cpu));
-                break;
+                if (block.prefetchWords != null) {
+                    block.stage1(generateInst(block.prefetchWords));
+                    LOG.info(instToString(pc, block.inst, cpu));
+                }
+                throw new RuntimeException("Fatal!");
             }
-            opcodes.add(val);
+            opcodes.add(Util.getFromIntegerCache(val));
             if (op[val].isBranch) {
                 if (op[val].isBranchDelaySlot) {
                     int nextVal = isCache ? sh2Cache.cacheMemoryRead(currentPc + 2, Size.WORD) :
                             block.fetchBuffer.getShort(bytePos + 2) & 0xFFFF;
-                    opcodes.add(nextVal);
+                    opcodes.add(Util.getFromIntegerCache(nextVal));
                     pcVisit[(currentPc + 2) >>> dc.pcAreaShift][currentPc & dc.pcMask] = 1;
                 }
                 break;
@@ -182,7 +201,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         final int pc = fetchResult.pc;
         final Map<Integer, Sh2Block> pMap = prefetchMap[cpu.ordinal()];
         Sh2Block block = pMap.get(pc);
-        if (block != null) {
+        if (block != null && block != Sh2Block.INVALID_BLOCK) {
             assert fetchResult.pc == block.prefetchPc;
             fetchResult.block = block;
             return;
@@ -193,7 +212,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             handleMapLoad(pMap, cpu);
             pMap.put(pc, block);
             if (prev != null && !block.equals(prev)) {
-                throw new RuntimeException("PC has been rewritten: " + th(pc));
+                LOG.warn("New block generated at PC: " + th(pc));
             }
         }
         assert block != null;
@@ -231,22 +250,13 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             block = fetchResult.block;
             if (collectStats) stats[cpu.ordinal()].addMiss();
         } else {
-            addHit(block);
+            block.addHit();
         }
         if (collectStats) stats[cpu.ordinal()].pfTotal++;
         S32xMemAccessDelay.addReadCpuDelay(block.memAccessDelay);
+        assert block != Sh2Block.INVALID_BLOCK && block.prefetchWords != null && block.prefetchWords.length > 0;
         fetchResult.opcode = block.prefetchWords[pcDeltaWords];
         return;
-    }
-
-    private void addHit(Sh2Block block) {
-        if (block.inst == null) {
-            block.hits++;
-            if (((block.hits + 1) & OPT_THRESHOLD) == 0) {
-                block.init(generateInst(block.prefetchWords));
-                if (verbose) LOG.info("{} count: {}\n{}", "", th(block.hits), Sh2Instructions.toListOfInst(block));
-            }
-        }
     }
 
     public int fetchDelaySlot(int pc, Sh2.FetchResult ft, CpuDeviceAccess cpu) {

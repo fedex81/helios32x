@@ -295,7 +295,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                 int val = readMemoryUncached(memory, (addr & 0xFFFFFFF0) + i, Size.LONG);
                 setCachedData(data, i & LINE_MASK, val, Size.LONG);
             } catch (Exception e) {
-                LOG.error("Unable to read addr: {}", addr, e);
+                LOG.error("Unable to read addr: {}", th(addr), e);
                 e.printStackTrace();
                 return;
             }

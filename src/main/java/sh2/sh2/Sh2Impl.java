@@ -112,6 +112,7 @@ public class Sh2Impl implements Sh2 {
 //		if(true){
 //			fr.pc = ctx.PC;
 //			memory.fetch(fr, ctx.cpuAccess);
+//			printDebugMaybe(fr.opcode);
 //			opcodeMap[fr.opcode].runnable.run();
 //			return;
 //		}
