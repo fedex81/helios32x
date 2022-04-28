@@ -20,8 +20,8 @@ repositories {
 
 dependencies {
     //START helios
-    implementation group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.14.1'
-    implementation group: 'com.google.guava', name: 'guava', version: '31.0.1-jre'
+    implementation group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.17.2'
+    implementation group: 'com.google.guava', name: 'guava', version: '31.1-jre'
     implementation group: 'org.jctools', name: 'jctools-core', version: '3.3.0'
     implementation group: 'org.jaudiolibs', name: 'audioservers-javasound', version: '2.0.0'
     implementation group: 'org.digitalmediaserver', name: 'cuelib-core', version: '2.0.0'
@@ -32,6 +32,7 @@ dependencies {
     implementation fileTree(dir: 'lib', include: ['*.jar'])
     //END helios
 
+    implementation group: 'org.ow2.asm', name: 'asm', version: '9.3'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
     testImplementation 'org.junit.jupiter:junit-jupiter-params:5.8.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
@@ -48,13 +49,15 @@ def static getDate() {
 
 //create a single Jar with all dependencies
 task fatJar(type: Jar) {
+    dependsOn "compileJava"
     manifest {
         attributes 'Implementation-Title': 'Helios',
                 'Implementation-Version': archiveVersion,
                 'Main-Class': 'omegadrive.SystemLoader'
     }
+    duplicatesStrategy= "exclude"
     getArchiveBaseName().set(project.name + "-all")//+ version
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    from { configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     from {
         ["CREDITS.md", "README.md", "HISTORY.md", "LICENSE.md", "helios.properties"]
     }
@@ -63,7 +66,7 @@ task fatJar(type: Jar) {
     }
     with jar
     doLast {
-        println("Creating fatJar in folder: " + destinationDirectory)
+        println("Creating fatJar: "+ getArchiveFileName().getOrNull() +" in folder: " + destinationDirectory.getOrNull())
     }
 }
 

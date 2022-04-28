@@ -6,14 +6,14 @@ import sh2.sh2.prefetch.Sh2Prefetcher;
 import java.util.Arrays;
 import java.util.Optional;
 
+import static sh2.sh2.Sh2Instructions.Sh2Inst.*;
+
 /**
  * Federico Berti
  * <p>
  * Copyright 2022
  */
 public class Sh2Instructions {
-
-    public static final String ILLEGAL_STR = "ILLEGAL";
 
     static class OpcodeCreateCtx {
         int opcode;
@@ -22,29 +22,32 @@ public class Sh2Instructions {
 
     public static class Sh2Instruction {
         public final Runnable runnable;
-        public final String name;
+        public final Sh2Inst inst;
         public final int opcode;
         public final boolean isBranch, isBranchDelaySlot, isIllegal;
 
-        public Sh2Instruction(int opcode, String name, Runnable r) {
+        public Sh2Instruction(int opcode, Sh2Inst inst, Runnable r) {
             this.opcode = opcode;
-            this.name = name;
+            this.inst = inst;
             this.runnable = r;
-            this.isBranch = isBranchOpcode(name);
-            this.isBranchDelaySlot = isBranchDelaySlotOpcode(name);
-            this.isIllegal = ILLEGAL_STR.equalsIgnoreCase(name);
+            this.isBranch = isBranchOpcode(inst.name());
+            this.isBranchDelaySlot = isBranchDelaySlotOpcode(inst.name());
+            this.isIllegal = ILLEGAL == inst;
         }
     }
 
     public static final int NUM_OPCODES = 0x10000;
-    public static Sh2Instruction[] opcodeMap;
+    public static Sh2Instruction[] instOpcodeMap;
+    public static Sh2Inst[] sh2OpcodeMap;
 
     public static Sh2Instruction[] createOpcodeMap(Sh2Impl sh2) {
-        opcodeMap = new Sh2Instruction[NUM_OPCODES];
-        for (int i = 0; i < opcodeMap.length; i++) {
-            opcodeMap[i] = getInstruction(sh2, i);
+        instOpcodeMap = new Sh2Instruction[NUM_OPCODES];
+        sh2OpcodeMap = new Sh2Inst[NUM_OPCODES];
+        for (int i = 0; i < instOpcodeMap.length; i++) {
+            instOpcodeMap[i] = getInstruction(sh2, i);
+            sh2OpcodeMap[i] = getInstruction(i);
         }
-        return opcodeMap;
+        return instOpcodeMap;
     }
 
     private static String methodName() {
@@ -70,7 +73,7 @@ public class Sh2Instructions {
     }
 
     public static Sh2Prefetcher.Sh2BlockUnit[] generateInst(int[] opcodes) {
-        return Arrays.stream(opcodes).mapToObj(op -> new Sh2Prefetcher.Sh2BlockUnit(opcodeMap[op])).toArray(Sh2Prefetcher.Sh2BlockUnit[]::new);
+        return Arrays.stream(opcodes).mapToObj(op -> new Sh2Prefetcher.Sh2BlockUnit(instOpcodeMap[op])).toArray(Sh2Prefetcher.Sh2BlockUnit[]::new);
     }
 
     public static StringBuilder toListOfInst(Sh2Prefetcher.Sh2Block ctx) {
@@ -83,425 +86,865 @@ public class Sh2Instructions {
         return sb;
     }
 
-    public final static Sh2Instruction getInstruction(final Sh2Impl sh2, final int opcode) {
+    public final static Sh2Inst getInstruction(final int opcode) {
         switch ((opcode >>> 12) & 0xf) {
             case 0:
                 switch ((opcode >>> 0) & 0xf) {
                     case 2:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "STCSR", () -> sh2.STCSR(opcode));
+                                return STCSR;
                             case 1:
-                                return new Sh2Instruction(opcode, "STCGBR", () -> sh2.STCGBR(opcode));
+                                return STCGBR;
                             case 2:
-                                return new Sh2Instruction(opcode, "STCVBR", () -> sh2.STCVBR(opcode));
+                                return STCVBR;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 3:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "BSRF", () -> sh2.BSRF(opcode));
+                                return BSRF;
                             case 2:
-                                return new Sh2Instruction(opcode, "BRAF", () -> sh2.BRAF(opcode));
+                                return BRAF;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 4:
-                        return new Sh2Instruction(opcode, "MOVBS0", () -> sh2.MOVBS0(opcode));
+                        return MOVBS0;
                     case 5:
-                        return new Sh2Instruction(opcode, "MOVWS0", () -> sh2.MOVWS0(opcode));
+                        return MOVWS0;
                     case 6:
-                        return new Sh2Instruction(opcode, "MOVLS0", () -> sh2.MOVLS0(opcode));
+                        return MOVLS0;
                     case 7:
-                        return new Sh2Instruction(opcode, "MULL", () -> sh2.MULL(opcode));
+                        return MULL;
                     case 8:
                         switch ((opcode >>> 4) & 0xfff) {
                             case 0:
-                                return new Sh2Instruction(opcode, "CLRT", () -> sh2.CLRT(opcode));
+                                return CLRT;
                             case 1:
-                                return new Sh2Instruction(opcode, "SETT", () -> sh2.SETT(opcode));
+                                return SETT;
                             case 2:
-                                return new Sh2Instruction(opcode, "CLRMAC", () -> sh2.CLRMAC(opcode));
+                                return CLRMAC;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 9:
                         switch ((opcode >>> 4) & 0xfff) {
                             case 0:
-                                return new Sh2Instruction(opcode, "NOP", () -> sh2.NOP(opcode));
+                                return NOP;
                             case 1:
-                                return new Sh2Instruction(opcode, "DIV0U", () -> sh2.DIV0U(opcode));
+                                return DIV0U;
                             case 2:
-                                return new Sh2Instruction(opcode, "MOVT", () -> sh2.MOVT(opcode));
+                                return MOVT;
                             default:
                                 switch ((opcode >>> 4) & 0xf) {
                                     case 2:
-                                        return new Sh2Instruction(opcode, "MOVT", () -> sh2.MOVT(opcode));
+                                        return MOVT;
                                     default:
-                                        return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                        return ILLEGAL;
                                 }
                         }
                     case 10:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "STSMACH", () -> sh2.STSMACH(opcode));
+                                return STSMACH;
                             case 1:
-                                return new Sh2Instruction(opcode, "STSMACL", () -> sh2.STSMACL(opcode));
+                                return STSMACL;
                             case 2:
-                                return new Sh2Instruction(opcode, "STSPR", () -> sh2.STSPR(opcode));
+                                return STSPR;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 11:
                         switch ((opcode >>> 4) & 0xfff) {
                             case 0:
-                                return new Sh2Instruction(opcode, "RTS", () -> sh2.RTS(opcode));
+                                return RTS;
                             case 1:
-                                return new Sh2Instruction(opcode, "SLEEP", () -> sh2.SLEEP(opcode));
+                                return SLEEP;
                             case 2:
-                                return new Sh2Instruction(opcode, "RTE", () -> sh2.RTE(opcode));
+                                return RTE;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 12:
-                        return new Sh2Instruction(opcode, "MOVBL0", () -> sh2.MOVBL0(opcode));
+                        return MOVBL0;
                     case 13:
-                        return new Sh2Instruction(opcode, "MOVWL0", () -> sh2.MOVWL0(opcode));
+                        return MOVWL0;
                     case 14:
-                        return new Sh2Instruction(opcode, "MOVLL0", () -> sh2.MOVLL0(opcode));
+                        return MOVLL0;
                     case 15:
-                        return new Sh2Instruction(opcode, "MACL", () -> sh2.MACL(opcode));
+                        return MACL;
                     default:
-                        return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                        return ILLEGAL;
                 }
             case 1:
-                return new Sh2Instruction(opcode, "MOVLS4", () -> sh2.MOVLS4(opcode));
+                return MOVLS4;
             case 2:
                 switch ((opcode >>> 0) & 0xf) {
                     case 0:
-                        return new Sh2Instruction(opcode, "MOVBS", () -> sh2.MOVBS(opcode));
+                        return MOVBS;
                     case 1:
-                        return new Sh2Instruction(opcode, "MOVWS", () -> sh2.MOVWS(opcode));
+                        return MOVWS;
                     case 2:
-                        return new Sh2Instruction(opcode, "MOVLS", () -> sh2.MOVLS(opcode));
+                        return MOVLS;
                     case 4:
-                        return new Sh2Instruction(opcode, "MOVBM", () -> sh2.MOVBM(opcode));
+                        return MOVBM;
                     case 5:
-                        return new Sh2Instruction(opcode, "MOVWM", () -> sh2.MOVWM(opcode));
+                        return MOVWM;
                     case 6:
-                        return new Sh2Instruction(opcode, "MOVLM", () -> sh2.MOVLM(opcode));
+                        return MOVLM;
                     case 7:
-                        return new Sh2Instruction(opcode, "DIV0S", () -> sh2.DIV0S(opcode));
+                        return DIV0S;
                     case 8:
-                        return new Sh2Instruction(opcode, "TST", () -> sh2.TST(opcode));
+                        return TST;
                     case 9:
-                        return new Sh2Instruction(opcode, "AND", () -> sh2.AND(opcode));
+                        return AND;
                     case 10:
-                        return new Sh2Instruction(opcode, "XOR", () -> sh2.XOR(opcode));
+                        return XOR;
                     case 11:
-                        return new Sh2Instruction(opcode, "OR", () -> sh2.OR(opcode));
+                        return OR;
                     case 12:
-                        return new Sh2Instruction(opcode, "CMPSTR", () -> sh2.CMPSTR(opcode));
+                        return CMPSTR;
                     case 13:
-                        return new Sh2Instruction(opcode, "XTRCT", () -> sh2.XTRCT(opcode));
+                        return XTRCT;
                     case 14:
-                        return new Sh2Instruction(opcode, "MULSU", () -> sh2.MULSU(opcode));
+                        return MULSU;
                     case 15:
-                        return new Sh2Instruction(opcode, "MULSW", () -> sh2.MULSW(opcode));
+                        return MULSW;
                     default:
-                        return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                        return ILLEGAL;
                 }
             case 3:
                 switch ((opcode >>> 0) & 0xf) {
                     case 0:
-                        return new Sh2Instruction(opcode, "CMPEQ", () -> sh2.CMPEQ(opcode));
+                        return CMPEQ;
                     case 2:
-                        return new Sh2Instruction(opcode, "CMPHS", () -> sh2.CMPHS(opcode));
+                        return CMPHS;
                     case 3:
-                        return new Sh2Instruction(opcode, "CMPGE", () -> sh2.CMPGE(opcode));
+                        return CMPGE;
                     case 4:
-                        return new Sh2Instruction(opcode, "DIV1", () -> sh2.DIV1(opcode));
+                        return DIV1;
                     case 5:
-                        return new Sh2Instruction(opcode, "DMULU", () -> sh2.DMULU(opcode));
+                        return DMULU;
                     case 6:
-                        return new Sh2Instruction(opcode, "CMPHI", () -> sh2.CMPHI(opcode));
+                        return CMPHI;
                     case 7:
-                        return new Sh2Instruction(opcode, "CMPGT", () -> sh2.CMPGT(opcode));
+                        return CMPGT;
                     case 8:
-                        return new Sh2Instruction(opcode, "SUB", () -> sh2.SUB(opcode));
+                        return SUB;
                     case 10:
-                        return new Sh2Instruction(opcode, "SUBC", () -> sh2.SUBC(opcode));
+                        return SUBC;
                     case 11:
-                        return new Sh2Instruction(opcode, "SUBV", () -> sh2.SUBV(opcode));
+                        return SUBV;
                     case 12:
-                        return new Sh2Instruction(opcode, "ADD", () -> sh2.ADD(opcode));
+                        return ADD;
                     case 13:
-                        return new Sh2Instruction(opcode, "DMULS", () -> sh2.DMULS(opcode));
+                        return DMULS;
                     case 14:
-                        return new Sh2Instruction(opcode, "ADDC", () -> sh2.ADDC(opcode));
+                        return ADDC;
                     case 15:
-                        return new Sh2Instruction(opcode, "ADDV", () -> sh2.ADDV(opcode));
+                        return ADDV;
                     default:
-                        return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                        return ILLEGAL;
                 }
             case 4:
                 switch ((opcode >>> 0) & 0xf) {
                     case 0:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "SHLL", () -> sh2.SHLL(opcode));
+                                return SHLL;
                             case 1:
-                                return new Sh2Instruction(opcode, "DT", () -> sh2.DT(opcode));
+                                return DT;
                             case 2:
-                                return new Sh2Instruction(opcode, "SHAL", () -> sh2.SHAL(opcode));
+                                return SHAL;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 1:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "SHLR", () -> sh2.SHLR(opcode));
+                                return SHLR;
                             case 1:
-                                return new Sh2Instruction(opcode, "CMPPZ", () -> sh2.CMPPZ(opcode));
+                                return CMPPZ;
                             case 2:
-                                return new Sh2Instruction(opcode, "SHAR", () -> sh2.SHAR(opcode));
+                                return SHAR;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 2:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "STSMMACH", () -> sh2.STSMMACH(opcode));
+                                return STSMMACH;
                             case 1:
-                                return new Sh2Instruction(opcode, "STSMMACL", () -> sh2.STSMMACL(opcode));
+                                return STSMMACL;
                             case 2:
-                                return new Sh2Instruction(opcode, "STSMPR", () -> sh2.STSMPR(opcode));
+                                return STSMPR;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 3:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "STCMSR", () -> sh2.STCMSR(opcode));
+                                return STCMSR;
                             case 1:
-                                return new Sh2Instruction(opcode, "STCMGBR", () -> sh2.STCMGBR(opcode));
+                                return STCMGBR;
                             case 2:
-                                return new Sh2Instruction(opcode, "STCMVBR", () -> sh2.STCMVBR(opcode));
+                                return STCMVBR;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 4:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "ROTL", () -> sh2.ROTL(opcode));
+                                return ROTL;
                             case 2:
-                                return new Sh2Instruction(opcode, "ROTCL", () -> sh2.ROTCL(opcode));
+                                return ROTCL;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 5:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "ROTR", () -> sh2.ROTR(opcode));
+                                return ROTR;
                             case 1:
-                                return new Sh2Instruction(opcode, "CMPPL", () -> sh2.CMPPL(opcode));
+                                return CMPPL;
                             case 2:
-                                return new Sh2Instruction(opcode, "ROTCR", () -> sh2.ROTCR(opcode));
+                                return ROTCR;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 6:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "LDSMMACH", () -> sh2.LDSMMACH(opcode));
+                                return LDSMMACH;
                             case 1:
-                                return new Sh2Instruction(opcode, "LDSMMACL", () -> sh2.LDSMMACL(opcode));
+                                return LDSMMACL;
                             case 2:
-                                return new Sh2Instruction(opcode, "LDSMPR", () -> sh2.LDSMPR(opcode));
+                                return LDSMPR;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 7:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "LDCMSR", () -> sh2.LDCMSR(opcode));
+                                return LDCMSR;
                             case 1:
-                                return new Sh2Instruction(opcode, "LDCMGBR", () -> sh2.LDCMGBR(opcode));
+                                return LDCMGBR;
                             case 2:
-                                return new Sh2Instruction(opcode, "LDCMVBR", () -> sh2.LDCMVBR(opcode));
+                                return LDCMVBR;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 8:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "SHLL2", () -> sh2.SHLL2(opcode));
+                                return SHLL2;
                             case 1:
-                                return new Sh2Instruction(opcode, "SHLL8", () -> sh2.SHLL8(opcode));
+                                return SHLL8;
                             case 2:
-                                return new Sh2Instruction(opcode, "SHLL16", () -> sh2.SHLL16(opcode));
+                                return SHLL16;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 9:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "SHLR2", () -> sh2.SHLR2(opcode));
+                                return SHLR2;
                             case 1:
-                                return new Sh2Instruction(opcode, "SHLR8", () -> sh2.SHLR8(opcode));
+                                return SHLR8;
                             case 2:
-                                return new Sh2Instruction(opcode, "SHLR16", () -> sh2.SHLR16(opcode));
+                                return SHLR16;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 10:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "LDSMACH", () -> sh2.LDSMACH(opcode));
+                                return LDSMACH;
                             case 1:
-                                return new Sh2Instruction(opcode, "LDSMACL", () -> sh2.LDSMACL(opcode));
+                                return LDSMACL;
                             case 2:
-                                return new Sh2Instruction(opcode, "LDSPR", () -> sh2.LDSPR(opcode));
+                                return LDSPR;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 11:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "JSR", () -> sh2.JSR(opcode));
+                                return JSR;
                             case 1:
-                                return new Sh2Instruction(opcode, "TAS", () -> sh2.TAS(opcode));
+                                return TAS;
                             case 2:
-                                return new Sh2Instruction(opcode, "JMP", () -> sh2.JMP(opcode));
+                                return JMP;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 14:
                         switch ((opcode >>> 4) & 0xf) {
                             case 0:
-                                return new Sh2Instruction(opcode, "LDCSR", () -> sh2.LDCSR(opcode));
+                                return LDCSR;
                             case 1:
-                                return new Sh2Instruction(opcode, "LDCGBR", () -> sh2.LDCGBR(opcode));
+                                return LDCGBR;
                             case 2:
-                                return new Sh2Instruction(opcode, "LDCVBR", () -> sh2.LDCVBR(opcode));
+                                return LDCVBR;
                             default:
-                                return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                                return ILLEGAL;
                         }
                     case 15:
-                        return new Sh2Instruction(opcode, "MACW", () -> sh2.MACW(opcode));
+                        return MACW;
                     default:
-                        return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                        return ILLEGAL;
                 }
             case 5:
-                return new Sh2Instruction(opcode, "MOVLL4", () -> sh2.MOVLL4(opcode));
+                return MOVLL4;
             case 6:
                 switch ((opcode >>> 0) & 0xf) {
                     case 0:
-                        return new Sh2Instruction(opcode, "MOVBL", () -> sh2.MOVBL(opcode));
+                        return MOVBL;
                     case 1:
-                        return new Sh2Instruction(opcode, "MOVWL", () -> sh2.MOVWL(opcode));
+                        return MOVWL;
                     case 2:
-                        return new Sh2Instruction(opcode, "MOVLL", () -> sh2.MOVLL(opcode));
+                        return MOVLL;
                     case 3:
-                        return new Sh2Instruction(opcode, "MOV", () -> sh2.MOV(opcode));
+                        return MOV;
                     case 4:
-                        return new Sh2Instruction(opcode, "MOVBP", () -> sh2.MOVBP(opcode));
+                        return MOVBP;
                     case 5:
-                        return new Sh2Instruction(opcode, "MOVWP", () -> sh2.MOVWP(opcode));
+                        return MOVWP;
                     case 6:
-                        return new Sh2Instruction(opcode, "MOVLP", () -> sh2.MOVLP(opcode));
+                        return MOVLP;
                     case 7:
-                        return new Sh2Instruction(opcode, "NOT", () -> sh2.NOT(opcode));
+                        return NOT;
                     case 8:
-                        return new Sh2Instruction(opcode, "SWAPB", () -> sh2.SWAPB(opcode));
+                        return SWAPB;
                     case 9:
-                        return new Sh2Instruction(opcode, "SWAPW", () -> sh2.SWAPW(opcode));
+                        return SWAPW;
                     case 10:
-                        return new Sh2Instruction(opcode, "NEGC", () -> sh2.NEGC(opcode));
+                        return NEGC;
                     case 11:
-                        return new Sh2Instruction(opcode, "NEG", () -> sh2.NEG(opcode));
+                        return NEG;
                     case 12:
-                        return new Sh2Instruction(opcode, "EXTUB", () -> sh2.EXTUB(opcode));
+                        return EXTUB;
                     case 13:
-                        return new Sh2Instruction(opcode, "EXTUW", () -> sh2.EXTUW(opcode));
+                        return EXTUW;
                     case 14:
-                        return new Sh2Instruction(opcode, "EXTSB", () -> sh2.EXTSB(opcode));
+                        return EXTSB;
                     case 15:
-                        return new Sh2Instruction(opcode, "EXTSW", () -> sh2.EXTSW(opcode));
+                        return EXTSW;
                 }
             case 7:
-                return new Sh2Instruction(opcode, "ADDI", () -> sh2.ADDI(opcode));
+                return ADDI;
             case 8:
                 switch ((opcode >>> 8) & 0xf) {
                     case 0:
-                        return new Sh2Instruction(opcode, "MOVBS4", () -> sh2.MOVBS4(opcode));
+                        return MOVBS4;
                     case 1:
-                        return new Sh2Instruction(opcode, "MOVWS4", () -> sh2.MOVWS4(opcode));
+                        return MOVWS4;
                     case 4:
-                        return new Sh2Instruction(opcode, "MOVBL4", () -> sh2.MOVBL4(opcode));
+                        return MOVBL4;
                     case 5:
-                        return new Sh2Instruction(opcode, "MOVWL4", () -> sh2.MOVWL4(opcode));
+                        return MOVWL4;
                     case 8:
-                        return new Sh2Instruction(opcode, "CMPIM", () -> sh2.CMPIM(opcode));
+                        return CMPIM;
                     case 9:
-                        return new Sh2Instruction(opcode, "BT", () -> sh2.BT(opcode));
+                        return BT;
                     case 11:
-                        return new Sh2Instruction(opcode, "BF", () -> sh2.BF(opcode));
+                        return BF;
                     case 13:
-                        return new Sh2Instruction(opcode, "BTS", () -> sh2.BTS(opcode));
+                        return BTS;
                     case 15:
-                        return new Sh2Instruction(opcode, "BFS", () -> sh2.BFS(opcode));
+                        return BFS;
                     default:
-                        return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+                        return ILLEGAL;
                 }
             case 9:
-                return new Sh2Instruction(opcode, "MOVWI", () -> sh2.MOVWI(opcode));
+                return MOVWI;
             case 10:
-                return new Sh2Instruction(opcode, "BRA", () -> sh2.BRA(opcode));
+                return BRA;
             case 11:
-                return new Sh2Instruction(opcode, "BSR", () -> sh2.BSR(opcode));
+                return BSR;
             case 12:
                 switch ((opcode >>> 8) & 0xf) {
                     case 0:
-                        return new Sh2Instruction(opcode, "MOVBSG", () -> sh2.MOVBSG(opcode));
+                        return MOVBSG;
                     case 1:
-                        return new Sh2Instruction(opcode, "MOVWSG", () -> sh2.MOVWSG(opcode));
+                        return MOVWSG;
                     case 2:
-                        return new Sh2Instruction(opcode, "MOVLSG", () -> sh2.MOVLSG(opcode));
+                        return MOVLSG;
                     case 3:
-                        return new Sh2Instruction(opcode, "TRAPA", () -> sh2.TRAPA(opcode));
+                        return TRAPA;
                     case 4:
-                        return new Sh2Instruction(opcode, "MOVBLG", () -> sh2.MOVBLG(opcode));
+                        return MOVBLG;
                     case 5:
-                        return new Sh2Instruction(opcode, "MOVWLG", () -> sh2.MOVWLG(opcode));
+                        return MOVWLG;
                     case 6:
-                        return new Sh2Instruction(opcode, "MOVLLG", () -> sh2.MOVLLG(opcode));
+                        return MOVLLG;
                     case 7:
-                        return new Sh2Instruction(opcode, "MOVA", () -> sh2.MOVA(opcode));
+                        return MOVA;
                     case 8:
-                        return new Sh2Instruction(opcode, "TSTI", () -> sh2.TSTI(opcode));
+                        return TSTI;
                     case 9:
-                        return new Sh2Instruction(opcode, "ANDI", () -> sh2.ANDI(opcode));
+                        return ANDI;
                     case 10:
-                        return new Sh2Instruction(opcode, "XORI", () -> sh2.XORI(opcode));
+                        return XORI;
                     case 11:
-                        return new Sh2Instruction(opcode, "ORI", () -> sh2.ORI(opcode));
+                        return ORI;
                     case 12:
-                        return new Sh2Instruction(opcode, "TSTM", () -> sh2.TSTM(opcode));
+                        return TSTM;
                     case 13:
-                        return new Sh2Instruction(opcode, "ANDM", () -> sh2.ANDM(opcode));
+                        return ANDM;
                     case 14:
-                        return new Sh2Instruction(opcode, "XORM", () -> sh2.XORM(opcode));
+                        return XORM;
                     case 15:
-                        return new Sh2Instruction(opcode, "ORM", () -> sh2.ORM(opcode));
+                        return ORM;
                 }
             case 13:
-                return new Sh2Instruction(opcode, "MOVLI", () -> sh2.MOVLI(opcode));
+                return MOVLI;
             case 14:
-                return new Sh2Instruction(opcode, "MOVI", () -> sh2.MOVI(opcode));
+                return MOVI;
         }
-        return new Sh2Instruction(opcode, ILLEGAL_STR, () -> sh2.ILLEGAL(opcode));
+        return ILLEGAL;
+    }
+
+    public final static Sh2Instruction getInstruction(final Sh2Impl sh2, final int opcode) {
+        Sh2Inst sh2Inst = getInstruction(opcode);
+        switch (sh2Inst) {
+            case ADD:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ADD(opcode));
+            case ADDC:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ADDC(opcode));
+            case ADDI:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ADDI(opcode));
+            case ADDV:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ADDV(opcode));
+            case AND:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.AND(opcode));
+            case ANDI:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ANDI(opcode));
+            case ANDM:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ANDM(opcode));
+            case BF:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BF(opcode));
+            case BFS:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BFS(opcode));
+            case BRA:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BRA(opcode));
+            case BRAF:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BRAF(opcode));
+            case BSR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BSR(opcode));
+            case BSRF:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BSRF(opcode));
+            case BT:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BT(opcode));
+            case BTS:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BTS(opcode));
+            case CLRMAC:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CLRMAC(opcode));
+            case CLRT:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CLRT(opcode));
+            case CMPEQ:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPEQ(opcode));
+            case CMPGE:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPGE(opcode));
+            case CMPGT:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPGT(opcode));
+            case CMPHI:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPHI(opcode));
+            case CMPHS:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPHS(opcode));
+            case CMPIM:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPIM(opcode));
+            case CMPPL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPPL(opcode));
+            case CMPPZ:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPPZ(opcode));
+            case CMPSTR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPSTR(opcode));
+            case DIV0S:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.DIV0S(opcode));
+            case DIV0U:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.DIV0U(opcode));
+            case DIV1:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.DIV1(opcode));
+            case DMULS:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.DMULS(opcode));
+            case DMULU:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.DMULU(opcode));
+            case DT:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.DT(opcode));
+            case EXTSB:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.EXTSB(opcode));
+            case EXTSW:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.EXTSW(opcode));
+            case EXTUB:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.EXTUB(opcode));
+            case EXTUW:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.EXTUW(opcode));
+            case ILLEGAL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ILLEGAL(opcode));
+            case JMP:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.JMP(opcode));
+            case JSR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.JSR(opcode));
+            case LDCGBR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDCGBR(opcode));
+            case LDCMGBR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDCMGBR(opcode));
+            case LDCMSR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDCMSR(opcode));
+            case LDCMVBR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDCMVBR(opcode));
+            case LDCSR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDCSR(opcode));
+            case LDCVBR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDCVBR(opcode));
+            case LDSMACH:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDSMACH(opcode));
+            case LDSMACL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDSMACL(opcode));
+            case LDSMMACH:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDSMMACH(opcode));
+            case LDSMMACL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDSMMACL(opcode));
+            case LDSMPR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDSMPR(opcode));
+            case LDSPR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDSPR(opcode));
+            case MACL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MACL(opcode));
+            case MACW:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MACW(opcode));
+            case MOV:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOV(opcode));
+            case MOVA:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVA(opcode));
+            case MOVBL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBL(opcode));
+            case MOVBL0:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBL0(opcode));
+            case MOVBL4:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBL4(opcode));
+            case MOVBLG:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBLG(opcode));
+            case MOVBM:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBM(opcode));
+            case MOVBP:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBP(opcode));
+            case MOVBS:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBS(opcode));
+            case MOVBS0:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBS0(opcode));
+            case MOVBS4:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBS4(opcode));
+            case MOVBSG:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBSG(opcode));
+            case MOVI:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVI(opcode));
+            case MOVLI:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLI(opcode));
+            case MOVLL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLL(opcode));
+            case MOVLL0:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLL0(opcode));
+            case MOVLL4:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLL4(opcode));
+            case MOVLLG:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLLG(opcode));
+            case MOVLM:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLM(opcode));
+            case MOVLP:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLP(opcode));
+            case MOVLS:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLS(opcode));
+            case MOVLS0:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLS0(opcode));
+            case MOVLS4:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLS4(opcode));
+            case MOVLSG:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLSG(opcode));
+            case MOVT:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVT(opcode));
+            case MOVWI:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWI(opcode));
+            case MOVWL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWL(opcode));
+            case MOVWL0:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWL(opcode));
+            case MOVWL4:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWL(opcode));
+            case MOVWLG:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWLG(opcode));
+            case MOVWM:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWM(opcode));
+            case MOVWP:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWP(opcode));
+            case MOVWS:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWS(opcode));
+            case MOVWS0:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWS0(opcode));
+            case MOVWS4:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWS4(opcode));
+            case MOVWSG:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWSG(opcode));
+            case MULL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MULL(opcode));
+            case MULSU:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MULSU(opcode));
+            case MULSW:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MULSW(opcode));
+            case NEG:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.NEG(opcode));
+            case NEGC:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.NEGC(opcode));
+            case NOP:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.NOP(opcode));
+            case NOT:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.NOT(opcode));
+            case OR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.OR(opcode));
+            case ORI:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ORI(opcode));
+            case ORM:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ORM(opcode));
+            case ROTCL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ROTCL(opcode));
+            case ROTCR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ROTCR(opcode));
+            case ROTL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ROTL(opcode));
+            case ROTR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ROTR(opcode));
+            case RTE:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.RTE(opcode));
+            case RTS:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.RTS(opcode));
+            case SETT:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SETT(opcode));
+            case SHAL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHAL(opcode));
+            case SHAR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHAR(opcode));
+            case SHLL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLL(opcode));
+            case SHLL16:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLL16(opcode));
+            case SHLL2:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLL2(opcode));
+            case SHLL8:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLL8(opcode));
+            case SHLR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLR(opcode));
+            case SHLR16:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLR16(opcode));
+            case SHLR2:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLR2(opcode));
+            case SHLR8:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLR8(opcode));
+            case SLEEP:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SLEEP(opcode));
+            case STCGBR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STCGBR(opcode));
+            case STCMGBR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STCMGBR(opcode));
+            case STCMSR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STCMSR(opcode));
+            case STCMVBR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STCMVBR(opcode));
+            case STCSR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STCSR(opcode));
+            case STCVBR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STCVBR(opcode));
+            case STSMACH:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STSMACH(opcode));
+            case STSMACL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STSMACL(opcode));
+            case STSMMACH:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STSMMACH(opcode));
+            case STSMMACL:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STSMMACL(opcode));
+            case STSMPR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STSMPR(opcode));
+            case STSPR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STSPR(opcode));
+            case SUB:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SUB(opcode));
+            case SUBC:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SUBC(opcode));
+            case SUBV:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SUBV(opcode));
+            case SWAPB:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SWAPB(opcode));
+            case SWAPW:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SWAPW(opcode));
+            case TAS:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.TAS(opcode));
+            case TRAPA:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.TRAPA(opcode));
+            case TST:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.TST(opcode));
+            case TSTI:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.TSTI(opcode));
+            case TSTM:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.TSTM(opcode));
+            case XOR:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.XOR(opcode));
+            case XORI:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.XORI(opcode));
+            case XORM:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.XORM(opcode));
+            case XTRCT:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.XTRCT(opcode));
+            default:
+                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ILLEGAL(opcode));
+        }
+    }
+
+    static enum Sh2Inst {
+        ADD,
+        ADDC,
+        ADDI,
+        ADDV,
+        AND,
+        ANDI,
+        ANDM,
+        BF,
+        BFS,
+        BRA,
+        BRAF,
+        BSR,
+        BSRF,
+        BT,
+        BTS,
+        CLRMAC,
+        CLRT,
+        CMPEQ,
+        CMPGE,
+        CMPGT,
+        CMPHI,
+        CMPHS,
+        CMPIM,
+        CMPPL,
+        CMPPZ,
+        CMPSTR,
+        DIV0S,
+        DIV0U,
+        DIV1,
+        DMULS,
+        DMULU,
+        DT,
+        EXTSB,
+        EXTSW,
+        EXTUB,
+        EXTUW,
+        ILLEGAL,
+        JMP,
+        JSR,
+        LDCGBR,
+        LDCMGBR,
+        LDCMSR,
+        LDCMVBR,
+        LDCSR,
+        LDCVBR,
+        LDSMACH,
+        LDSMACL,
+        LDSMMACH,
+        LDSMMACL,
+        LDSMPR,
+        LDSPR,
+        MACL,
+        MACW,
+        MOV,
+        MOVA,
+        MOVBL,
+        MOVBL0,
+        MOVBL4,
+        MOVBLG,
+        MOVBM,
+        MOVBP,
+        MOVBS,
+        MOVBS0,
+        MOVBS4,
+        MOVBSG,
+        MOVI,
+        MOVLI,
+        MOVLL,
+        MOVLL0,
+        MOVLL4,
+        MOVLLG,
+        MOVLM,
+        MOVLP,
+        MOVLS,
+        MOVLS0,
+        MOVLS4,
+        MOVLSG,
+        MOVT,
+        MOVWI,
+        MOVWL,
+        MOVWL0,
+        MOVWL4,
+        MOVWLG,
+        MOVWM,
+        MOVWP,
+        MOVWS,
+        MOVWS0,
+        MOVWS4,
+        MOVWSG,
+        MULL,
+        MULSU,
+        MULSW,
+        NEG,
+        NEGC,
+        NOP,
+        NOT,
+        OR,
+        ORI,
+        ORM,
+        ROTCL,
+        ROTCR,
+        ROTL,
+        ROTR,
+        RTE,
+        RTS,
+        SETT,
+        SHAL,
+        SHAR,
+        SHLL,
+        SHLL16,
+        SHLL2,
+        SHLL8,
+        SHLR,
+        SHLR16,
+        SHLR2,
+        SHLR8,
+        SLEEP,
+        STCGBR,
+        STCMGBR,
+        STCMSR,
+        STCMVBR,
+        STCSR,
+        STCVBR,
+        STSMACH,
+        STSMACL,
+        STSMMACH,
+        STSMMACL,
+        STSMPR,
+        STSPR,
+        SUB,
+        SUBC,
+        SUBV,
+        SWAPB,
+        SWAPW,
+        TAS,
+        TRAPA,
+        TST,
+        TSTI,
+        TSTM,
+        XOR,
+        XORI,
+        XORM,
+        XTRCT;
     }
 
 }

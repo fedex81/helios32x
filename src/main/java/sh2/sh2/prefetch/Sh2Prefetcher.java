@@ -32,7 +32,7 @@ public interface Sh2Prefetcher {
         public int pc;
 
         public Sh2BlockUnit(Sh2Instruction i) {
-            super(i.opcode, i.name, i.runnable);
+            super(i.opcode, i.inst, i.runnable);
         }
     }
 

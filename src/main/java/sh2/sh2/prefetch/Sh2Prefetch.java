@@ -96,7 +96,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         int currentPc = pc;
         if (verbose) LOG.info("{} prefetch @ pc: {}", cpu, th(pc));
         opcodes.clear();
-        final Sh2Instruction[] op = Sh2Instructions.opcodeMap;
+        final Sh2Instruction[] op = Sh2Instructions.instOpcodeMap;
         do {
             int val = isCache ? sh2Cache.cacheMemoryRead(currentPc, Size.WORD) :
                     block.fetchBuffer.getShort(bytePos) & 0xFFFF;
