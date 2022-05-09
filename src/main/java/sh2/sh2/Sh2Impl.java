@@ -1309,10 +1309,10 @@ public class Sh2Impl implements Sh2 {
 	protected final void ROTCL(int code) {
 		int n = RN(code);
 
-		int temp = (ctx.registers[n] >>> 31) & 1;
+		int msbit = (ctx.registers[n] >>> 31) & 1;
 		ctx.registers[n] = (ctx.registers[n] << 1) | (ctx.SR & flagT);
 		ctx.SR &= ~flagT;
-		ctx.SR |= temp;
+		ctx.SR |= msbit;
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -1831,7 +1831,7 @@ public class Sh2Impl implements Sh2 {
 		ctx.registers[n] -= 4;
 		memory.write32(ctx.registers[n], ctx.PR);
 
-		ctx.cycles -= 2;
+		ctx.cycles -= 1;
 		ctx.PC += 2;
 	}
 
