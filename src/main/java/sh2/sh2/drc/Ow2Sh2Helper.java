@@ -28,7 +28,7 @@ public class Ow2Sh2Helper {
 
     public static boolean createInst(Sh2Prefetch.BytecodeContext ctx) {
 //        printString(ctx.mv, ctx.sh2Inst + "," + ctx.opcode);
-        Sh2Instructions.Sh2Inst sh2Inst = ctx.sh2Inst;
+        Sh2Instructions.Sh2BaseInstruction sh2Inst = ctx.sh2Inst;
 //        sh2Inst = Sh2Instructions.Sh2Inst.ILLEGAL;
         switch (sh2Inst) {
             case ADD:
@@ -98,7 +98,9 @@ public class Ow2Sh2Helper {
             case DMULU:
                 DMULU(ctx);
                 break;
-//            case DT: DT(ctx); break;
+            case DT:
+                DT(ctx);
+                break;
             case EXTSB:
                 EXTSB(ctx);
                 break;
@@ -111,7 +113,9 @@ public class Ow2Sh2Helper {
             case EXTUW:
                 EXTUW(ctx);
                 break;
-//            case ILLEGAL: ILLEGAL(ctx); break;
+            case ILLEGAL:
+                ILLEGAL(ctx);
+                break;
 //            case JMP: JMP(ctx); break;
 //            case JSR: JSR(ctx); break;
             case LDCGBR:
@@ -383,9 +387,15 @@ public class Ow2Sh2Helper {
 //            case SWAPW: SWAPW(ctx); break;
 //            case TAS: TAS(ctx); break;
 //            case TRAPA: TRAPA(ctx); break;
-//            case TST: TST(ctx); break;
-//            case TSTI: TSTI(ctx); break;
-//            case TSTM: TSTM(ctx); break;
+            case TST:
+                TST(ctx);
+                break;
+            case TSTI:
+                TSTI(ctx);
+                break;
+            case TSTM:
+                TSTM(ctx);
+                break;
             case XOR:
                 XOR(ctx);
                 break;
@@ -395,7 +405,9 @@ public class Ow2Sh2Helper {
             case XORM:
                 XORM(ctx);
                 break;
-//            case XTRCT: XTRCT(ctx); break;
+            case XTRCT:
+                XTRCT(ctx);
+                break;
             default:
                 fallback(ctx);
                 if (printMissingOpcodes) {

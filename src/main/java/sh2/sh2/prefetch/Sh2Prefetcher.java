@@ -8,7 +8,7 @@ import sh2.Sh2MMREG;
 import sh2.sh2.Sh2.FetchResult;
 import sh2.sh2.Sh2Impl;
 import sh2.sh2.Sh2Instructions;
-import sh2.sh2.Sh2Instructions.Sh2Instruction;
+import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.drc.Ow2Sh2BlockRecompiler;
 
 import java.nio.ByteBuffer;
@@ -37,11 +37,11 @@ public interface Sh2Prefetcher {
     default void dataWrite(CpuDeviceAccess cpu, int addr, int val, Size size) {
     }
 
-    public static class Sh2BlockUnit extends Sh2Instruction {
+    public static class Sh2BlockUnit extends Sh2InstructionWrapper {
         public Sh2BlockUnit next;
         public int pc;
 
-        public Sh2BlockUnit(Sh2Instruction i) {
+        public Sh2BlockUnit(Sh2InstructionWrapper i) {
             super(i.opcode, i.inst, i.runnable);
         }
     }
@@ -76,7 +76,7 @@ public interface Sh2Prefetcher {
                 sh2.printDebugMaybe(curr.opcode);
                 curr.runnable.run();
                 sm.deviceStep();
-                if (curr.isBranchDelaySlot || curr.next == null) {
+                if (curr.inst.isBranchDelaySlot || curr.next == null) {
                     break;
                 }
                 curr = curr.next;
@@ -105,12 +105,13 @@ public interface Sh2Prefetcher {
             for (int i = 1; i < inst.length - 1; i++) {
                 inst[i].next = inst[i + 1];
                 inst[i].pc = prefetchPc + (i << 1);
-                assert !inst[i].isBranch || inst[i].isBranchDelaySlot;
+                assert !inst[i].inst.isBranch || inst[i].inst.isBranchDelaySlot;
             }
-            inst[lastIdx].pc = prefetchPc + (lastIdx << 1);
+            Sh2BlockUnit sbu = inst[lastIdx];
+            sbu.pc = prefetchPc + (lastIdx << 1);
             curr = inst[0];
-            assert inst[lastIdx].pc > 0;
-            assert inst[lastIdx].isBranch || (inst[lastIdx - 1].isBranchDelaySlot && !inst[lastIdx].isBranch);
+            assert sbu.pc != 0;
+            assert sbu.inst.isBranch || (inst[lastIdx - 1].inst.isBranchDelaySlot && !sbu.inst.isBranch);
         }
 
         public void stage2() {

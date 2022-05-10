@@ -4,10 +4,14 @@ import sh2.IMemory;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static omegadrive.util.Util.th;
-import static sh2.sh2.Sh2Instructions.Sh2Inst.*;
+import static sh2.sh2.Sh2Instructions.Sh2BaseInstruction.*;
 
 /**
  * Federico Berti
@@ -21,30 +25,26 @@ public class Sh2Instructions {
         IMemory memory;
     }
 
-    public static class Sh2Instruction {
+    public static class Sh2InstructionWrapper {
         public final Runnable runnable;
-        public final Sh2Inst inst;
+        public final Sh2BaseInstruction inst;
         public final int opcode;
-        public final boolean isBranch, isBranchDelaySlot, isIllegal;
 
-        public Sh2Instruction(int opcode, Sh2Inst inst, Runnable r) {
+        public Sh2InstructionWrapper(int opcode, Sh2BaseInstruction inst, Runnable r) {
             assert inst == sh2OpcodeMap[opcode] : th(opcode) + "-" + inst + "-" + sh2OpcodeMap[opcode];
             this.opcode = opcode;
             this.inst = inst;
             this.runnable = r;
-            this.isBranch = isBranchOpcode(inst.name());
-            this.isBranchDelaySlot = isBranchDelaySlotOpcode(inst.name());
-            this.isIllegal = ILLEGAL == inst;
         }
     }
 
     public static final int NUM_OPCODES = 0x10000;
-    public static Sh2Instruction[] instOpcodeMap;
-    public static Sh2Inst[] sh2OpcodeMap;
+    public static Sh2InstructionWrapper[] instOpcodeMap;
+    public static Sh2BaseInstruction[] sh2OpcodeMap;
 
-    public static Sh2Instruction[] createOpcodeMap(Sh2Impl sh2) {
-        instOpcodeMap = new Sh2Instruction[NUM_OPCODES];
-        sh2OpcodeMap = new Sh2Inst[NUM_OPCODES];
+    public static Sh2InstructionWrapper[] createOpcodeMap(Sh2Impl sh2) {
+        instOpcodeMap = new Sh2InstructionWrapper[NUM_OPCODES];
+        sh2OpcodeMap = new Sh2BaseInstruction[NUM_OPCODES];
         for (int i = 0; i < instOpcodeMap.length; i++) {
             sh2OpcodeMap[i] = getInstruction(i);
             instOpcodeMap[i] = getInstruction(sh2, i);
@@ -58,20 +58,6 @@ public class Sh2Instructions {
                 .skip(2).findFirst()
                 .map(StackWalker.StackFrame::getMethodName));
         return methodName.orElse("ERROR");
-    }
-
-    public static boolean isBranchOpcode(String name) {
-        return name.startsWith("B") || name.startsWith("J") || name.startsWith("RT") || name.startsWith("BRA");
-    }
-
-    /**
-     * Delayed branch instructions: JMP, JSR,
-     * BRA, BSR, RTS, RTE, BF/S, BT/S, BSRF,
-     * BRAF
-     */
-    public static boolean isBranchDelaySlotOpcode(String name) {
-        return name.startsWith("J") || name.startsWith("BRA") || name.startsWith("BSR") || name.startsWith("RT")
-                || name.startsWith("BTS") || name.startsWith("BFS");
     }
 
     public static Sh2Prefetcher.Sh2BlockUnit[] generateInst(int[] opcodes) {
@@ -88,7 +74,10 @@ public class Sh2Instructions {
         return sb;
     }
 
-    public final static Sh2Inst getInstruction(final int opcode) {
+    /**
+     * Generates opcode -> Sh2BaseInstruction mapping
+     */
+    private final static Sh2BaseInstruction getInstruction(final int opcode) {
         switch ((opcode >>> 12) & 0xf) {
             case 0:
                 switch ((opcode >>> 0) & 0xf) {
@@ -509,444 +498,627 @@ public class Sh2Instructions {
         return ILLEGAL;
     }
 
-    public final static Sh2Instruction getInstruction(final Sh2Impl sh2, final int opcode) {
-        Sh2Inst sh2Inst = getInstruction(opcode);
+    public final static Sh2InstructionWrapper getInstruction(final Sh2Impl sh2, final int opcode) {
+        Sh2BaseInstruction sh2Inst = getInstruction(opcode);
+        Runnable r;
         switch (sh2Inst) {
             case ADD:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ADD(opcode));
+                r = () -> sh2.ADD(opcode);
+                break;
             case ADDC:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ADDC(opcode));
+                r = () -> sh2.ADDC(opcode);
+                break;
             case ADDI:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ADDI(opcode));
+                r = () -> sh2.ADDI(opcode);
+                break;
             case ADDV:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ADDV(opcode));
+                r = () -> sh2.ADDV(opcode);
+                break;
             case AND:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.AND(opcode));
+                r = () -> sh2.AND(opcode);
+                break;
             case ANDI:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ANDI(opcode));
+                r = () -> sh2.ANDI(opcode);
+                break;
             case ANDM:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ANDM(opcode));
+                r = () -> sh2.ANDM(opcode);
+                break;
             case BF:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BF(opcode));
+                r = () -> sh2.BF(opcode);
+                break;
             case BFS:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BFS(opcode));
+                r = () -> sh2.BFS(opcode);
+                break;
             case BRA:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BRA(opcode));
+                r = () -> sh2.BRA(opcode);
+                break;
             case BRAF:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BRAF(opcode));
+                r = () -> sh2.BRAF(opcode);
+                break;
             case BSR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BSR(opcode));
+                r = () -> sh2.BSR(opcode);
+                break;
             case BSRF:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BSRF(opcode));
+                r = () -> sh2.BSRF(opcode);
+                break;
             case BT:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BT(opcode));
+                r = () -> sh2.BT(opcode);
+                break;
             case BTS:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.BTS(opcode));
+                r = () -> sh2.BTS(opcode);
+                break;
             case CLRMAC:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CLRMAC(opcode));
+                r = () -> sh2.CLRMAC(opcode);
+                break;
             case CLRT:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CLRT(opcode));
+                r = () -> sh2.CLRT(opcode);
+                break;
             case CMPEQ:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPEQ(opcode));
+                r = () -> sh2.CMPEQ(opcode);
+                break;
             case CMPGE:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPGE(opcode));
+                r = () -> sh2.CMPGE(opcode);
+                break;
             case CMPGT:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPGT(opcode));
+                r = () -> sh2.CMPGT(opcode);
+                break;
             case CMPHI:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPHI(opcode));
+                r = () -> sh2.CMPHI(opcode);
+                break;
             case CMPHS:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPHS(opcode));
+                r = () -> sh2.CMPHS(opcode);
+                break;
             case CMPIM:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPIM(opcode));
+                r = () -> sh2.CMPIM(opcode);
+                break;
             case CMPPL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPPL(opcode));
+                r = () -> sh2.CMPPL(opcode);
+                break;
             case CMPPZ:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPPZ(opcode));
+                r = () -> sh2.CMPPZ(opcode);
+                break;
             case CMPSTR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.CMPSTR(opcode));
+                r = () -> sh2.CMPSTR(opcode);
+                break;
             case DIV0S:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.DIV0S(opcode));
+                r = () -> sh2.DIV0S(opcode);
+                break;
             case DIV0U:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.DIV0U(opcode));
+                r = () -> sh2.DIV0U(opcode);
+                break;
             case DIV1:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.DIV1(opcode));
+                r = () -> sh2.DIV1(opcode);
+                break;
             case DMULS:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.DMULS(opcode));
+                r = () -> sh2.DMULS(opcode);
+                break;
             case DMULU:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.DMULU(opcode));
+                r = () -> sh2.DMULU(opcode);
+                break;
             case DT:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.DT(opcode));
+                r = () -> sh2.DT(opcode);
+                break;
             case EXTSB:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.EXTSB(opcode));
+                r = () -> sh2.EXTSB(opcode);
+                break;
             case EXTSW:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.EXTSW(opcode));
+                r = () -> sh2.EXTSW(opcode);
+                break;
             case EXTUB:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.EXTUB(opcode));
+                r = () -> sh2.EXTUB(opcode);
+                break;
             case EXTUW:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.EXTUW(opcode));
+                r = () -> sh2.EXTUW(opcode);
+                break;
             case ILLEGAL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ILLEGAL(opcode));
+                r = () -> sh2.ILLEGAL(opcode);
+                break;
             case JMP:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.JMP(opcode));
+                r = () -> sh2.JMP(opcode);
+                break;
             case JSR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.JSR(opcode));
+                r = () -> sh2.JSR(opcode);
+                break;
             case LDCGBR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDCGBR(opcode));
+                r = () -> sh2.LDCGBR(opcode);
+                break;
             case LDCMGBR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDCMGBR(opcode));
+                r = () -> sh2.LDCMGBR(opcode);
+                break;
             case LDCMSR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDCMSR(opcode));
+                r = () -> sh2.LDCMSR(opcode);
+                break;
             case LDCMVBR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDCMVBR(opcode));
+                r = () -> sh2.LDCMVBR(opcode);
+                break;
             case LDCSR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDCSR(opcode));
+                r = () -> sh2.LDCSR(opcode);
+                break;
             case LDCVBR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDCVBR(opcode));
+                r = () -> sh2.LDCVBR(opcode);
+                break;
             case LDSMACH:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDSMACH(opcode));
+                r = () -> sh2.LDSMACH(opcode);
+                break;
             case LDSMACL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDSMACL(opcode));
+                r = () -> sh2.LDSMACL(opcode);
+                break;
             case LDSMMACH:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDSMMACH(opcode));
+                r = () -> sh2.LDSMMACH(opcode);
+                break;
             case LDSMMACL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDSMMACL(opcode));
+                r = () -> sh2.LDSMMACL(opcode);
+                break;
             case LDSMPR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDSMPR(opcode));
+                r = () -> sh2.LDSMPR(opcode);
+                break;
             case LDSPR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.LDSPR(opcode));
+                r = () -> sh2.LDSPR(opcode);
+                break;
             case MACL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MACL(opcode));
+                r = () -> sh2.MACL(opcode);
+                break;
             case MACW:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MACW(opcode));
+                r = () -> sh2.MACW(opcode);
+                break;
             case MOV:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOV(opcode));
+                r = () -> sh2.MOV(opcode);
+                break;
             case MOVA:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVA(opcode));
+                r = () -> sh2.MOVA(opcode);
+                break;
             case MOVBL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBL(opcode));
+                r = () -> sh2.MOVBL(opcode);
+                break;
             case MOVBL0:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBL0(opcode));
+                r = () -> sh2.MOVBL0(opcode);
+                break;
             case MOVBL4:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBL4(opcode));
+                r = () -> sh2.MOVBL4(opcode);
+                break;
             case MOVBLG:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBLG(opcode));
+                r = () -> sh2.MOVBLG(opcode);
+                break;
             case MOVBM:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBM(opcode));
+                r = () -> sh2.MOVBM(opcode);
+                break;
             case MOVBP:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBP(opcode));
+                r = () -> sh2.MOVBP(opcode);
+                break;
             case MOVBS:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBS(opcode));
+                r = () -> sh2.MOVBS(opcode);
+                break;
             case MOVBS0:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBS0(opcode));
+                r = () -> sh2.MOVBS0(opcode);
+                break;
             case MOVBS4:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBS4(opcode));
+                r = () -> sh2.MOVBS4(opcode);
+                break;
             case MOVBSG:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVBSG(opcode));
+                r = () -> sh2.MOVBSG(opcode);
+                break;
             case MOVI:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVI(opcode));
+                r = () -> sh2.MOVI(opcode);
+                break;
             case MOVLI:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLI(opcode));
+                r = () -> sh2.MOVLI(opcode);
+                break;
             case MOVLL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLL(opcode));
+                r = () -> sh2.MOVLL(opcode);
+                break;
             case MOVLL0:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLL0(opcode));
+                r = () -> sh2.MOVLL0(opcode);
+                break;
             case MOVLL4:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLL4(opcode));
+                r = () -> sh2.MOVLL4(opcode);
+                break;
             case MOVLLG:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLLG(opcode));
+                r = () -> sh2.MOVLLG(opcode);
+                break;
             case MOVLM:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLM(opcode));
+                r = () -> sh2.MOVLM(opcode);
+                break;
             case MOVLP:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLP(opcode));
+                r = () -> sh2.MOVLP(opcode);
+                break;
             case MOVLS:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLS(opcode));
+                r = () -> sh2.MOVLS(opcode);
+                break;
             case MOVLS0:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLS0(opcode));
+                r = () -> sh2.MOVLS0(opcode);
+                break;
             case MOVLS4:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLS4(opcode));
+                r = () -> sh2.MOVLS4(opcode);
+                break;
             case MOVLSG:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVLSG(opcode));
+                r = () -> sh2.MOVLSG(opcode);
+                break;
             case MOVT:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVT(opcode));
+                r = () -> sh2.MOVT(opcode);
+                break;
             case MOVWI:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWI(opcode));
+                r = () -> sh2.MOVWI(opcode);
+                break;
             case MOVWL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWL(opcode));
+                r = () -> sh2.MOVWL(opcode);
+                break;
             case MOVWL0:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWL0(opcode));
+                r = () -> sh2.MOVWL0(opcode);
+                break;
             case MOVWL4:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWL4(opcode));
+                r = () -> sh2.MOVWL4(opcode);
+                break;
             case MOVWLG:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWLG(opcode));
+                r = () -> sh2.MOVWLG(opcode);
+                break;
             case MOVWM:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWM(opcode));
+                r = () -> sh2.MOVWM(opcode);
+                break;
             case MOVWP:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWP(opcode));
+                r = () -> sh2.MOVWP(opcode);
+                break;
             case MOVWS:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWS(opcode));
+                r = () -> sh2.MOVWS(opcode);
+                break;
             case MOVWS0:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWS0(opcode));
+                r = () -> sh2.MOVWS0(opcode);
+                break;
             case MOVWS4:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWS4(opcode));
+                r = () -> sh2.MOVWS4(opcode);
+                break;
             case MOVWSG:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MOVWSG(opcode));
+                r = () -> sh2.MOVWSG(opcode);
+                break;
             case MULL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MULL(opcode));
+                r = () -> sh2.MULL(opcode);
+                break;
             case MULSU:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MULSU(opcode));
+                r = () -> sh2.MULSU(opcode);
+                break;
             case MULSW:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.MULSW(opcode));
+                r = () -> sh2.MULSW(opcode);
+                break;
             case NEG:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.NEG(opcode));
+                r = () -> sh2.NEG(opcode);
+                break;
             case NEGC:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.NEGC(opcode));
+                r = () -> sh2.NEGC(opcode);
+                break;
             case NOP:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.NOP(opcode));
+                r = () -> sh2.NOP(opcode);
+                break;
             case NOT:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.NOT(opcode));
+                r = () -> sh2.NOT(opcode);
+                break;
             case OR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.OR(opcode));
+                r = () -> sh2.OR(opcode);
+                break;
             case ORI:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ORI(opcode));
+                r = () -> sh2.ORI(opcode);
+                break;
             case ORM:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ORM(opcode));
+                r = () -> sh2.ORM(opcode);
+                break;
             case ROTCL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ROTCL(opcode));
+                r = () -> sh2.ROTCL(opcode);
+                break;
             case ROTCR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ROTCR(opcode));
+                r = () -> sh2.ROTCR(opcode);
+                break;
             case ROTL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ROTL(opcode));
+                r = () -> sh2.ROTL(opcode);
+                break;
             case ROTR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ROTR(opcode));
+                r = () -> sh2.ROTR(opcode);
+                break;
             case RTE:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.RTE(opcode));
+                r = () -> sh2.RTE(opcode);
+                break;
             case RTS:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.RTS(opcode));
+                r = () -> sh2.RTS(opcode);
+                break;
             case SETT:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SETT(opcode));
+                r = () -> sh2.SETT(opcode);
+                break;
             case SHAL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHAL(opcode));
+                r = () -> sh2.SHAL(opcode);
+                break;
             case SHAR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHAR(opcode));
+                r = () -> sh2.SHAR(opcode);
+                break;
             case SHLL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLL(opcode));
+                r = () -> sh2.SHLL(opcode);
+                break;
             case SHLL16:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLL16(opcode));
+                r = () -> sh2.SHLL16(opcode);
+                break;
             case SHLL2:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLL2(opcode));
+                r = () -> sh2.SHLL2(opcode);
+                break;
             case SHLL8:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLL8(opcode));
+                r = () -> sh2.SHLL8(opcode);
+                break;
             case SHLR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLR(opcode));
+                r = () -> sh2.SHLR(opcode);
+                break;
             case SHLR16:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLR16(opcode));
+                r = () -> sh2.SHLR16(opcode);
+                break;
             case SHLR2:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLR2(opcode));
+                r = () -> sh2.SHLR2(opcode);
+                break;
             case SHLR8:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SHLR8(opcode));
+                r = () -> sh2.SHLR8(opcode);
+                break;
             case SLEEP:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SLEEP(opcode));
+                r = () -> sh2.SLEEP(opcode);
+                break;
             case STCGBR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STCGBR(opcode));
+                r = () -> sh2.STCGBR(opcode);
+                break;
             case STCMGBR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STCMGBR(opcode));
+                r = () -> sh2.STCMGBR(opcode);
+                break;
             case STCMSR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STCMSR(opcode));
+                r = () -> sh2.STCMSR(opcode);
+                break;
             case STCMVBR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STCMVBR(opcode));
+                r = () -> sh2.STCMVBR(opcode);
+                break;
             case STCSR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STCSR(opcode));
+                r = () -> sh2.STCSR(opcode);
+                break;
             case STCVBR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STCVBR(opcode));
+                r = () -> sh2.STCVBR(opcode);
+                break;
             case STSMACH:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STSMACH(opcode));
+                r = () -> sh2.STSMACH(opcode);
+                break;
             case STSMACL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STSMACL(opcode));
+                r = () -> sh2.STSMACL(opcode);
+                break;
             case STSMMACH:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STSMMACH(opcode));
+                r = () -> sh2.STSMMACH(opcode);
+                break;
             case STSMMACL:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STSMMACL(opcode));
+                r = () -> sh2.STSMMACL(opcode);
+                break;
             case STSMPR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STSMPR(opcode));
+                r = () -> sh2.STSMPR(opcode);
+                break;
             case STSPR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.STSPR(opcode));
+                r = () -> sh2.STSPR(opcode);
+                break;
             case SUB:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SUB(opcode));
+                r = () -> sh2.SUB(opcode);
+                break;
             case SUBC:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SUBC(opcode));
+                r = () -> sh2.SUBC(opcode);
+                break;
             case SUBV:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SUBV(opcode));
+                r = () -> sh2.SUBV(opcode);
+                break;
             case SWAPB:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SWAPB(opcode));
+                r = () -> sh2.SWAPB(opcode);
+                break;
             case SWAPW:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.SWAPW(opcode));
+                r = () -> sh2.SWAPW(opcode);
+                break;
             case TAS:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.TAS(opcode));
+                r = () -> sh2.TAS(opcode);
+                break;
             case TRAPA:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.TRAPA(opcode));
+                r = () -> sh2.TRAPA(opcode);
+                break;
             case TST:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.TST(opcode));
+                r = () -> sh2.TST(opcode);
+                break;
             case TSTI:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.TSTI(opcode));
+                r = () -> sh2.TSTI(opcode);
+                break;
             case TSTM:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.TSTM(opcode));
+                r = () -> sh2.TSTM(opcode);
+                break;
             case XOR:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.XOR(opcode));
+                r = () -> sh2.XOR(opcode);
+                break;
             case XORI:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.XORI(opcode));
+                r = () -> sh2.XORI(opcode);
+                break;
             case XORM:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.XORM(opcode));
+                r = () -> sh2.XORM(opcode);
+                break;
             case XTRCT:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.XTRCT(opcode));
+                r = () -> sh2.XTRCT(opcode);
+                break;
             default:
-                return new Sh2Instruction(opcode, sh2Inst, () -> sh2.ILLEGAL(opcode));
+                r = () -> sh2.ILLEGAL(opcode);
+                break;
         }
+        return new Sh2InstructionWrapper(opcode, sh2Inst, r);
     }
 
-    public static enum Sh2Inst {
-        ADD,
-        ADDC,
-        ADDI,
-        ADDV,
-        AND,
-        ANDI,
-        ANDM,
-        BF,
-        BFS,
-        BRA,
-        BRAF,
-        BSR,
-        BSRF,
-        BT,
-        BTS,
-        CLRMAC,
-        CLRT,
-        CMPEQ,
-        CMPGE,
-        CMPGT,
-        CMPHI,
-        CMPHS,
-        CMPIM,
-        CMPPL,
-        CMPPZ,
-        CMPSTR,
-        DIV0S,
-        DIV0U,
-        DIV1,
-        DMULS,
-        DMULU,
-        DT,
-        EXTSB,
-        EXTSW,
-        EXTUB,
-        EXTUW,
-        ILLEGAL,
-        JMP,
-        JSR,
-        LDCGBR,
-        LDCMGBR,
-        LDCMSR,
-        LDCMVBR,
-        LDCSR,
-        LDCVBR,
-        LDSMACH,
-        LDSMACL,
-        LDSMMACH,
-        LDSMMACL,
-        LDSMPR,
-        LDSPR,
-        MACL,
-        MACW,
-        MOV,
-        MOVA,
-        MOVBL,
-        MOVBL0,
-        MOVBL4,
-        MOVBLG,
-        MOVBM,
-        MOVBP,
-        MOVBS,
-        MOVBS0,
-        MOVBS4,
-        MOVBSG,
-        MOVI,
-        MOVLI,
-        MOVLL,
-        MOVLL0,
-        MOVLL4,
-        MOVLLG,
-        MOVLM,
-        MOVLP,
-        MOVLS,
-        MOVLS0,
-        MOVLS4,
-        MOVLSG,
-        MOVT,
-        MOVWI,
-        MOVWL,
-        MOVWL0,
-        MOVWL4,
-        MOVWLG,
-        MOVWM,
-        MOVWP,
-        MOVWS,
-        MOVWS0,
-        MOVWS4,
-        MOVWSG,
-        MULL,
-        MULSU,
-        MULSW,
-        NEG,
-        NEGC,
-        NOP,
-        NOT,
-        OR,
-        ORI,
-        ORM,
-        ROTCL,
-        ROTCR,
-        ROTL,
-        ROTR,
-        RTE,
-        RTS,
-        SETT,
-        SHAL,
-        SHAR,
-        SHLL,
-        SHLL16,
-        SHLL2,
-        SHLL8,
-        SHLR,
-        SHLR16,
-        SHLR2,
-        SHLR8,
-        SLEEP,
-        STCGBR,
-        STCMGBR,
-        STCMSR,
-        STCMVBR,
-        STCSR,
-        STCVBR,
-        STSMACH,
-        STSMACL,
-        STSMMACH,
-        STSMMACL,
-        STSMPR,
-        STSPR,
-        SUB,
-        SUBC,
-        SUBV,
-        SWAPB,
-        SWAPW,
-        TAS,
-        TRAPA,
-        TST,
-        TSTI,
-        TSTM,
-        XOR,
-        XORI,
-        XORM,
-        XTRCT;
+    public static enum Sh2BaseInstruction {
+        ADD(0, 0, 0, 1),
+        ADDC(0, 0, 0, 1),
+        ADDI(0, 0, 0, 1),
+        ADDV(0, 0, 0, 1),
+        AND(0, 0, 0, 1),
+        ANDI(0, 0, 0, 1),
+        ANDM(0, 0, 0, 3),
+        BF(1, 0, 0, 1, 3),
+        BFS(1, 1, 0, 1, 2),
+        BRA(1, 1, 0, 2, 2),
+        BRAF(1, 1, 0, 2, 2),
+        BSR(1, 1, 0, 2, 2),
+        BSRF(1, 1, 0, 2, 2),
+        BT(1, 0, 0, 1, 3),
+        BTS(1, 1, 0, 1, 2),
+        CLRMAC(0, 0, 0, 1),
+        CLRT(0, 0, 0, 1),
+        CMPEQ(0, 0, 0, 1),
+        CMPGE(0, 0, 0, 1),
+        CMPGT(0, 0, 0, 1),
+        CMPHI(0, 0, 0, 1),
+        CMPHS(0, 0, 0, 1),
+        CMPIM(0, 0, 0, 1),
+        CMPPL(0, 0, 0, 1),
+        CMPPZ(0, 0, 0, 1),
+        CMPSTR(0, 0, 0, 1),
+        DIV0S(0, 0, 0, 1),
+        DIV0U(0, 0, 0, 1),
+        DIV1(0, 0, 0, 1),
+        DMULS(0, 0, 0, 2),
+        DMULU(0, 0, 0, 2),
+        DT(0, 0, 0, 1),
+        EXTSB(0, 0, 0, 1),
+        EXTSW(0, 0, 0, 1),
+        EXTUB(0, 0, 0, 1),
+        EXTUW(0, 0, 0, 1),
+        ILLEGAL(0, 0, 1, 5),
+        JMP(1, 1, 0, 2, 2),
+        JSR(1, 1, 0, 2, 2),
+        LDCGBR(0, 0, 0, 1),
+        LDCMGBR(0, 0, 0, 3),
+        LDCMSR(0, 0, 0, 3),
+        LDCMVBR(0, 0, 0, 3),
+        LDCSR(0, 0, 0, 1),
+        LDCVBR(0, 0, 0, 1),
+        LDSMACH(0, 0, 0, 2),
+        LDSMACL(0, 0, 0, 2),
+        LDSMMACH(0, 0, 0, 1),
+        LDSMMACL(0, 0, 0, 1),
+        LDSMPR(0, 0, 0, 1),
+        LDSPR(0, 0, 0, 1),
+        MACL(0, 0, 0, 2),
+        MACW(0, 0, 0, 2),
+        MOV(0, 0, 0, 1),
+        MOVA(0, 0, 0, 1),
+        MOVBL(0, 0, 0, 1),
+        MOVBL0(0, 0, 0, 1),
+        MOVBL4(0, 0, 0, 1),
+        MOVBLG(0, 0, 0, 1),
+        MOVBM(0, 0, 0, 1),
+        MOVBP(0, 0, 0, 1),
+        MOVBS(0, 0, 0, 1),
+        MOVBS0(0, 0, 0, 1),
+        MOVBS4(0, 0, 0, 1),
+        MOVBSG(0, 0, 0, 1),
+        MOVI(0, 0, 0, 1),
+        MOVLI(0, 0, 0, 1),
+        MOVLL(0, 0, 0, 1),
+        MOVLL0(0, 0, 0, 1),
+        MOVLL4(0, 0, 0, 1),
+        MOVLLG(0, 0, 0, 1),
+        MOVLM(0, 0, 0, 1),
+        MOVLP(0, 0, 0, 1),
+        MOVLS(0, 0, 0, 1),
+        MOVLS0(0, 0, 0, 1),
+        MOVLS4(0, 0, 0, 1),
+        MOVLSG(0, 0, 0, 1),
+        MOVT(0, 0, 0, 1),
+        MOVWI(0, 0, 0, 1),
+        MOVWL(0, 0, 0, 1),
+        MOVWL0(0, 0, 0, 1),
+        MOVWL4(0, 0, 0, 1),
+        MOVWLG(0, 0, 0, 1),
+        MOVWM(0, 0, 0, 1),
+        MOVWP(0, 0, 0, 1),
+        MOVWS(0, 0, 0, 1),
+        MOVWS0(0, 0, 0, 1),
+        MOVWS4(0, 0, 0, 1),
+        MOVWSG(0, 0, 0, 1),
+        MULL(0, 0, 0, 2),
+        MULSU(0, 0, 0, 2),
+        MULSW(0, 0, 0, 2),
+        NEG(0, 0, 0, 1),
+        NEGC(0, 0, 0, 1),
+        NOP(0, 0, 0, 1),
+        NOT(0, 0, 0, 1),
+        OR(0, 0, 0, 1),
+        ORI(0, 0, 0, 1),
+        ORM(0, 0, 0, 3),
+        ROTCL(0, 0, 0, 1),
+        ROTCR(0, 0, 0, 1),
+        ROTL(0, 0, 0, 1),
+        ROTR(0, 0, 0, 1),
+        RTE(1, 1, 0, 4, 4),
+        RTS(1, 1, 0, 2, 2),
+        SETT(0, 0, 0, 1),
+        SHAL(0, 0, 0, 1),
+        SHAR(0, 0, 0, 1),
+        SHLL(0, 0, 0, 1),
+        SHLL16(0, 0, 0, 1),
+        SHLL2(0, 0, 0, 1),
+        SHLL8(0, 0, 0, 1),
+        SHLR(0, 0, 0, 1),
+        SHLR16(0, 0, 0, 1),
+        SHLR2(0, 0, 0, 1),
+        SHLR8(0, 0, 0, 1),
+        SLEEP(0, 0, 0, 4),
+        STCGBR(0, 0, 0, 2),
+        STCMGBR(0, 0, 0, 2),
+        STCMSR(0, 0, 0, 2),
+        STCMVBR(0, 0, 0, 2),
+        STCSR(0, 0, 0, 2),
+        STCVBR(0, 0, 0, 2),
+        STSMACH(0, 0, 0, 1),
+        STSMACL(0, 0, 0, 1),
+        STSMMACH(0, 0, 0, 1),
+        STSMMACL(0, 0, 0, 1),
+        STSMPR(0, 0, 0, 1),
+        STSPR(0, 0, 0, 2),
+        SUB(0, 0, 0, 1),
+        SUBC(0, 0, 0, 1),
+        SUBV(0, 0, 0, 1),
+        SWAPB(0, 0, 0, 1),
+        SWAPW(0, 0, 0, 1),
+        TAS(0, 0, 0, 1),
+        TRAPA(0, 0, 0, 8),
+        TST(0, 0, 0, 1),
+        TSTI(0, 0, 0, 1),
+        TSTM(0, 0, 0, 3),
+        XOR(0, 0, 0, 1),
+        XORI(0, 0, 0, 1),
+        XORM(0, 0, 0, 3),
+        XTRCT(0, 0, 0, 1);
+
+        public final int cycles, cyclesBranch;
+        public final boolean isBranch, isBranchDelaySlot, isIllegal;
+
+        private Sh2BaseInstruction(int isBranch, int isBranchDelaySlot, int isIllegal, int cycles) {
+            this(isBranch, isBranchDelaySlot, isIllegal, cycles, 0);
+        }
+
+        private Sh2BaseInstruction(int isBranch, int isBranchDelaySlot, int isIllegal, int cycles, int cyclesBranch) {
+            this.isBranch = isBranch > 0;
+            this.isBranchDelaySlot = isBranchDelaySlot > 0;
+            this.isIllegal = isIllegal > 0;
+            this.cycles = cycles;
+            this.cyclesBranch = cyclesBranch;
+        }
+
+        /**
+         * Generate Sh2Inst list, cycle timing needs to be adjusted.
+         */
+        public static void main(String[] args) {
+            Predicate<String> isBranchPred = n -> n.startsWith("B") || n.startsWith("J") || n.startsWith("RT") || n.startsWith("BRA");
+            //Delayed branch instructions: JMP, JSR, BRA, BSR, RTS, RTE, BF/S, BT/S, BSRF,BRAF
+            Predicate<String> isBranchDelaySlotPred = n -> n.startsWith("J") || n.startsWith("BRA") ||
+                    n.startsWith("BSR") || n.startsWith("RT") || n.startsWith("BTS") || n.startsWith("BFS");
+            Map<Sh2BaseInstruction, String> instSet = new TreeMap<>();
+            for (Sh2BaseInstruction i : Sh2BaseInstruction.values()) {
+                boolean isBranch = isBranchPred.test(i.name());
+                String s = i + "(" + (isBranch ? 1 : 0) + "," +
+                        (isBranchDelaySlotPred.test(i.name()) ? 1 : 0) + "," +
+                        (i == ILLEGAL ? 1 : 0)
+                        + "," + 1 + ((isBranch ? "," + 3 : "") + "),");
+                instSet.put(i, s);
+            }
+            String header = "inst,isBranch,isBranchDelaySlot,isIllegal,cycles,cyclesBranchTaken";
+            String res = instSet.values().stream().collect(Collectors.joining("\n"));
+            System.out.println(header + "\n" + res);
+        }
     }
 
 }

@@ -1,7 +1,7 @@
 package sh2.sh2.prefetch;
 
 import com.google.common.primitives.Ints;
-import omegadrive.cpu.CpuFastDebug;
+import omegadrive.cpu.CpuFastDebug.PcInfoWrapper;
 import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.apache.logging.log4j.LogManager;
@@ -13,17 +13,23 @@ import sh2.Sh2Memory;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.sh2.*;
 import sh2.sh2.Sh2.FetchResult;
-import sh2.sh2.Sh2Instructions.Sh2Instruction;
+import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.cache.Sh2Cache;
 
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+import static omegadrive.cpu.CpuFastDebug.NOT_VISITED;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.Sh2Memory.SDRAM_MASK;
 import static sh2.dict.S32xMemAccessDelay.SDRAM;
+import static sh2.sh2.Sh2Debug.PC_AREA_SHIFT;
+import static sh2.sh2.Sh2Debug.pcAreaMaskMap;
 import static sh2.sh2.Sh2Instructions.generateInst;
 
 /**
@@ -40,14 +46,14 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private static final boolean SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
 
     private static final boolean SH2_REUSE_FETCH_DATA = true;
+    private static final boolean SH2_LIMIT_BLOCK_MAP_LOAD = true;
     private static final int INITIAL_BLOCK_LIMIT = 50;
 
     private static final boolean verbose = false;
     private static final boolean collectStats = verbose || false;
 
-    //TODO creates a lot of garbage, int -> Integer
-    private Map<Integer, Sh2Block>[] prefetchMap = new Map[]{new HashMap<Integer, Sh2Block>(), new HashMap<Integer, Sh2Block>()};
-    private final Object[] pcVisited = new Object[2];
+    private Map<PcInfoWrapper, Sh2Block>[] prefetchMap = new Map[]{new HashMap<PcInfoWrapper, Sh2Block>(), new HashMap<PcInfoWrapper, Sh2Block>()};
+    private final Object[] pcInfoWrapperMS = new Object[2];
 
     private Stats[] stats = {new Stats(MASTER), new Stats(SLAVE)};
 
@@ -60,7 +66,6 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     public final ByteBuffer sdram;
     public final ByteBuffer rom;
 
-    private final CpuFastDebug.CpuDebugContext dc;
     private final List<Integer> opcodes = new ArrayList<>(10);
     private int blockLimit = INITIAL_BLOCK_LIMIT;
 
@@ -76,7 +81,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         public String classDesc;
         public LocalVariablesSorter mv;
         public int opcode, pc;
-        public Sh2Instructions.Sh2Inst sh2Inst;
+        public Sh2Instructions.Sh2BaseInstruction sh2Inst;
     }
 
     public Sh2Prefetch(Sh2Memory memory, Sh2Cache[] cache, Sh2DrcContext[] sh2Ctx) {
@@ -89,15 +94,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         rom = memory.rom;
         bios = memory.bios;
 
-        dc = Sh2Debug.createContext();
-        int[][] pcVisitedM = new int[dc.pcAreasNumber][0];
-        int[][] pcVisitedS = new int[dc.pcAreasNumber][0];
-        Arrays.stream(dc.pcAreas).forEach(idx -> {
-            pcVisitedM[idx] = new int[dc.pcAreaSize];
-            pcVisitedS[idx] = new int[dc.pcAreaSize];
-        });
-        pcVisited[0] = pcVisitedM;
-        pcVisited[1] = pcVisitedS;
+        pcInfoWrapperMS[0] = Sh2Debug.getPcInfoWrapper(MASTER);
+        pcInfoWrapperMS[1] = Sh2Debug.getPcInfoWrapper(SLAVE);
     }
 
     private Sh2Block doPrefetch(int pc, CpuDeviceAccess cpu) {
@@ -108,17 +106,17 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         final boolean isCache = (pc >>> 28) == 2;
         assert !isCache; //TODO verify, Doom Resurrection?
         final Sh2Cache sh2Cache = cache[cpu.ordinal()];
-        final int[][] pcVisit = (int[][]) pcVisited[cpu.ordinal()];
+        final PcInfoWrapper piw = getOrCreate(pc, cpu);
         int bytePos = block.start;
         int currentPc = pc;
         if (verbose) LOG.info("{} prefetch @ pc: {}", cpu, th(pc));
         opcodes.clear();
-        final Sh2Instruction[] op = Sh2Instructions.instOpcodeMap;
+        final Sh2InstructionWrapper[] op = Sh2Instructions.instOpcodeMap;
         do {
             int val = isCache ? sh2Cache.cacheMemoryRead(currentPc, Size.WORD) :
                     block.fetchBuffer.getShort(bytePos) & 0xFFFF;
-            pcVisit[currentPc >>> dc.pcAreaShift][currentPc & dc.pcMask] = 1;
-            if (op[val].isIllegal) {
+            final Sh2Instructions.Sh2BaseInstruction inst = op[val].inst;
+            if (inst.isIllegal) {
                 LOG.error("{} Invalid fetch, start PC: {}, current: {} opcode: {}", cpu, th(pc), th(bytePos), th(val));
                 if (block.prefetchWords != null) {
                     block.stage1(generateInst(block.prefetchWords));
@@ -127,12 +125,11 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                 throw new RuntimeException("Fatal!");
             }
             opcodes.add(Util.getFromIntegerCache(val));
-            if (op[val].isBranch) {
-                if (op[val].isBranchDelaySlot) {
+            if (inst.isBranch) {
+                if (inst.isBranchDelaySlot) {
                     int nextVal = isCache ? sh2Cache.cacheMemoryRead(currentPc + 2, Size.WORD) :
                             block.fetchBuffer.getShort(bytePos + 2) & 0xFFFF;
                     opcodes.add(Util.getFromIntegerCache(nextVal));
-                    pcVisit[(currentPc + 2) >>> dc.pcAreaShift][currentPc & dc.pcMask] = 1;
                 }
                 break;
             }
@@ -147,7 +144,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         return block;
     }
 
-    private static String instToString(int pc, Sh2Instruction[] inst, CpuDeviceAccess cpu) {
+    private static String instToString(int pc, Sh2InstructionWrapper[] inst, CpuDeviceAccess cpu) {
         StringBuilder sb = new StringBuilder("\n");
         final String type = cpu.name().substring(0, 1);
         for (int i = 0; i < inst.length; i++) {
@@ -199,18 +196,25 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private void prefetch(FetchResult fetchResult, CpuDeviceAccess cpu) {
         if (!SH2_ENABLE_PREFETCH) return;
         final int pc = fetchResult.pc;
-        final Map<Integer, Sh2Block> pMap = prefetchMap[cpu.ordinal()];
-        Sh2Block block = pMap.get(pc);
-        if (block != null && block != Sh2Block.INVALID_BLOCK) {
-            assert fetchResult.pc == block.prefetchPc;
-            fetchResult.block = block;
-            return;
+        PcInfoWrapper piw = get(pc, cpu);
+        final Map<PcInfoWrapper, Sh2Block> pMap = prefetchMap[cpu.ordinal()];
+        assert piw != null;
+        if (piw != NOT_VISITED) {
+            Sh2Block block = pMap.get(piw);
+            if (block != null && block != Sh2Block.INVALID_BLOCK) {
+                assert fetchResult.pc == block.prefetchPc : th(fetchResult.pc);
+                fetchResult.block = block;
+                return;
+            }
         }
-        block = doPrefetch(pc, cpu);
+        Sh2Block block = doPrefetch(pc, cpu);
         if (SH2_REUSE_FETCH_DATA) {
-            Sh2Block prev = pMap.get(pc);
-            handleMapLoad(pMap, cpu);
-            pMap.put(pc, block);
+            piw = get(pc, cpu);
+            Sh2Block prev = pMap.get(piw);
+            if (SH2_LIMIT_BLOCK_MAP_LOAD) {
+                handleMapLoad(pMap, cpu);
+            }
+            pMap.put(piw, block);
             if (prev != null && !block.equals(prev)) {
                 LOG.warn("New block generated at PC: " + th(pc));
             }
@@ -219,7 +223,26 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         fetchResult.block = block;
     }
 
-    private void handleMapLoad(Map<Integer, Sh2Block> pMap, CpuDeviceAccess cpu) {
+    private PcInfoWrapper get(int pc, CpuDeviceAccess cpu) {
+        PcInfoWrapper[] area = ((PcInfoWrapper[][]) pcInfoWrapperMS[cpu.ordinal()])[pc >>> PC_AREA_SHIFT];
+        assert (pc & pcAreaMaskMap[pc >>> PC_AREA_SHIFT]) == (pc & 0xFFFFFF) : th(pc) + "," + th(pcAreaMaskMap[pc >>> PC_AREA_SHIFT]);
+        return area[pc & pcAreaMaskMap[pc >>> PC_AREA_SHIFT]];
+    }
+
+    private PcInfoWrapper getOrCreate(int pc, CpuDeviceAccess cpu) {
+        PcInfoWrapper piw = get(pc, cpu);
+        assert piw != null;
+        if (piw == NOT_VISITED) {
+            piw = new PcInfoWrapper();
+            piw.area = pc >>> PC_AREA_SHIFT;
+            piw.pcMasked = pc & pcAreaMaskMap[piw.area];
+            ((PcInfoWrapper[][]) pcInfoWrapperMS[cpu.ordinal()])
+                    [piw.area][piw.pcMasked] = piw;
+        }
+        return piw;
+    }
+
+    private void handleMapLoad(Map<PcInfoWrapper, Sh2Block> pMap, CpuDeviceAccess cpu) {
         if (pMap.size() > blockLimit) {
             int size = pMap.size();
             pMap.entrySet().removeIf(e -> e.getValue().inst == null);
@@ -280,9 +303,9 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     @Override
     public void dataWrite(CpuDeviceAccess cpu, int addr, int val, Size size) {
-        final int[][] pcVisit = (int[][]) pcVisited[cpu.ordinal()];
-        final int[] pcVisArea = pcVisit[addr >>> dc.pcAreaShift];
-        if (pcVisArea.length == 0 || pcVisArea[addr & dc.pcMask] == 0) {
+        if (pcAreaMaskMap[addr >>> PC_AREA_SHIFT] == 0) return;
+        PcInfoWrapper piw = get(addr, cpu);
+        if (piw == null || piw == NOT_VISITED) {
             return;
         }
 

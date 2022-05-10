@@ -6,7 +6,7 @@ import org.apache.logging.log4j.Logger;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
-import sh2.sh2.Sh2Instructions.Sh2Instruction;
+import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.device.IntControl;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
@@ -42,9 +42,11 @@ public class Sh2Impl implements Sh2 {
 
 	private final static Logger LOG = LogManager.getLogger(Sh2Impl.class.getSimpleName());
 
+	private static final boolean SH2_ENABLE_DRC = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
+
 	protected Sh2Context ctx;
 	protected IMemory memory;
-	protected final Sh2Instruction[] opcodeMap;
+	protected final Sh2InstructionWrapper[] opcodeMap;
 
 	public Sh2Impl(IMemory memory) {
 		this.memory = memory;
@@ -109,13 +111,13 @@ public class Sh2Impl implements Sh2 {
 
 	protected final void decode() {
 		final FetchResult fr = ctx.fetchResult;
-//		if(true){
-//			fr.pc = ctx.PC;
-//			memory.fetch(fr, ctx.cpuAccess);
-//			printDebugMaybe(fr.opcode);
-//			opcodeMap[fr.opcode].runnable.run();
-//			return;
-//		}
+		if (!SH2_ENABLE_DRC) {
+			fr.pc = ctx.PC;
+			memory.fetch(fr, ctx.cpuAccess);
+			printDebugMaybe(fr.opcode);
+			opcodeMap[fr.opcode].runnable.run();
+			return;
+		}
 		fr.pc = ctx.PC;
 		if (fr.block.inst != null) {
 			if (fr.block.prefetchPc == fr.pc) {
@@ -555,16 +557,16 @@ public class Sh2Impl implements Sh2 {
 
 	protected final void MOVA(int code) {
 		int d = (code & 0x000000ff);
-
-		ctx.registers[0] = ((ctx.PC + 4) & 0xfffffffc) + (d << 2);
-
-		ctx.cycles--;
-		ctx.PC += 2;
+		int ref = ((ctx.PC + 4) & 0xfffffffc) + (d << 2);
 		//If this instruction is placed immediately after a delayed branch instruction, the PC must
 		//point to an address specified by (the starting address of the branch destination) + 2.
 		if (ctx.delaySlot) {
-			ctx.registers[0] = ((ctx.delayPC + 2) & 0xfffffffc) + (d << 2);
+			ref = ((ctx.delayPC + 2) & 0xfffffffc) + (d << 2);
 		}
+		ctx.registers[0] = ref;
+
+		ctx.cycles--;
+		ctx.PC += 2;
 	}
 
 	protected final void MOVT(int code) {
@@ -1436,10 +1438,11 @@ public class Sh2Impl implements Sh2 {
 			int prevPc = ctx.PC;
 			ctx.PC = ctx.PC + d + 4;
 			delaySlot(prevPc + 2);
+			ctx.cycles -= 2;
 		} else {
 			ctx.PC += 2;
+			ctx.cycles--;
 		}
-		ctx.cycles--;
 	}
 
 	protected final void BT(int code) {
@@ -1462,10 +1465,11 @@ public class Sh2Impl implements Sh2 {
 			int prevPc = ctx.PC;
 			ctx.PC = ctx.PC + d + 4;
 			delaySlot(prevPc + 2);
+			ctx.cycles -= 2;
 		} else {
 			ctx.PC += 2;
+			ctx.cycles--;
 		}
-		ctx.cycles--;
 	}
 
 	protected final void BRA(int code) {

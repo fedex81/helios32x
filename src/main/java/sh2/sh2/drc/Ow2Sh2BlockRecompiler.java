@@ -145,19 +145,20 @@ public class Ow2Sh2BlockRecompiler {
             ctx.classDesc = blockClassDesc;
             ctx.drcCtx = drcCtx;
             ctx.mv = lvs;
+            int totCycles = 0;
             for (int i = 0; i < limit; i++) {
-                ctx.opcode = block.inst[i].opcode;
-                ctx.pc = block.inst[i].pc;
-                ctx.sh2Inst = block.inst[i].inst;
+                final Sh2Prefetcher.Sh2BlockUnit sbu = block.inst[i];
+                ctx.opcode = sbu.opcode;
+                ctx.pc = sbu.pc;
+                ctx.sh2Inst = sbu.inst;
                 Ow2Sh2Helper.createInst(ctx);
-                if (block.inst[i].isBranchDelaySlot) {
+                totCycles += ctx.sh2Inst.cycles;
+                if (ctx.sh2Inst.isBranchDelaySlot) {
                     break;
                 }
             }
-            //deviceStep
-            for (int i = 0; i < limit; i++) {
-                Ow2Sh2Bytecode.deviceStep(ctx);
-            }
+            Ow2Sh2Bytecode.subCyclesExt(ctx, totCycles);
+            Ow2Sh2Bytecode.deviceStepFor(ctx, limit);
             mv.visitInsn(RETURN);
             mv.visitMaxs(0, 0);
             mv.visitEnd();
@@ -184,10 +185,6 @@ public class Ow2Sh2BlockRecompiler {
         String testBlockClass = "sh2.sh2.Block01";
         String testBlockClassDesc = "sh2/sh2/Block01";
         Sh2Prefetcher.Sh2Block block = new Sh2Prefetcher.Sh2Block();
-//        block.prefetchWords = new int[0x10_000];
-//        for (int i = 0; i < 0x10_000; i++) {
-//            block.prefetchWords[i] = i;
-//        }
         block.prefetchWords = new int[0];
         Sh2Context sh2Context = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
         Sh2Impl sh2 = new Sh2Impl(null);

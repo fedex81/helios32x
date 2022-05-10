@@ -63,11 +63,8 @@ public class SysUtil {
             return null;
         }
         SystemProvider systemProvider = null;
-        boolean isGen = Arrays.stream(mdBinaryTypes).anyMatch(lowerCaseName::endsWith);
         boolean is32x = Arrays.stream(s32xBinaryTypes).anyMatch(lowerCaseName::endsWith);
-        if (isGen) {
-            systemProvider = Genesis.createNewInstance(display, debugPerf);
-        } else if (is32x) {
+        if (is32x) {
             systemProvider = Md32x.createNewInstance32x(display, debugPerf);
         }
         if (systemProvider == null) {

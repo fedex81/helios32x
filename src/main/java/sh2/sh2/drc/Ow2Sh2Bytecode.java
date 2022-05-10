@@ -8,12 +8,10 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.LocalVariablesSorter;
 import sh2.Sh2MMREG;
 import sh2.Sh2Memory;
-import sh2.sh2.Sh2;
-import sh2.sh2.Sh2Context;
-import sh2.sh2.Sh2Impl;
-import sh2.sh2.Sh2Instructions;
+import sh2.sh2.*;
 import sh2.sh2.prefetch.Sh2Prefetch.BytecodeContext;
 
+import static omegadrive.util.Util.th;
 import static org.objectweb.asm.Opcodes.*;
 import static sh2.sh2.Sh2.*;
 import static sh2.sh2.Sh2Impl.RM;
@@ -217,8 +215,6 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitVarInsn(LLOAD, regNIdx);
         ctx.mv.visitInsn(L2I);
         ctx.mv.visitInsn(IASTORE);
-
-        subCycles(ctx, 1);
     }
 
     public static void ADDI(BytecodeContext ctx) {
@@ -246,7 +242,6 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(DUP_X1);
         popSh2ContextIntField(ctx, "MACH");
         popSh2ContextIntField(ctx, "MACL");
-        subCycles(ctx, 1);
     }
 
     public static void CLRT(BytecodeContext ctx) {
@@ -256,7 +251,6 @@ public class Ow2Sh2Bytecode {
         pushIntConstStack(ctx, ~flagT);
         ctx.mv.visitInsn(IAND);
         popSR(ctx);
-        subCycles(ctx, 1);
     }
 
     public static final void CMPEQ(BytecodeContext ctx) {
@@ -285,23 +279,21 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(IALOAD);
         pushIntConstStack(ctx, i);
         cmpInternal(ctx, IF_ICMPNE);
-        subCycles(ctx, 1);
+
     }
 
     public static final void CMPPL(BytecodeContext ctx) {
-        cmpRegToZero(ctx, IFLE);
+        cmpRegToZero(ctx, RN(ctx.opcode), IFLE);
     }
 
     public static final void CMPPZ(BytecodeContext ctx) {
-        cmpRegToZero(ctx, IFLT);
+        cmpRegToZero(ctx, RN(ctx.opcode), IFLT);
     }
 
-    public static void cmpRegToZero(BytecodeContext ctx, int cmpOpcode) {
-        int n = RN(ctx.opcode);
-        pushRegStack(ctx, n);
+    public static void cmpRegToZero(BytecodeContext ctx, int reg, int cmpOpcode) {
+        pushRegStack(ctx, reg);
         ctx.mv.visitInsn(IALOAD);
         cmpInternal(ctx, cmpOpcode);
-        subCycles(ctx, 1);
     }
 
     public static void cmpRegToReg(BytecodeContext ctx, int cmpOpcode) {
@@ -312,7 +304,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
         cmpInternal(ctx, cmpOpcode);
-        subCycles(ctx, 1);
+
     }
 
     public static void cmpRegToRegUnsigned(BytecodeContext ctx, int cmpOpcode) {
@@ -330,10 +322,16 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(LAND);
         ctx.mv.visitInsn(LCMP);
         cmpInternal(ctx, cmpOpcode);
-        subCycles(ctx, 1);
     }
 
 
+    /**
+     * if(a cmp b){
+     * ctx.SR |= flagT;
+     * } else {
+     * ctx.SR &= ~flagT;
+     * }
+     */
     public static void cmpInternal(BytecodeContext ctx, int cmpOpcode) {
         Label elseLabel = new Label();
         Label endLabel = new Label();
@@ -362,7 +360,7 @@ public class Ow2Sh2Bytecode {
         pushIntConstStack(ctx, ~(flagQ | flagM | flagT));
         ctx.mv.visitInsn(IAND);
         popSR(ctx);
-        subCycles(ctx, 1);
+
     }
 
     public static void DMULS(BytecodeContext ctx) {
@@ -379,7 +377,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(LMUL);
         ctx.mv.visitVarInsn(LSTORE, longVarIdx);
         storeToMAC(ctx, longVarIdx);
-        subCycles(ctx, 2);
+
     }
 
     public static void DMULU(BytecodeContext ctx) {
@@ -400,7 +398,12 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(LMUL);
         ctx.mv.visitVarInsn(LSTORE, longVarIdx);
         storeToMAC(ctx, longVarIdx);
-        subCycles(ctx, 2);
+    }
+
+    public static void DT(BytecodeContext ctx) {
+        int n = RN(ctx.opcode);
+        decReg(ctx, n, 1);
+        cmpRegToZero(ctx, n, IFNE);
     }
 
     public static void EXTSB(BytecodeContext ctx) {
@@ -417,6 +420,21 @@ public class Ow2Sh2Bytecode {
 
     public static void EXTUW(BytecodeContext ctx) {
         extUnsigned(ctx, Size.WORD);
+    }
+
+    public static void ILLEGAL(BytecodeContext ctx) {
+        LOG.error("{} illegal instruction: {}\n{}", ctx.drcCtx.sh2Ctx.cpuAccess, th(ctx.opcode),
+                Sh2Helper.toDebuggingString(ctx.drcCtx.sh2Ctx));
+        pushSh2ContextAndField(ctx, "PC", int.class);
+        pushSh2ContextAndField(ctx, "PC", int.class);
+        pushSh2ContextAndField(ctx, "SR", int.class);
+        sh2PushReg15(ctx);
+        sh2PushReg15(ctx);
+        pushSh2ContextAndField(ctx, "VBR", int.class);
+        pushIntConstStack(ctx, ILLEGAL_INST_VN << 2);
+        ctx.mv.visitInsn(IADD);
+        readMem(ctx, Size.LONG);
+        ctx.mv.visitFieldInsn(PUTFIELD, Type.getInternalName(Sh2Context.class), "PC", intDesc);
     }
 
     public static void LDCGBR(BytecodeContext ctx) {
@@ -475,20 +493,33 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static void MOVA(BytecodeContext ctx) {
-        if (ctx.drcCtx.sh2Ctx.delaySlot) { //TODO wrong
-            fallback(ctx);
-            return;
-        }
-        int d = (ctx.opcode & 0x000000ff);
-        int val = ((ctx.pc + 4) & 0xfffffffc) + (d << 2);
+        int dShift = (ctx.opcode & 0x000000ff) << 2;
+        int pcRef = ((ctx.pc + 4) & 0xfffffffc) + dShift;
+        int refIdx = ctx.mv.newLocal(Type.INT_TYPE);
+        Label endLabel = new Label();
+        pushIntConstStack(ctx, pcRef);
+        ctx.mv.visitVarInsn(ISTORE, refIdx);
+        pushSh2ContextAndField(ctx, "delaySlot", boolean.class);
+        ctx.mv.visitJumpInsn(IFEQ, endLabel);
+        //else { ref = ((ctx.delayPC + 2) & 0xfffffffc) + (d << 2);}
+        pushSh2ContextAndField(ctx, "delaySlot", boolean.class);
+        pushIntConstStack(ctx, 2);
+        ctx.mv.visitInsn(IADD);
+        pushIntConstStack(ctx, 0xfffffffc);
+        ctx.mv.visitInsn(IAND);
+        pushIntConstStack(ctx, dShift);
+        ctx.mv.visitInsn(IADD);
+        ctx.mv.visitVarInsn(ISTORE, refIdx);
+        ctx.mv.visitLabel(endLabel);
+        // end of else
         pushRegStack(ctx, 0);
-        pushIntConstStack(ctx, val);
+        ctx.mv.visitVarInsn(ILOAD, refIdx);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public final static void MOVBL(BytecodeContext ctx) {
@@ -614,7 +645,7 @@ public class Ow2Sh2Bytecode {
     public static void MOVI(BytecodeContext ctx) {
         int reg = (ctx.opcode >> 8) & 0xF;
         storeToReg(ctx, reg, ctx.opcode, Size.BYTE);
-        subCycles(ctx, 1);
+
     }
 
     public static void MOVT(BytecodeContext ctx) {
@@ -624,7 +655,7 @@ public class Ow2Sh2Bytecode {
         pushIntConstStack(ctx, flagT);
         ctx.mv.visitInsn(IAND);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static final void MOVWI(BytecodeContext ctx) {
@@ -647,7 +678,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(ICONST_M1);
         ctx.mv.visitInsn(IAND);
         popSh2ContextIntField(ctx, "MACL");
-        subCycles(ctx, 2);
+
     }
 
     public static void MULSW(BytecodeContext ctx) {
@@ -662,7 +693,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(I2S);
         ctx.mv.visitInsn(IMUL);
         popSh2ContextIntField(ctx, "MACL");
-        subCycles(ctx, 2);
+
     }
 
     public static void MULSU(BytecodeContext ctx) {
@@ -679,7 +710,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(IAND);
         ctx.mv.visitInsn(IMUL);
         popSh2ContextIntField(ctx, "MACL");
-        subCycles(ctx, 2);
+
     }
 
     public static void NEG(BytecodeContext ctx) {
@@ -691,11 +722,11 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(IALOAD);
         ctx.mv.visitInsn(ISUB);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static void NOP(BytecodeContext ctx) {
-        subCycles(ctx, 1);
+
     }
 
     public static void NOT(BytecodeContext ctx) {
@@ -707,7 +738,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(ICONST_M1);
         ctx.mv.visitInsn(IXOR);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static void OR(BytecodeContext ctx) {
@@ -745,11 +776,11 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(ICONST_1); //Sh2.flagT
         ctx.mv.visitInsn(IOR);
         popSR(ctx);
-        subCycles(ctx, 1);
+
     }
 
     public final static void SLEEP(BytecodeContext ctx) {
-        subCycles(ctx, 4);
+        //do nothing
     }
 
     public final static void STCSR(BytecodeContext ctx) {
@@ -845,24 +876,39 @@ public class Ow2Sh2Bytecode {
         shiftConst(ctx, IUSHR, 16);
     }
 
+    public static void TST(BytecodeContext ctx) {
+        int m = RM(ctx.opcode);
+        int n = RN(ctx.opcode);
+        pushRegStack(ctx, n);
+        ctx.mv.visitInsn(IALOAD);
+        pushRegStack(ctx, m);
+        ctx.mv.visitInsn(IALOAD);
+        ctx.mv.visitInsn(IAND);
+        cmpInternal(ctx, IFNE);
 
-    /**
-     * ALOAD this
-     * GETFIELD sh2/AsmExample.regs [I
-     * ICONST_0
-     * IALOAD
-     * ILOAD i
-     * IAND
-     * IFNE D
-     * TODO
-     */
+    }
+
     public static void TSTI(BytecodeContext ctx) {
         int i = ((ctx.opcode >> 0) & 0xff);
         pushRegStack(ctx, 0);
         ctx.mv.visitInsn(IALOAD);
-        ctx.mv.visitVarInsn(ILOAD, i);
+        pushIntConstStack(ctx, i);
         ctx.mv.visitInsn(IAND);
-        ctx.mv.visitJumpInsn(IFNE, new Label()); //TODO labels and jumps
+        cmpInternal(ctx, IFNE);
+
+    }
+
+    public static void TSTM(BytecodeContext ctx) {
+        int i = ((ctx.opcode >> 0) & 0xff);
+        pushMemory(ctx);
+        pushSh2ContextAndField(ctx, "GBR", int.class);
+        pushRegStack(ctx, 0);
+        ctx.mv.visitInsn(IALOAD);
+        ctx.mv.visitInsn(IADD);
+        readMem(ctx, Size.BYTE);
+        pushIntConstStack(ctx, i);
+        ctx.mv.visitInsn(IAND);
+        cmpInternal(ctx, IFNE);
     }
 
     public static void XOR(BytecodeContext ctx) {
@@ -878,14 +924,36 @@ public class Ow2Sh2Bytecode {
         opReg0Mem(ctx, IXOR); //TODO test
     }
 
+    public static void XTRCT(BytecodeContext ctx) {
+        int m = RM(ctx.opcode);
+        int n = RN(ctx.opcode);
+
+        pushRegStack(ctx, n);
+        pushRegStack(ctx, n);
+        ctx.mv.visitInsn(IALOAD);
+        pushIntConstStack(ctx, 0xffff0000);
+        ctx.mv.visitInsn(IAND);
+        pushIntConstStack(ctx, 16);
+        ctx.mv.visitInsn(IUSHR);
+        pushRegStack(ctx, m);
+        ctx.mv.visitInsn(IALOAD);
+        pushIntConstStack(ctx, 0xffff);
+        ctx.mv.visitInsn(IAND);
+        pushIntConstStack(ctx, 16);
+        ctx.mv.visitInsn(ISHL);
+        ctx.mv.visitInsn(IOR);
+        ctx.mv.visitInsn(IASTORE);
+
+    }
+
 
     public static void fallback(BytecodeContext ctx) {
         setContextPc(ctx);
         ctx.mv.visitFieldInsn(GETSTATIC, Type.getInternalName(Sh2Instructions.class), "instOpcodeMap",
-                Type.getDescriptor(Sh2Instructions.Sh2Instruction[].class));
+                Type.getDescriptor(Sh2Instructions.Sh2InstructionWrapper[].class));
         ctx.mv.visitLdcInsn(ctx.opcode);
         ctx.mv.visitInsn(AALOAD);
-        ctx.mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2Instructions.Sh2Instruction.class), "runnable",
+        ctx.mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2Instructions.Sh2InstructionWrapper.class), "runnable",
                 Type.getDescriptor(Runnable.class));
         ctx.mv.visitMethodInsn(INVOKEINTERFACE, Type.getInternalName(Runnable.class), "run", noArgsNoRetDesc);
     }
@@ -908,7 +976,7 @@ public class Ow2Sh2Bytecode {
         }
         ctx.mv.visitInsn(shiftBytecode);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static void opRegToReg(BytecodeContext ctx, int opBytecode) {
@@ -921,7 +989,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(IALOAD);
         ctx.mv.visitInsn(opBytecode);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static void opReg0Imm(BytecodeContext ctx, int opBytecode, int i) {
@@ -935,7 +1003,7 @@ public class Ow2Sh2Bytecode {
         pushIntConstStack(ctx, i);
         ctx.mv.visitInsn(opBytecode);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static void opReg0Mem(BytecodeContext ctx, int opBytecode) {
@@ -961,14 +1029,12 @@ public class Ow2Sh2Bytecode {
         pushIntConstStack(ctx, i);
         ctx.mv.visitInsn(opBytecode);
         writeMem(ctx, Size.BYTE);
-        subCycles(ctx, 3);
     }
 
     public static void stsToReg(BytecodeContext ctx, String source, int cycles) {
         pushRegStack(ctx, RN(ctx.opcode));
         pushSh2ContextAndField(ctx, source, int.class);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, cycles);
     }
 
     public static void stsMem(BytecodeContext ctx, String source, int cycles) {
@@ -979,7 +1045,6 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(IALOAD);
         pushSh2ContextAndField(ctx, source, int.class);
         writeMem(ctx, Size.LONG);
-        subCycles(ctx, cycles);
     }
 
     public static void ldcReg(BytecodeContext ctx, String dest, int mask, int cycles) {
@@ -992,7 +1057,6 @@ public class Ow2Sh2Bytecode {
             ctx.mv.visitInsn(IAND);
         }
         popSh2ContextIntField(ctx, dest);
-        subCycles(ctx, cycles);
     }
 
     public static void ldcmReg(BytecodeContext ctx, String src, int mask, int cycles) {
@@ -1014,7 +1078,6 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(ICONST_4);
         ctx.mv.visitInsn(IADD);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, cycles);
     }
 
 
@@ -1060,7 +1123,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(IOR);
         ctx.mv.visitInsn(IASTORE);
 
-        subCycles(ctx, 1);
+
     }
 
     /**
@@ -1112,7 +1175,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitVarInsn(ILOAD, highLowBit);
         ctx.mv.visitInsn(IOR);
         popSR(ctx);
-        subCycles(ctx, 1);
+
     }
 
     /**
@@ -1151,7 +1214,7 @@ public class Ow2Sh2Bytecode {
         pushIntConstStack(ctx, 1);
         ctx.mv.visitInsn(left ? ISHL : ISHR);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     /**
@@ -1186,7 +1249,7 @@ public class Ow2Sh2Bytecode {
         pushIntConstStack(ctx, 1);
         ctx.mv.visitInsn(left ? ISHL : IUSHR);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static void extSigned(BytecodeContext ctx, Size size) {
@@ -1198,7 +1261,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(IALOAD);
         pushCastFromInt(ctx, size);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static void extUnsigned(BytecodeContext ctx, Size size) {
@@ -1210,7 +1273,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitLdcInsn((int) size.getMask());
         ctx.mv.visitInsn(IAND);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static void movMemToReg(BytecodeContext ctx, Size size) {
@@ -1224,11 +1287,11 @@ public class Ow2Sh2Bytecode {
         readMem(ctx, size);
         pushCastFromInt(ctx, size);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static void movMemToRegShift(BytecodeContext ctx, Size size) {
-        int d = ((ctx.opcode >> 0) & 0x0f); //TODO long
+        int d = ((ctx.opcode >> 0) & 0x0f);
         int n = size == Size.LONG ? RN(ctx.opcode) : 0;
         int m = RM(ctx.opcode);
         pushRegStack(ctx, n);
@@ -1250,7 +1313,7 @@ public class Ow2Sh2Bytecode {
         readMem(ctx, size);
         pushCastFromInt(ctx, size);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static void movRegToReg(BytecodeContext ctx, Size size) {
@@ -1262,7 +1325,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
         writeMem(ctx, size);
-        subCycles(ctx, 1);
+
     }
 
     public static void movRegToRegShift(BytecodeContext ctx, Size size) {
@@ -1287,7 +1350,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
         writeMem(ctx, size);
-        subCycles(ctx, 1);
+
     }
 
     public static void movRegToMemWithReg0Shift(BytecodeContext ctx, Size size) {
@@ -1303,7 +1366,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(IALOAD);
         pushCastFromInt(ctx, size);
         writeMem(ctx, size);
-        subCycles(ctx, 1);
+
     }
 
     public static void movMemWithReg0ShiftToReg(BytecodeContext ctx, Size size) {
@@ -1319,7 +1382,7 @@ public class Ow2Sh2Bytecode {
         readMem(ctx, size);
         pushCastFromInt(ctx, size);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static void movMemWithPcOffsetToReg(BytecodeContext ctx, Size size) {
@@ -1338,7 +1401,7 @@ public class Ow2Sh2Bytecode {
         readMem(ctx, size);
         pushCastFromInt(ctx, size);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static void movRegPredecToMem(BytecodeContext ctx, Size size) {
@@ -1354,7 +1417,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
         writeMem(ctx, size);
-        subCycles(ctx, 1);
+
     }
 
     public static void movMemToRegPostInc(BytecodeContext ctx, Size size) {
@@ -1376,7 +1439,7 @@ public class Ow2Sh2Bytecode {
             ctx.mv.visitInsn(IADD);
             ctx.mv.visitInsn(IASTORE);
         }
-        subCycles(ctx, 1);
+
     }
 
     public static void movMemWithGBRShiftToReg0(BytecodeContext ctx, Size size) {
@@ -1392,7 +1455,7 @@ public class Ow2Sh2Bytecode {
         readMem(ctx, size);
         pushCastFromInt(ctx, size);
         ctx.mv.visitInsn(IASTORE);
-        subCycles(ctx, 1);
+
     }
 
     public static void movGBRShiftToReg0(BytecodeContext ctx, Size size) {
@@ -1405,7 +1468,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, 0);
         ctx.mv.visitInsn(IALOAD);
         writeMem(ctx, size);
-        subCycles(ctx, 1);
+
     }
 
 
@@ -1479,7 +1542,7 @@ public class Ow2Sh2Bytecode {
      * Set the context.PC to the current PC
      */
     public static void setContextPc(BytecodeContext ctx) {
-        assert ctx.pc > 0;
+        assert ctx.pc != 0;
         pushSh2Context(ctx);
         ctx.mv.visitLdcInsn(ctx.pc);
         ctx.mv.visitFieldInsn(PUTFIELD, Type.getInternalName(Sh2Context.class), "PC", intDesc);
@@ -1490,7 +1553,7 @@ public class Ow2Sh2Bytecode {
      * ctx.cycles -= val;
      * }
      */
-    public static void subCycles(BytecodeContext ctx, int cycles) {
+    public static void subCyclesExt(BytecodeContext ctx, int cycles) {
         pushSh2Context(ctx);
         ctx.mv.visitInsn(DUP);
         ctx.mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2Context.class), "cycles", intDesc);
@@ -1501,10 +1564,34 @@ public class Ow2Sh2Bytecode {
 
     /**
      * {
+     * for (int i = 0; i < limit; i++) {
+     * sh2MMREG.deviceStep(bc);
+     * }
+     * }
+     */
+    public static void deviceStepFor(BytecodeContext ctx, int limit) {
+        int iIdx = ctx.mv.newLocal(Type.INT_TYPE);
+        Label topForLbl = new Label();
+        Label doneLbl = new Label();
+
+        pushIntConstStack(ctx, 0);
+        ctx.mv.visitVarInsn(ISTORE, iIdx);
+        ctx.mv.visitLabel(topForLbl);
+        ctx.mv.visitVarInsn(ILOAD, iIdx);
+        pushIntConstStack(ctx, limit);
+        ctx.mv.visitJumpInsn(IF_ICMPGE, doneLbl);
+        deviceStep(ctx);
+        ctx.mv.visitIincInsn(iIdx, 1);
+        ctx.mv.visitJumpInsn(GOTO, topForLbl);
+        ctx.mv.visitLabel(doneLbl);
+    }
+
+    /**
+     * {
      * sh2MMREG.deviceStep();
      * }
      */
-    public static void deviceStep(BytecodeContext ctx) {
+    private static void deviceStep(BytecodeContext ctx) {
         ctx.mv.visitVarInsn(ALOAD, 0); // push `this`
         ctx.mv.visitFieldInsn(GETFIELD, ctx.classDesc, "sh2MMREG", Type.getDescriptor(Sh2MMREG.class));
         ctx.mv.visitMethodInsn(INVOKEVIRTUAL, Type.getInternalName(Sh2MMREG.class), "deviceStep", noArgsNoRetDesc);
