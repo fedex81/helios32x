@@ -187,10 +187,11 @@ public class Sh2Prefetch {
         return res;
     }
 
-    private void checkPrefetch(int writeAddr, int val, Size size) {
+    public void checkPrefetch(S32xUtil.CpuDeviceAccess cpu, int writeAddr, int val, Size size) {
+        boolean isCache = writeAddr >>> 28 == 0xC0;
         writeAddr &= 0xFFF_FFFF; //drop cached vs uncached
         for (int i = 0; i < 2; i++) {
-            if (cache[i].getCacheContext().cacheEn == 0) {
+            if (isCache && i != cpu.ordinal()) { //sh2 caches are not shared!
                 continue;
             }
             int start = Math.max(0, prefetchContexts[i].prefetchPc - (prefetchContexts[i].prefetchLookahead << 1));
@@ -199,7 +200,7 @@ public class Sh2Prefetch {
                 S32xUtil.CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
 //				LOG.warn("{} write, addr: {} val: {} {}, {} PF window: [{},{}]", cpuAccess,
 //						th(writeAddr), th(val), size, CpuDeviceAccess.cdaValues[i], th(start), th(end));
-//				prefetch(prefetchContexts[i].prefetchPc, CpuDeviceAccess.cdaValues[i]);
+                prefetch(prefetchContexts[i].prefetchPc, S32xUtil.CpuDeviceAccess.cdaValues[i]);
             }
         }
     }

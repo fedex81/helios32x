@@ -187,6 +187,7 @@ public final class Sh2Memory implements IMemory {
 				if (true) throw new RuntimeException();
 				break;
 		}
+		prefetch.checkPrefetch(cpuAccess, address, val, size);
 	}
 
 	@Override

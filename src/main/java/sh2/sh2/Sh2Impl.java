@@ -450,16 +450,16 @@ public class Sh2Impl implements Sh2 {
 
 	protected final void MOVA(int code) {
 		int d = (code & 0x000000ff);
-
-		ctx.registers[0] = ((ctx.PC + 4) & 0xfffffffc) + (d << 2);
-
-		ctx.cycles--;
-		ctx.PC += 2;
+		int ref = ((ctx.PC + 4) & 0xfffffffc) + (d << 2);
 		//If this instruction is placed immediately after a delayed branch instruction, the PC must
 		//point to an address specified by (the starting address of the branch destination) + 2.
 		if (ctx.delaySlot) {
-			ctx.registers[0] = ((ctx.delayPC + 2) & 0xfffffffc) + (d << 2);
+			ref = ((ctx.delayPC + 2) & 0xfffffffc) + (d << 2);
 		}
+		ctx.registers[0] = ref;
+
+		ctx.cycles--;
+		ctx.PC += 2;
 	}
 
 	protected final void MOVT(int code) {
@@ -1204,10 +1204,10 @@ public class Sh2Impl implements Sh2 {
 	protected final void ROTCL(int code) {
 		int n = RN(code);
 
-		int temp = (ctx.registers[n] >>> 31) & 1;
+		int msbit = (ctx.registers[n] >>> 31) & 1;
 		ctx.registers[n] = (ctx.registers[n] << 1) | (ctx.SR & flagT);
 		ctx.SR &= ~flagT;
-		ctx.SR |= temp;
+		ctx.SR |= msbit;
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -1331,10 +1331,11 @@ public class Sh2Impl implements Sh2 {
 			int prevPc = ctx.PC;
 			ctx.PC = ctx.PC + d + 4;
 			delaySlot(prevPc + 2);
+			ctx.cycles -= 2;
 		} else {
 			ctx.PC += 2;
+			ctx.cycles--;
 		}
-		ctx.cycles--;
 	}
 
 	protected final void BT(int code) {
@@ -1357,10 +1358,11 @@ public class Sh2Impl implements Sh2 {
 			int prevPc = ctx.PC;
 			ctx.PC = ctx.PC + d + 4;
 			delaySlot(prevPc + 2);
+			ctx.cycles -= 2;
 		} else {
 			ctx.PC += 2;
+			ctx.cycles--;
 		}
-		ctx.cycles--;
 	}
 
 	protected final void BRA(int code) {
@@ -1726,7 +1728,7 @@ public class Sh2Impl implements Sh2 {
 		ctx.registers[n] -= 4;
 		memory.write32(ctx.registers[n], ctx.PR);
 
-		ctx.cycles -= 2;
+		ctx.cycles -= 1;
 		ctx.PC += 2;
 	}
 
