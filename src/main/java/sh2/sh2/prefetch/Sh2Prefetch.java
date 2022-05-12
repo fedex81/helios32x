@@ -45,7 +45,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     private static final boolean SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
 
-    private static final boolean SH2_REUSE_FETCH_DATA = true;
+    private static final boolean SH2_REUSE_FETCH_DATA = true; //TODO vr,vf require false
     private static final boolean SH2_LIMIT_BLOCK_MAP_LOAD = true;
     private static final int INITIAL_BLOCK_LIMIT = 50;
 
@@ -200,8 +200,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         final Map<PcInfoWrapper, Sh2Block> pMap = prefetchMap[cpu.ordinal()];
         assert piw != null;
         if (piw != NOT_VISITED) {
-            Sh2Block block = pMap.get(piw);
-            if (block != null && block != Sh2Block.INVALID_BLOCK) {
+            Sh2Block block = pMap.getOrDefault(piw, Sh2Block.INVALID_BLOCK);
+            if (block != Sh2Block.INVALID_BLOCK) {
                 assert fetchResult.pc == block.prefetchPc : th(fetchResult.pc);
                 fetchResult.block = block;
                 return;
@@ -245,7 +245,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private void handleMapLoad(Map<PcInfoWrapper, Sh2Block> pMap, CpuDeviceAccess cpu) {
         if (pMap.size() > blockLimit) {
             int size = pMap.size();
-            pMap.entrySet().removeIf(e -> e.getValue().inst == null);
+            pMap.entrySet().removeIf(e -> e.getValue() == Sh2Block.INVALID_BLOCK || e.getValue().inst == null);
             int newSize = pMap.size();
             int prevLimit = blockLimit;
             blockLimit = blockLimit << ((newSize > blockLimit * 0.75) ? 1 : 0);
@@ -309,7 +309,12 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             return;
         }
 
-        for (int i = 0; i < SLAVE.ordinal(); i++) {
+        boolean isCache = addr >>> PC_AREA_SHIFT == 0xC0;
+
+        for (int i = 0; i <= SLAVE.ordinal(); i++) {
+            if (isCache && i != cpu.ordinal()) { //sh2 caches are not shared!
+                continue;
+            }
             for (var entry : prefetchMap[i].entrySet()) {
                 Sh2Block b = entry.getValue();
                 if (b != null) {
@@ -317,7 +322,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                     int end = b.prefetchPc + (b.prefetchLenWords << 1);
                     if (addr >= start && addr <= end) {
 //                            if(verbose)
-                        LOG.info("{} rewrite block at addr: {}, val: {} {}", cpu, th(addr), th(val), size);
+                        LOG.info("{} write at addr: {} val: {} {}, invalidate {} block with start: {} blockLen: {}",
+                                cpu, th(addr), th(val), size, CpuDeviceAccess.cdaValues[i], th(b.prefetchPc), b.prefetchLenWords);
                         entry.getValue().invalidate();
                         entry.setValue(Sh2Block.INVALID_BLOCK);
                     }
