@@ -8,20 +8,18 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.LocalVariablesSorter;
-import sh2.S32xUtil;
+import org.objectweb.asm.util.ASMifier;
 import sh2.Sh2MMREG;
 import sh2.Sh2Memory;
 import sh2.sh2.Sh2Context;
-import sh2.sh2.Sh2Impl;
-import sh2.sh2.Sh2Instructions;
 import sh2.sh2.device.Sh2DeviceHelper;
 import sh2.sh2.prefetch.Sh2Prefetch.BytecodeContext;
 import sh2.sh2.prefetch.Sh2Prefetch.Sh2DrcContext;
 import sh2.sh2.prefetch.Sh2Prefetcher;
+import sh2.sh2.prefetch.Sh2Prefetcher.Sh2BlockUnit;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 
 import static omegadrive.util.Util.th;
 import static org.objectweb.asm.Opcodes.*;
@@ -35,6 +33,7 @@ public class Ow2Sh2BlockRecompiler {
 
     private final static Logger LOG = LogManager.getLogger(Ow2Sh2BlockRecompiler.class.getSimpleName());
     private static final Path drcFolder = Paths.get("./res/drc_" + System.currentTimeMillis());
+    private final static boolean writeClass = false;
 
     private static OwnClassLoader cl = new OwnClassLoader();
 
@@ -142,17 +141,23 @@ public class Ow2Sh2BlockRecompiler {
             LocalVariablesSorter lvs = new LocalVariablesSorter(ACC_PUBLIC | ACC_FINAL, noArgsNoRetDesc, mv);
             int limit = block.prefetchWords.length;
             BytecodeContext ctx = new BytecodeContext();
-            ctx.classDesc = blockClassDesc;
-            ctx.drcCtx = drcCtx;
-            ctx.mv = lvs;
+            BytecodeContext dsCtx = new BytecodeContext();
+            ctx.classDesc = dsCtx.classDesc = blockClassDesc;
+            ctx.drcCtx = dsCtx.drcCtx = drcCtx;
+            ctx.mv = dsCtx.mv = lvs;
             int totCycles = 0;
             for (int i = 0; i < limit; i++) {
-                final Sh2Prefetcher.Sh2BlockUnit sbu = block.inst[i];
-                ctx.opcode = sbu.opcode;
-                ctx.pc = sbu.pc;
-                ctx.sh2Inst = sbu.inst;
+                setDrcContext(ctx, block.inst[i], false);
+                if (ctx.sh2Inst.isBranchDelaySlot) {
+                    setDrcContext(dsCtx, block.inst[i + 1], true);
+                    ctx.delaySlotCtx = dsCtx;
+                }
                 Ow2Sh2Helper.createInst(ctx);
-                totCycles += ctx.sh2Inst.cycles;
+                //branch inst cycles taken are not known at this point
+                if (!ctx.sh2Inst.isBranch) {
+                    totCycles += ctx.sh2Inst.cycles;
+                }
+                //delay slot will be run within
                 if (ctx.sh2Inst.isBranchDelaySlot) {
                     break;
                 }
@@ -167,7 +172,14 @@ public class Ow2Sh2BlockRecompiler {
         return cw.toByteArray();
     }
 
-    static boolean writeClass = false;
+
+    private static void setDrcContext(BytecodeContext ctx, Sh2BlockUnit sbu, boolean delaySlot) {
+        ctx.opcode = sbu.opcode;
+        ctx.pc = sbu.pc;
+        ctx.sh2Inst = sbu.inst;
+        ctx.delaySlot = delaySlot;
+        ctx.delaySlotCtx = null;
+    }
 
     private static void writeClassMaybe(String blockClass, byte[] binc) {
         if (!writeClass) {
@@ -182,28 +194,7 @@ public class Ow2Sh2BlockRecompiler {
     }
 
     public static void main(String[] args) throws Exception {
-        String testBlockClass = "sh2.sh2.Block01";
-        String testBlockClassDesc = "sh2/sh2/Block01";
-        Sh2Prefetcher.Sh2Block block = new Sh2Prefetcher.Sh2Block();
-        block.prefetchWords = new int[0];
-        Sh2Context sh2Context = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
-        Sh2Impl sh2 = new Sh2Impl(null);
-        Sh2DrcContext testDrcCtx = new Sh2DrcContext();
-        testDrcCtx.cpu = sh2Context.cpuAccess;
-        testDrcCtx.sh2Ctx = sh2Context;
-        testDrcCtx.sh2 = sh2;
-
-        OwnClassLoader cl = new OwnClassLoader();
-        Sh2Instructions.createOpcodeMap(sh2);
-        byte[] binc = createClassBinary(block, testDrcCtx, testBlockClass);
-        writeClassMaybe(testBlockClass, binc);
-        Class clazz = cl.defineClass(testBlockClass, binc);
-        Object b = clazz.getDeclaredConstructor(int[].class, int[].class, Sh2DrcContext.class).
-                newInstance(sh2Context.registers, block.prefetchWords, testDrcCtx);
-        System.out.println(b.getClass());
-        Runnable r = (Runnable) b;
-        Arrays.fill(sh2Context.registers, 1);
-        r.run();
-        Util.executorService.shutdownNow();
+        String p = "./res/drc_1652793435182/sh2.sh2.drc.S_6000390_19768421105194.class";
+        ASMifier.main(new String[]{p});
     }
 }

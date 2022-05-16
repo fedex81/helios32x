@@ -82,6 +82,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         public LocalVariablesSorter mv;
         public int opcode, pc;
         public Sh2Instructions.Sh2BaseInstruction sh2Inst;
+        public BytecodeContext delaySlotCtx;
+        public boolean delaySlot;
     }
 
     public Sh2Prefetch(Sh2Memory memory, Sh2Cache[] cache, Sh2DrcContext[] sh2Ctx) {

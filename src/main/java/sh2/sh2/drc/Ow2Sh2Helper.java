@@ -6,7 +6,6 @@ import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.Type;
 import sh2.Sh2Memory;
 import sh2.sh2.Sh2Context;
-import sh2.sh2.Sh2Instructions;
 import sh2.sh2.prefetch.Sh2Prefetch;
 
 import java.io.PrintStream;
@@ -14,6 +13,7 @@ import java.util.Arrays;
 
 import static org.objectweb.asm.Opcodes.*;
 import static sh2.sh2.drc.Ow2Sh2BlockRecompiler.intDesc;
+import static sh2.sh2.drc.Ow2Sh2Bytecode.JSR;
 import static sh2.sh2.drc.Ow2Sh2Bytecode.NOP;
 import static sh2.sh2.drc.Ow2Sh2Bytecode.*;
 
@@ -26,19 +26,22 @@ public class Ow2Sh2Helper {
 
     private final static Logger LOG = LogManager.getLogger(Ow2Sh2Helper.class.getSimpleName());
 
-    public static boolean createInst(Sh2Prefetch.BytecodeContext ctx) {
+    //@formatter:off
+    public static void createInst(Sh2Prefetch.BytecodeContext ctx) {
 //        printString(ctx.mv, ctx.sh2Inst + "," + ctx.opcode);
-        Sh2Instructions.Sh2BaseInstruction sh2Inst = ctx.sh2Inst;
-//        sh2Inst = Sh2Instructions.Sh2Inst.ILLEGAL;
-        switch (sh2Inst) {
+        switch (ctx.sh2Inst) {
             case ADD:
                 ADD(ctx);
                 break;
-//            case ADDC: ADDC(ctx); break;
+            case ADDC:
+                ADDC(ctx);
+                break;
             case ADDI:
                 ADDI(ctx);
                 break;
-//            case ADDV: ADDV(ctx); break;
+            case ADDV:
+                ADDV(ctx);
+                break;
             case AND:
                 AND(ctx);
                 break;
@@ -48,14 +51,30 @@ public class Ow2Sh2Helper {
             case ANDM:
                 ANDM(ctx);
                 break;
-//            case BF: BF(ctx); break;
-//            case BFS: BFS(ctx); break;
-//            case BRA: BRA(ctx); break;
-//            case BRAF: BRAF(ctx); break;
-//            case BSR: BSR(ctx); break;
-//            case BSRF: BSRF(ctx); break;
-//            case BT: BT(ctx); break;
-//            case BTS: BTS(ctx); break;
+            case BF:
+                BF(ctx);
+                break;
+            case BFS:
+                BFS(ctx);
+                break;
+            case BRA:
+                BRA(ctx);
+                break;
+            case BRAF:
+                BRAF(ctx);
+                break;
+            case BSR:
+                BSR(ctx);
+                break;
+            case BSRF:
+                BSRF(ctx);
+                break;
+            case BT:
+                BT(ctx);
+                break;
+            case BTS:
+                BTS(ctx);
+                break;
             case CLRMAC:
                 CLRMAC(ctx);
                 break;
@@ -86,12 +105,18 @@ public class Ow2Sh2Helper {
             case CMPPZ:
                 CMPPZ(ctx);
                 break;
-//            case CMPSTR: CMPSTR(ctx); break;
-//            case DIV0S: DIV0S(ctx); break;
+            case CMPSTR:
+                CMPSTR(ctx);
+                break;
+            case DIV0S:
+                DIV0S(ctx);
+                break;
             case DIV0U:
                 DIV0U(ctx);
                 break;
-//            case DIV1: DIV1(ctx); break;
+            case DIV1:
+                DIV1(ctx);
+                break;
             case DMULS:
                 DMULS(ctx);
                 break;
@@ -116,8 +141,12 @@ public class Ow2Sh2Helper {
             case ILLEGAL:
                 ILLEGAL(ctx);
                 break;
-//            case JMP: JMP(ctx); break;
-//            case JSR: JSR(ctx); break;
+            case JMP:
+                JMP(ctx);
+                break;
+            case JSR:
+                JSR(ctx);
+                break;
             case LDCGBR:
                 LDCGBR(ctx);
                 break;
@@ -154,8 +183,12 @@ public class Ow2Sh2Helper {
             case LDSPR:
                 LDSPR(ctx);
                 break;
-//            case MACL: MACL(ctx); break;
-//            case MACW: MACW(ctx); break;
+            case MACL:
+                MACL(ctx);
+                break;
+            case MACW:
+                MACW(ctx);
+                break;
             case MOV:
                 MOV(ctx);
                 break;
@@ -276,7 +309,9 @@ public class Ow2Sh2Helper {
             case NEG:
                 NEG(ctx);
                 break;
-//            case NEGC: NEGC(ctx); break;
+            case NEGC:
+                NEGC(ctx);
+                break;
             case NOP:
                 NOP(ctx);
                 break;
@@ -304,8 +339,12 @@ public class Ow2Sh2Helper {
             case ROTR:
                 ROTR(ctx);
                 break;
-//            case RTE: RTE(ctx); break;
-//            case RTS: RTS(ctx); break;
+            case RTE:
+                RTE(ctx);
+                break;
+            case RTS:
+                RTS(ctx);
+                break;
             case SETT:
                 SETT(ctx);
                 break;
@@ -381,12 +420,24 @@ public class Ow2Sh2Helper {
             case SUB:
                 SUB(ctx);
                 break;
-//            case SUBC: SUBC(ctx); break;
-//            case SUBV: SUBV(ctx); break;
-//            case SWAPB: SWAPB(ctx); break;
-//            case SWAPW: SWAPW(ctx); break;
-//            case TAS: TAS(ctx); break;
-//            case TRAPA: TRAPA(ctx); break;
+            case SUBC:
+                SUBC(ctx);
+                break;
+            case SUBV:
+                SUBV(ctx);
+                break;
+            case SWAPB:
+                SWAPB(ctx);
+                break;
+            case SWAPW:
+                SWAPW(ctx);
+                break;
+            case TAS:
+                TAS(ctx);
+                break;
+            case TRAPA:
+                TRAPA(ctx);
+                break;
             case TST:
                 TST(ctx);
                 break;
@@ -410,13 +461,9 @@ public class Ow2Sh2Helper {
                 break;
             default:
                 fallback(ctx);
-                if (printMissingOpcodes) {
-                    LOG.warn("DRC unimplemented: {},{}", ctx.sh2Inst, ctx.opcode);
-                }
-                return false;
         }
-        return true;
     }
+    //@formatter:on
 
     public static void printString(Sh2Prefetch.BytecodeContext ctx, String str) {
         ctx.mv.visitFieldInsn(GETSTATIC, Type.getInternalName(System.class), "out", Type.getDescriptor(PrintStream.class));
@@ -494,19 +541,20 @@ public class Ow2Sh2Helper {
     /**
      * NOTE the result of pop will be on the top of the stack
      */
-    private static void sh2PopReg15(Sh2Prefetch.BytecodeContext ctx) {
+    public static void sh2PopReg15(Sh2Prefetch.BytecodeContext ctx) {
         int resIdx = ctx.mv.newLocal(Type.INT_TYPE);
         pushMemory(ctx);
         pushRegStack(ctx, 15);
         ctx.mv.visitInsn(IALOAD);
         readMem(ctx, Size.LONG);
-        ctx.mv.visitVarInsn(IASTORE, resIdx);
+        ctx.mv.visitVarInsn(ISTORE, resIdx);
         pushRegStack(ctx, 15);
         ctx.mv.visitInsn(DUP2);
         ctx.mv.visitInsn(IALOAD);
         ctx.mv.visitInsn(ICONST_4);
         ctx.mv.visitInsn(IADD);
-        ctx.mv.visitInsn(ISTORE);
+        ctx.mv.visitInsn(IASTORE);
+        ctx.mv.visitVarInsn(ILOAD, resIdx);
     }
 
 

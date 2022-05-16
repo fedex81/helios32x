@@ -44,7 +44,7 @@ public class Md32x extends Genesis {
     private final static int[] sh2CycleTable = new int[0x200];
 
     static {
-        ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "true"));
+        ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "false"));
         ENABLE_PWM = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.enable", "true"));
         SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "64")); //64
         Sh2Context.burstCycles = SH2_CYCLES_PER_STEP;
@@ -73,7 +73,7 @@ public class Md32x extends Genesis {
     @Override
     protected void initAfterRomLoad() {
         BiosHolder biosHolder = MarsLauncherHelper.initBios();
-        ctx = MarsLauncherHelper.setupRom((S32xBus) bus, this.romFile);
+        ctx = MarsLauncherHelper.setupRom((S32xBus) bus, memory.getRomHolder());
         masterCtx = ctx.masterCtx;
         slaveCtx = ctx.slaveCtx;
         sh2 = ctx.sh2;
@@ -112,16 +112,16 @@ public class Md32x extends Genesis {
         if (nextMSh2Cycle == counter) {
             rt.setAccessType(MASTER);
             sh2.run(masterCtx);
-            assert (masterCtx.cycles_ran & (sh2CycleTable.length - 1)) == masterCtx.cycles_ran;
+            assert (masterCtx.cycles_ran & (sh2CycleTable.length - 1)) == masterCtx.cycles_ran : masterCtx.cycles_ran;
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
-            nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran];
+            nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran & 0xFF];
         }
         if (nextSSh2Cycle == counter) {
             rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
-            assert (slaveCtx.cycles_ran & (sh2CycleTable.length - 1)) == slaveCtx.cycles_ran;
+            assert (slaveCtx.cycles_ran & (sh2CycleTable.length - 1)) == slaveCtx.cycles_ran : slaveCtx.cycles_ran;
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
-            nextSSh2Cycle += sh2CycleTable[slaveCtx.cycles_ran];
+            nextSSh2Cycle += sh2CycleTable[slaveCtx.cycles_ran & 0xFF];
         }
     }
 

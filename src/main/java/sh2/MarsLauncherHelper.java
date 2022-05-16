@@ -1,7 +1,7 @@
 package sh2;
 
-import omegadrive.system.SysUtil;
-import omegadrive.util.FileUtil;
+import omegadrive.util.RomHolder;
+import omegadrive.util.Util;
 import sh2.pwm.Pwm;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
@@ -45,11 +45,11 @@ public class MarsLauncherHelper {
         return biosHolder;
     }
 
-    public static Sh2LaunchContext setupRom(S32xBus bus, Path romFile) {
-        return setupRom(bus, ByteBuffer.wrap(FileUtil.readBinaryFile(romFile, SysUtil.s32xBinaryTypes)), initBios());
+    public static Sh2LaunchContext setupRom(S32xBus bus, RomHolder romHolder) {
+        return setupRom(bus, romHolder, initBios());
     }
 
-    public static Sh2LaunchContext setupRom(S32xBus bus, ByteBuffer rom, BiosHolder biosHolder) {
+    public static Sh2LaunchContext setupRom(S32xBus bus, RomHolder romHolder, BiosHolder biosHolder) {
         Sh2LaunchContext ctx = new Sh2LaunchContext();
         ctx.masterCtx = new Sh2Context(MASTER);
         ctx.masterCtx.debug = masterDebug;
@@ -57,7 +57,7 @@ public class MarsLauncherHelper {
         ctx.slaveCtx.debug = slaveDebug;
         ctx.biosHolder = biosHolder;
         ctx.bus = bus;
-        ctx.rom = rom;
+        ctx.rom = ByteBuffer.wrap(Util.unsignedToByteArray(romHolder.data));
         ctx.s32XMMREG = new S32XMMREG();
         ctx.dmaFifo68k = new DmaFifo68k(ctx.s32XMMREG.regContext);
         Sh2Prefetch.Sh2DrcContext mDrcCtx = new Sh2Prefetch.Sh2DrcContext();
