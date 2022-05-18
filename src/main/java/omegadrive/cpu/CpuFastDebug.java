@@ -159,7 +159,7 @@ public class CpuFastDebug {
             piw.pcMasked = pcMasked;
             piw.opcode = opcode;
             pcInfoWrapper[area][pcMasked] = piw;
-//            log(debugInfoProvider.getInstructionOnly(), " [NEW]");
+            log(debugInfoProvider.getInstructionOnly(), " [NEW]");
         }
     }
 

@@ -57,7 +57,7 @@ public final class Sh2Memory implements IMemory {
 	public ByteBuffer sdram;
 	public ByteBuffer rom;
 
-	private final Sh2Cache[] cache = new Sh2Cache[2];
+	public final Sh2Cache[] cache = new Sh2Cache[2];
 	private final Sh2Prefetch prefetch;
 
 	public int romSize, romMask;
@@ -145,6 +145,7 @@ public final class Sh2Memory implements IMemory {
 			case CACHE_ADDRESS_ARRAY_H3:
 			case CACHE_DATA_ARRAY_H3: //vr
 				cache[cpuAccess.ordinal()].cacheMemoryWrite(address, val, size);
+				prefetch.dataWrite(cpuAccess, address, val, size);
 				break;
 			case CACHE_THROUGH_H3:
 				if (address >= START_DRAM && address < END_DRAM) {

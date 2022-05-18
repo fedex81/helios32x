@@ -57,6 +57,7 @@ public interface Sh2Prefetcher {
         public ByteBuffer fetchBuffer;
         public Sh2Block nextBlock = INVALID_BLOCK;
         public Sh2Prefetch.Sh2DrcContext drcContext;
+        public boolean isCacheFetch;
         public Runnable stage2Drc;
 
         public boolean runOne() {
