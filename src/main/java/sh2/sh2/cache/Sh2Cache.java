@@ -59,7 +59,7 @@ public interface Sh2Cache {
         Sh2CacheLine[][] way = new Sh2CacheLine[CACHE_WAYS][CACHE_LINES];
     }
 
-    void cacheClear(Sh2CacheEntry ca);
+    void cacheClear();
 
     @Deprecated
     int readDirect(int addr, Size size);

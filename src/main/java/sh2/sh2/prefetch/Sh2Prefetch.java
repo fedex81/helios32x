@@ -44,6 +44,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     private static final Logger LOG = LogManager.getLogger(Sh2Prefetch.class.getSimpleName());
 
+    //DoomRes needs false
     private static final boolean SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
 
     private static final boolean SH2_REUSE_FETCH_DATA = true; //TODO vr,vf require false
@@ -112,7 +113,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         final PcInfoWrapper piw = getOrCreate(pc, cpu);
         int bytePos = block.start;
         int currentPc = pc;
-        if (verbose) LOG.info("{} prefetch @ pc: {}", cpu, th(pc));
+        if (verbose) LOG.info("{} prefetch at pc: {}", cpu, th(pc));
         opcodes.clear();
         final Sh2InstructionWrapper[] op = Sh2Instructions.instOpcodeMap;
         do {
@@ -142,7 +143,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         block.prefetchWords = Ints.toArray(opcodes);
         block.prefetchLenWords = block.prefetchWords.length;
         block.end = block.start + ((block.prefetchLenWords - 1) << 1);
-        if (verbose) LOG.info("{} prefetch @ pc: {}\n{}", cpu, th(pc),
+        if (verbose) LOG.info("{} prefetch at pc: {}\n{}", cpu, th(pc),
                 instToString(pc, generateInst(block.prefetchWords), cpu));
         return block;
     }
@@ -222,7 +223,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             }
             pMap.put(piw, block);
             if (prev != null && !block.equals(prev)) {
-                LOG.warn("New block generated at PC: " + th(pc));
+                LOG.warn("{} New block generated at PC: {}", cpu, th(pc));
             }
         }
         assert block != null;
@@ -345,15 +346,16 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                             return;
                         }
                     }
-//                        if(verbose)
-                    ParameterizedMessage pm = new ParameterizedMessage("{} write at addr: {} val: {} {}, invalidate {} block with start: {} blockLen: {}",
-                            cpu, th(addr), th(val), size, cpu, th(b.prefetchPc), b.prefetchLenWords);
-                    LOG.info(pm.getFormattedMessage());
-                    System.out.println(pm.getFormattedMessage());
+                    if (verbose) {
+                        ParameterizedMessage pm = new ParameterizedMessage("{} write at addr: {} val: {} {}, invalidate {} block with start: {} blockLen: {}",
+                                cpu, th(addr), th(val), size, cpu, th(b.prefetchPc), b.prefetchLenWords);
+                        LOG.info(pm.getFormattedMessage());
+                        //                    System.out.println(pm.getFormattedMessage());
+                    }
                     entry.getValue().invalidate();
                     entry.setValue(Sh2Block.INVALID_BLOCK);
                 }
             }
-            }
         }
+    }
 }

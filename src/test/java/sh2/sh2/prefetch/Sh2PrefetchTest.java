@@ -1,66 +1,36 @@
 package sh2.sh2.prefetch;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import s32x.MarsRegTestUtil;
-import sh2.MarsLauncherHelper;
 import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
-import sh2.Sh2Memory;
 import sh2.sh2.Sh2.FetchResult;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
-import static sh2.Sh2Memory.*;
+import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
+import static sh2.Sh2Memory.START_SDRAM_CACHE;
 
 /**
  * Federico Berti
  * <p>
  * Copyright 2022
  **/
-public class Sh2PrefetchTest {
+public class Sh2PrefetchTest extends Sh2CacheTest {
 
-    private MarsLauncherHelper.Sh2LaunchContext lc;
-    private Sh2Memory memory;
-    private byte[] rom;
-
-    public static final int NOP = 9;
-    public static final int CLRMAC = 0x28;
-    public static final int JMP_0 = 0x402b;
-
-    int cacheAddr = START_SDRAM_CACHE | 0x3c;
+    int cacheAddr = START_SDRAM_CACHE | 0x2;
     int noCacheAddr = cacheAddr | CACHE_THROUGH_OFFSET;
-
-    @BeforeEach
-    public void before() {
-        rom = new byte[0x1000];
-        lc = MarsRegTestUtil.createTestInstance(rom);
-        lc.s32XMMREG.aden = 1;
-        memory = lc.memory;
-    }
-
-    private void initRam(int len) {
-        for (int i = 0; i < len; i += 2) {
-            memory.write16(START_SDRAM | i, NOP);
-        }
-        memory.write16(START_SDRAM | (len - 4), JMP_0); //JMP 0
-    }
 
     @Test
     public void testRamCacheOff() {
         Md32xRuntimeData.newInstance();
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         initRam(0x100);
-        FetchResult ft = new FetchResult();
-        ft.pc = noCacheAddr;
-        memory.fetch(ft, MASTER);
-        Assertions.assertEquals(NOP, ft.opcode);
 
-        ft.pc = cacheAddr;
-        memory.fetch(ft, MASTER);
-        Assertions.assertEquals(NOP, ft.opcode);
+        checkFetch(MASTER, noCacheAddr, NOP);
+        checkFetch(MASTER, cacheAddr, NOP);
     }
 
     @Test
@@ -94,7 +64,7 @@ public class Sh2PrefetchTest {
     @Test
     public void testRamCacheOnWrite_01() {
         testRamCacheOff();
-        memory.cache[0].updateState(1);
+        enableCache(MASTER, true);
 
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         memory.write16(cacheAddr, CLRMAC);
@@ -113,8 +83,8 @@ public class Sh2PrefetchTest {
     @Test
     public void testRamCacheOnWrite_02() {
         testRamCacheOff();
-        memory.cache[0].updateState(1);
-        memory.cache[1].updateState(1);
+        enableCache(MASTER, true);
+        enableCache(SLAVE, true);
 
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         memory.write16(cacheAddr, CLRMAC);
@@ -139,6 +109,82 @@ public class Sh2PrefetchTest {
 
         //cache hit
         checkFetch(SLAVE, cacheAddr, NOP);
+    }
+
+    //TODO fix
+    @Disabled
+    @Test
+    public void testRamCacheToggle() {
+        testRamCacheOff();
+        enableCache(MASTER, true);
+
+        Md32xRuntimeData.setAccessTypeExt(MASTER);
+        memory.write16(cacheAddr, CLRMAC);
+
+        //cache is write-through
+        checkFetch(MASTER, cacheAddr, CLRMAC);
+        checkFetch(MASTER, noCacheAddr, CLRMAC);
+
+        //disable cache, cache is not cleared
+        enableCache(MASTER, false);
+
+        Md32xRuntimeData.setAccessTypeExt(MASTER);
+        memory.write16(cacheAddr, NOP);
+
+        checkFetch(MASTER, noCacheAddr, NOP);
+        checkFetch(MASTER, cacheAddr, NOP);
+
+        //enable cache, we should still be holding the old value (ie. before disabling the cache)
+        //TODO on cache enable clear all blocks??? this would force a reload from cache
+        memory.cache[0].updateState(1);
+
+        checkFetch(MASTER, cacheAddr, CLRMAC);
+        checkFetch(MASTER, noCacheAddr, NOP);
+    }
+
+    @Test
+    public void testRamCacheMasterSlave() {
+        testRamCacheOff();
+        enableCache(MASTER, true);
+        enableCache(SLAVE, true);
+
+        Md32xRuntimeData.setAccessTypeExt(MASTER);
+        memory.write16(cacheAddr, CLRMAC);
+        Md32xRuntimeData.setAccessTypeExt(SLAVE);
+        memory.write16(noCacheAddr, SETT);
+
+        //MASTER, SLAVE cache miss
+        checkFetch(MASTER, cacheAddr, SETT);
+        checkFetch(MASTER, noCacheAddr, SETT);
+        checkFetch(SLAVE, cacheAddr, SETT);
+        checkFetch(SLAVE, noCacheAddr, SETT);
+
+
+        //MASTER load in cache
+        Md32xRuntimeData.setAccessTypeExt(MASTER);
+        memory.read16(cacheAddr);
+
+        clearCache(SLAVE);
+
+        Md32xRuntimeData.setAccessTypeExt(SLAVE);
+        memory.write16(noCacheAddr, CLRMAC);
+
+        //MASTER hit, SLAVE miss
+        checkFetch(MASTER, cacheAddr, SETT);
+        checkFetch(MASTER, noCacheAddr, CLRMAC);
+        checkFetch(SLAVE, cacheAddr, SETT);
+        checkFetch(SLAVE, noCacheAddr, CLRMAC);
+
+        //SLAVE load in cache
+        Md32xRuntimeData.setAccessTypeExt(MASTER);
+        memory.write16(noCacheAddr, NOP);
+
+        //MASTER hit, SLAVE hit
+        checkFetch(MASTER, cacheAddr, SETT);
+        checkFetch(MASTER, noCacheAddr, NOP);
+        checkFetch(SLAVE, cacheAddr, SETT);
+        checkFetch(SLAVE, noCacheAddr, NOP);
+
     }
 
     private void checkAllFetches(int addr, int val) {
