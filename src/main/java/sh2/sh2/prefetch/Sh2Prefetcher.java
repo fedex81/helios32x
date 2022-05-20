@@ -116,8 +116,10 @@ public interface Sh2Prefetcher {
         }
 
         public void stage2() {
-            assert drcContext != null;
-            stage2Drc = Ow2Sh2BlockRecompiler.createDrcClass(this, drcContext);
+            if (Sh2Impl.SH2_ENABLE_DRC) {
+                assert drcContext != null;
+                stage2Drc = Ow2Sh2BlockRecompiler.getInstance().createDrcClass(this, drcContext);
+            }
         }
 
         public void setCurrent(int pcDeltaWords) {

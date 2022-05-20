@@ -8,6 +8,7 @@ import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.device.IntControl;
+import sh2.sh2.drc.Ow2Sh2BlockRecompiler;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import static omegadrive.util.Util.th;
@@ -42,7 +43,7 @@ public class Sh2Impl implements Sh2 {
 
 	private final static Logger LOG = LogManager.getLogger(Sh2Impl.class.getSimpleName());
 
-	private static final boolean SH2_ENABLE_DRC = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
+	public static final boolean SH2_ENABLE_DRC = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
 
 	protected Sh2Context ctx;
 	protected IMemory memory;
@@ -51,6 +52,9 @@ public class Sh2Impl implements Sh2 {
 	public Sh2Impl(IMemory memory) {
 		this.memory = memory;
 		this.opcodeMap = Sh2Instructions.createOpcodeMap(this);
+		if (SH2_ENABLE_DRC) {
+			Ow2Sh2BlockRecompiler.newInstance("" + System.currentTimeMillis());
+		}
 	}
 
 	// get interrupt masks bits int the SR register

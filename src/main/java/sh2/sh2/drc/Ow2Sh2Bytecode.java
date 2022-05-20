@@ -1609,19 +1609,24 @@ public class Ow2Sh2Bytecode {
 
     public static void movMemWithPcOffsetToReg(BytecodeContext ctx, Size size) {
         assert size != Size.BYTE;
-        if (ctx.delaySlot) {
-            LOG.warn("{} in delaySlot, opcode: {}", ctx.sh2Inst, ctx.opcode);
-            ctx.drcCtx.sh2Ctx.delaySlot = true;
-            fallback(ctx);
-            ctx.drcCtx.sh2Ctx.delaySlot = false;
-            return;
-        }
         int d = (ctx.opcode & 0xff);
         int n = ((ctx.opcode >> 8) & 0x0f);
-        int memAddr = size == Size.WORD ? ctx.pc + 4 + (d << 1) : (ctx.pc & 0xfffffffc) + 4 + (d << 2);
+
         pushRegStack(ctx, n);
         pushMemory(ctx);
-        pushIntConstStack(ctx, memAddr);
+
+        //If this instruction is placed immediately after a delayed branch instruction, the PC must
+        //point to an address specified by (the starting address of the branch destination) + 2.
+        int memAddr = size == Size.WORD ? ctx.pc + 4 + (d << 1) : (ctx.pc & 0xfffffffc) + 4 + (d << 2);
+        if (false && ctx.delaySlot) { //TODO
+//            //int memAddr = !ctx.delaySlot ? ctx.PC + 4 + (d << 1) : ctx.delayPC + 2 + (d << 1);
+//            int offset = size == Size.WORD ? 4 + (d << 1) : 0;
+//            pushSh2ContextAndField(ctx, "PC", int.class);
+//            pushIntConstStack(ctx, offset);
+//            ctx.mv.visitInsn(IADD);
+        } else {
+            pushIntConstStack(ctx, memAddr);
+        }
         readMem(ctx, size);
         pushCastFromInt(ctx, size);
         ctx.mv.visitInsn(IASTORE);

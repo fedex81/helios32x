@@ -35,12 +35,36 @@ public class Ow2Sh2BlockRecompiler {
     private static final Path drcFolder = Paths.get("./res/drc_" + System.currentTimeMillis());
     private final static boolean writeClass = false;
 
-    private static OwnClassLoader cl = new OwnClassLoader();
+    private OwnClassLoader cl = new OwnClassLoader();
 
     public static final String drcPackage = "sh2.sh2.drc";
     public static final String intArrayDesc = Type.getDescriptor(int[].class);
     public static final String intDesc = Type.getDescriptor(int.class);
     public static final String noArgsNoRetDesc = "()V";
+
+    private static Ow2Sh2BlockRecompiler current = null;
+    private String token;
+
+    /**
+     * There is no easy way of releasing/removing a classLoader,
+     * GC should take care of it.
+     */
+    public static Ow2Sh2BlockRecompiler newInstance(String token) {
+        boolean firstOne = current == null;
+        boolean newOne = firstOne || current.token != token;
+        if (newOne) {
+            Ow2Sh2BlockRecompiler recompiler = new Ow2Sh2BlockRecompiler();
+            recompiler.token = token;
+            current = recompiler;
+            LOG.info("New recompiler with token: {}", token);
+        }
+        return current;
+    }
+
+    public static Ow2Sh2BlockRecompiler getInstance() {
+        assert current != null;
+        return current;
+    }
 
     private static class OwnClassLoader extends ClassLoader {
         public Class<?> defineClass(String name, byte[] b) {
@@ -48,7 +72,7 @@ public class Ow2Sh2BlockRecompiler {
         }
     }
 
-    public static Runnable createDrcClass(Sh2Prefetcher.Sh2Block block, Sh2DrcContext drcCtx) {
+    public Runnable createDrcClass(Sh2Prefetcher.Sh2Block block, Sh2DrcContext drcCtx) {
         String blockClass = drcPackage + "." + drcCtx.sh2Ctx.sh2TypeCode + "_" + th(block.prefetchPc) + "_" + System.nanoTime();
         byte[] binc = createClassBinary(block, drcCtx, blockClass);
         writeClassMaybe(blockClass, binc);
