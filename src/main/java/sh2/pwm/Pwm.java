@@ -63,7 +63,7 @@ public class Pwm implements StepDevice {
     private Fifo<Integer> fifoLeft, fifoRight;
     private int latestPwmValue = 0;
     private static final boolean verbose = false;
-    private PwmProvider playSupport;
+    private PwmProvider playSupport = PwmProvider.NO_SOUND;
 
     public Pwm(S32XMMREG.RegContext regContext) {
         this.sysRegsMd = regContext.sysRegsMd;

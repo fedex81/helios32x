@@ -53,6 +53,12 @@ public class S32xUtil {
         writeBuffer(b, r.addr & RegSpec.REG_MASK, value, Size.LONG);
     }
 
+    public static void writeBuffersLong(ByteBuffer b, RegSpec r, RegSpec r1, RegSpec r2, int value) {
+        writeBuffer(b, r.addr & RegSpec.REG_MASK, value, Size.LONG);
+        writeBuffer(b, r1.addr & RegSpec.REG_MASK, value, Size.LONG);
+        writeBuffer(b, r2.addr & RegSpec.REG_MASK, value, Size.LONG);
+    }
+
     public static void writeBuffersLong(ByteBuffer b, RegSpec r, RegSpec r1, int value) {
         writeBuffer(b, r.addr & RegSpec.REG_MASK, value, Size.LONG);
         writeBuffer(b, r1.addr & RegSpec.REG_MASK, value, Size.LONG);
