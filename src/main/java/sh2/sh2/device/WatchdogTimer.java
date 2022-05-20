@@ -105,7 +105,7 @@ public class WatchdogTimer implements Sh2Device {
                     setBit(regs, RSTCSR_ADDR_READ, WOVF_BIT_POS, 0, Size.BYTE);
                 } else {
                     LOG.error("{} WDT write, addr {}, unexpected LSB, should be zero: {}",
-                            cpu, ADDR_WRITE_82, value & 0xFF);
+                            cpu, th(ADDR_WRITE_82), th(value & 0xFF));
                 }
                 break;
             case WRITE_MSB_A5:
@@ -115,7 +115,7 @@ public class WatchdogTimer implements Sh2Device {
                 setBit(regs, RSTCSR_ADDR_READ, RSTS_BIT_POS, rsts, Size.BYTE);
                 break;
             default:
-                LOG.error("{} WDT write, addr {}, unexpected MSB: {}", cpu, ADDR_WRITE_82, msb);
+                LOG.error("{} WDT write, addr {}, unexpected MSB: {}", cpu, th(ADDR_WRITE_82), th(msb));
                 break;
         }
     }

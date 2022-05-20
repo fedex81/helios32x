@@ -24,8 +24,6 @@ public class DivUnit implements Sh2Device {
 
     private static final int DIV_OVERFLOW_BIT = 0;
     private static final int DIV_OVERFLOW_INT_EN_BIT = 1;
-    private static final int MAX_POS = 0x8000_0000;
-    private static final int MAX_NEG = 0x7FFF_FFFF;
     private static final String formatDiv = "div%d, dvd: %16X, dvsr: %08X, quotLong: %16X, quot32: %08x, rem: %08X";
     private static final String formatOvf = "div%d overflow, dvd: %16X, dvsr: %08X, quotLong: %16X, quot32: %08x, rem: %08X";
     private static final String formatDivBy0 = "div%d overflow (div by 0), dvd: %16X, dvsr: %08X";
@@ -76,11 +74,11 @@ public class DivUnit implements Sh2Device {
         int rem = (int) (dvd - quot * dvsr);
         writeBuffersLong(regs, DIV_DVDNTH, DIV_DVDNTUH, rem);
         if (verbose) LOG.info(String.format(formatDiv, 64, dvd, dvsr, quotL, quot, rem));
-        if (quot != (int) (quotL & 0xFFFF_FFFFL)) {
-            handleOverflow(quot, false, String.format(formatOvf, 64, dvd, dvsr, quotL, quot, rem));
+        if ((long) quot != quotL) {
+            handleOverflow(quotL, false, String.format(formatOvf, 64, dvd, dvsr, quotL, quot, rem));
             return;
         }
-        writeBuffersLong(regs, DIV_DVDNTL, DIV_DVDNTUL, quot);
+        writeBuffersLong(regs, DIV_DVDNT, DIV_DVDNTL, DIV_DVDNTUL, quot);
     }
 
     //32/32 -> 32
@@ -102,12 +100,12 @@ public class DivUnit implements Sh2Device {
         writeBufferLong(regs, DIV_DVDNTUL, quot);
     }
 
-    private void handleOverflow(int quot, boolean divBy0, String msg) {
-        if (verbose) LOG.info(msg);
+    private void handleOverflow(long quot, boolean divBy0, String msg) {
+//        if (verbose)
+        LOG.warn(msg); //check overflow handling
         setBit(regs, DIV_DVCR.addr, DIV_OVERFLOW_BIT, 1, Size.LONG);
         int dvcr = readBuffer(regs, DIV_DVCR.addr, Size.WORD);
-        //TODO what happens to DVDNTL when divBy0 ?
-        int val = quot > 0 ? MAX_NEG : MAX_POS;
+        int val = quot >= 0 ? Integer.MAX_VALUE : Integer.MIN_VALUE;
         writeBuffersLong(regs, DIV_DVDNTL, DIV_DVDNTUL, val);
         Md32xRuntimeData.addCpuDelayExt(6);
         if ((dvcr & DIV_OVERFLOW_INT_EN_BIT) > 0) {
