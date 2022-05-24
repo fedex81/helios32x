@@ -199,6 +199,10 @@ public class MarsVdpImpl implements MarsVdp {
         if (prevPrio != prio) {
             vdpContext.priority = prio == 0 ? MD : S32X;
             if (verbose) LOG.info("Vdp priority: {} -> {}", prevPrio == 0 ? "MD" : "32x", vdpContext.priority);
+            if (!vdpContext.vBlankOn) { //vf does this but I think it is harmless
+                LOG.warn("Illegal Vdp priority change outside VBlank: {} -> {}", prevPrio == 0 ? "MD" : "32x",
+                        vdpContext.priority);
+            }
         }
         return val != newVal;
     }

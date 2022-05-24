@@ -116,6 +116,11 @@ public class MarsRegTestUtil {
         Assertions.assertEquals(value, (res >> 1) & 1);
     }
 
+    public static void assertPRIO(S32XMMREG s32XMMREG, boolean enable) {
+        int res = s32XMMREG.read(SH2_BITMAP_MODE_OFFSET, Size.WORD);
+        Assertions.assertEquals(enable ? 1 : 0, (res >> 7) & 1);
+    }
+
     public static void assertVBlank(S32XMMREG s32XMMREG, boolean on) {
         int res = s32XMMREG.read(SH2_FBCR_OFFSET, Size.WORD);
         Assertions.assertEquals(on ? 1 : 0, res >> 15);
@@ -170,5 +175,12 @@ public class MarsRegTestUtil {
         Assertions.assertEquals(exp, readBus(lc, SLAVE, SH2_INT_MASK, Size.WORD));
         Assertions.assertEquals(exp >> 8, readBus(lc, MASTER, SH2_INT_MASK, Size.BYTE));
         Assertions.assertEquals(exp >> 8, readBus(lc, SLAVE, SH2_INT_MASK, Size.BYTE));
+    }
+
+    public static void checkHen(Sh2LaunchContext lc, int exp) {
+        Assertions.assertEquals(exp, readBus(lc, MASTER, SH2_INT_MASK, Size.WORD));
+        Assertions.assertEquals(exp, readBus(lc, SLAVE, SH2_INT_MASK, Size.WORD));
+        Assertions.assertEquals(exp, readBus(lc, MASTER, SH2_INT_MASK + 1, Size.BYTE));
+        Assertions.assertEquals(exp, readBus(lc, SLAVE, SH2_INT_MASK + 1, Size.BYTE));
     }
 }

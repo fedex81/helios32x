@@ -215,7 +215,7 @@ public class IntControlImplOld implements IntControl {
 
     @Override
     public InterruptContext getInterruptContext() {
-        throw new RuntimeException();
+        throw new RuntimeException("Unexpected!");
     }
 
     private int getExternalDeviceVectorNumber() {
