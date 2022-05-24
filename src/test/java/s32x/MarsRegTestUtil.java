@@ -3,6 +3,7 @@ package s32x;
 import omegadrive.cart.MdCartInfoProvider;
 import omegadrive.memory.IMemoryProvider;
 import omegadrive.memory.MemoryProvider;
+import omegadrive.util.RomHolder;
 import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.junit.jupiter.api.Assertions;
@@ -62,7 +63,8 @@ public class MarsRegTestUtil {
     public static Sh2LaunchContext createTestInstance(byte[] brom) {
         Md32xRuntimeData.releaseInstance();
         Md32xRuntimeData.newInstance();
-        Sh2LaunchContext lc = MarsLauncherHelper.setupRom(new S32xBus(), ByteBuffer.wrap(brom), createTestBiosHolder());
+        RomHolder romHolder = new RomHolder(Util.toUnsignedIntArray(brom));
+        Sh2LaunchContext lc = MarsLauncherHelper.setupRom(new S32xBus(), romHolder, createTestBiosHolder());
 
         int[] irom = Util.toSignedIntArray(brom);
         IMemoryProvider mp = MemoryProvider.createGenesisInstance();

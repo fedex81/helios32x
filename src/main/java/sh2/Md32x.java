@@ -66,7 +66,7 @@ public class Md32x extends Genesis {
     @Override
     protected void initAfterRomLoad() {
         BiosHolder biosHolder = MarsLauncherHelper.initBios();
-        ctx = MarsLauncherHelper.setupRom((S32xBus) bus, this.romFile);
+        ctx = MarsLauncherHelper.setupRom((S32xBus) bus, memory.getRomHolder());
         masterCtx = ctx.masterCtx;
         slaveCtx = ctx.slaveCtx;
         sh2 = ctx.sh2;
