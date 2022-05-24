@@ -244,7 +244,7 @@ public class S32XMMREG implements Device {
         if (sh2Access != M68K) {
             int intIdx = VRES_14.ordinal() - (regEven - 0x14);
             IntControl.Sh2Interrupt intType = IntControl.intVals[intIdx];
-            interruptControls[sh2Access.ordinal()].clearInterrupt(intIdx);
+            interruptControls[sh2Access.ordinal()].clearInterrupt(intType);
             //autoclear Int_control_reg too
             if (intType == CMD_8) {
                 int newVal = readWordFromBuffer(M68K_INT_CTRL) & ~(1 << sh2Access.ordinal());

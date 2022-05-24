@@ -168,7 +168,7 @@ public class WatchdogTimer implements Sh2Device {
             int cnt = increaseCount();
             if (cnt == 0) { //overflow
                 setBit(regs, WTCSR_ADDR_READ, OVF_BIT_POS, 1, Size.BYTE);
-                intControl.setExternalIntPending(WDT, 0, true);
+                intControl.setOnChipDeviceIntPending(WDT);
             }
         }
     }

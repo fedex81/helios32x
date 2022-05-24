@@ -3,18 +3,14 @@ package sh2.sh2.device;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.dict.Sh2Dict.RegSpec;
+import sh2.S32xUtil;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 
-import static omegadrive.util.Util.th;
-import static sh2.S32xUtil.*;
-import static sh2.dict.Sh2Dict.RegSpec.*;
-import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
+import static sh2.sh2.device.IntControl.OnChipSubType.*;
+import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
+import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.*;
 
 /**
  * Federico Berti
@@ -22,9 +18,59 @@ import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
  * Copyright 2021
  * <p>
  */
-public class IntControl implements Sh2Device {
+public interface IntControl extends S32xUtil.Sh2Device {
 
-    private static final Logger LOG = LogManager.getLogger(IntControl.class.getSimpleName());
+    static final Logger LOG = LogManager.getLogger(IntControl.class.getSimpleName());
+
+    public enum OnChipSubType {
+        S_NONE, RIE, TIE, DMA_C0, DMA_C1, D_OVFI, ERI, RXI, TXI, TEI, ICI, OCI, OVI;
+    }
+
+    public enum Sh2InterruptSource {
+        NMI, USER_BREAK, IRL15, VRES14(VRES_14), IRL13, VINT12(VINT_12), IRL11, HINT10(HINT_10), IRL09,
+        CMD08(CMD_8), IRL07, PWM06(PWM_6), IRL05, IRL04,
+        IRL03, IRL02, IRL01, DIVU(DIV), DMAC0(DMA, DMA_C0), DMAC1(DMA, DMA_C1), WDTS(WDT),
+        REF(BSC), SCIE(SCI, ERI), SCIR(SCI, RXI), SCIT(SCI, TXI),
+        SCITE(SCI, TEI), FRTI(FRT, ICI), FRTO(FRT, OCI), FRTOV(FRT, OVI);
+
+        public final Sh2DeviceType deviceType;
+        public final OnChipSubType subType;
+        public final Sh2Interrupt externalInterrupt;
+
+        public static final Sh2InterruptSource[] vals = Sh2InterruptSource.values();
+
+        private Sh2InterruptSource(Sh2Interrupt externalInterrupt) {
+            this(NONE, S_NONE, externalInterrupt);
+        }
+
+        private Sh2InterruptSource() {
+            this(NONE, S_NONE, NONE_0);
+        }
+
+        private Sh2InterruptSource(Sh2DeviceType deviceType) {
+            this(deviceType, S_NONE, NONE_0);
+        }
+
+        private Sh2InterruptSource(Sh2DeviceType t, OnChipSubType s) {
+            this(t, s, NONE_0);
+        }
+
+        private Sh2InterruptSource(Sh2DeviceType t, OnChipSubType s, Sh2Interrupt externalInterrupt) {
+            this.deviceType = t;
+            this.subType = s;
+            this.externalInterrupt = externalInterrupt;
+        }
+
+        public static Sh2InterruptSource getSh2InterruptSource(Sh2DeviceType deviceType, OnChipSubType subType) {
+            for (var s : vals) {
+                if (s.deviceType == deviceType && s.subType == subType) {
+                    return s;
+                }
+            }
+            LOG.error("Unknown interrupt source: " + deviceType + ", " + subType);
+            return null;
+        }
+    }
 
     public enum Sh2Interrupt {
         NONE_0(0), NONE_1(0), NONE_2(0), NONE_3(0), NONE_4(0), NONE_5(0),
@@ -38,241 +84,54 @@ public class IntControl implements Sh2Device {
         }
     }
 
+    static class InterruptContext {
+        public Sh2InterruptSource source;
+        public Sh2Interrupt interrupt;
+        public int level = 0;
+        public int intState = 0;
+
+        @Override
+        public String toString() {
+            return "IntCtx{" +
+                    "source=" + source +
+                    ", interrupt=" + interrupt +
+                    ", level=" + level +
+                    ", intState=" + intState +
+                    '}';
+        }
+    }
+
+
     public static final Sh2Interrupt[] intVals = Sh2Interrupt.values();
+    public static final InterruptContext LEV_0 = new InterruptContext();
 
     public static final int MAX_LEVEL = 17; //[0-16]
 
-    private static final boolean verbose = false;
-
-    private final Map<Sh2DeviceType, Integer> sh2DeviceInt = new HashMap<>();
-    private final Map<Integer, Sh2Interrupt> s32xInt = new HashMap<>(MAX_LEVEL);
-
-    //valid = not masked
-    private boolean[] intValid = new boolean[MAX_LEVEL];
-    private boolean[] intPending = new boolean[MAX_LEVEL];
-    private boolean[] intTrigger = new boolean[MAX_LEVEL];
-
-    // V, H, CMD and PWM each possesses exclusive address on the master side and the slave side.
-    private ByteBuffer sh2_int_mask;
-    private ByteBuffer regs;
-    private int interruptLevel;
-    private CpuDeviceAccess cpu;
-    private int additionalIntData = 0;
-
-    public IntControl(CpuDeviceAccess cpu, ByteBuffer regs) {
-        sh2_int_mask = ByteBuffer.allocateDirect(2);
-        this.regs = regs;
-        this.cpu = cpu;
-        init();
+    public default void setOnChipDeviceIntPending(Sh2DeviceType deviceType) {
+        setOnChipDeviceIntPending(deviceType, S_NONE);
     }
 
-    @Override
-    public void init() {
-        Arrays.fill(intValid, true);
-        setIntsMasked(0);
-        Arrays.stream(Sh2DeviceType.values()).forEach(d -> sh2DeviceInt.put(d, 0));
-    }
+    public void setOnChipDeviceIntPending(Sh2DeviceType deviceType, OnChipSubType subType);
 
-    @Override
-    public void write(RegSpec regSpec, int pos, int value, Size size) {
-        int val = 0;
-        writeBuffer(regs, pos, value, size);
-        switch (regSpec) {
-            case INTC_IPRA:
-                val = readBuffer(regs, regSpec.addr, Size.WORD);
-                sh2DeviceInt.put(Sh2DeviceType.DIV, val >> 12);
-                sh2DeviceInt.put(Sh2DeviceType.DMA, (val >> 8) & 0xF);
-                sh2DeviceInt.put(Sh2DeviceType.WDT, (val >> 4) & 0xF);
-                logExternalIntLevel(regSpec, val);
-                break;
-            case INTC_IPRB:
-                val = readBuffer(regs, regSpec.addr, Size.WORD);
-                sh2DeviceInt.put(Sh2DeviceType.SCI, val >> 12);
-                sh2DeviceInt.put(Sh2DeviceType.FRT, (val >> 8) & 0xF);
-                logExternalIntLevel(regSpec, val);
-                break;
-            case INTC_ICR:
-                val = readBuffer(regs, regSpec.addr, Size.WORD);
-                if ((val & 1) > 0) {
-                    LOG.error("{} Not supported: IRL Interrupt vector mode: External Vector", cpu);
-                }
-                break;
-        }
-    }
+    void setIntPending(Sh2Interrupt interrupt, boolean isPending);
 
-    @Override
-    public int read(RegSpec regSpec, int reg, Size size) {
-        if (verbose) LOG.info("{} Read {} value: {} {}", cpu, regSpec.name, th(readBuffer(regs, reg, size)), size);
-        return readBuffer(regs, reg, size);
-    }
+    int readSh2IntMaskReg(int pos, Size size);
 
-    private void setIntMasked(int ipt, boolean isValid) {
-        boolean val = this.intValid[ipt];
-        if (val != isValid) {
-            this.intValid[ipt] = isValid;
-            boolean isPending = this.intPending[ipt];
-            boolean isTrigger = this.intTrigger[ipt];
-            //TODO check
-//            if (!isTrigger || ipt == CMD_8.ordinal()) {
-            if (ipt == CMD_8.ordinal()) {
-                this.intTrigger[ipt] = isValid && isPending;
-            }
-            resetInterruptLevel();
-            logInfo("MASK", ipt);
-        }
-    }
+    void writeSh2IntMaskReg(int reg, int value, Size size);
 
-    public void setIntsMasked(int value) {
-        for (int i = 0; i < 4; i++) {
-            int imask = value & (1 << i);
-            //0->PWM_6, 1->CMD_8, 2->HINT_10, 3->VINT_12
-            int sh2Int = 6 + (i << 1);
-            setIntMasked(sh2Int, imask > 0);
-        }
-    }
+    ByteBuffer getSh2_int_mask_regs();
 
-    public void writeSh2IntMaskReg(int reg, int value, Size size) {
-        writeBuffer(sh2_int_mask, reg, value, size);
-        int newVal = readBuffer(sh2_int_mask, reg, size);
-        setIntsMasked(newVal);
-    }
+    void setIntsMasked(int value);
 
-    public void setIntPending(Sh2Interrupt interrupt, boolean isPending) {
-        setIntPending(interrupt.ordinal(), isPending);
-    }
+    void clearInterrupt(Sh2Interrupt intType);
 
-    public void setExternalIntPending(Sh2DeviceType deviceType, int intData, boolean isPending) {
-        int level = sh2DeviceInt.get(deviceType);
-        if (interruptLevel > 0 && interruptLevel < level) {
-            LOG.info("{} {}{} ext interrupt pending: {}, level: {}", cpu, deviceType, intData, level, interruptLevel);
-        }
-        if (level > 0) {
-            setIntPending(level, isPending);
-            additionalIntData = intData;
-            if (verbose) LOG.info("{} {}{} interrupt pending: {}", cpu, deviceType, intData, level);
-        }
-    }
+    void clearCurrentInterrupt();
 
-    public int readSh2IntMaskReg(int pos, Size size) {
-        return readBuffer(sh2_int_mask, pos, size);
-    }
+    int getVectorNumber();
 
-    private void setIntPending(int ipt, boolean isPending) {
-        boolean val = this.intPending[ipt];
-        if (val != isPending) {
-            boolean valid = this.intValid[ipt];
-            if (valid) {
-                this.intPending[ipt] = isPending;
-                this.intTrigger[ipt] = valid && isPending;
-                if (valid && isPending) {
-                    resetInterruptLevel();
-                }
-                logInfo("PENDING", ipt);
-            }
-        }
-    }
+    InterruptContext getInterruptContext();
 
-    private void resetInterruptLevel() {
-        boolean[] ints = this.intTrigger;
-        int newLevel = 0;
-        int prev = interruptLevel;
-        for (int i = MAX_LEVEL - 1; i >= 0; i--) {
-            if (ints[i]) {
-                newLevel = i;
-                break;
-            }
-        }
-        interruptLevel = newLevel;
-        if (prev > 0 && interruptLevel != prev && interruptLevel > 0) {
-//            LOG.warn("IRQ {} -> {}", prev, interruptLevel);
-        }
-    }
-
-    public void clearInterrupt(Sh2Interrupt intType) {
-        clearInterrupt(intType.ordinal());
-    }
-
-    public void clearInterrupt(int ipt) {
-        this.intPending[ipt] = false;
-        this.intTrigger[ipt] = false;
-        resetInterruptLevel();
-        logInfo("CLEAR", ipt);
-    }
-
-    public void clearCurrentInterrupt() {
-        Sh2Interrupt intType = intVals[interruptLevel];
-        //TODO check internal vs external
-        //only autoclear external (ie.DMA,SCI, etc) interrupts
-        if (intType.internal == 0) {
-            clearInterrupt(interruptLevel);
-        }
-    }
-
-    public int getInterruptLevel() {
-        return interruptLevel;
-    }
-
-    public int getVectorNumber() {
-        Sh2Interrupt intType = intVals[interruptLevel];
-        if (intType.internal == 0) {
-            return getExternalDeviceVectorNumber();
-        }
-        return 64 + (interruptLevel >> 1);
-    }
-
-    private int getExternalDeviceVectorNumber() {
-        Sh2DeviceType deviceType = Sh2DeviceType.NONE;
-        for (var entry : sh2DeviceInt.entrySet()) {
-            if (interruptLevel == entry.getValue()) {
-                deviceType = entry.getKey();
-                break;
-            }
-        }
-        int vn = -1;
-        if (verbose) LOG.info("{} {} interrupt exec: {}, vector: {}", cpu, deviceType, interruptLevel, th(vn));
-        //TODO the vector number should be coming from the device itself
-        switch (deviceType) {
-            case DMA:
-                vn = readBuffer(regs, INTC_VCRDMA0.addr + (additionalIntData << 3), Size.LONG) & 0xFF;
-                break;
-            case WDT:
-                vn = readBuffer(regs, INTC_VCRWDT.addr, Size.BYTE) & 0xFF;
-                break;
-            case DIV:
-                vn = readBuffer(regs, INTC_VCRDIV.addr, Size.BYTE) & 0xFF;
-                break;
-            case SCI:
-                //RIE vs TIE
-                int pos = additionalIntData == 1 ? INTC_VCRA.addr + 1 : INTC_VCRB.addr;
-                vn = readBuffer(regs, pos, Size.BYTE) & 0xFF;
-                break;
-            case NONE:
-                break;
-            default:
-                LOG.error("{} Unhandled interrupt for device: {}, level: {}", cpu, deviceType, interruptLevel);
-                break;
-        }
-        return vn;
-    }
-
-    public ByteBuffer getSh2_int_mask_regs() {
-        return sh2_int_mask;
-    }
-
-    private void logInfo(String action, int ipt) {
-        if (verbose) {
-            LOG.info("{}: {} {} valid (unmasked): {}, pending: {}, willTrigger: {}, intLevel: {}",
-                    action, cpu, ipt, intValid[ipt], intPending[ipt], intTrigger[ipt], interruptLevel);
-        }
-    }
-
-    private void logExternalIntLevel(RegSpec regSpec, int val) {
-        if (regSpec == INTC_IPRA) {
-            LOG.info("{} set IPRA levels, {}:{}, {}:{}, {}:{}", cpu, Sh2DeviceType.DIV, val >> 12,
-                    Sh2DeviceType.DMA, (val >> 8) & 0xF, Sh2DeviceType.WDT, (val >> 4) & 0xF);
-        } else if (regSpec == INTC_IPRB) {
-            LOG.info("{} set IPRB levels, {}:{}, {}:{}", cpu, Sh2DeviceType.SCI, val >> 12,
-                    Sh2DeviceType.FRT, (val >> 8) & 0xF);
-        }
+    default int getInterruptLevel() {
+        return getInterruptContext().level;
     }
 }

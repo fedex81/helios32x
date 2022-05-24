@@ -11,6 +11,8 @@ import sh2.sh2.device.IntControl.Sh2Interrupt;
 
 import static sh2.dict.Sh2Dict.RegSpec.INTC_IPRA;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
+import static sh2.sh2.device.IntControl.Sh2InterruptSource;
+import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DIV;
 
 /**
  * Federico Berti
@@ -150,6 +152,32 @@ public class IntCTest {
         //HINT is left
         actual = intc.getInterruptLevel();
         Assertions.assertEquals(hint.ordinal(), actual);
+    }
+
+    @Test
+    public void testTwoInterruptsOneOnChip() {
+        Sh2MMREG s = lc.mDevCtx.sh2MMREG;
+        //DIV interrupt prio 12
+        int prio = 10;
+        int res, actual;
+        int iprA = prio << 12;
+        s.write(INTC_IPRA.addr, iprA, Size.WORD);
+
+        IntControl intc = mInt;
+        Sh2Interrupt hint = HINT_10;
+
+        int regMask = (1 << ((hint.ordinal() - 6) >> 1));
+        intc.setIntsMasked(regMask); //unmask HINT
+
+        intc.setOnChipDeviceIntPending(DIV);
+        actual = intc.getInterruptLevel();
+        Assertions.assertEquals(prio, actual);
+        Assertions.assertEquals(Sh2InterruptSource.DIVU, intc.getInterruptContext().source);
+
+        intc.setIntPending(hint, true);
+        actual = intc.getInterruptLevel();
+        Assertions.assertEquals(prio, 10);
+        Assertions.assertEquals(Sh2InterruptSource.HINT10, intc.getInterruptContext().source);
     }
 
     @Test

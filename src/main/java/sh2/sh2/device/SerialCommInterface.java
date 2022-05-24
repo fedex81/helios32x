@@ -10,6 +10,8 @@ import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.dict.Sh2Dict.RegSpec;
 import static sh2.dict.Sh2Dict.RegSpec.*;
+import static sh2.sh2.device.IntControl.OnChipSubType.RXI;
+import static sh2.sh2.device.IntControl.OnChipSubType.TXI;
 import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.SCI;
 
 /**
@@ -145,7 +147,7 @@ public class SerialCommInterface implements Sh2Device {
             setTdre(1);
             setBit(regs, SCI_SSR.addr, SCI_SSR_TEND_BIT_POS, 1, Size.BYTE);
             if ((scr & 0x80) > 0) { //TIE
-                intControl.setExternalIntPending(SCI, TIE, true);
+                intControl.setOnChipDeviceIntPending(SCI, TXI);
             }
             return;
         } else if (rxEn && sciData.isDataInTransit && sciData.sender != cpu) {
@@ -154,7 +156,7 @@ public class SerialCommInterface implements Sh2Device {
             int scr = readBuffer(regs, SCI_SCR.addr, Size.BYTE);
             sciData.isDataInTransit = false;
             if ((scr & 0x40) > 0) { //RIE
-                intControl.setExternalIntPending(SCI, RIE, true);
+                intControl.setOnChipDeviceIntPending(SCI, RXI);
             }
         }
     }

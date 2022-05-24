@@ -109,7 +109,7 @@ public class DivUnit implements Sh2Device {
         writeBuffersLong(regs, DIV_DVDNTL, DIV_DVDNTUL, val);
         Md32xRuntimeData.addCpuDelayExt(6);
         if ((dvcr & DIV_OVERFLOW_INT_EN_BIT) > 0) {
-            intControl.setExternalIntPending(DIV, 0, true);
+            intControl.setOnChipDeviceIntPending(DIV);
             LOG.info(msg);
             LOG.warn("DivUnit interrupt"); //not used by any sw?
         }

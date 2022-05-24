@@ -15,6 +15,8 @@ import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.dict.Sh2Dict.RegSpec;
 import static sh2.dict.Sh2Dict.RegSpec.*;
+import static sh2.sh2.device.IntControl.OnChipSubType.DMA_C0;
+import static sh2.sh2.device.IntControl.OnChipSubType.DMA_C1;
 import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DMA;
 
 /**
@@ -192,7 +194,7 @@ public class DmaC implements Sh2Device {
                 int chcr = setDmaChannelBitVal(c.channel, DMA_CHCR0.addr + 2, SH2_CHCR_TRANSFER_END_BIT, 1, Size.WORD);
                 DmaHelper.updateChannelControl(c, chcr);
                 if (c.chcr_intEn) {
-                    intControl.setExternalIntPending(DMA, c.channel, true);
+                    intControl.setOnChipDeviceIntPending(DMA, c.channel == 0 ? DMA_C0 : DMA_C1);
                 }
             }
             if (verbose) LOG.info("{} DMA stop, aborted: {}, {}", cpu, !normal, c);
