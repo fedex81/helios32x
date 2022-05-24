@@ -11,6 +11,7 @@ import static s32x.MarsRegTestUtil.*;
 import static sh2.S32XMMREG.CART_INSERTED;
 import static sh2.S32XMMREG.CART_NOT_INSERTED;
 import static sh2.S32xUtil.CpuDeviceAccess.*;
+import static sh2.dict.S32xDict.INTMASK_HEN_BIT_POS;
 
 /**
  * Federico Berti
@@ -119,4 +120,27 @@ public class S32xSharedRegsTest {
         writeBus(lc, SLAVE, SH2_INT_MASK, aden << 1, Size.BYTE);
         checkAden(lc, expAden);
     }
+
+    @Test
+    public void testHEN() {
+        //defaults to 0
+        checkHen(lc, 0);
+
+        int val = 1 << INTMASK_HEN_BIT_POS;
+        writeBus(lc, MASTER, SH2_INT_MASK, val, Size.WORD);
+        checkHen(lc, val);
+        writeBus(lc, SLAVE, SH2_INT_MASK, val, Size.WORD);
+        checkHen(lc, val);
+        writeBus(lc, SLAVE, SH2_INT_MASK, 0, Size.WORD);
+        checkHen(lc, 0);
+
+        writeBus(lc, SLAVE, SH2_INT_MASK + 1, val, Size.BYTE);
+        checkHen(lc, val);
+        writeBus(lc, MASTER, SH2_INT_MASK + 1, val, Size.BYTE);
+        checkHen(lc, val);
+        writeBus(lc, MASTER, SH2_INT_MASK + 1, 0, Size.BYTE);
+        checkHen(lc, 0);
+    }
+
+
 }

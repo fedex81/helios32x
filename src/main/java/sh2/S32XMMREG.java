@@ -336,6 +336,16 @@ public class S32XMMREG implements Device {
         }
     }
 
+    private void updateHenShared(int newVal) {
+        int nhen = (newVal >> INTMASK_HEN_BIT_POS) & 1;
+        if (nhen != hen) {
+            hen = nhen;
+            if (verbose) LOG.info("{} HEN: {}", Md32xRuntimeData.getAccessTypeExt(), hen);
+        }
+        setBit(interruptControls[0].getSh2_int_mask_regs(),
+                interruptControls[1].getSh2_int_mask_regs(), 1, INTMASK_HEN_BIT_POS, hen, Size.BYTE);
+    }
+
     private boolean handleIntMaskRegWriteSh2(CpuDeviceAccess sh2Access, int reg, int value, Size size) {
         int baseReg = reg & ~1;
         final IntControl ic = interruptControls[sh2Access.ordinal()];
@@ -344,11 +354,7 @@ public class S32XMMREG implements Device {
         int newVal = ic.readSh2IntMaskReg(baseReg, Size.WORD) | (cart << 8);
         ic.writeSh2IntMaskReg(baseReg, newVal, Size.WORD);
         updateFmShared(newVal); //68k side r/w too
-        int nhen = (newVal >> INTMASK_HEN_BIT_POS) & 1;
-        if (nhen != hen) {
-            hen = nhen;
-            LOG.info("{} HEN: {}", sh2Access, hen);
-        }
+        updateHenShared(newVal); //M,S share the same value
         return newVal != prevW;
     }
 
