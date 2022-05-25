@@ -32,6 +32,8 @@ import static sh2.vdp.MarsVdp.VdpPriority.S32X;
  * Federico Berti
  * <p>
  * Copyright 2021
+ * <p>
+ * TODO H32 is broken, S32x should keep drawing as H40, while the md layer's H32 should be stretched to H40
  */
 public class MarsVdpImpl implements MarsVdp {
 

@@ -12,6 +12,7 @@ import sh2.sh2.cache.Sh2CacheImpl;
 import sh2.sh2.prefetch.Sh2Prefetch;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
@@ -119,7 +120,9 @@ public final class Sh2Memory implements IMemory {
 			case CACHE_DATA_ARRAY_H3: //vr
 				//NOTE: vf slave writes to sysReg 0x401c, 0x4038 via cache
 				cache[cpuAccess.ordinal()].cacheMemoryWrite(address, val, size);
-				prefetch.dataWrite(cpuAccess, address, val, size);
+				if (cache[cpuAccess.ordinal()].getCacheContext().cacheEn == 0) {
+					prefetch.dataWrite(cpuAccess, address, val, size);
+				}
 				break;
 			case CACHE_THROUGH_H3:
 				if (address >= START_DRAM && address < END_DRAM) {
@@ -165,8 +168,13 @@ public final class Sh2Memory implements IMemory {
 	}
 
 	@Override
-	public void invalidateCachePrefetch(CpuDeviceAccess cpu, Sh2CacheLine line, int lineEntry, boolean force) {
-		prefetch.invalidateCachePrefetch(cpu, line, lineEntry, force);
+	public void invalidateCachePrefetch(CacheInvalidateContext ctx) {
+		prefetch.invalidateCachePrefetch(ctx);
+	}
+
+	@Override
+	public void invalidateAllPrefetch(CpuDeviceAccess cpuDeviceAccess) {
+		prefetch.invalidateAllPrefetch(cpuDeviceAccess);
 	}
 
 	public void fetch(Sh2.FetchResult fetchResult, S32xUtil.CpuDeviceAccess cpu) {
@@ -180,6 +188,11 @@ public final class Sh2Memory implements IMemory {
 
 	public Sh2MMREG getSh2MMREGS(CpuDeviceAccess cpu) {
 		return sh2MMREGS[cpu.ordinal()];
+	}
+
+	@Override
+	public List<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int address) {
+		return prefetch.getPrefetchBlocksAt(cpu, address);
 	}
 
 	@Override

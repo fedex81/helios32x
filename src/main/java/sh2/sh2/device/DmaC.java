@@ -8,6 +8,7 @@ import sh2.IMemory;
 import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
 import sh2.sh2.device.DmaHelper.DmaChannelSetup;
+import sh2.sh2.prefetch.Sh2Prefetch;
 
 import java.nio.ByteBuffer;
 
@@ -87,9 +88,11 @@ public class DmaC implements Sh2Device {
         switch (regSpec) {
             case DMA_CHCR0:
             case DMA_CHCR1:
+                assert size == Size.LONG;
                 handleChannelControlWrite(regSpec.addr, value);
                 break;
             case DMA_DMAOR:
+                assert size == Size.LONG;
                 handleOperationRegWrite(value);
                 break;
         }
@@ -167,6 +170,8 @@ public class DmaC implements Sh2Device {
         //        assert (destAddress >> Sh2Prefetch.PC_CACHE_AREA_SHIFT) != 0 : th(destAddress);
         //TODO 4. When the cache is used as on-chip RAM, the DMAC cannot access this RAM.
         destAddress |= SH2_CACHE_THROUGH_OFFSET;
+        //DMA cannot write to cache area
+        assert (destAddress >> Sh2Prefetch.PC_CACHE_AREA_SHIFT) != 0 : th(destAddress);
         do {
             int val = memory.read(srcAddress, c.trnSize);
             memory.write(destAddress, val, c.trnSize);

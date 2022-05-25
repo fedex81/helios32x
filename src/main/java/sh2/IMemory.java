@@ -2,8 +2,11 @@ package sh2;
 
 import omegadrive.util.Size;
 import sh2.sh2.Sh2;
-import sh2.sh2.cache.Sh2Cache.Sh2CacheLine;
+import sh2.sh2.cache.Sh2Cache.CacheInvalidateContext;
 import sh2.sh2.prefetch.Sh2Prefetcher;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Federico Berti
@@ -50,10 +53,15 @@ public interface IMemory extends Sh2Prefetcher {
         return read(addr, Size.LONG);
     }
 
-    default void invalidateCachePrefetch(S32xUtil.CpuDeviceAccess cpu, Sh2CacheLine line, int lineEntry) {
-        invalidateCachePrefetch(cpu, line, lineEntry, false);
+    default void invalidateCachePrefetch(CacheInvalidateContext ctx) {
+        //do nothing
     }
 
-    default void invalidateCachePrefetch(S32xUtil.CpuDeviceAccess cpu, Sh2CacheLine line, int lineEntry, boolean force) {
+    default void invalidateAllPrefetch(S32xUtil.CpuDeviceAccess cpuDeviceAccess) {
+        //do nothing
+    }
+
+    default List<Sh2Block> getPrefetchBlocksAt(S32xUtil.CpuDeviceAccess cpu, int address) {
+        return Collections.emptyList();
     }
 }

@@ -16,7 +16,6 @@ import sh2.sh2.*;
 import sh2.sh2.Sh2.FetchResult;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.cache.Sh2Cache;
-import sh2.sh2.cache.Sh2Cache.Sh2CacheLine;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -33,7 +32,6 @@ import static sh2.dict.S32xDict.SH2_SDRAM_MASK;
 import static sh2.dict.S32xMemAccessDelay.SDRAM;
 import static sh2.sh2.Sh2Debug.pcAreaMaskMap;
 import static sh2.sh2.Sh2Instructions.generateInst;
-import static sh2.sh2.cache.Sh2Cache.ENTRY_SHIFT;
 
 /**
  * Federico Berti
@@ -74,6 +72,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private final List<Integer> opcodes = new ArrayList<>(10);
     private int blockLimit = INITIAL_BLOCK_LIMIT;
 
+
     public static class Sh2DrcContext {
         public CpuDeviceAccess cpu;
         public Sh2Impl sh2;
@@ -108,7 +107,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private Sh2Block doPrefetch(int pc, CpuDeviceAccess cpu) {
         final Sh2Block block = new Sh2Block();
         final Sh2Cache sh2Cache = cache[cpu.ordinal()];
-        final boolean isCache = (pc >>> 28) == 0 && sh2Cache.getCacheContext().cacheEn > 0;
+        final boolean isCache = (pc >>> PC_CACHE_AREA_SHIFT) == 0 && sh2Cache.getCacheContext().cacheEn > 0;
         block.isCacheFetch = isCache;
         block.prefetchPc = pc;
         block.drcContext = this.sh2Context[cpu.ordinal()];
@@ -119,9 +118,14 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         if (verbose) LOG.info("{} prefetch at pc: {}", cpu, th(pc));
         opcodes.clear();
         final Sh2InstructionWrapper[] op = Sh2Instructions.instOpcodeMap;
+        //force a cache effect by fetching the current PC
+        if (isCache) {
+            sh2Cache.cacheMemoryRead(pc, Size.WORD);
+        }
         do {
-            int val = isCache ? sh2Cache.cacheMemoryRead(currentPc, Size.WORD) :
-                    block.fetchBuffer.getShort(bytePos) & 0xFFFF;
+            int val = isCache ? sh2Cache.readDirect(currentPc, Size.WORD) : block.fetchBuffer.getShort(bytePos) & 0xFFFF;
+//            int val = isCache ? sh2Cache.cacheMemoryRead(currentPc, Size.WORD) :
+//                    block.fetchBuffer.getShort(bytePos) & 0xFFFF;
             final Sh2Instructions.Sh2BaseInstruction inst = op[val].inst;
             if (inst.isIllegal) {
                 LOG.error("{} Invalid fetch, start PC: {}, current: {} opcode: {}", cpu, th(pc), th(bytePos), th(val));
@@ -163,7 +167,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private void setupPrefetch(final Sh2Block block, CpuDeviceAccess cpu) {
         final int pc = block.prefetchPc;
         block.start = pc & 0xFF_FFFF;
-        switch (pc >> 24) {
+        switch (pc >> PC_AREA_SHIFT) {
             case 6:
             case 0x26:
                 block.start = Math.max(0, block.start) & SH2_SDRAM_MASK;
@@ -283,6 +287,12 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             block = fetchResult.block;
             if (collectStats) stats[cpu.ordinal()].addMiss();
         } else {
+            boolean isCache = pc >>> PC_CACHE_AREA_SHIFT == 0;
+            if (isCache && cache[cpu.ordinal()].getCacheContext().cacheEn > 0) {
+                //NOTE necessary to trigger the cache hit on fetch
+                int cached = cache[cpu.ordinal()].cacheMemoryRead(pc, Size.WORD);
+                assert cached == block.prefetchWords[pcDeltaWords];
+            }
             block.addHit();
         }
         if (collectStats) stats[cpu.ordinal()].pfTotal++;
@@ -362,19 +372,23 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
     }
 
-    public void invalidateCachePrefetch(CpuDeviceAccess cpu, Sh2CacheLine line, int lineEntry, boolean force) {
-        int lineStart = force ? 0 : line.tag | (lineEntry << ENTRY_SHIFT);
+    public void invalidateAllPrefetch(CpuDeviceAccess cpu) {
+        prefetchMap[cpu.ordinal()].clear();
+    }
+
+    public void invalidateCachePrefetch(Sh2Cache.CacheInvalidateContext ctx) {
+        int lineStart = ctx.force ? 0 : ctx.prevCacheAddr;
         int lineEnd = lineStart + 16;
-        for (var entry : prefetchMap[cpu.ordinal()].entrySet()) {
+        for (var entry : prefetchMap[ctx.cpu.ordinal()].entrySet()) {
             Sh2Block b = entry.getValue();
             if (b != null && b.isCacheFetch) {
                 int start = b.prefetchPc;
                 int end = b.prefetchPc + (b.prefetchLenWords << 1);
-                if (force || (lineEnd >= start && lineStart < end)) {
+                if (ctx.force || (lineEnd >= start && lineStart < end)) {
                     if (verbose) {
                         ParameterizedMessage pm = new ParameterizedMessage(
                                 "{} invalidateCachePrefetch {}, block with start: {} blockLen: {}",
-                                cpu, force ? "forced" : th(lineStart) + " - " + th(lineEnd), th(b.prefetchPc), b.prefetchLenWords);
+                                ctx.cpu, ctx.force ? "forced" : th(lineStart) + " - " + th(lineEnd), th(b.prefetchPc), b.prefetchLenWords);
                         LOG.info(pm.getFormattedMessage());
                         //                    System.out.println(pm.getFormattedMessage());
                     }
@@ -383,5 +397,20 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                 }
             }
         }
+    }
+
+    public List<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int addr) {
+        List<Sh2Block> l = new ArrayList<>();
+        for (var entry : prefetchMap[cpu.ordinal()].entrySet()) {
+            Sh2Block b = entry.getValue();
+            if (b != null) {
+                int start = b.prefetchPc;
+                int end = b.prefetchPc + (b.prefetchLenWords << 1);
+                if (addr >= start && addr < end) {
+                    l.add(b);
+                }
+            }
+        }
+        return l;
     }
 }

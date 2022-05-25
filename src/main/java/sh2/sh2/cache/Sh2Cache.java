@@ -61,6 +61,13 @@ public interface Sh2Cache {
         Sh2CacheLine[][] way = new Sh2CacheLine[CACHE_WAYS][CACHE_LINES];
     }
 
+    static class CacheInvalidateContext {
+        public S32xUtil.CpuDeviceAccess cpu;
+        public Sh2CacheLine line;
+        public int cacheReadAddr, prevCacheAddr;
+        public boolean force;
+    }
+
     void cacheClear();
 
     @Deprecated

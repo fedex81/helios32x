@@ -55,12 +55,15 @@ public class Sh2CacheImpl implements Sh2Cache {
     private IMemory memory;
     private CacheContext ctx;
     private ByteBuffer data_array = ByteBuffer.allocate(DATA_ARRAY_SIZE); // cache (can be used as RAM)
+    private CacheInvalidateContext invalidCtx;
 
     public Sh2CacheImpl(CpuDeviceAccess cpu, IMemory memory) {
         this.memory = memory;
         this.cpu = cpu;
         this.ca = new Sh2CacheEntry();
         this.ctx = new CacheContext();
+        this.invalidCtx = new CacheInvalidateContext();
+        invalidCtx.cpu = cpu;
         for (int i = 0; i < ca.way.length; i++) {
             for (int j = 0; j < ca.way[i].length; j++) {
                 ca.way[i][j] = new Sh2CacheLine();
@@ -81,20 +84,6 @@ public class Sh2CacheImpl implements Sh2Cache {
         }
         if (verbose) LOG.info("{} Cache clear", cpu);
         return;
-    }
-
-    //DEBUG and TEST only
-    public static Optional<Integer> getCachedValueIfAny(Sh2CacheImpl cache, int addr, Size size) {
-        final int tagaddr = (addr & TAG_MASK);
-        final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
-
-        for (int i = 0; i < 4; i++) {
-            Sh2CacheLine line = cache.ca.way[i][entry];
-            if ((line.v > 0) && (line.tag == tagaddr)) {
-                return Optional.of(getCachedData(line.data, addr & LINE_MASK, size));
-            }
-        }
-        return Optional.empty();
     }
 
     @Override
@@ -148,16 +137,11 @@ public class Sh2CacheImpl implements Sh2Cache {
                 // cache miss
                 int lruway = selectWayToReplace(ctx.twoWay, ca.lru[entry]);
                 final Sh2CacheLine line = ca.way[lruway][entry];
-                if (line.v > 0) {
-                    if (verbose)
-                        LOG.info("{} Cache miss on addr {}, replacing line from: {}",
-                                cpu, th(addr), th(line.tag | (entry << ENTRY_SHIFT)));
-                    memory.invalidateCachePrefetch(cpu, line, entry);
-                }
+                invalidatePrefetcher(line, entry, addr);
                 updateLru(lruway, ca.lru, entry);
                 line.tag = tagaddr;
 
-                refillCache(line, entry, addr);
+                refillCache(line.data, addr);
 
                 line.v = 1; //becomes valid
                 if (verbose) LOG.info("{} Cache miss, read at {} {}, val: {}", cpu, th(addr), size,
@@ -174,8 +158,9 @@ public class Sh2CacheImpl implements Sh2Cache {
                 LOG.warn("{} CACHE_PURGE read: {}, {}", cpu, th(addr), size);
                 break;
             case CACHE_ADDRESS_ARRAY:
+                assert size == Size.LONG;
                 LOG.warn("{} CACHE_ADDRESS_ARRAY read: {}, {}", cpu, th(addr), size);
-                break;
+                return readAddressArray(addr);
             default:
                 LOG.error("{} Unexpected cache read: {}, {}", cpu, th(addr), size);
                 if (true) throw new RuntimeException();
@@ -217,7 +202,6 @@ public class Sh2CacheImpl implements Sh2Cache {
                 break;
             case CACHE_PURGE://associative purge
             {
-                assert size == Size.LONG; //Metal Head
                 final int tagaddr = (addr & TAG_MASK);
                 final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
                 //can purge more than one line
@@ -226,19 +210,39 @@ public class Sh2CacheImpl implements Sh2Cache {
                         //only v bit is changed, the rest of the data remains
                         ca.way[i][entry].v = 0;
                         Md32xRuntimeData.addCpuDelayExt(CACHE_PURGE_DELAY);
+                        invalidatePrefetcher(ca.way[i][entry], entry, addr);
                     }
                 }
                 if (verbose) LOG.info("{} Cache purge: {}", cpu, th(addr));
             }
             break;
             case CACHE_ADDRESS_ARRAY:
-                LOG.warn("{} CACHE_ADDRESS_ARRAY write: {}, {} {}", cpu, th(addr), th(val), size);
+                //doomRes 1.4, vf
+                assert size == Size.LONG;
+                if (verbose) LOG.info("{} CACHE_ADDRESS_ARRAY write: {}, {} {}", cpu, th(addr), th(val), size);
+                writeAddressArray(addr, val);
                 break;
             default:
                 LOG.error("{} Unexpected cache write: {}, {} {}", cpu, th(addr), th(val), size);
                 if (true) throw new RuntimeException();
                 break;
         }
+    }
+
+    private void writeAddressArray(int addr, int data) {
+        final int tagaddr = (addr & TAG_MASK);
+        final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
+        ca.lru[entry] = (data >> 6) & 63;
+        Sh2CacheLine line = ca.way[ctx.way][entry];
+        line.v = (addr >> 2) & 1;
+        line.tag = tagaddr;
+    }
+
+    //NOTE seems unused
+    private int readAddressArray(int addr) {
+        final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
+        final int tagaddr = ca.way[ctx.way][entry].tag;
+        return (tagaddr & 0x7ffff << 10) | (ca.lru[entry] << 4) | ca.enable;
     }
 
     @Override
@@ -267,7 +271,8 @@ public class Sh2CacheImpl implements Sh2Cache {
         if (prevCaEn != ctx.cacheEn) {
             if (verbose) LOG.info("Cache enable: " + ctx.cacheEn);
             if (ctx.cacheEn > 0) {
-                memory.invalidateCachePrefetch(cpu, null, 0, true);
+                invalidCtx.force = true;
+                memory.invalidateCachePrefetch(invalidCtx);
             }
         }
     }
@@ -275,6 +280,20 @@ public class Sh2CacheImpl implements Sh2Cache {
     @Override
     public ByteBuffer getDataArray() {
         return data_array;
+    }
+
+    //DEBUG and TEST only
+    public static Optional<Integer> getCachedValueIfAny(Sh2CacheImpl cache, int addr, Size size) {
+        final int tagaddr = (addr & TAG_MASK);
+        final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
+
+        for (int i = 0; i < 4; i++) {
+            Sh2CacheLine line = cache.ca.way[i][entry];
+            if ((line.v > 0) && (line.tag == tagaddr)) {
+                return Optional.of(getCachedData(line.data, addr & LINE_MASK, size));
+            }
+        }
+        return Optional.empty();
     }
 
     //lru is updated
@@ -318,18 +337,26 @@ public class Sh2CacheImpl implements Sh2Cache {
         throw new RuntimeException();
     }
 
-    private void refillCache(Sh2CacheLine line, int lineEntry, int addr) {
+    private void refillCache(int[] data, int addr) {
         Md32xRuntimeData.addCpuDelayExt(4);
         assert cpu == Md32xRuntimeData.getAccessTypeExt();
         for (int i = 0; i < 16; i += 4) {
+            //TODO this adds 4*access delays, should probably not do that?
             int val = readMemoryUncached(memory, (addr & 0xFFFFFFF0) + i, Size.LONG);
-            setCachedData(line.data, i & LINE_MASK, val, Size.LONG);
+            setCachedData(data, i & LINE_MASK, val, Size.LONG);
         }
-//        if(line.v > 0) {
-//            if (verbose)
-//                LOG.info("{} Cache miss on addr {}, replacing line {}", cpu, th(addr), th(line.tag));
-//            memory.invalidateCachePrefetch(cpu, line, lineEntry);
-//        }
+    }
+
+    private void invalidatePrefetcher(Sh2CacheLine line, int entry, int addr) {
+        if (line.v > 0) {
+            invalidCtx.line = line;
+            invalidCtx.force = false;
+            invalidCtx.cacheReadAddr = addr;
+            invalidCtx.prevCacheAddr = line.tag | (entry << ENTRY_SHIFT);
+            if (verbose)
+                LOG.info("{} Cache miss on addr {} , replacing line {}", cpu, th(addr), th(line.tag));
+            memory.invalidateCachePrefetch(invalidCtx);
+        }
     }
 
     @Override

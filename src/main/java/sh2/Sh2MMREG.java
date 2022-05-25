@@ -171,7 +171,7 @@ public class Sh2MMREG {
 
     private void handleWriteBSC(RegSpec regSpec, int pos, int value, Size size) {
         assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
-        LOG.info("{} BSC reg {} write: {} {}", cpu, regSpec, th(value), size);
+        if (verbose) LOG.info("{} BSC reg {} write: {} {}", cpu, regSpec, th(value), size);
         if (size != Size.LONG || (value & 0xFFFF_0000) != BSC_LONG_WRITE_MASK) {
             LOG.error("Invalid BSC reg {} write: {} {}", cpu, regSpec, th(value), size);
             return;
