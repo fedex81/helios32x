@@ -91,6 +91,14 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
 //        }
 //    }
 
+    protected final void printDebug(DebugMode mode, Sh2Context ctx) {
+        CpuFastDebug f = fastDebug[ctx.cpuAccess.ordinal()];
+        DebugMode prev = f.debugMode;
+        f.debugMode = mode;
+        f.printDebugMaybe();
+        f.debugMode = prev;
+    }
+
     @Override
     protected final void printDebugMaybe(Sh2Context ctx) {
         final int n = ctx.cpuAccess.ordinal();

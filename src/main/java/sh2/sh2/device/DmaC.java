@@ -160,6 +160,7 @@ public class DmaC implements Sh2Device {
         int destAddress = readBufferForChannel(c.channel, DMA_DAR0.addr, Size.LONG);
         int steps = c.transfersPerStep;
         do {
+            assert cpu == Md32xRuntimeData.getAccessTypeExt();
             int val = memory.read(srcAddress, c.trnSize);
             memory.write(destAddress, val, c.trnSize);
             if (verbose)

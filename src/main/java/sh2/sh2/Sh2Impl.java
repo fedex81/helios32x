@@ -1,6 +1,7 @@
 package sh2.sh2;
 
 
+import omegadrive.cpu.CpuFastDebug;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import sh2.IMemory;
@@ -81,7 +82,7 @@ public class Sh2Impl implements Sh2 {
 		return res;
 	}
 
-	private void ILLEGAL(int code) {
+	protected void ILLEGAL(int code) {
 		push(ctx.SR);
 		push(ctx.PC);
 		LOG.error("{} illegal instruction: {}\n{}", ctx.cpuAccess, th(code),
@@ -1737,14 +1738,16 @@ public class Sh2Impl implements Sh2 {
 		push(ctx.SR);
 		push(ctx.PC + 2);
 
-		//TODO check +4
-		ctx.PC = memory.read32(ctx.VBR + (imm << 2)) + 4;
-		if (true) new RuntimeException("TRAPA");
+		//TODO check +4??, T-Mek indicates nope
+		ctx.PC = memory.read32(ctx.VBR + (imm << 2));
 		ctx.cycles -= 8;
 	}
 
 	//NO-OP
 	protected void printDebugMaybe(Sh2Context ctx) {
+	}
+
+	protected void printDebug(CpuFastDebug.DebugMode mode, Sh2Context ctx) {
 	}
 
 	// get interrupt masks bits int the SR register

@@ -48,4 +48,7 @@ public interface IMemory {
     default int read32(int addr) {
         return read(addr, Size.LONG);
     }
+
+    default void invalidateCachePrefetch(S32xUtil.CpuDeviceAccess cpu) {
+    }
 }

@@ -211,7 +211,7 @@ public class S32xBus extends GenesisBus {
             super.write(address & ROM_WINDOW_MASK, data, size);
 //            if (true) throw new RuntimeException();
         } else if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {
-            LOG.info("HINT vector write, address: {}, data: {}, size: {}", Long.toHexString(address),
+            if (verboseMd) LOG.info("HINT vector write, address: {}, data: {}, size: {}", Long.toHexString(address),
                     Integer.toHexString(data), size);
             writeBuffer(writeableHintRom, address & 3, data, size);
         } else {

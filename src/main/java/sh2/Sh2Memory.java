@@ -55,7 +55,7 @@ public final class Sh2Memory implements IMemory {
 	public ByteBuffer sdram;
 	public ByteBuffer rom;
 
-	private Sh2Cache[] cache = new Sh2Cache[2];
+	public Sh2Cache[] cache = new Sh2Cache[2];
 	private Sh2Prefetch prefetch;
 
 	public int romSize, romMask;
@@ -144,6 +144,9 @@ public final class Sh2Memory implements IMemory {
 			case CACHE_ADDRESS_ARRAY_H3:
 			case CACHE_DATA_ARRAY_H3: //vr
 				cache[cpuAccess.ordinal()].cacheMemoryWrite(address, val, size);
+				if (cache[cpuAccess.ordinal()].getCacheContext().cacheEn == 0) {
+					prefetch.dataWrite(cpuAccess, address, val, size);
+				}
 				break;
 			case CACHE_THROUGH_H3:
 				if (address >= START_DRAM && address < END_DRAM) {
@@ -155,7 +158,6 @@ public final class Sh2Memory implements IMemory {
 				} else if (address >= START_SDRAM && address < END_SDRAM) {
 					writeBuffer(sdram, address & SDRAM_MASK, val, size);
 					S32xMemAccessDelay.addWriteCpuDelay(SDRAM);
-//					checkPrefetch(address, val, size);
 				} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
 					if (s32XMMREG.fm > 0) {
 						s32XMMREG.write(address, val, size);
@@ -175,11 +177,10 @@ public final class Sh2Memory implements IMemory {
 			case CACHE_IO_H3: //0xF
 				if ((address & ONCHIP_REG_MASK) == ONCHIP_REG_MASK) {
 					sh2MMREGS[cpuAccess.ordinal()].write(address & 0xFFFF, val, size);
-//					checkPrefetch(address, val, size);
 				} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
 					sh2MMREGS[cpuAccess.ordinal()].writeDramMode(address & 0xFFFF, val, size);
 				} else {
-					LOG.error("{} read from addr: {}, {}", cpuAccess, th(address), size);
+					LOG.error("{} write from addr: {}, {}", cpuAccess, th(address), size);
 				}
 				break;
 			default:
@@ -187,7 +188,12 @@ public final class Sh2Memory implements IMemory {
 				if (true) throw new RuntimeException();
 				break;
 		}
-		prefetch.checkPrefetch(cpuAccess, address, val, size);
+		prefetch.dataWrite(cpuAccess, address, val, size);
+	}
+
+	@Override
+	public void invalidateCachePrefetch(CpuDeviceAccess cpu) {
+		prefetch.invalidateCachePrefetch(cpu);
 	}
 
 	@Override
@@ -198,6 +204,10 @@ public final class Sh2Memory implements IMemory {
 	@Override
 	public int fetch(int pc, S32xUtil.CpuDeviceAccess cpu) {
 		return prefetch.fetch(pc, cpu);
+	}
+
+	public Sh2Prefetch getPrefetch() {
+		return prefetch;
 	}
 
 	@Override
