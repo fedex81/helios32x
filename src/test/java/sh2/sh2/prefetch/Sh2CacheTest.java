@@ -133,6 +133,49 @@ public class Sh2CacheTest {
         checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr, Size.WORD);
     }
 
+    @Test
+    public void testCacheWriteNoHitByte() {
+        testCacheWriteNoHitInternal(Size.BYTE);
+    }
+
+    @Test
+    public void testCacheWriteNoHitWord() {
+        testCacheWriteNoHitInternal(Size.WORD);
+    }
+
+    @Test
+    public void testCacheWriteNoHitLong() {
+        testCacheWriteNoHitInternal(Size.LONG);
+    }
+
+    public void testCacheWriteNoHitInternal(Size size) {
+        Md32xRuntimeData.setAccessTypeExt(MASTER);
+        initRam(0x100);
+        int noCacheAddr = START_SDRAM | 0x8;
+        int cacheAddr = START_SDRAM_CACHE | 0x8;
+        int res = 0;
+
+        int val = (int) ((CLRMAC << 16 | CLRMAC) & size.getMask());
+
+        clearCache(MASTER);
+        enableCache(MASTER, true);
+        checkCacheContents(MASTER, Optional.empty(), noCacheAddr, size);
+
+        //write cache miss, writes to memory
+        memory.write(cacheAddr, val, size);
+        checkCacheContents(MASTER, Optional.empty(), noCacheAddr, size);
+
+        checkVal(MASTER, noCacheAddr, val, size);
+
+        //cache still empty
+        memory.read(noCacheAddr, size);
+        checkCacheContents(MASTER, Optional.empty(), noCacheAddr, size);
+
+        //cache gets populated
+        memory.read(cacheAddr, size);
+        checkCacheContents(MASTER, Optional.of(val), noCacheAddr, size);
+    }
+
     protected void enableCache(CpuDeviceAccess cpu, boolean enabled) {
         memory.cache[cpu.ordinal()].updateState(enabled ? 1 : 0);
     }

@@ -18,8 +18,7 @@ import java.util.Arrays;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
-import static sh2.Sh2Memory.SDRAM_MASK;
-import static sh2.Sh2Memory.SDRAM_SIZE;
+import static sh2.Sh2Memory.*;
 import static sh2.dict.S32xMemAccessDelay.SDRAM;
 
 /**
@@ -104,7 +103,7 @@ public class Sh2Prefetch {
         pctx.start = (pc & 0xFF_FFFF);
         pctx.end = (pc & 0xFF_FFFF) + (DEFAULT_PREFETCH_LOOKAHEAD << 1);
 
-        switch (pc >> 24) {
+        switch (pc >> PC_AREA_SHIFT) {
             case 6:
             case 0x26:
                 pctx.start = Math.max(0, pctx.start) & SDRAM_MASK;
@@ -149,7 +148,8 @@ public class Sh2Prefetch {
         int cpc = (pc & 0xFFF_FFFF) - (pctx.pcMasked - pctx.start);
         for (int bytePos = pctx.start; bytePos < pctx.end; bytePos += 2, cpc += 2) {
             int w = ((bytePos - pctx.pcMasked) >> 1);
-            int opc = isCache ? sh2Cache.cacheMemoryRead(cpc, Size.WORD) : pctx.buf.getShort(bytePos) & 0xFFFF;
+            int opc = isCache ? sh2Cache.readDirect(cpc, Size.WORD) : pctx.buf.getShort(bytePos) & 0xFFFF;
+//                    sh2Cache.cacheMemoryRead(cpc, Size.WORD)
             pctx.prefetchWords[w] = opc;
             Sh2BaseInstruction instType = Sh2Instructions.sh2OpcodeMap[opc];
             if (instType.isBranchDelaySlot) {
@@ -184,6 +184,7 @@ public class Sh2Prefetch {
         } else {
             boolean isCache = pc >>> PC_CACHE_AREA_SHIFT == 0;
             if (isCache && cache[cpu.ordinal()].getCacheContext().cacheEn > 0) {
+                //NOTE necessary to trigger the cache hit on fetch
                 int cached = cache[cpu.ordinal()].cacheMemoryRead(pc, Size.WORD);
                 assert cached == pctx.prefetchWords[pcDeltaWords];
             }
@@ -241,13 +242,18 @@ public class Sh2Prefetch {
                 continue;
             }
             checkPrefetch(cpuWrite, CpuDeviceAccess.cdaValues[i], addr, val, size);
+            boolean isCacheEnabled = cache[i].getCacheContext().cacheEn > 0;
+            if (!isCacheEnabled) {
+                int otherAddr = isWriteThrough ? addr & 0xFFF_FFFF : addr | CACHE_THROUGH_OFFSET;
+                checkPrefetch(cpuWrite, CpuDeviceAccess.cdaValues[i], otherAddr, val, size);
+            }
         }
     }
 
     private void checkPrefetch(CpuDeviceAccess cpuWrite, CpuDeviceAccess cpu, int writeAddr, int val, Size size) {
         final PrefetchContext p = prefetchContexts[cpu.ordinal()];
-        int start = Math.max(0, p.prefetchPc);
-        int end = p.prefetchPc + (p.pfMaxIndex << 1);
+        int start = p.prefetchPc;
+        int end = start + (p.pfMaxIndex << 1);
         if (writeAddr >= start && writeAddr <= end) {
             if (verbose) {
                 ParameterizedMessage pm = new ParameterizedMessage("{} write at addr: {} val: {} {}, " +
