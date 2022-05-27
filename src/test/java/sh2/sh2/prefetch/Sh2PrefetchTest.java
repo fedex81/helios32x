@@ -2,6 +2,7 @@ package sh2.sh2.prefetch;
 
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
@@ -12,24 +13,32 @@ import java.util.Optional;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
-import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
-import static sh2.Sh2Memory.START_SDRAM_CACHE;
+import static sh2.Sh2Memory.*;
 
 /**
  * Federico Berti
  * <p>
  * Copyright 2022
+ * <p>
+ * TODO wwf raw, t-mek
  **/
 public class Sh2PrefetchTest extends Sh2CacheTest {
 
     int cacheAddr = START_SDRAM_CACHE | 0x2;
     int noCacheAddr = cacheAddr | CACHE_THROUGH_OFFSET;
 
+    @BeforeEach
+    public void beforeEach() {
+        super.before();
+        Assertions.assertTrue(Sh2Prefetch.SH2_ENABLE_PREFETCH);
+    }
+
     @Test
     public void testRamCacheOff() {
-        Md32xRuntimeData.newInstance();
-        Md32xRuntimeData.setAccessTypeExt(MASTER);
-        initRam(0x100);
+        enableCache(MASTER, false);
+        enableCache(SLAVE, false);
+        clearCache(MASTER);
+        clearCache(SLAVE);
 
         checkFetch(MASTER, noCacheAddr, NOP);
         checkFetch(MASTER, cacheAddr, NOP);
@@ -206,11 +215,16 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         checkCacheContents(SLAVE, Optional.empty(), noCacheAddr, Size.WORD);
 
         Md32xRuntimeData.setAccessTypeExt(MASTER);
+        //M not in cache
         memory.write16(cacheAddr, CLRMAC);
-        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr, Size.WORD);
+        checkCacheContents(MASTER, Optional.empty(), noCacheAddr, Size.WORD);
         checkCacheContents(SLAVE, Optional.empty(), noCacheAddr, Size.WORD);
 
+        //M add to cache
+        memory.read(cacheAddr, Size.WORD);
+
         Md32xRuntimeData.setAccessTypeExt(SLAVE);
+        //S not in cache
         memory.write16(noCacheAddr, SETT);
         checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr, Size.WORD);
         checkCacheContents(SLAVE, Optional.empty(), noCacheAddr, Size.WORD);
@@ -259,6 +273,73 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         checkFetch(MASTER, noCacheAddr, SETT);
         checkFetch(SLAVE, cacheAddr, NOP);
         checkFetch(SLAVE, noCacheAddr, SETT);
+    }
+
+    @Test
+    public void testCacheReplaceWithPrefetch() {
+        super.testCacheReplace();
+
+        int[] cacheAddr = new int[5];
+        int[] noCacheAddr = new int[5];
+
+        //i == 0 -> this region should be all NOPs
+        for (int i = 0; i < cacheAddr.length; i++) {
+            cacheAddr[i] = START_SDRAM_CACHE | (i << 12) | 0xC0;
+            noCacheAddr[i] = START_SDRAM | cacheAddr[i];
+        }
+
+        PrefetchContext mpfc = getPrefetch(MASTER);
+        Assertions.assertTrue(mpfc.prefetchPc == cacheAddr[0]);
+        //the underlying cache entry has been removed, the prefetch should be invalidated
+        Assertions.assertTrue(mpfc.dirty);
+    }
+
+    @Test
+    public void testCacheEffectsOnPrefetch() {
+        testRamCacheOff();
+        enableCache(MASTER, true);
+        enableCache(SLAVE, true);
+        clearCache(MASTER);
+        clearCache(SLAVE);
+
+        //this region should be all NOPs
+        int cacheAddr = START_SDRAM_CACHE + 0xC0;
+        int noCacheAddr = START_SDRAM | cacheAddr;
+
+        checkCacheContents(MASTER, Optional.empty(), noCacheAddr, Size.WORD);
+        checkCacheContents(SLAVE, Optional.empty(), noCacheAddr, Size.WORD);
+
+        Md32xRuntimeData.setAccessTypeExt(MASTER);
+
+        //fetch triggers a cache refill on cacheAddr
+        memory.fetch(cacheAddr, MASTER);
+
+        int prefetchEndAddress = START_SDRAM_CACHE | getPrefetch(MASTER).end;
+        int[] exp = {NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP};
+        int baseCacheAddr = cacheAddr & 0xFFFF_FFF0;
+        int outOfCacheAddr = baseCacheAddr + 16;
+        Assertions.assertTrue(prefetchEndAddress > outOfCacheAddr);
+
+        //fetch continued after to load data after the cache line limit
+        Assertions.assertTrue(getPrefetch(MASTER).prefetchWords[8] > 0);
+
+        //fetch should trigger cache refill on cacheAddr but avoid the cache on successive prefetches
+        checkCacheLineFilled(MASTER, cacheAddr, exp);
+
+        //check other data is not in cache
+        checkCacheContents(MASTER, Optional.empty(), baseCacheAddr - 2, Size.WORD);
+        //this has been prefetched but it is not in cache
+        checkCacheContents(MASTER, Optional.empty(), outOfCacheAddr, Size.WORD);
+    }
+
+    //check that [addr & 0xF0, (addr & 0xF0) + 14] has been filled in a cache line
+    private void checkCacheLineFilled(CpuDeviceAccess cpu, int addr, int... words) {
+        Assertions.assertTrue(words.length == 8);
+        int baseCacheAddr = addr & 0xFFFF_FFF0;
+        for (int i = baseCacheAddr; i < baseCacheAddr + 16; i += 2) {
+            int w = (i & 0xF) >> 1;
+            checkCacheContents(cpu, Optional.of(words[w]), i, Size.WORD);
+        }
     }
 
     private void checkAllFetches(int addr, int val) {

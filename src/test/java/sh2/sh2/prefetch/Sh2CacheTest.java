@@ -16,6 +16,7 @@ import java.util.Optional;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
+import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.Sh2Memory.START_SDRAM;
 import static sh2.Sh2Memory.START_SDRAM_CACHE;
 
@@ -30,6 +31,7 @@ public class Sh2CacheTest {
     protected Sh2Memory memory;
     private byte[] rom;
 
+    public static final int ILLEGAL = 0;
     public static final int NOP = 9;
     public static final int SETT = 0x18;
     public static final int CLRMAC = 0x28;
@@ -43,6 +45,7 @@ public class Sh2CacheTest {
         memory = lc.memory;
         Md32xRuntimeData.releaseInstance();
         Md32xRuntimeData.newInstance();
+        initRam(0x100);
     }
 
     protected void initRam(int len) {
@@ -134,6 +137,62 @@ public class Sh2CacheTest {
     }
 
     @Test
+    public void testCacheReplace() {
+        int[] cacheAddr = new int[5];
+        int[] noCacheAddr = new int[5];
+
+        //i == 0 -> this region should be all NOPs
+        for (int i = 0; i < cacheAddr.length; i++) {
+            cacheAddr[i] = START_SDRAM_CACHE | (i << 12) | 0xC0;
+            noCacheAddr[i] = START_SDRAM | cacheAddr[i];
+        }
+
+        memory.write16(cacheAddr[1], CLRMAC);
+        memory.write16(cacheAddr[2], SETT);
+        memory.write16(cacheAddr[3], JMP_0);
+        memory.write16(cacheAddr[4], ILLEGAL);
+
+        enableCache(MASTER, true);
+        enableCache(SLAVE, true);
+        clearCache(MASTER);
+        clearCache(SLAVE);
+
+        checkCacheContents(MASTER, Optional.empty(), noCacheAddr[0], Size.WORD);
+        checkCacheContents(SLAVE, Optional.empty(), noCacheAddr[0], Size.WORD);
+
+        Md32xRuntimeData.setAccessTypeExt(MASTER);
+
+        //fetch triggers a cache refill on cacheAddr
+        memory.fetch(cacheAddr[0], MASTER);
+
+        checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr[0], Size.WORD);
+
+        //cache miss, fill the ways, then replace the entry
+        memory.read(cacheAddr[1], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr[0], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[1], Size.WORD);
+
+        memory.read(cacheAddr[2], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr[0], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[1], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr[2], Size.WORD);
+
+        memory.read(cacheAddr[3], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr[0], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[1], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr[2], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(JMP_0), noCacheAddr[3], Size.WORD);
+
+        memory.read(cacheAddr[4], Size.WORD);
+        //[0] has been replaced in cache
+        checkCacheContents(MASTER, Optional.empty(), noCacheAddr[0], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[1], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr[2], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(JMP_0), noCacheAddr[3], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(ILLEGAL), cacheAddr[4], Size.WORD);
+    }
+
+    @Test
     public void testCacheWriteNoHitByte() {
         testCacheWriteNoHitInternal(Size.BYTE);
     }
@@ -148,7 +207,8 @@ public class Sh2CacheTest {
         testCacheWriteNoHitInternal(Size.LONG);
     }
 
-    public void testCacheWriteNoHitInternal(Size size) {
+
+    private void testCacheWriteNoHitInternal(Size size) {
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         initRam(0x100);
         int noCacheAddr = START_SDRAM | 0x8;
@@ -190,10 +250,10 @@ public class Sh2CacheTest {
         Sh2CacheImpl i = (Sh2CacheImpl) cache;
         Optional<Integer> optVal = Sh2CacheImpl.getCachedValueIfAny(i, addr & 0xFFF_FFFF, size);
         if (expVal.isPresent()) {
-            Assertions.assertTrue(optVal.isPresent());
+            Assertions.assertTrue(optVal.isPresent(), "Should NOT be empty: " + optVal);
             Assertions.assertEquals(expVal.get(), optVal.get());
         } else {
-            Assertions.assertTrue(optVal.isEmpty());
+            Assertions.assertTrue(optVal.isEmpty(), "Should be empty: " + optVal);
         }
     }
 

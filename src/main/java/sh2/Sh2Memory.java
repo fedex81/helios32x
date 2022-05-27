@@ -142,9 +142,6 @@ public final class Sh2Memory implements IMemory {
 			case CACHE_ADDRESS_ARRAY_H3:
 			case CACHE_DATA_ARRAY_H3: //vr
 				cache[cpuAccess.ordinal()].cacheMemoryWrite(address, val, size);
-				if (cache[cpuAccess.ordinal()].getCacheContext().cacheEn == 0) {
-					prefetch.dataWrite(cpuAccess, address, val, size);
-				}
 				break;
 			case CACHE_THROUGH_H3:
 				if (address >= START_DRAM && address < END_DRAM) {
@@ -190,8 +187,8 @@ public final class Sh2Memory implements IMemory {
 	}
 
 	@Override
-	public void invalidateCachePrefetch(CpuDeviceAccess cpu) {
-		prefetch.invalidateCachePrefetch(cpu);
+	public void invalidateCachePrefetch(CpuDeviceAccess cpu, int addr, boolean force) {
+		prefetch.invalidateCachePrefetch(cpu, addr, force);
 	}
 
 	@Override

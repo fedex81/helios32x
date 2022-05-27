@@ -3,12 +3,8 @@ package sh2.sh2.device;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.DmaFifo68k;
-import sh2.IMemory;
-import sh2.Md32xRuntimeData;
-import sh2.Sh2MMREG;
+import sh2.*;
 import sh2.sh2.device.DmaHelper.DmaChannelSetup;
-import sh2.sh2.prefetch.Sh2Prefetch;
 
 import java.nio.ByteBuffer;
 
@@ -161,8 +157,9 @@ public class DmaC implements Sh2Device {
         int destAddress = readBufferForChannel(c.channel, DMA_DAR0.addr, Size.LONG);
         int steps = c.transfersPerStep;
         assert cpu == Md32xRuntimeData.getAccessTypeExt();
-        //DMA cannot write to cache
-        assert (destAddress >> Sh2Prefetch.PC_CACHE_AREA_SHIFT) != 0 : th(destAddress);
+        //TODO test DMA cannot write to cache, Zaxxon, Knuckles, RBI Baseball, FIFA 96, Mars Check v2
+//        assert (destAddress >> Sh2Prefetch.PC_CACHE_AREA_SHIFT) != 0 : th(destAddress);
+        destAddress |= Sh2Memory.CACHE_THROUGH_OFFSET;
         do {
             int val = memory.read(srcAddress, c.trnSize);
             memory.write(destAddress, val, c.trnSize);

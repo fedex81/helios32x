@@ -134,6 +134,11 @@ public class Sh2CacheImpl implements Sh2Cache {
                 // cache miss
                 int lruway = selectWayToReplace(ctx.twoWay, ca.lru[entry]);
                 final Sh2CacheLine line = ca.way[lruway][entry];
+                if (line.v > 0) {
+                    if (verbose)
+                        LOG.info("{} Cache miss on addr {} {}, replacing line {}", cpu, th(addr), size, th(line.tag));
+                    memory.invalidateCachePrefetch(cpu, line.tag | (entry << ENTRY_SHIFT));
+                }
                 updateLru(lruway, ca.lru, entry);
                 line.tag = tagaddr;
 
@@ -197,7 +202,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                 break;
             case CACHE_PURGE://associative purge
             {
-                assert size == Size.LONG;
+                assert size == Size.LONG; //Metal Head
                 final int tagaddr = (addr & TAG_MASK);
                 final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
                 //can purge more than one line
@@ -247,7 +252,7 @@ public class Sh2CacheImpl implements Sh2Cache {
         if (prevCaEn != ctx.cacheEn) {
             if (verbose) LOG.info("Cache enable: " + ctx.cacheEn);
             if (ctx.cacheEn > 0) {
-                memory.invalidateCachePrefetch(cpu);
+                memory.invalidateCachePrefetch(cpu, 0, true);
             }
         }
     }

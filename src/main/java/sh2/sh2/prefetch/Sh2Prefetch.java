@@ -30,7 +30,7 @@ public class Sh2Prefetch {
 
     private static final Logger LOG = LogManager.getLogger(Sh2Prefetch.class.getSimpleName());
 
-    private static final boolean SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
+    public static final boolean SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
     private static final boolean SH2_PREFETCH_DEBUG = false;
 
     public static final int DEFAULT_PREFETCH_LOOKAHEAD = 0x16;
@@ -43,8 +43,8 @@ public class Sh2Prefetch {
     public static class PrefetchContext {
         public final int[] prefetchWords;
 
-        public int start, end, prefetchPc, pcMasked, hits, pfMaxIndex;
-        public int memAccessDelay;
+        public int start, end, prefetchPc, pcMasked, hits, pfMaxIndex, memAccessDelay;
+        public boolean dirty;
         public ByteBuffer buf;
 
         public PrefetchContext() {
@@ -149,7 +149,6 @@ public class Sh2Prefetch {
         for (int bytePos = pctx.start; bytePos < pctx.end; bytePos += 2, cpc += 2) {
             int w = ((bytePos - pctx.pcMasked) >> 1);
             int opc = isCache ? sh2Cache.readDirect(cpc, Size.WORD) : pctx.buf.getShort(bytePos) & 0xFFFF;
-//                    sh2Cache.cacheMemoryRead(cpc, Size.WORD)
             pctx.prefetchWords[w] = opc;
             Sh2BaseInstruction instType = Sh2Instructions.sh2OpcodeMap[opc];
             if (instType.isBranchDelaySlot) {
@@ -159,7 +158,12 @@ public class Sh2Prefetch {
                 break;
             }
         }
+        //force a cache fill by fetching the current PC
+        if (isCache) {
+            sh2Cache.cacheMemoryRead(pc, Size.WORD);
+        }
         pctx.pfMaxIndex = ((pctx.end - 2) - pctx.start) >> 1;
+        pctx.dirty = false;
     }
 
     public void prefetch(int pc, CpuDeviceAccess cpu) {
@@ -174,7 +178,7 @@ public class Sh2Prefetch {
         }
         PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
         int pcDeltaWords = (pc - pctx.prefetchPc) >> 1;
-        if (pcDeltaWords < 0 || pcDeltaWords > pctx.pfMaxIndex) {
+        if (pctx.dirty || pcDeltaWords < 0 || pcDeltaWords > pctx.pfMaxIndex) {
             prefetch(pc, cpu);
             pcDeltaWords = 0;
             pctx = prefetchContexts[cpu.ordinal()];
@@ -211,7 +215,7 @@ public class Sh2Prefetch {
         int pcDeltaWords = (pc - pctx.prefetchPc) >> 1;
 //		pfTotal++;
         int res;
-        if (pcDeltaWords >= 0 && pcDeltaWords <= pctx.pfMaxIndex) {
+        if (!pctx.dirty && pcDeltaWords >= 0 && pcDeltaWords <= pctx.pfMaxIndex) {
             S32xMemAccessDelay.addReadCpuDelay(pctx.memAccessDelay);
             res = pctx.prefetchWords[pcDeltaWords];
         } else {
@@ -262,25 +266,25 @@ public class Sh2Prefetch {
                 LOG.info(pm.getFormattedMessage());
 //                System.out.println(pm.getFormattedMessage());
             }
-            prefetch(p.prefetchPc, cpu);
+            p.dirty = true;
         }
     }
 
-    public void invalidateCachePrefetch(CpuDeviceAccess cpu) {
+    public void invalidateCachePrefetch(CpuDeviceAccess cpu, int addr, boolean force) {
         final PrefetchContext p = prefetchContexts[cpu.ordinal()];
-        boolean isCacheAddress = p.prefetchPc >>> PC_CACHE_AREA_SHIFT == 0;
-        if (isCacheAddress) {
-            Md32xRuntimeData.setAccessTypeExt(cpu);
+        boolean isCacheAddress = addr >>> PC_CACHE_AREA_SHIFT == 0;
+        assert isCacheAddress : cpu + "," + th(addr);
+        if (force) {
             if (verbose) {
                 ParameterizedMessage pm = new ParameterizedMessage(
-                        "{} cache enable invalidate, reload PF at pc {}, window: [{},{}]",
+                        "{} cache enable invalidate, set PF dirty at pc {}, window: [{},{}]",
                         cpu, th(p.prefetchPc), th(p.start), th(p.end));
                 LOG.info(pm.getFormattedMessage());
-                System.out.println(pm.getFormattedMessage());
+//                System.out.println(pm.getFormattedMessage());
             }
-            prefetch(p.prefetchPc, cpu);
+            p.dirty = true;
+        } else {
+            checkPrefetch(cpu, cpu, addr, 0, Size.WORD);
         }
     }
-
-
 }
