@@ -39,6 +39,7 @@ public class Sh2CacheTest {
 
     @BeforeEach
     public void before() {
+        Assertions.assertTrue(Sh2Cache.SH2_ENABLE_CACHE);
         rom = new byte[0x1000];
         lc = MarsRegTestUtil.createTestInstance(rom);
         lc.s32XMMREG.aden = 1;

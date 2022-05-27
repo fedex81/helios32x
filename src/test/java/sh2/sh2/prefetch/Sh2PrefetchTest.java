@@ -21,6 +21,7 @@ import static sh2.Sh2Memory.*;
  * Copyright 2022
  * <p>
  * TODO wwf raw, t-mek
+ * TODO metal head: cache off, prefetch on -> ok
  **/
 public class Sh2PrefetchTest extends Sh2CacheTest {
 

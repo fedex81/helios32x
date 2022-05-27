@@ -113,6 +113,7 @@ public class WatchdogTimer implements Sh2Device {
                 int rsts = (value >> 5) & 1;
                 setBit(regs, RSTCSR_ADDR_READ, RSTE_BIT_POS, rste, Size.BYTE);
                 setBit(regs, RSTCSR_ADDR_READ, RSTS_BIT_POS, rsts, Size.BYTE);
+                assert rste == 0;
                 break;
             default:
                 LOG.error("{} WDT write, addr {}, unexpected MSB: {}", cpu, th(ADDR_WRITE_82), th(msb));
@@ -151,6 +152,7 @@ public class WatchdogTimer implements Sh2Device {
         if (!wdtTimerEnable) {
             writeBuffer(regs, WTCNT_ADDR_READ, 0, Size.BYTE);
         }
+        assert !(wdtTimerEnable && !timerMode);
     }
 
     @Override
@@ -183,6 +185,7 @@ public class WatchdogTimer implements Sh2Device {
         writeBuffer(regs, WTCSR_ADDR_READ, 0x18, Size.BYTE);
         writeBuffer(regs, WTCNT_ADDR_READ, 0, Size.BYTE);
         writeBuffer(regs, RSTCSR_ADDR_READ, 0x1F, Size.BYTE);
+        handleTimerEnable(0x18);
         count = 0;
     }
 }

@@ -454,21 +454,24 @@ public class MarsVdpImpl implements MarsVdp {
         return out;
     }
 
+    //TODO fix tests
     public static int[] doCompositeRenderingExt(int[] mdData, MarsVdpRenderContext ctx) {
         int mdDataLen = mdData.length;
         final int[] marsData = Optional.ofNullable(ctx.screen).orElse(new int[0]);
         int[] out = mdData;
         if (mdDataLen == marsData.length) {
             final boolean prio32x = ctx.vdpContext.priority == S32X;
+            final boolean s32xRegBlank = ctx.vdpContext.bitmapMode == BitmapMode.BLANK;
+            final boolean s32xBgBlank = !prio32x && s32xRegBlank;
+            final boolean s32xFgBlank = prio32x && s32xRegBlank;
             final int[] fg = prio32x ? marsData : mdData;
             final int[] bg = prio32x ? mdData : marsData;
             for (int i = 0; i < fg.length; i++) {
                 boolean throughBit = (marsData[i] & 1) > 0;
                 boolean mdBlanking = (mdData[i] & 1) > 0;
-                //NOTE: 32x layer cannot be blanking
-                boolean bgBlanking = prio32x && mdBlanking;
-                boolean fgBlanking = !prio32x && mdBlanking;
-                fg[i] = fgBlanking || (throughBit && !bgBlanking) ? bg[i] : fg[i];
+                boolean bgBlanking = (prio32x && mdBlanking) || s32xBgBlank;
+                boolean fgBlanking = (!prio32x && mdBlanking) || s32xFgBlank;
+                fg[i] = (fgBlanking && !bgBlanking) || (throughBit && !bgBlanking) ? bg[i] : fg[i];
             }
             out = fg;
         }

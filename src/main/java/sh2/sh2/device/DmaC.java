@@ -158,7 +158,8 @@ public class DmaC implements Sh2Device {
         int steps = c.transfersPerStep;
         assert cpu == Md32xRuntimeData.getAccessTypeExt();
         //TODO test DMA cannot write to cache, Zaxxon, Knuckles, RBI Baseball, FIFA 96, Mars Check v2
-//        assert (destAddress >> Sh2Prefetch.PC_CACHE_AREA_SHIFT) != 0 : th(destAddress);
+        //        assert (destAddress >> Sh2Prefetch.PC_CACHE_AREA_SHIFT) != 0 : th(destAddress);
+        //TODO 4. When the cache is used as on-chip RAM, the DMAC cannot access this RAM.
         destAddress |= Sh2Memory.CACHE_THROUGH_OFFSET;
         do {
             int val = memory.read(srcAddress, c.trnSize);
