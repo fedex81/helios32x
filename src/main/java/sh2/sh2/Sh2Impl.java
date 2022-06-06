@@ -69,8 +69,8 @@ public class Sh2Impl implements Sh2 {
 	private void push(int data) {
 		ctx.registers[15] -= 4;
 		memory.write32(ctx.registers[15], data);
-//		System.out.println(ctx.sh2Access + " PUSH SP: " + Integer.toHexString(ctx.registers[15])
-//				+ "," + Integer.toHexString(data));
+//		System.out.println(ctx.sh2TypeCode + " PUSH SP: " + th(ctx.registers[15])
+//				+ "," + th(data));
 	}
 
 	//pop from stack
@@ -1442,11 +1442,13 @@ public class Sh2Impl implements Sh2 {
 
 	protected final void RTE(int code) {
 		int prevPc = ctx.PC;
+		//int prevInt = getIMASK();
 		//NOTE should be +4, but we don't do it, see processInt
 		ctx.PC = pop();
 		ctx.SR = pop() & SR_MASK;
 		delaySlot(prevPc + 2);
 		ctx.cycles -= 4;
+		//LOG.info("RTE {} -> {}", prevInt, getIMASK());
 	}
 
 	private void delaySlot(int pc) {
@@ -1765,8 +1767,9 @@ public class Sh2Impl implements Sh2 {
 	}
 
 	private void processInterrupt(final Sh2Context ctx, final int level) {
-//		System.out.println(ctx.cpuAccess + " Interrupt processed: " + level);
+		//LOG.info(ctx.cpuAccess + " Interrupt processed: " + level);
 		assert Md32xRuntimeData.getAccessTypeExt() == ctx.cpuAccess;
+		assert !ctx.delaySlot : "Int on delay slot";
 		push(ctx.SR);
 		push(ctx.PC); //stores the next inst to be executed
 		//SR 7-4

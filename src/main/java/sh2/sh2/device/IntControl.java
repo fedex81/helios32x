@@ -183,9 +183,6 @@ public class IntControl implements Sh2Device {
             }
         }
         interruptLevel = newLevel;
-        if (prev > 0 && interruptLevel != prev && interruptLevel > 0) {
-//            LOG.warn("IRQ {} -> {}", prev, interruptLevel);
-        }
     }
 
     public void clearInterrupt(Sh2Interrupt intType) {

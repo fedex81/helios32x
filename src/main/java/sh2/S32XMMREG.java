@@ -244,14 +244,19 @@ public class S32XMMREG implements Device {
         if (sh2Access != M68K) {
             int intIdx = VRES_14.ordinal() - (regEven - 0x14);
             IntControl.Sh2Interrupt intType = IntControl.intVals[intIdx];
-            interruptControls[sh2Access.ordinal()].clearInterrupt(intIdx);
+//            interruptControls[sh2Access.ordinal()].clearInterrupt(intIdx);
             //autoclear Int_control_reg too
             if (intType == CMD_8) {
+                interruptControls[sh2Access.ordinal()].clearInterrupt(intIdx);
                 int newVal = readWordFromBuffer(M68K_INT_CTRL) & ~(1 << sh2Access.ordinal());
                 boolean change = handleIntControlWrite68k(M68K_INT_CTRL.addr, newVal, Size.WORD);
                 if (change) {
-                    LOG.debug("{} auto clear {}", sh2Access, intType);
+                    LOG.info("{} auto clear {}", sh2Access, intType);
                 }
+            } else {
+                //TODO check, only CMD interrupt has 2 separate clear regs
+                interruptControls[0].clearInterrupt(intIdx);
+                interruptControls[1].clearInterrupt(intIdx);
             }
         } else {
             LOG.error("Unexpected intClear write {}, reg {}", sh2Access, regEven);
