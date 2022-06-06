@@ -40,7 +40,7 @@ public class Md32x extends Genesis {
     private Md32xRuntimeData rt;
 
     static {
-        ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "true"));
+        ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "false"));
         ENABLE_PWM = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.enable", "true"));
         SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "64")); //64;
         Sh2Context.burstCycles = SH2_CYCLES_PER_STEP;

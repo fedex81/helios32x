@@ -454,10 +454,9 @@ public class MarsVdpImpl implements MarsVdp {
         return out;
     }
 
-    //TODO fix tests
     public static int[] doCompositeRenderingExt(int[] mdData, MarsVdpRenderContext ctx) {
         int mdDataLen = mdData.length;
-        final int[] marsData = Optional.ofNullable(ctx.screen).orElse(new int[0]);
+        final int[] marsData = Optional.ofNullable(ctx.screen).orElse(EMPTY_INT_ARRAY);
         int[] out = mdData;
         if (mdDataLen == marsData.length) {
             final boolean prio32x = ctx.vdpContext.priority == S32X;

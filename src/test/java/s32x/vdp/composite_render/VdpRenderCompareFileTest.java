@@ -22,6 +22,7 @@ package s32x.vdp.composite_render;
 import com.google.common.io.Files;
 import omegadrive.util.FileUtil;
 import omegadrive.util.Util;
+import omegadrive.util.VideoMode;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -112,10 +113,11 @@ public class VdpRenderCompareFileTest extends VdpRenderCompareTest {
         Object o = Util.deserializeObject(data, 0, data.length);
         DebugVideoRenderContext dvrc = (DebugVideoRenderContext) o;
         MarsVdp.MarsVdpRenderContext vrc = DebugVideoRenderContext.toMarsVdpRenderContext(dvrc);
-        img[MD.ordinal()] = saveRenderToImage(dvrc.mdData, dvrc.videoMode);
-        img[S32X.ordinal()] = saveRenderToImage(dvrc.s32xData, dvrc.videoMode);
+        VideoMode vm = vrc.vdpContext.videoMode;
+        img[MD.ordinal()] = saveRenderToImage(dvrc.mdData, vm);
+        img[S32X.ordinal()] = saveRenderToImage(dvrc.s32xData, vm);
         int[] screen = MarsVdpImpl.doCompositeRenderingExt(dvrc.mdData, vrc);
-        img[FULL.ordinal()] = saveRenderToImage(screen, dvrc.videoMode);
+        img[FULL.ordinal()] = saveRenderToImage(screen, vm);
         return img;
     }
 }

@@ -40,8 +40,8 @@ public class VdpLayersTest {
         byte[] data = Files.readAllBytes(p);
         Object o = deserializeObject(data, 0, data.length);
         DebugVideoRenderContext ctx = (DebugVideoRenderContext) o;
-        int[] fg = ctx.priority == VdpPriority.S32X ? ctx.s32xData : ctx.mdData;
-        int[] bg = ctx.priority == VdpPriority.S32X ? ctx.mdData : ctx.s32xData;
+        int[] fg = ctx.marsVdpContext.priority == VdpPriority.S32X ? ctx.s32xData : ctx.mdData;
+        int[] bg = ctx.marsVdpContext.priority == VdpPriority.S32X ? ctx.mdData : ctx.s32xData;
         int[] merge = fg.clone();
         for (int i = 0; i < ctx.mdData.length; i++) {
             boolean throughBit = (ctx.s32xData[i] & 1) > 0;
