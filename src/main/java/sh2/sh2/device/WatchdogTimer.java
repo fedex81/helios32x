@@ -165,6 +165,7 @@ public class WatchdogTimer implements Sh2Device {
     }
 
     private void stepOne() {
+        assert sh2TicksToNextWdtClock > 0;
         if (--sh2TicksToNextWdtClock == 0) {
             sh2TicksToNextWdtClock = clockDivider;
             int cnt = increaseCount();

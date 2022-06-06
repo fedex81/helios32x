@@ -34,6 +34,7 @@ public class Sh2MMREG {
     private DmaC dmaC;
     public IntControl intC;
     private WatchdogTimer wdt;
+    private FreeRunningTimer frt;
     private Sh2Cache cache;
 
     private CpuDeviceAccess cpu;
@@ -51,6 +52,7 @@ public class Sh2MMREG {
         this.sci = ctx.sci;
         this.intC = ctx.intC;
         this.wdt = ctx.wdt;
+        this.frt = ctx.frt;
         reset();
     }
 
@@ -87,7 +89,7 @@ public class Sh2MMREG {
                 wdt.write(regSpec, pos, value, size);
                 break;
             case FRT:
-                handleWriteFRT(regSpec, pos, value, size);
+                frt.write(regSpec, pos, value, size);
                 break;
             case BSC:
                 handleWriteBSC(regSpec, pos, value, size);
@@ -144,10 +146,7 @@ public class Sh2MMREG {
                     res = divUnit.read(regSpec, pos, size);
                     break;
                 case FRT:
-                    res = readBuffer(regs, pos, size);
-                    if (regSpec != RegSpec.FRT_TIER && regSpec != RegSpec.FRT_TOCR) {
-                        LOG.error("{} Unexpected FRT reg {} read: {} {}", cpu, regSpec, th(res), size);
-                    }
+                    res = frt.read(regSpec, pos, size);
                     break;
                 case BSC:
                     assert size != Size.BYTE;
@@ -181,19 +180,6 @@ public class Sh2MMREG {
             value |= (cpu.ordinal() & 1) << 15;
         }
         writeRegBuffer(regSpec, regs, value, size);
-    }
-
-    private void handleWriteFRT(RegSpec r, int pos, int v, Size size) {
-        assert size == Size.BYTE;
-        assert pos == r.addr : th(pos) + ", " + th(r.addr);
-        if (r == RegSpec.FRT_TIER) {
-            v = (v & 0x8e) | 1;
-        } else if (r == RegSpec.FRT_TOCR) {
-            v |= 0xe0;
-        } else {
-//            LOG.error("{} Unexpected FRT reg {} write: {} {}", cpu, r, th(v) ,size);
-        }
-        writeBuffer(regs, r.addr & SH2_REG_MASK, v, size);
     }
 
     private int handleWriteCCR(RegSpec r, int pos, int v, Size size) {
@@ -232,6 +218,7 @@ public class Sh2MMREG {
         sci.reset();
         divUnit.reset();
         wdt.reset();
+        frt.reset();
         dmaC.reset();
         intC.reset();
         writeBuffer(regs, RegSpec.FRT_TIER.addr, 0x1, Size.BYTE);
@@ -252,6 +239,9 @@ public class Sh2MMREG {
     //23 Mhz
     public void deviceStepSh2Rate(int cycles) {
         wdt.step(cycles);
+        if (FreeRunningTimer.SH2_ENABLE_FRT) {
+            frt.step(cycles);
+        }
         if (verbose) sh2TicksPerFrame += cycles;
     }
 }
