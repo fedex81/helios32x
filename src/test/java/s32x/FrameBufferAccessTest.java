@@ -5,12 +5,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.MarsLauncherHelper;
-import sh2.S32xBus;
 import sh2.S32xUtil;
 import sh2.dict.S32xDict;
 
 import static s32x.MarsRegTestUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.*;
+import static sh2.dict.S32xDict.*;
 
 /**
  * Federico Berti
@@ -25,9 +25,9 @@ public class FrameBufferAccessTest {
     private static final int SH2_ACCESS = 1;
 
     private static final int sh2HCount = S32xDict.START_32X_SYSREG + S32xDict.RegSpecS32x.SH2_HCOUNT_REG.fullAddress;
-    private static final int mdTv = S32xBus.START_32X_SYSREG + S32xDict.RegSpecS32x.M68K_SEGA_TV.fullAddress;
+    private static final int mdTv = M68K_START_32X_SYSREG + S32xDict.RegSpecS32x.M68K_SEGA_TV.fullAddress;
     private static final int sh2sscr = S32xDict.START_32X_VDPREG + S32xDict.RegSpecS32x.SSCR.fullAddress;
-    private static final int mdSscr = S32xBus.START_32X_VDPREG + S32xDict.RegSpecS32x.SSCR.fullAddress;
+    private static final int mdSscr = M68K_START_32X_VDPREG + S32xDict.RegSpecS32x.SSCR.fullAddress;
 
     @BeforeEach
     public void before() {
@@ -55,9 +55,9 @@ public class FrameBufferAccessTest {
         //md can modify anything
         modifyAddress(M68K, mdTv, true);
         modifyAddress(M68K, mdSscr, true);
-        modifyAddress(M68K, S32xBus.START_32X_COLPAL, true);
-        modifyAddress(M68K, S32xBus.START_FRAME_BUFFER, true);
-        modifyAddress(M68K, S32xBus.START_OVERWRITE_IMAGE, true);
+        modifyAddress(M68K, M68K_START_32X_COLPAL, true);
+        modifyAddress(M68K, M68K_START_FRAME_BUFFER, true);
+        modifyAddress(M68K, M68K_START_OVERWRITE_IMAGE, true);
     }
 
     @Test
@@ -79,9 +79,9 @@ public class FrameBufferAccessTest {
         //md can only modify sysRegs
         modifyAddress(M68K, mdTv, true);
         modifyAddress(M68K, mdSscr, false);
-        modifyAddress(M68K, S32xBus.START_32X_COLPAL, false);
-        modifyAddress(M68K, S32xBus.START_FRAME_BUFFER, false);
-        modifyAddress(M68K, S32xBus.START_OVERWRITE_IMAGE, false);
+        modifyAddress(M68K, M68K_START_32X_COLPAL, false);
+        modifyAddress(M68K, M68K_START_FRAME_BUFFER, false);
+        modifyAddress(M68K, M68K_START_OVERWRITE_IMAGE, false);
     }
 
     @Test

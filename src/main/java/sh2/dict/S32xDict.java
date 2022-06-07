@@ -10,7 +10,6 @@ import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.*;
-import static sh2.Sh2Memory.CACHE_THROUGH_OFFSET;
 import static sh2.dict.S32xDict.S32xRegCpuType.*;
 import static sh2.dict.S32xDict.S32xRegType.*;
 
@@ -155,6 +154,37 @@ public class S32xDict {
     public static final int P32XV_PRIO = (1 << 7);
     public static final int P32XV_240 = (1 << 6);
 
+    /**
+     * SH2 memory map
+     **/
+    private static final int SH2_BOOT_ROM_SIZE = 0x4000; // 16kb
+    public static final int SH2_SDRAM_SIZE = 0x4_0000; // 256kb
+    private static final int SH2_MAX_ROM_SIZE = 0x40_0000; // 256kb
+    public static final int SH2_SDRAM_MASK = SH2_SDRAM_SIZE - 1;
+    private static final int SH2_ROM_MASK = SH2_MAX_ROM_SIZE - 1;
+
+    public static final int SH2_CACHE_THROUGH_OFFSET = 0x2000_0000;
+
+    public static final int SH2_START_BOOT_ROM = SH2_CACHE_THROUGH_OFFSET;
+    public static final int SH2_END_BOOT_ROM = SH2_START_BOOT_ROM + SH2_BOOT_ROM_SIZE;
+
+    public static final int SH2_START_SDRAM_CACHE = 0x600_0000;
+    public static final int SH2_START_SDRAM = SH2_CACHE_THROUGH_OFFSET + SH2_START_SDRAM_CACHE;
+    public static final int SH2_END_SDRAM_CACHE = SH2_START_SDRAM_CACHE + SH2_SDRAM_SIZE;
+    public static final int SH2_END_SDRAM = SH2_START_SDRAM + SH2_SDRAM_SIZE;
+
+    public static final int SH2_START_ROM_CACHE = 0x200_0000;
+    public static final int SH2_START_ROM = SH2_CACHE_THROUGH_OFFSET + SH2_START_ROM_CACHE;
+    public static final int SH2_END_ROM_CACHE = SH2_START_ROM_CACHE + 0x40_0000; //4 Mbit window;
+    public static final int SH2_END_ROM = SH2_START_ROM + 0x40_0000; //4 Mbit window;
+
+    public static final int SH2_START_CACHE_FLUSH = 0x6000_0000;
+    public static final int SH2_END_CACHE_FLUSH = 0x8000_0000;
+    public static final int SH2_START_DATA_ARRAY = 0xC000_0000;
+    public static final int SH2_ONCHIP_REG_MASK = 0xE000_4000;
+    public static final int SH2_START_DRAM_MODE = 0xFFFF_8000;
+    public static final int SH2_END_DRAM_MODE = 0xFFFF_C000;
+
     public static final int SIZE_32X_SYSREG = 0x100;
     public static final int SIZE_32X_VDPREG = 0x100;
     public static final int SIZE_32X_COLPAL = 0x200; // 512 bytes, 256 words
@@ -170,22 +200,53 @@ public class S32xDict {
     public static final int START_32X_COLPAL_CACHE = END_32X_VDPREG_CACHE;
     public static final int END_32X_COLPAL_CACHE = START_32X_COLPAL_CACHE + SIZE_32X_COLPAL;
 
-    public static final int START_32X_SYSREG = START_32X_SYSREG_CACHE + CACHE_THROUGH_OFFSET;
-    public static final int START_32X_VDPREG = START_32X_VDPREG_CACHE + CACHE_THROUGH_OFFSET;
-    public static final int START_32X_COLPAL = START_32X_COLPAL_CACHE + CACHE_THROUGH_OFFSET;
+    public static final int START_32X_SYSREG = START_32X_SYSREG_CACHE + SH2_CACHE_THROUGH_OFFSET;
+    public static final int START_32X_VDPREG = START_32X_VDPREG_CACHE + SH2_CACHE_THROUGH_OFFSET;
+    public static final int START_32X_COLPAL = START_32X_COLPAL_CACHE + SH2_CACHE_THROUGH_OFFSET;
     public static final int END_32X_SYSREG = START_32X_SYSREG + SIZE_32X_SYSREG;
     public static final int END_32X_VDPREG = START_32X_VDPREG + SIZE_32X_VDPREG;
     public static final int END_32X_COLPAL = START_32X_COLPAL + SIZE_32X_COLPAL;
 
     public static final int START_DRAM_CACHE = 0x400_0000;
     public static final int END_DRAM_CACHE = START_DRAM_CACHE + DRAM_SIZE;
-    public static final int START_DRAM = START_DRAM_CACHE + CACHE_THROUGH_OFFSET;
-    public static final int END_DRAM = END_DRAM_CACHE + CACHE_THROUGH_OFFSET;
+    public static final int START_DRAM = START_DRAM_CACHE + SH2_CACHE_THROUGH_OFFSET;
+    public static final int END_DRAM = END_DRAM_CACHE + SH2_CACHE_THROUGH_OFFSET;
 
     public static final int START_OVER_IMAGE_CACHE = 0x402_0000;
     public static final int END_OVER_IMAGE_CACHE = START_OVER_IMAGE_CACHE + DRAM_SIZE;
-    public static final int START_OVER_IMAGE = START_OVER_IMAGE_CACHE + CACHE_THROUGH_OFFSET;
-    public static final int END_OVER_IMAGE = END_OVER_IMAGE_CACHE + CACHE_THROUGH_OFFSET;
+    public static final int START_OVER_IMAGE = START_OVER_IMAGE_CACHE + SH2_CACHE_THROUGH_OFFSET;
+    public static final int END_OVER_IMAGE = END_OVER_IMAGE_CACHE + SH2_CACHE_THROUGH_OFFSET;
+
+    /**
+     * M68K memory map
+     **/
+    public static final int M68K_START_HINT_VECTOR_WRITEABLE = 0x70;
+    public static final int M68K_END_HINT_VECTOR_WRITEABLE = 0x74;
+    public static final int M68K_END_VECTOR_ROM = 0x100;
+    public static final int M68K_START_FRAME_BUFFER = 0x84_0000;
+    public static final int M68K_END_FRAME_BUFFER = M68K_START_FRAME_BUFFER + DRAM_SIZE;
+    public static final int M68K_START_OVERWRITE_IMAGE = 0x86_0000;
+    public static final int M68K_END_OVERWRITE_IMAGE = M68K_START_OVERWRITE_IMAGE + DRAM_SIZE;
+    public static final int M68K_START_ROM_MIRROR = 0x88_0000;
+    public static final int M68K_END_ROM_MIRROR = 0x90_0000;
+    public static final int M68K_START_ROM_MIRROR_BANK = M68K_END_ROM_MIRROR;
+    public static final int M68K_END_ROM_MIRROR_BANK = 0xA0_0000;
+    public static final int M68K_ROM_WINDOW_MASK = 0x7_FFFF; //according to docs, *NOT* 0xF_FFFF
+    public static final int M68K_ROM_MIRROR_MASK = 0xF_FFFF;
+    public static final int M68K_START_MARS_ID = 0xA130EC;
+    public static final int M68K_END_MARS_ID = 0xA130F0;
+    public static final int M68K_START_32X_SYSREG = 0xA1_5100;
+    public static final int M68K_END_32X_SYSREG = M68K_START_32X_SYSREG + 0x80;
+    public static final int M68K_MASK_32X_SYSREG = M68K_END_32X_SYSREG - M68K_START_32X_SYSREG - 1;
+    public static final int M68K_START_32X_VDPREG = M68K_END_32X_SYSREG;
+    public static final int M68K_END_32X_VDPREG = M68K_START_32X_VDPREG + 0x80;
+    public static final int M68K_MASK_32X_VDPREG = M68K_MASK_32X_SYSREG;
+    public static final int M68K_START_32X_COLPAL = M68K_END_32X_VDPREG;
+    public static final int M68K_END_32X_COLPAL = M68K_START_32X_COLPAL + 0x200;
+    public static final int M68K_MASK_32X_COLPAL = M68K_END_32X_COLPAL - M68K_START_32X_COLPAL - 1;
+
+    public static final int SH2_SYSREG_32X_OFFSET = S32xDict.START_32X_SYSREG,
+            SH2_VDPREG_32X_OFFSET = START_32X_VDPREG, SH2_COLPAL_32X_OFFSET = START_32X_COLPAL;
 
     public static class S32xDictLogContext {
         public S32xUtil.CpuDeviceAccess sh2Access;

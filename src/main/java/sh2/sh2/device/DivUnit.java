@@ -24,9 +24,9 @@ public class DivUnit implements Sh2Device {
 
     private static final int DIV_OVERFLOW_BIT = 0;
     private static final int DIV_OVERFLOW_INT_EN_BIT = 1;
-    private static final String formatDiv = "div%d, dvd: %16X, dvsr: %08X, quotLong: %16X, quot32: %08x, rem: %08X";
-    private static final String formatOvf = "div%d overflow, dvd: %16X, dvsr: %08X, quotLong: %16X, quot32: %08x, rem: %08X";
-    private static final String formatDivBy0 = "div%d overflow (div by 0), dvd: %16X, dvsr: %08X";
+    private static final String formatDiv = "%s div%d, dvd: %16X, dvsr: %08X, quotLong: %16X, quot32: %08x, rem: %08X";
+    private static final String formatOvf = "%s div%d overflow, dvd: %16X, dvsr: %08X, quotLong: %16X, quot32: %08x, rem: %08X";
+    private static final String formatDivBy0 = "%s div%d overflow (div by 0), dvd: %16X, dvsr: %08X";
     private static final boolean verbose = false;
 
     private CpuDeviceAccess cpu;
@@ -66,16 +66,16 @@ public class DivUnit implements Sh2Device {
         long dvd = ((dh << 32) & 0xffffffff_ffffffffL) | (dl & 0xffffffffL);
         int dvsr = readBufferLong(regs, DIV_DVSR);
         if (dvsr == 0) {
-            handleOverflow(0, true, String.format(formatDivBy0, 64, dvd, dvsr));
+            handleOverflow(0, true, String.format(formatDivBy0, cpu, 64, dvd, dvsr));
             return;
         }
         long quotL = dvd / dvsr;
         int quot = (int) quotL;
         int rem = (int) (dvd - quot * dvsr);
         writeBuffersLong(regs, DIV_DVDNTH, DIV_DVDNTUH, rem);
-        if (verbose) LOG.info(String.format(formatDiv, 64, dvd, dvsr, quotL, quot, rem));
+        if (verbose) LOG.info(String.format(formatDiv, cpu, 64, dvd, dvsr, quotL, quot, rem));
         if ((long) quot != quotL) {
-            handleOverflow(quotL, false, String.format(formatOvf, 64, dvd, dvsr, quotL, quot, rem));
+            handleOverflow(quotL, false, String.format(formatOvf, cpu, 64, dvd, dvsr, quotL, quot, rem));
             return;
         }
         writeBuffersLong(regs, DIV_DVDNT, DIV_DVDNTL, DIV_DVDNTUL, quot);
@@ -89,20 +89,19 @@ public class DivUnit implements Sh2Device {
         int dvd = readBufferLong(regs, DIV_DVDNT);
         int dvsr = readBufferLong(regs, DIV_DVSR);
         if (dvsr == 0) {
-            handleOverflow(0, true, String.format(formatDivBy0, 32, dvd, dvsr));
+            handleOverflow(0, true, String.format(formatDivBy0, cpu, 32, dvd, dvsr));
             return;
         }
         int quot = dvd / dvsr;
         int rem = (int) (dvd - quot * dvsr);
-        if (verbose) LOG.info(String.format(formatDiv, 32, dvd, dvsr, quot, quot, rem));
+        if (verbose) LOG.info(String.format(formatDiv, cpu, 32, dvd, dvsr, quot, quot, rem));
         writeBuffersLong(regs, DIV_DVDNTH, DIV_DVDNTUH, rem);
         writeBuffersLong(regs, DIV_DVDNT, DIV_DVDNTL, quot);
         writeBufferLong(regs, DIV_DVDNTUL, quot);
     }
 
     private void handleOverflow(long quot, boolean divBy0, String msg) {
-//        if (verbose)
-        LOG.warn(msg); //check overflow handling
+        if (verbose) LOG.info(msg);
         setBit(regs, DIV_DVCR.addr, DIV_OVERFLOW_BIT, 1, Size.LONG);
         int dvcr = readBuffer(regs, DIV_DVCR.addr, Size.WORD);
         int val = quot >= 0 ? Integer.MAX_VALUE : Integer.MIN_VALUE;
@@ -111,7 +110,7 @@ public class DivUnit implements Sh2Device {
         if ((dvcr & DIV_OVERFLOW_INT_EN_BIT) > 0) {
             intControl.setOnChipDeviceIntPending(DIV);
             LOG.info(msg);
-            LOG.warn("DivUnit interrupt"); //not used by any sw?
+            LOG.warn("{} DivUnit interrupt", cpu); //not used by any sw?
         }
     }
 

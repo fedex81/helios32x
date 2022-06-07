@@ -16,8 +16,9 @@ import java.util.Optional;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
-import static sh2.Sh2Memory.START_SDRAM;
-import static sh2.Sh2Memory.START_SDRAM_CACHE;
+import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
+import static sh2.dict.S32xDict.SH2_START_SDRAM;
+import static sh2.dict.S32xDict.SH2_START_SDRAM_CACHE;
 
 /**
  * Federico Berti
@@ -30,6 +31,7 @@ public class Sh2CacheTest {
     protected Sh2Memory memory;
     private byte[] rom;
 
+    public static final int ILLEGAL = 0;
     public static final int NOP = 9;
     public static final int SETT = 0x18;
     public static final int CLRMAC = 0x28;
@@ -37,27 +39,29 @@ public class Sh2CacheTest {
 
     @BeforeEach
     public void before() {
+        Assertions.assertTrue(Sh2Cache.SH2_ENABLE_CACHE);
         rom = new byte[0x1000];
         lc = MarsRegTestUtil.createTestInstance(rom);
         lc.s32XMMREG.aden = 1;
         memory = lc.memory;
         Md32xRuntimeData.releaseInstance();
         Md32xRuntimeData.newInstance();
+        initRam(0x100);
     }
 
     protected void initRam(int len) {
         for (int i = 0; i < len; i += 2) {
-            memory.write16(START_SDRAM | i, NOP);
+            memory.write16(SH2_START_SDRAM | i, NOP);
         }
-        memory.write16(START_SDRAM | 4, JMP_0); //JMP 0
+        memory.write16(SH2_START_SDRAM | 4, JMP_0); //JMP 0
     }
 
     @Test
     public void testCacheOff() {
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         initRam(0x100);
-        int noCacheAddr = START_SDRAM | 0x8;
-        int cacheAddr = START_SDRAM_CACHE | 0x8;
+        int noCacheAddr = SH2_START_SDRAM | 0x8;
+        int cacheAddr = SH2_START_SDRAM_CACHE | 0x8;
         clearCache(MASTER);
         enableCache(MASTER, false);
 
@@ -85,8 +89,8 @@ public class Sh2CacheTest {
     public void testCacheOn() {
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         initRam(0x100);
-        int noCacheAddr = START_SDRAM | 0x8;
-        int cacheAddr = START_SDRAM_CACHE | 0x8;
+        int noCacheAddr = SH2_START_SDRAM | 0x8;
+        int cacheAddr = SH2_START_SDRAM_CACHE | 0x8;
         int res = 0;
         clearCache(MASTER);
         enableCache(MASTER, true);
@@ -133,6 +137,107 @@ public class Sh2CacheTest {
         checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr, Size.WORD);
     }
 
+    @Test
+    public void testCacheReplace() {
+        int[] cacheAddr = new int[5];
+        int[] noCacheAddr = new int[5];
+
+        //i == 0 -> this region should be all NOPs
+        for (int i = 0; i < cacheAddr.length; i++) {
+            cacheAddr[i] = SH2_START_SDRAM_CACHE | (i << 12) | 0xC0;
+            noCacheAddr[i] = SH2_START_SDRAM | cacheAddr[i];
+        }
+
+        memory.write16(cacheAddr[1], CLRMAC);
+        memory.write16(cacheAddr[2], SETT);
+        memory.write16(cacheAddr[3], JMP_0);
+        memory.write16(cacheAddr[4], ILLEGAL);
+
+        enableCache(MASTER, true);
+        enableCache(SLAVE, true);
+        clearCache(MASTER);
+        clearCache(SLAVE);
+
+        checkCacheContents(MASTER, Optional.empty(), noCacheAddr[0], Size.WORD);
+        checkCacheContents(SLAVE, Optional.empty(), noCacheAddr[0], Size.WORD);
+
+        Md32xRuntimeData.setAccessTypeExt(MASTER);
+
+        //TODO
+//        //fetch triggers a cache refill on cacheAddr
+//        memory.fetch(cacheAddr[0], MASTER);
+//
+//        checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr[0], Size.WORD);
+//
+//        //cache miss, fill the ways, then replace the entry
+//        memory.read(cacheAddr[1], Size.WORD);
+//        checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr[0], Size.WORD);
+//        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[1], Size.WORD);
+//
+//        memory.read(cacheAddr[2], Size.WORD);
+//        checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr[0], Size.WORD);
+//        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[1], Size.WORD);
+//        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr[2], Size.WORD);
+//
+//        memory.read(cacheAddr[3], Size.WORD);
+//        checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr[0], Size.WORD);
+//        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[1], Size.WORD);
+//        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr[2], Size.WORD);
+//        checkCacheContents(MASTER, Optional.of(JMP_0), noCacheAddr[3], Size.WORD);
+//
+//        memory.read(cacheAddr[4], Size.WORD);
+//        //[0] has been replaced in cache
+//        checkCacheContents(MASTER, Optional.empty(), noCacheAddr[0], Size.WORD);
+//        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[1], Size.WORD);
+//        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr[2], Size.WORD);
+//        checkCacheContents(MASTER, Optional.of(JMP_0), noCacheAddr[3], Size.WORD);
+//        checkCacheContents(MASTER, Optional.of(ILLEGAL), cacheAddr[4], Size.WORD);
+    }
+
+    @Test
+    public void testCacheWriteNoHitByte() {
+        testCacheWriteNoHitInternal(Size.BYTE);
+    }
+
+    @Test
+    public void testCacheWriteNoHitWord() {
+        testCacheWriteNoHitInternal(Size.WORD);
+    }
+
+    @Test
+    public void testCacheWriteNoHitLong() {
+        testCacheWriteNoHitInternal(Size.LONG);
+    }
+
+
+    private void testCacheWriteNoHitInternal(Size size) {
+        Md32xRuntimeData.setAccessTypeExt(MASTER);
+        initRam(0x100);
+        int noCacheAddr = SH2_START_SDRAM | 0x8;
+        int cacheAddr = SH2_START_SDRAM_CACHE | 0x8;
+        int res = 0;
+
+        int val = (int) ((CLRMAC << 16 | CLRMAC) & size.getMask());
+
+        clearCache(MASTER);
+        enableCache(MASTER, true);
+        checkCacheContents(MASTER, Optional.empty(), noCacheAddr, size);
+
+        //write cache miss, writes to memory
+        memory.write(cacheAddr, val, size);
+        checkCacheContents(MASTER, Optional.empty(), noCacheAddr, size);
+
+        checkVal(MASTER, noCacheAddr, val, size);
+
+        //cache still empty
+        memory.read(noCacheAddr, size);
+        checkCacheContents(MASTER, Optional.empty(), noCacheAddr, size);
+
+        //cache gets populated
+        memory.read(cacheAddr, size);
+        checkCacheContents(MASTER, Optional.of(val), noCacheAddr, size);
+    }
+
     protected void enableCache(CpuDeviceAccess cpu, boolean enabled) {
         memory.cache[cpu.ordinal()].updateState(enabled ? 1 : 0);
     }
@@ -141,16 +246,16 @@ public class Sh2CacheTest {
         memory.cache[cpu.ordinal()].cacheClear();
     }
 
-    private void checkCacheContents(CpuDeviceAccess cpu, Optional<Integer> expVal, int addr, Size size) {
+    protected void checkCacheContents(CpuDeviceAccess cpu, Optional<Integer> expVal, int addr, Size size) {
         Sh2Cache cache = memory.cache[cpu.ordinal()];
         Assertions.assertTrue(cache instanceof Sh2CacheImpl);
         Sh2CacheImpl i = (Sh2CacheImpl) cache;
         Optional<Integer> optVal = Sh2CacheImpl.getCachedValueIfAny(i, addr & 0xFFF_FFFF, size);
         if (expVal.isPresent()) {
-            Assertions.assertTrue(optVal.isPresent());
+            Assertions.assertTrue(optVal.isPresent(), "Should NOT be empty: " + optVal);
             Assertions.assertEquals(expVal.get(), optVal.get());
         } else {
-            Assertions.assertTrue(optVal.isEmpty());
+            Assertions.assertTrue(optVal.isEmpty(), "Should be empty: " + optVal);
         }
     }
 

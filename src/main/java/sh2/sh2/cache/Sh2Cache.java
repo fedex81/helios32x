@@ -16,6 +16,8 @@ import java.nio.ByteBuffer;
  */
 public interface Sh2Cache {
 
+    static final boolean SH2_ENABLE_CACHE = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "true"));
+
     int CACHE_LINES = 64;
     int CACHE_BYTES_PER_LINE = 16;
     int CACHE_WAYS = 4;
@@ -48,9 +50,9 @@ public interface Sh2Cache {
     int DATA_ARRAY_MASK = DATA_ARRAY_SIZE - 1;
 
     static class Sh2CacheLine {
-        int tag; //u32
-        int v;
-        int[] data = new int[CACHE_BYTES_PER_LINE]; //u8
+        public int tag; //u32
+        public int v;
+        public int[] data = new int[CACHE_BYTES_PER_LINE]; //u8
     }
 
     static class Sh2CacheEntry {

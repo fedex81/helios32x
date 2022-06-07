@@ -151,7 +151,7 @@ public class S32XMMREG implements Device {
         final RegSpecS32x regSpec = S32xDict.getRegSpec(cpu, address);
         boolean regChanged = false;
 
-        checkWriteLongAccess(regSpec, reg, size);
+        if (verbose) checkWriteLongAccess(regSpec, reg, size);
         deviceAccessType = regSpec.deviceAccessTypeDelay;
 
         switch (regSpec.deviceType) {
@@ -241,20 +241,17 @@ public class S32XMMREG implements Device {
     }
 
     private void handleIntClearWrite(CpuDeviceAccess sh2Access, int regEven, int value, Size size) {
-        if (sh2Access != M68K) {
-            int intIdx = VRES_14.ordinal() - (regEven - 0x14);
-            IntControl.Sh2Interrupt intType = IntControl.intVals[intIdx];
-            interruptControls[sh2Access.ordinal()].clearInterrupt(intType);
-            //autoclear Int_control_reg too
-            if (intType == CMD_8) {
-                int newVal = readWordFromBuffer(M68K_INT_CTRL) & ~(1 << sh2Access.ordinal());
-                boolean change = handleIntControlWrite68k(M68K_INT_CTRL.addr, newVal, Size.WORD);
-                if (change) {
-                    LOG.debug("{} auto clear {}", sh2Access, intType);
-                }
+        assert sh2Access != M68K;
+        int intIdx = VRES_14.ordinal() - (regEven - 0x14);
+        IntControl.Sh2Interrupt intType = IntControl.intVals[intIdx];
+        interruptControls[sh2Access.ordinal()].clearInterrupt(intType);
+        //autoclear Int_control_reg too
+        if (intType == CMD_8) {
+            int newVal = readWordFromBuffer(M68K_INT_CTRL) & ~(1 << sh2Access.ordinal());
+            boolean change = handleIntControlWrite68k(M68K_INT_CTRL.addr, newVal, Size.WORD);
+            if (change && verbose) {
+                LOG.info("{} auto clear {}", sh2Access, intType);
             }
-        } else {
-            LOG.error("Unexpected intClear write {}, reg {}", sh2Access, regEven);
         }
     }
 

@@ -49,7 +49,7 @@ public class SysUtil {
     public static final String[] ggBinaryTypes = {".gg"};
     public static final String[] nesBinaryTypes = {".nes"};
     public static final String[] gbBinaryTypes = {".gb"};
-    public static String[] s32xBinaryTypes = {".32x", ".bin", ".md"};
+    public static final String[] s32xBinaryTypes = {".32x", ".bin", ".md"};
     public static final String[] compressedBinaryTypes = {".gz", ".zip"};
 
     public static final String[] binaryTypes = Stream.of(

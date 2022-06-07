@@ -1846,9 +1846,8 @@ public class Sh2Impl implements Sh2 {
 		push(ctx.SR);
 		push(ctx.PC + 2);
 
-		//TODO check +4
-		ctx.PC = memory.read32(ctx.VBR + (imm << 2)) + 4;
-		if (true) new RuntimeException("TRAPA");
+		//TODO check +4??, T-Mek indicates nope
+		ctx.PC = memory.read32(ctx.VBR + (imm << 2));
 		ctx.cycles -= 8;
 	}
 }

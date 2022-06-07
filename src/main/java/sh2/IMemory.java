@@ -2,6 +2,7 @@ package sh2;
 
 import omegadrive.util.Size;
 import sh2.sh2.Sh2;
+import sh2.sh2.cache.Sh2Cache.Sh2CacheLine;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
 /**
@@ -47,5 +48,12 @@ public interface IMemory extends Sh2Prefetcher {
 
     default int read32(int addr) {
         return read(addr, Size.LONG);
+    }
+
+    default void invalidateCachePrefetch(S32xUtil.CpuDeviceAccess cpu, Sh2CacheLine line, int lineEntry) {
+        invalidateCachePrefetch(cpu, line, lineEntry, false);
+    }
+
+    default void invalidateCachePrefetch(S32xUtil.CpuDeviceAccess cpu, Sh2CacheLine line, int lineEntry, boolean force) {
     }
 }

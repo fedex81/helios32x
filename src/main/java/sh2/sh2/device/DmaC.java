@@ -13,6 +13,7 @@ import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
+import static sh2.dict.S32xDict.SH2_CACHE_THROUGH_OFFSET;
 import static sh2.dict.Sh2Dict.RegSpec;
 import static sh2.dict.Sh2Dict.RegSpec.*;
 import static sh2.sh2.device.IntControl.OnChipSubType.DMA_C0;
@@ -161,6 +162,11 @@ public class DmaC implements Sh2Device {
         int srcAddress = readBufferForChannel(c.channel, DMA_SAR0.addr, Size.LONG);
         int destAddress = readBufferForChannel(c.channel, DMA_DAR0.addr, Size.LONG);
         int steps = c.transfersPerStep;
+        assert cpu == Md32xRuntimeData.getAccessTypeExt();
+        //TODO test DMA cannot write to cache, Zaxxon, Knuckles, RBI Baseball, FIFA 96, Mars Check v2
+        //        assert (destAddress >> Sh2Prefetch.PC_CACHE_AREA_SHIFT) != 0 : th(destAddress);
+        //TODO 4. When the cache is used as on-chip RAM, the DMAC cannot access this RAM.
+        destAddress |= SH2_CACHE_THROUGH_OFFSET;
         do {
             int val = memory.read(srcAddress, c.trnSize);
             memory.write(destAddress, val, c.trnSize);

@@ -112,6 +112,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                         }
                     }
                 }
+                assert cpu == Md32xRuntimeData.getAccessTypeExt();
                 return readMemoryUncached(memory, addr, size);
             case CACHE_DATA_ARRAY:
                 assert ca.enable == 0 || ctx.twoWay == 1;
@@ -129,6 +130,7 @@ public class Sh2CacheImpl implements Sh2Cache {
         switch (addr & AREA_MASK) {
             case CACHE_USE: {
                 if (ca.enable == 0) {
+                    assert cpu == Md32xRuntimeData.getAccessTypeExt();
                     return readMemoryUncached(memory, addr, size);
                 }
                 final int tagaddr = (addr & TAG_MASK);
@@ -138,10 +140,6 @@ public class Sh2CacheImpl implements Sh2Cache {
                     Sh2CacheLine line = ca.way[i][entry];
                     if ((line.v > 0) && (line.tag == tagaddr)) {
                         updateLru(i, ca.lru, entry);
-//                        LOG.info("{} Cache read at {} {}", cpu, th(addr), size);
-//                        if(addr == 0x15){
-//                            System.out.println("here");
-//                        }
                         if (verbose) LOG.info("{} Cache hit, read at {} {}, val: {}", cpu, th(addr), size,
                                 th(getCachedData(line.data, addr & LINE_MASK, size)));
                         return getCachedData(line.data, addr & LINE_MASK, size);
@@ -150,10 +148,16 @@ public class Sh2CacheImpl implements Sh2Cache {
                 // cache miss
                 int lruway = selectWayToReplace(ctx.twoWay, ca.lru[entry]);
                 final Sh2CacheLine line = ca.way[lruway][entry];
+                if (line.v > 0) {
+                    if (verbose)
+                        LOG.info("{} Cache miss on addr {}, replacing line from: {}",
+                                cpu, th(addr), th(line.tag | (entry << ENTRY_SHIFT)));
+                    memory.invalidateCachePrefetch(cpu, line, entry);
+                }
                 updateLru(lruway, ca.lru, entry);
                 line.tag = tagaddr;
 
-                refillCache(line.data, addr);
+                refillCache(line, entry, addr);
 
                 line.v = 1; //becomes valid
                 if (verbose) LOG.info("{} Cache miss, read at {} {}, val: {}", cpu, th(addr), size,
@@ -162,8 +166,9 @@ public class Sh2CacheImpl implements Sh2Cache {
             }
             case CACHE_DATA_ARRAY:
                 assert ca.enable == 0 || ctx.twoWay == 1;
-//                LOG.info("{} Cache data array read: {}({}) {}, val: {}", cpu, th(addr),
-//                        th(addr & (DATA_ARRAY_MASK >> ctx.twoWay)), size, th(readBuffer(data_array, addr & (DATA_ARRAY_MASK >> ctx.twoWay), size)));
+                if (verbose) LOG.info("{} Cache data array read: {}({}) {}, val: {}", cpu, th(addr),
+                        th(addr & (DATA_ARRAY_MASK >> ctx.twoWay)), size,
+                        th(readBuffer(data_array, addr & (DATA_ARRAY_MASK >> ctx.twoWay), size)));
                 return readBuffer(data_array, addr & (DATA_ARRAY_MASK >> ctx.twoWay), size);
             case CACHE_PURGE:
                 LOG.warn("{} CACHE_PURGE read: {}, {}", cpu, th(addr), size);
@@ -205,12 +210,14 @@ public class Sh2CacheImpl implements Sh2Cache {
             break;
             case CACHE_DATA_ARRAY:
                 assert ca.enable == 0 || ctx.twoWay == 1;
-//                LOG.info("{} Cache data array write: {}({}) {}, val: {}", cpu, th(addr), th(addr & (DATA_ARRAY_MASK >> ctx.twoWay)), size, th(val));
+                if (verbose)
+                    LOG.info("{} Cache data array write: {}({}) {}, val: {}", cpu, th(addr),
+                            th(addr & (DATA_ARRAY_MASK >> ctx.twoWay)), size, th(val));
                 writeBuffer(data_array, addr & (DATA_ARRAY_MASK >> ctx.twoWay), val, size);
                 break;
             case CACHE_PURGE://associative purge
             {
-                assert size == Size.LONG;
+                assert size == Size.LONG; //Metal Head
                 final int tagaddr = (addr & TAG_MASK);
                 final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
                 //can purge more than one line
@@ -242,11 +249,7 @@ public class Sh2CacheImpl implements Sh2Cache {
         ctx.dataReplaceDis = (value >> 2) & 1;
         ctx.instReplaceDis = (value >> 1) & 1;
         ctx.cacheEn = value & 1;
-        //cache enable does not clear the cache
-        if (ca.enable != ctx.cacheEn) {
-            if (verbose) LOG.info("Cache enable: " + ctx.cacheEn);
-        }
-        ca.enable = ctx.cacheEn;
+        handleCacheEnabled();
         if (verbose) LOG.info("{} CCR update: {}", cpu, ctx);
         if (ctx.cachePurge > 0) {
             cacheClear();
@@ -255,6 +258,18 @@ public class Sh2CacheImpl implements Sh2Cache {
         }
         ctx.ccr = value;
         return ctx;
+    }
+
+    private void handleCacheEnabled() {
+        int prevCaEn = ca.enable;
+        ca.enable = ctx.cacheEn;
+        //cache enable does not clear the cache
+        if (prevCaEn != ctx.cacheEn) {
+            if (verbose) LOG.info("Cache enable: " + ctx.cacheEn);
+            if (ctx.cacheEn > 0) {
+                memory.invalidateCachePrefetch(cpu, null, 0, true);
+            }
+        }
     }
 
     @Override
@@ -303,19 +318,18 @@ public class Sh2CacheImpl implements Sh2Cache {
         throw new RuntimeException();
     }
 
-    private void refillCache(int[] data, int addr) {
+    private void refillCache(Sh2CacheLine line, int lineEntry, int addr) {
         Md32xRuntimeData.addCpuDelayExt(4);
+        assert cpu == Md32xRuntimeData.getAccessTypeExt();
         for (int i = 0; i < 16; i += 4) {
-            //TODO t-mek with prefetch enabled
-            try {
-                int val = readMemoryUncached(memory, (addr & 0xFFFFFFF0) + i, Size.LONG);
-                setCachedData(data, i & LINE_MASK, val, Size.LONG);
-            } catch (Exception e) {
-                LOG.error("Unable to read addr: {}", th(addr), e);
-                e.printStackTrace();
-                return;
-            }
+            int val = readMemoryUncached(memory, (addr & 0xFFFFFFF0) + i, Size.LONG);
+            setCachedData(line.data, i & LINE_MASK, val, Size.LONG);
         }
+//        if(line.v > 0) {
+//            if (verbose)
+//                LOG.info("{} Cache miss on addr {}, replacing line {}", cpu, th(addr), th(line.tag));
+//            memory.invalidateCachePrefetch(cpu, line, lineEntry);
+//        }
     }
 
     @Override

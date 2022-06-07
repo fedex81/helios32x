@@ -32,32 +32,6 @@ public class S32xBus extends GenesisBus {
     private static final Logger LOG = LogManager.getLogger(S32xBus.class.getSimpleName());
     static final boolean verboseMd = false;
 
-    public static final int START_HINT_VECTOR_WRITEABLE = 0x70;
-    public static final int END_HINT_VECTOR_WRITEABLE = 0x74;
-    public static final int END_VECTOR_ROM = 0x100;
-    public static final int START_FRAME_BUFFER = 0x84_0000;
-    public static final int END_FRAME_BUFFER = START_FRAME_BUFFER + DRAM_SIZE;
-    public static final int START_OVERWRITE_IMAGE = 0x86_0000;
-    public static final int END_OVERWRITE_IMAGE = START_OVERWRITE_IMAGE + DRAM_SIZE;
-    public static final int START_ROM_MIRROR = 0x88_0000;
-    public static final int END_ROM_MIRROR = 0x90_0000;
-    public static final int START_ROM_MIRROR_BANK = END_ROM_MIRROR;
-    public static final int END_ROM_MIRROR_BANK = 0xA0_0000;
-    public static final int ROM_WINDOW_MASK = 0x7_FFFF; //according to docs, *NOT* 0xF_FFFF
-    public static final int ROM_MIRROR_MASK = 0xF_FFFF;
-    public static final int START_MARS_ID = 0xA130EC;
-    public static final int END_MARS_ID = 0xA130F0;
-    public static final int START_32X_SYSREG = 0xA1_5100;
-
-    public static final int END_32X_SYSREG = START_32X_SYSREG + 0x80;
-    public static final int START_32X_VDPREG = END_32X_SYSREG;
-    public static final int END_32X_VDPREG = START_32X_VDPREG + 0x80;
-    public static final int START_32X_COLPAL = END_32X_VDPREG;
-    public static final int END_32X_COLPAL = START_32X_COLPAL + 0x200;
-
-    private static final int SYSREG_32X_OFFSET = S32xDict.START_32X_SYSREG_CACHE,
-            VDPREG_32X_OFFSET = START_32X_VDPREG_CACHE, COLPAL_32X_OFFSET = START_32X_COLPAL_CACHE;
-
     private ByteBuffer rom;
     private ByteBuffer bios68k;
     private final ByteBuffer writeableHintRom = ByteBuffer.allocate(4).putInt(-1);
@@ -116,41 +90,36 @@ public class S32xBus extends GenesisBus {
 
     private long readAdapterEnOn(int address, Size size) {
         long res = 0;
-        if (address < END_VECTOR_ROM) {
+        if (address < M68K_END_VECTOR_ROM) {
             res = readBuffer(bios68k, address, size);
-            if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {
+            if (address >= M68K_START_HINT_VECTOR_WRITEABLE && address < M68K_END_HINT_VECTOR_WRITEABLE) {
                 res = readHIntVector(address, size);
             }
-        } else if (address >= START_ROM_MIRROR && address < END_ROM_MIRROR) {
+        } else if (address >= M68K_START_ROM_MIRROR && address < M68K_END_ROM_MIRROR) {
             if (!DmaFifo68k.rv) {
-                address &= ROM_WINDOW_MASK;
+                address &= M68K_ROM_WINDOW_MASK;
                 res = readBuffer(rom, address & romMask, size);
             } else {
                 LOG.warn("Ignoring access to ROM mirror when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
             }
-        } else if (address >= START_ROM_MIRROR_BANK && address < END_ROM_MIRROR_BANK) {
+        } else if (address >= M68K_START_ROM_MIRROR_BANK && address < M68K_END_ROM_MIRROR_BANK) {
             if (!DmaFifo68k.rv) {
-                int val = bankSetShift | (address & ROM_MIRROR_MASK);
+                int val = bankSetShift | (address & M68K_ROM_MIRROR_MASK);
                 res = readBuffer(rom, val, size);
             } else {
                 LOG.warn("Ignoring access to ROM mirror bank when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
             }
-        } else if (address >= START_FRAME_BUFFER && address < END_FRAME_BUFFER) {
-            int addr = START_DRAM_CACHE + (address & DRAM_MASK);
-            res = read32xWord(addr, size);
-        } else if (address >= START_OVERWRITE_IMAGE && address < END_OVERWRITE_IMAGE) {
-            int addr = START_OVER_IMAGE_CACHE + (address & DRAM_MASK);
-            res = read32xWord(addr, size);
-        } else if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
-            int addr = (address - START_32X_SYSREG + SYSREG_32X_OFFSET);
-            res = read32xWord(addr, size);
-        } else if (address >= START_32X_VDPREG && address < END_32X_VDPREG) {
-            int addr = (address - START_32X_VDPREG + VDPREG_32X_OFFSET);
-            res = read32xWord(addr, size);
-        } else if (address >= START_32X_COLPAL && address < END_32X_COLPAL) {
-            int addr = (address - START_32X_COLPAL + COLPAL_32X_OFFSET);
-            res = read32xWord(addr, size);
-        } else if (address >= START_MARS_ID && address < END_MARS_ID) {
+        } else if (address >= M68K_START_FRAME_BUFFER && address < M68K_END_FRAME_BUFFER) {
+            res = read32xWord((address & DRAM_MASK) | START_DRAM, size);
+        } else if (address >= M68K_START_OVERWRITE_IMAGE && address < M68K_END_OVERWRITE_IMAGE) {
+            res = read32xWord((address & DRAM_MASK) | START_OVER_IMAGE, size);
+        } else if (address >= M68K_START_32X_SYSREG && address < M68K_END_32X_SYSREG) {
+            res = read32xWord((address & M68K_MASK_32X_SYSREG) | SH2_SYSREG_32X_OFFSET, size);
+        } else if (address >= M68K_START_32X_VDPREG && address < M68K_END_32X_VDPREG) {
+            res = read32xWord((address & M68K_MASK_32X_VDPREG) | SH2_VDPREG_32X_OFFSET, size);
+        } else if (address >= M68K_START_32X_COLPAL && address < M68K_END_32X_COLPAL) {
+            res = read32xWord((address & M68K_MASK_32X_COLPAL) | SH2_COLPAL_32X_OFFSET, size);
+        } else if (address >= M68K_START_MARS_ID && address < M68K_END_MARS_ID) {
             res = 0x4d415253; //'MARS'
         } else {
             if (!DmaFifo68k.rv && address <= GenesisBus.DEFAULT_ROM_END_ADDRESS) {
@@ -168,11 +137,10 @@ public class S32xBus extends GenesisBus {
 
     private long readAdapterEnOff(int address, Size size) {
         long res = 0;
-        if (address >= START_MARS_ID && address < END_MARS_ID) {
+        if (address >= M68K_START_MARS_ID && address < M68K_END_MARS_ID) {
             res = 0x4d415253; //'MARS'
-        } else if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
-            int addr = (address - START_32X_SYSREG + SYSREG_32X_OFFSET);
-            res = read32xWord(addr, size);
+        } else if (address >= M68K_START_32X_SYSREG && address < M68K_END_32X_SYSREG) {
+            res = read32xWord((address & M68K_MASK_32X_SYSREG) | SH2_SYSREG_32X_OFFSET, size);
         } else {
             res = super.read(address, size);
         }
@@ -184,34 +152,30 @@ public class S32xBus extends GenesisBus {
     }
 
     private void writeAdapterEnOn(int address, int data, Size size) {
-        if (address >= START_FRAME_BUFFER && address < END_FRAME_BUFFER) {
-            int val = START_DRAM_CACHE + (address & DRAM_MASK);
-            write32xWord(val, data, size);
-        } else if (address >= START_OVERWRITE_IMAGE && address < END_OVERWRITE_IMAGE) {
-            int val = START_OVER_IMAGE_CACHE + (address & DRAM_MASK);
-            write32xWord(val, data, size);
-        } else if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
-            int addr = (address - START_32X_SYSREG + SYSREG_32X_OFFSET);
+        if (address >= M68K_START_FRAME_BUFFER && address < M68K_END_FRAME_BUFFER) {
+            write32xWord((address & DRAM_MASK) | START_DRAM, data, size);
+        } else if (address >= M68K_START_OVERWRITE_IMAGE && address < M68K_END_OVERWRITE_IMAGE) {
+            write32xWord((address & DRAM_MASK) | START_OVER_IMAGE, data, size);
+        } else if (address >= M68K_START_32X_SYSREG && address < M68K_END_32X_SYSREG) {
+            int addr = (address & M68K_MASK_32X_SYSREG) | SH2_SYSREG_32X_OFFSET;
             if (((addr & 0xFF) & ~1) == S32xDict.RegSpecS32x.M68K_BANK_SET.addr) {
                 bankSetValue = (data & 3);
                 bankSetShift = bankSetValue << 20;
             }
             write32xWordDirect(addr, data, size);
-        } else if (address >= START_32X_VDPREG && address < END_32X_VDPREG) {
-            int addr = (address - START_32X_VDPREG + VDPREG_32X_OFFSET);
-            write32xWord(addr, data, size);
-        } else if (address >= START_32X_COLPAL && address < END_32X_COLPAL) {
-            int addr = (address - START_32X_COLPAL + COLPAL_32X_OFFSET);
-            write32xWord(addr, data, size);
-        } else if (address >= START_ROM_MIRROR_BANK && address < END_ROM_MIRROR_BANK) {
+        } else if (address >= M68K_START_32X_VDPREG && address < M68K_END_32X_VDPREG) {
+            write32xWord((address & M68K_MASK_32X_VDPREG) | SH2_VDPREG_32X_OFFSET, data, size);
+        } else if (address >= M68K_START_32X_COLPAL && address < M68K_END_32X_COLPAL) {
+            write32xWord((address & M68K_MASK_32X_COLPAL) | SH2_COLPAL_32X_OFFSET, data, size);
+        } else if (address >= M68K_START_ROM_MIRROR_BANK && address < M68K_END_ROM_MIRROR_BANK) {
             //NOTE it could be writing to SRAM via the rom mirror
-            super.write((address & ROM_MIRROR_MASK) | bankSetShift, data, size);
-        } else if (address >= START_ROM_MIRROR && address < END_ROM_MIRROR) {
+            super.write((address & M68K_ROM_MIRROR_MASK) | bankSetShift, data, size);
+        } else if (address >= M68K_START_ROM_MIRROR && address < M68K_END_ROM_MIRROR) {
             //TODO should not happen, SoulStar
-            super.write(address & ROM_WINDOW_MASK, data, size);
+            super.write(address & M68K_ROM_WINDOW_MASK, data, size);
 //            if (true) throw new RuntimeException();
-        } else if (address >= START_HINT_VECTOR_WRITEABLE && address < END_HINT_VECTOR_WRITEABLE) {
-            if (verbose) LOG.info("HINT vector write, address: {}, data: {}, size: {}", Long.toHexString(address),
+        } else if (address >= M68K_START_HINT_VECTOR_WRITEABLE && address < M68K_END_HINT_VECTOR_WRITEABLE) {
+            if (verboseMd) LOG.info("HINT vector write, address: {}, data: {}, size: {}", Long.toHexString(address),
                     Integer.toHexString(data), size);
             writeBuffer(writeableHintRom, address & 3, data, size);
         } else {
@@ -220,8 +184,8 @@ public class S32xBus extends GenesisBus {
     }
 
     private void writeAdapterEnOff(int address, int data, Size size) {
-        if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
-            int addr = (address - START_32X_SYSREG + SYSREG_32X_OFFSET);
+        if (address >= M68K_START_32X_SYSREG && address < M68K_END_32X_SYSREG) {
+            int addr = (address & M68K_MASK_32X_SYSREG) | SH2_SYSREG_32X_OFFSET;
             if (((addr & 0xFF) & ~1) == S32xDict.RegSpecS32x.M68K_BANK_SET.addr) {
                 bankSetValue = (data & 3);
                 bankSetShift = bankSetValue << 20;

@@ -59,6 +59,25 @@ public class DivUnitTest {
     }
 
     @Test
+    public void testDiv64() {
+        divUnit.write(DIV_DVCR, 0x0, Size.LONG);
+
+        divUnit.write(DIV_DVSR, 0xFFFFFE50, Size.LONG);
+        divUnit.write(DIV_DVDNTH, 0x256, Size.LONG);
+        divUnit.write(DIV_DVDNTL, 0x0, Size.LONG);
+
+        Assertions.assertEquals(1, divUnit.read(DIV_DVCR, Size.LONG));
+
+        divUnit.write(DIV_DVCR, 0x0, Size.LONG);
+
+        divUnit.write(DIV_DVSR, 0x2c7, Size.LONG);
+        divUnit.write(DIV_DVDNTH, 0x256, Size.LONG);
+        divUnit.write(DIV_DVDNTL, 0x0, Size.LONG);
+
+        Assertions.assertEquals(1, divUnit.read(DIV_DVCR, Size.LONG));
+    }
+
+    @Test
     public void testDivOverflow() {
         //64 bit overflow
         divUnit.write(DIV_DVSR, 0x1, Size.LONG);

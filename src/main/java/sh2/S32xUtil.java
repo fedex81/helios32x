@@ -21,6 +21,8 @@ public class S32xUtil {
 
     private static final Logger LOG = LogManager.getLogger(S32xUtil.class.getSimpleName());
 
+    public static final int[] EMPTY_INT_ARRAY = {};
+
     public static interface StepDevice extends Device {
         public default void step(int cycles) {
         } //DO NOTHING
