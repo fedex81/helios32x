@@ -16,8 +16,8 @@ import sh2.dict.S32xDict;
 import java.nio.ByteBuffer;
 import java.util.Random;
 
-import static sh2.S32xBus.START_32X_SYSREG;
 import static sh2.S32xUtil.CpuDeviceAccess.*;
+import static sh2.dict.S32xDict.M68K_START_32X_SYSREG;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
 import static sh2.dict.S32xDict.START_32X_SYSREG_CACHE;
 
@@ -32,10 +32,10 @@ public class MarsRegTestUtil {
     public static final int SH2_FBCR_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + FBCR.addr;
     public static final int SH2_BITMAP_MODE_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + VDP_BITMAP_MODE.addr;
     public static final int SH2_INT_MASK = START_32X_SYSREG_CACHE + S32xDict.RegSpecS32x.SH2_INT_MASK.addr;
-    public static final int MD_ADAPTER_CTRL = START_32X_SYSREG + M68K_ADAPTER_CTRL.fullAddress;
+    public static final int MD_ADAPTER_CTRL = M68K_START_32X_SYSREG + M68K_ADAPTER_CTRL.fullAddress;
     public static int SH2_AFLEN_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + AFLR.addr;
     public static int SH2_AFSAR_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + AFSAR.addr;
-    private static final int MD_DMAC_CTRL = START_32X_SYSREG + M68K_DMAC_CTRL.fullAddress;
+    private static final int MD_DMAC_CTRL = M68K_START_32X_SYSREG + M68K_DMAC_CTRL.fullAddress;
     private static final int SH2_DREQ_CTRL = START_32X_SYSREG_CACHE + S32xDict.RegSpecS32x.SH2_DREQ_CTRL.fullAddress;
 
     static {

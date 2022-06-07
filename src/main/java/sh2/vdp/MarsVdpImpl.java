@@ -124,6 +124,9 @@ public class MarsVdpImpl implements MarsVdp {
             //see Space Harrier, brutal, doom resurrection
             writeFrameBufferOver(address, value, size);
             S32xMemAccessDelay.addWriteCpuDelay(S32xMemAccessDelay.FRAME_BUFFER);
+        } else {
+            LOG.error("{} unhandled write at {}, val: {} {}", Md32xRuntimeData.getAccessTypeExt(), th(address),
+                    th(value), size);
         }
     }
 
@@ -143,6 +146,8 @@ public class MarsVdpImpl implements MarsVdp {
         } else if (address >= START_OVER_IMAGE_CACHE && address < END_OVER_IMAGE_CACHE) {
             res = readBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, size);
             S32xMemAccessDelay.addWriteCpuDelay(S32xMemAccessDelay.FRAME_BUFFER);
+        } else {
+            LOG.error("{} unhandled read: {} {}", Md32xRuntimeData.getAccessTypeExt(), th(address), size);
         }
         return res;
     }

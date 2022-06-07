@@ -187,6 +187,37 @@ public class S32xDict {
     public static final int START_OVER_IMAGE = START_OVER_IMAGE_CACHE + CACHE_THROUGH_OFFSET;
     public static final int END_OVER_IMAGE = END_OVER_IMAGE_CACHE + CACHE_THROUGH_OFFSET;
 
+    /**
+     * M68K memory map
+     **/
+    public static final int M68K_START_HINT_VECTOR_WRITEABLE = 0x70;
+    public static final int M68K_END_HINT_VECTOR_WRITEABLE = 0x74;
+    public static final int M68K_END_VECTOR_ROM = 0x100;
+    public static final int M68K_START_FRAME_BUFFER = 0x84_0000;
+    public static final int M68K_END_FRAME_BUFFER = M68K_START_FRAME_BUFFER + DRAM_SIZE;
+    public static final int M68K_START_OVERWRITE_IMAGE = 0x86_0000;
+    public static final int M68K_END_OVERWRITE_IMAGE = M68K_START_OVERWRITE_IMAGE + DRAM_SIZE;
+    public static final int M68K_START_ROM_MIRROR = 0x88_0000;
+    public static final int M68K_END_ROM_MIRROR = 0x90_0000;
+    public static final int M68K_START_ROM_MIRROR_BANK = M68K_END_ROM_MIRROR;
+    public static final int M68K_END_ROM_MIRROR_BANK = 0xA0_0000;
+    public static final int M68K_ROM_WINDOW_MASK = 0x7_FFFF; //according to docs, *NOT* 0xF_FFFF
+    public static final int M68K_ROM_MIRROR_MASK = 0xF_FFFF;
+    public static final int M68K_START_MARS_ID = 0xA130EC;
+    public static final int M68K_END_MARS_ID = 0xA130F0;
+    public static final int M68K_START_32X_SYSREG = 0xA1_5100;
+    public static final int M68K_END_32X_SYSREG = M68K_START_32X_SYSREG + 0x80;
+    public static final int M68K_MASK_32X_SYSREG = M68K_END_32X_SYSREG - M68K_START_32X_SYSREG - 1;
+    public static final int M68K_START_32X_VDPREG = M68K_END_32X_SYSREG;
+    public static final int M68K_END_32X_VDPREG = M68K_START_32X_VDPREG + 0x80;
+    public static final int M68K_MASK_32X_VDPREG = M68K_MASK_32X_SYSREG;
+    public static final int M68K_START_32X_COLPAL = M68K_END_32X_VDPREG;
+    public static final int M68K_END_32X_COLPAL = M68K_START_32X_COLPAL + 0x200;
+    public static final int M68K_MASK_32X_COLPAL = M68K_END_32X_COLPAL - M68K_START_32X_COLPAL - 1;
+
+    public static final int SH2_SYSREG_32X_OFFSET = S32xDict.START_32X_SYSREG,
+            SH2_VDPREG_32X_OFFSET = START_32X_VDPREG, SH2_COLPAL_32X_OFFSET = START_32X_COLPAL;
+
     public static class S32xDictLogContext {
         public S32xUtil.CpuDeviceAccess sh2Access;
         public ByteBuffer regArea;
