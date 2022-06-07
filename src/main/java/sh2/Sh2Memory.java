@@ -24,31 +24,6 @@ public final class Sh2Memory implements IMemory {
 
 	private static final Logger LOG = LogManager.getLogger(Sh2Memory.class.getSimpleName());
 
-	private static final int BOOT_ROM_SIZE = 0x4000; // 16kb
-	public static final int SDRAM_SIZE = 0x4_0000; // 256kb
-	private static final int MAX_ROM_SIZE = 0x40_0000; // 256kb
-	public static final int SDRAM_MASK = SDRAM_SIZE - 1;
-	private static final int ROM_MASK = MAX_ROM_SIZE - 1;
-
-	public static final int CACHE_THROUGH_OFFSET = 0x2000_0000;
-
-	public static final int START_SDRAM_CACHE = 0x600_0000;
-	public static final int START_SDRAM = CACHE_THROUGH_OFFSET + START_SDRAM_CACHE;
-	public static final int END_SDRAM_CACHE = START_SDRAM_CACHE + SDRAM_SIZE;
-	public static final int END_SDRAM = START_SDRAM + SDRAM_SIZE;
-
-	public static final int START_ROM_CACHE = 0x200_0000;
-	public static final int START_ROM = CACHE_THROUGH_OFFSET + START_ROM_CACHE;
-	public static final int END_ROM_CACHE = START_ROM_CACHE + 0x40_0000; //4 Mbit window;
-	public static final int END_ROM = START_ROM + 0x40_0000; //4 Mbit window;
-
-	public static final int START_CACHE_FLUSH = 0x6000_0000;
-	public static final int END_CACHE_FLUSH = 0x8000_0000;
-	public static final int START_DATA_ARRAY = 0xC000_0000;
-	public static final int ONCHIP_REG_MASK = 0xE000_4000;
-	public static final int START_DRAM_MODE = 0xFFFF_8000;
-	public static final int END_DRAM_MODE = 0xFFFF_C000;
-
 	public ByteBuffer[] bios = new ByteBuffer[2];
 	public ByteBuffer sdram;
 	public ByteBuffer rom;
@@ -66,7 +41,7 @@ public final class Sh2Memory implements IMemory {
 		this.rom = rom;
 		bios[MASTER.ordinal()] = biosHolder.getBiosData(MASTER);
 		bios[SLAVE.ordinal()] = biosHolder.getBiosData(SLAVE);
-		sdram = ByteBuffer.allocateDirect(SDRAM_SIZE);
+		sdram = ByteBuffer.allocateDirect(SH2_SDRAM_SIZE);
 		cache[MASTER.ordinal()] = SH2_ENABLE_CACHE ? new Sh2CacheImpl(MASTER, this) : Sh2Cache.createNoCacheInstance(MASTER, this);
 		cache[SLAVE.ordinal()] = SH2_ENABLE_CACHE ? new Sh2CacheImpl(SLAVE, this) : Sh2Cache.createNoCacheInstance(SLAVE, this);
 		sh2MMREGS[MASTER.ordinal()] = new Sh2MMREG(MASTER, cache[MASTER.ordinal()]);
@@ -90,7 +65,7 @@ public final class Sh2Memory implements IMemory {
 			case CACHE_DATA_ARRAY_H3: //vr
 				return cache[cpuAccess.ordinal()].cacheMemoryRead(address, size);
 			case CACHE_THROUGH_H3:
-				if (address >= START_ROM && address < END_ROM) {
+				if (address >= SH2_START_ROM && address < SH2_END_ROM) {
 					//TODO RV bit, sh2 should stall
 					if (DmaFifo68k.rv) {
 						LOG.warn("{} sh2 access to ROM when RV={}, addr: {} {}", cpuAccess, DmaFifo68k.rv, th(address), size);
@@ -99,8 +74,8 @@ public final class Sh2Memory implements IMemory {
 					S32xMemAccessDelay.addReadCpuDelay(ROM);
 				} else if (address >= S32xDict.START_32X_SYSREG && address < S32xDict.END_32X_COLPAL) {
 					res = s32XMMREG.read(address, size);
-				} else if (address >= START_SDRAM && address < END_SDRAM) {
-					res = readBuffer(sdram, address & SDRAM_MASK, size);
+				} else if (address >= SH2_START_SDRAM && address < SH2_END_SDRAM) {
+					res = readBuffer(sdram, address & SH2_SDRAM_MASK, size);
 					S32xMemAccessDelay.addReadCpuDelay(SDRAM);
 				} else if (address >= S32xDict.START_DRAM && address < S32xDict.END_DRAM) {
 					res = s32XMMREG.read(address, size);
@@ -108,16 +83,16 @@ public final class Sh2Memory implements IMemory {
 				} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
 					res = s32XMMREG.read(address, size);
 					S32xMemAccessDelay.addReadCpuDelay(FRAME_BUFFER);
-				} else if (address >= CACHE_THROUGH_OFFSET && address < CACHE_THROUGH_OFFSET + BOOT_ROM_SIZE) {
+				} else if (address >= SH2_START_BOOT_ROM && address < SH2_END_BOOT_ROM) {
 					address &= bios[cpuAccess.ordinal()].capacity() - 1; //TODO t-mek
 					res = readBuffer(bios[cpuAccess.ordinal()], address, size);
 					S32xMemAccessDelay.addReadCpuDelay(BOOT_ROM);
 				}
 				break;
 			case CACHE_IO_H3: //0xF
-				if ((address & ONCHIP_REG_MASK) == ONCHIP_REG_MASK) {
+				if ((address & SH2_ONCHIP_REG_MASK) == SH2_ONCHIP_REG_MASK) {
 					res = sh2MMREGS[cpuAccess.ordinal()].read(address & 0xFFFF, size);
-				} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
+				} else if (address >= SH2_START_DRAM_MODE && address < SH2_END_DRAM_MODE) {
 					res = sh2MMREGS[cpuAccess.ordinal()].readDramMode(address & 0xFFFF, size);
 				} else {
 					LOG.error("{} read from addr: {}, {}", cpuAccess, th(address), size);
@@ -141,6 +116,7 @@ public final class Sh2Memory implements IMemory {
 			case CACHE_PURGE_H3:
 			case CACHE_ADDRESS_ARRAY_H3:
 			case CACHE_DATA_ARRAY_H3: //vr
+				//NOTE: vf slave writes to sysReg 0x401c, 0x4038 via cache
 				cache[cpuAccess.ordinal()].cacheMemoryWrite(address, val, size);
 				break;
 			case CACHE_THROUGH_H3:
@@ -150,8 +126,8 @@ public final class Sh2Memory implements IMemory {
 					} else {
 						LOG.warn("{} sh2 ignoring access to FB when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
 					}
-				} else if (address >= START_SDRAM && address < END_SDRAM) {
-					writeBuffer(sdram, address & SDRAM_MASK, val, size);
+				} else if (address >= SH2_START_SDRAM && address < SH2_END_SDRAM) {
+					writeBuffer(sdram, address & SH2_SDRAM_MASK, val, size);
 					S32xMemAccessDelay.addWriteCpuDelay(SDRAM);
 				} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
 					if (s32XMMREG.fm > 0) {
@@ -170,9 +146,9 @@ public final class Sh2Memory implements IMemory {
 				}
 				break;
 			case CACHE_IO_H3: //0xF
-				if ((address & ONCHIP_REG_MASK) == ONCHIP_REG_MASK) {
+				if ((address & SH2_ONCHIP_REG_MASK) == SH2_ONCHIP_REG_MASK) {
 					sh2MMREGS[cpuAccess.ordinal()].write(address & 0xFFFF, val, size);
-				} else if (address >= START_DRAM_MODE && address < END_DRAM_MODE) {
+				} else if (address >= SH2_START_DRAM_MODE && address < SH2_END_DRAM_MODE) {
 					sh2MMREGS[cpuAccess.ordinal()].writeDramMode(address & 0xFFFF, val, size);
 				} else {
 					LOG.error("{} write from addr: {}, {}", cpuAccess, th(address), size);

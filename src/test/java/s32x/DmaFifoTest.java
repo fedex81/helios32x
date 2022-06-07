@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import sh2.DmaFifo68k;
 import sh2.Md32xRuntimeData;
 import sh2.S32XMMREG;
-import sh2.Sh2Memory;
 import sh2.sh2.device.DmaC;
 
 import java.util.Random;
@@ -17,6 +16,8 @@ import static sh2.S32xUtil.CpuDeviceAccess.M68K;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.dict.S32xDict.RegSpecS32x.M68K_DMAC_CTRL;
 import static sh2.dict.S32xDict.RegSpecS32x.M68K_FIFO_REG;
+import static sh2.dict.S32xDict.SH2_CACHE_THROUGH_OFFSET;
+import static sh2.dict.S32xDict.SH2_START_SDRAM;
 import static sh2.dict.Sh2Dict.RegSpec.*;
 
 /**
@@ -135,8 +136,8 @@ public class DmaFifoTest {
         dmac.write(DMA_CHCR0, 0, Size.WORD);
         dmac.write(DMA_CHCR0, 0x44E0, Size.WORD);
         dmac.write(DMA_TCR0, len, Size.LONG);
-        dmac.write(DMA_SAR0, Sh2Memory.CACHE_THROUGH_OFFSET + FIFO_OFFSET, Size.LONG);
-        dmac.write(DMA_DAR0, Sh2Memory.START_SDRAM, Size.LONG);
+        dmac.write(DMA_SAR0, SH2_CACHE_THROUGH_OFFSET + FIFO_OFFSET, Size.LONG);
+        dmac.write(DMA_DAR0, SH2_START_SDRAM, Size.LONG);
         Assertions.assertFalse(dmac.getDmaChannelSetup()[0].dreqLevel);
     }
 

@@ -18,7 +18,7 @@ import java.util.Arrays;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
-import static sh2.Sh2Memory.*;
+import static sh2.dict.S32xDict.*;
 import static sh2.dict.S32xMemAccessDelay.SDRAM;
 
 /**
@@ -106,9 +106,9 @@ public class Sh2Prefetch {
         switch (pc >> PC_AREA_SHIFT) {
             case 6:
             case 0x26:
-                pctx.start = Math.max(0, pctx.start) & SDRAM_MASK;
-                pctx.end = Math.min(SDRAM_SIZE - 1, pctx.end) & SDRAM_MASK;
-                pctx.pcMasked = pc & SDRAM_MASK;
+                pctx.start = Math.max(0, pctx.start) & SH2_SDRAM_MASK;
+                pctx.end = Math.min(SH2_SDRAM_SIZE - 1, pctx.end) & SH2_SDRAM_MASK;
+                pctx.pcMasked = pc & SH2_SDRAM_MASK;
                 pctx.memAccessDelay = SDRAM;
                 pctx.buf = sdram;
                 break;
@@ -248,7 +248,7 @@ public class Sh2Prefetch {
             checkPrefetch(cpuWrite, CpuDeviceAccess.cdaValues[i], addr, val, size);
             boolean isCacheEnabled = cache[i].getCacheContext().cacheEn > 0;
             if (!isCacheEnabled) {
-                int otherAddr = isWriteThrough ? addr & 0xFFF_FFFF : addr | CACHE_THROUGH_OFFSET;
+                int otherAddr = isWriteThrough ? addr & 0xFFF_FFFF : addr | SH2_CACHE_THROUGH_OFFSET;
                 checkPrefetch(cpuWrite, CpuDeviceAccess.cdaValues[i], otherAddr, val, size);
             }
         }

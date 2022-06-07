@@ -5,13 +5,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.MarsLauncherHelper;
-import sh2.Sh2Memory;
 
 import static s32x.MarsRegTestUtil.readBus;
 import static s32x.MarsRegTestUtil.setRv;
 import static sh2.S32xUtil.CpuDeviceAccess.*;
-import static sh2.dict.S32xDict.M68K_START_ROM_MIRROR;
-import static sh2.dict.S32xDict.M68K_START_ROM_MIRROR_BANK;
+import static sh2.dict.S32xDict.*;
 
 /**
  * Federico Berti
@@ -60,16 +58,16 @@ public class RomAccessTest {
     public void testSh2Access() {
         int res;
         setRv(lc, 0);
-        res = readBus(lc, MASTER, Sh2Memory.START_ROM + 0x200, Size.BYTE);
+        res = readBus(lc, MASTER, SH2_START_ROM + 0x200, Size.BYTE);
         Assertions.assertTrue(res != 0 && res != 0xFF);
-        res = readBus(lc, SLAVE, Sh2Memory.START_ROM + 0x200, Size.BYTE);
+        res = readBus(lc, SLAVE, SH2_START_ROM + 0x200, Size.BYTE);
         Assertions.assertTrue(res != 0 && res != 0xFF);
 
         setRv(lc, 1);
         //TODO should stall
-        res = readBus(lc, MASTER, Sh2Memory.START_ROM + 0x200, Size.BYTE);
+        res = readBus(lc, MASTER, SH2_START_ROM + 0x200, Size.BYTE);
         Assertions.assertTrue(res != 0 && res != 0xFF);
-        res = readBus(lc, SLAVE, Sh2Memory.START_ROM + 0x200, Size.BYTE);
+        res = readBus(lc, SLAVE, SH2_START_ROM + 0x200, Size.BYTE);
         Assertions.assertTrue(res != 0 && res != 0xFF);
     }
 

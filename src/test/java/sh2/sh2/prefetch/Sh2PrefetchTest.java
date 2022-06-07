@@ -13,7 +13,7 @@ import java.util.Optional;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
-import static sh2.Sh2Memory.*;
+import static sh2.dict.S32xDict.*;
 
 /**
  * Federico Berti
@@ -26,8 +26,8 @@ import static sh2.Sh2Memory.*;
  **/
 public class Sh2PrefetchTest extends Sh2CacheTest {
 
-    int cacheAddr = START_SDRAM_CACHE | 0x2;
-    int noCacheAddr = cacheAddr | CACHE_THROUGH_OFFSET;
+    int cacheAddr = SH2_START_SDRAM_CACHE | 0x2;
+    int noCacheAddr = cacheAddr | SH2_CACHE_THROUGH_OFFSET;
 
     @BeforeEach
     public void beforeEach() {
@@ -286,8 +286,8 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
         //i == 0 -> this region should be all NOPs
         for (int i = 0; i < cacheAddr.length; i++) {
-            cacheAddr[i] = START_SDRAM_CACHE | (i << 12) | 0xC0;
-            noCacheAddr[i] = START_SDRAM | cacheAddr[i];
+            cacheAddr[i] = SH2_START_SDRAM_CACHE | (i << 12) | 0xC0;
+            noCacheAddr[i] = SH2_START_SDRAM | cacheAddr[i];
         }
 
         PrefetchContext mpfc = getPrefetch(MASTER);
@@ -305,8 +305,8 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         clearCache(SLAVE);
 
         //this region should be all NOPs
-        int cacheAddr = START_SDRAM_CACHE + 0xC0;
-        int noCacheAddr = START_SDRAM | cacheAddr;
+        int cacheAddr = SH2_START_SDRAM_CACHE + 0xC0;
+        int noCacheAddr = SH2_START_SDRAM | cacheAddr;
 
         checkCacheContents(MASTER, Optional.empty(), noCacheAddr, Size.WORD);
         checkCacheContents(SLAVE, Optional.empty(), noCacheAddr, Size.WORD);
@@ -316,7 +316,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         //fetch triggers a cache refill on cacheAddr
         memory.fetch(cacheAddr, MASTER);
 
-        int prefetchEndAddress = START_SDRAM_CACHE | getPrefetch(MASTER).end;
+        int prefetchEndAddress = SH2_START_SDRAM_CACHE | getPrefetch(MASTER).end;
         int[] exp = {NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP};
         int baseCacheAddr = cacheAddr & 0xFFFF_FFF0;
         int outOfCacheAddr = baseCacheAddr + 16;

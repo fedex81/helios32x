@@ -3,13 +3,17 @@ package sh2.sh2.device;
 import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import sh2.*;
+import sh2.DmaFifo68k;
+import sh2.IMemory;
+import sh2.Md32xRuntimeData;
+import sh2.Sh2MMREG;
 import sh2.sh2.device.DmaHelper.DmaChannelSetup;
 
 import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
+import static sh2.dict.S32xDict.SH2_CACHE_THROUGH_OFFSET;
 import static sh2.dict.Sh2Dict.RegSpec;
 import static sh2.dict.Sh2Dict.RegSpec.*;
 import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DMA;
@@ -160,7 +164,7 @@ public class DmaC implements Sh2Device {
         //TODO test DMA cannot write to cache, Zaxxon, Knuckles, RBI Baseball, FIFA 96, Mars Check v2
         //        assert (destAddress >> Sh2Prefetch.PC_CACHE_AREA_SHIFT) != 0 : th(destAddress);
         //TODO 4. When the cache is used as on-chip RAM, the DMAC cannot access this RAM.
-        destAddress |= Sh2Memory.CACHE_THROUGH_OFFSET;
+        destAddress |= SH2_CACHE_THROUGH_OFFSET;
         do {
             int val = memory.read(srcAddress, c.trnSize);
             memory.write(destAddress, val, c.trnSize);

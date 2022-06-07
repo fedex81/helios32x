@@ -17,8 +17,8 @@ import java.util.Optional;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
-import static sh2.Sh2Memory.START_SDRAM;
-import static sh2.Sh2Memory.START_SDRAM_CACHE;
+import static sh2.dict.S32xDict.SH2_START_SDRAM;
+import static sh2.dict.S32xDict.SH2_START_SDRAM_CACHE;
 
 /**
  * Federico Berti
@@ -51,17 +51,17 @@ public class Sh2CacheTest {
 
     protected void initRam(int len) {
         for (int i = 0; i < len; i += 2) {
-            memory.write16(START_SDRAM | i, NOP);
+            memory.write16(SH2_START_SDRAM | i, NOP);
         }
-        memory.write16(START_SDRAM | 4, JMP_0); //JMP 0
+        memory.write16(SH2_START_SDRAM | 4, JMP_0); //JMP 0
     }
 
     @Test
     public void testCacheOff() {
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         initRam(0x100);
-        int noCacheAddr = START_SDRAM | 0x8;
-        int cacheAddr = START_SDRAM_CACHE | 0x8;
+        int noCacheAddr = SH2_START_SDRAM | 0x8;
+        int cacheAddr = SH2_START_SDRAM_CACHE | 0x8;
         clearCache(MASTER);
         enableCache(MASTER, false);
 
@@ -89,8 +89,8 @@ public class Sh2CacheTest {
     public void testCacheOn() {
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         initRam(0x100);
-        int noCacheAddr = START_SDRAM | 0x8;
-        int cacheAddr = START_SDRAM_CACHE | 0x8;
+        int noCacheAddr = SH2_START_SDRAM | 0x8;
+        int cacheAddr = SH2_START_SDRAM_CACHE | 0x8;
         int res = 0;
         clearCache(MASTER);
         enableCache(MASTER, true);
@@ -144,8 +144,8 @@ public class Sh2CacheTest {
 
         //i == 0 -> this region should be all NOPs
         for (int i = 0; i < cacheAddr.length; i++) {
-            cacheAddr[i] = START_SDRAM_CACHE | (i << 12) | 0xC0;
-            noCacheAddr[i] = START_SDRAM | cacheAddr[i];
+            cacheAddr[i] = SH2_START_SDRAM_CACHE | (i << 12) | 0xC0;
+            noCacheAddr[i] = SH2_START_SDRAM | cacheAddr[i];
         }
 
         memory.write16(cacheAddr[1], CLRMAC);
@@ -212,8 +212,8 @@ public class Sh2CacheTest {
     private void testCacheWriteNoHitInternal(Size size) {
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         initRam(0x100);
-        int noCacheAddr = START_SDRAM | 0x8;
-        int cacheAddr = START_SDRAM_CACHE | 0x8;
+        int noCacheAddr = SH2_START_SDRAM | 0x8;
+        int cacheAddr = SH2_START_SDRAM_CACHE | 0x8;
         int res = 0;
 
         int val = (int) ((CLRMAC << 16 | CLRMAC) & size.getMask());
