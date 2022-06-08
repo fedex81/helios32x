@@ -242,6 +242,7 @@ public class S32XMMREG implements Device {
 
     private void handleIntClearWrite(CpuDeviceAccess sh2Access, int regEven, int value, Size size) {
         assert sh2Access != M68K;
+        assert size != Size.LONG;
         int intIdx = VRES_14.ordinal() - (regEven - 0x14);
         IntControl.Sh2Interrupt intType = IntControl.intVals[intIdx];
         interruptControls[sh2Access.ordinal()].clearInterrupt(intIdx);
@@ -276,6 +277,7 @@ public class S32XMMREG implements Device {
     }
 
     private boolean handleIntControlWrite68k(int reg, int value, Size size) {
+        assert size != Size.LONG;
         boolean changed = writeBufferHasChanged(sysRegsMd, reg, value, size);
         if (changed) {
             int newVal = readBuffer(sysRegsMd, M68K_INT_CTRL.addr + 1, Size.BYTE);
@@ -302,6 +304,7 @@ public class S32XMMREG implements Device {
     }
 
     private boolean handleAdapterControlRegWrite68k(int reg, int value, Size size) {
+        assert size != Size.LONG;
         int val = readWordFromBuffer(M68K_ADAPTER_CTRL);
         writeBufferReg(regContext, M68K_ADAPTER_CTRL, reg, value, size);
 
@@ -345,6 +348,7 @@ public class S32XMMREG implements Device {
     }
 
     private boolean handleIntMaskRegWriteSh2(CpuDeviceAccess sh2Access, int reg, int value, Size size) {
+        assert size != Size.LONG;
         int baseReg = reg & ~1;
         final IntControl ic = interruptControls[sh2Access.ordinal()];
         int prevW = ic.readSh2IntMaskReg(baseReg, Size.WORD);

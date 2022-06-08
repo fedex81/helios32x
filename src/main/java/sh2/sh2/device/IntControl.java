@@ -132,6 +132,7 @@ public class IntControl implements Sh2Device {
     }
 
     public void writeSh2IntMaskReg(int reg, int value, Size size) {
+        assert size != Size.LONG;
         writeBuffer(sh2_int_mask, reg, value, size);
         int newVal = readBuffer(sh2_int_mask, reg, size);
         setIntsMasked(newVal);
@@ -154,6 +155,7 @@ public class IntControl implements Sh2Device {
     }
 
     public int readSh2IntMaskReg(int pos, Size size) {
+        assert size != Size.LONG;
         return readBuffer(sh2_int_mask, pos, size);
     }
 

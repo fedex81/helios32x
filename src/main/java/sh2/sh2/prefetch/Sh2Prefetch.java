@@ -158,7 +158,7 @@ public class Sh2Prefetch {
                 break;
             }
         }
-        //force a cache fill by fetching the current PC
+        //force a cache effect by fetching the current PC
         if (isCache) {
             sh2Cache.cacheMemoryRead(pc, Size.WORD);
         }
@@ -188,11 +188,13 @@ public class Sh2Prefetch {
         } else {
             boolean isCache = pc >>> PC_CACHE_AREA_SHIFT == 0;
             if (isCache && cache[cpu.ordinal()].getCacheContext().cacheEn > 0) {
-                //NOTE necessary to trigger the cache hit on fetch
+                //NOTE necessary to trigger the cache effect on fetch
                 int cached = cache[cpu.ordinal()].cacheMemoryRead(pc, Size.WORD);
                 assert cached == pctx.prefetchWords[pcDeltaWords];
             }
         }
+        //TODO sh2 has 2 words prefecth, this should always be 0 ??
+        //TODO vr broken
 //		pfTotal++;
         S32xMemAccessDelay.addReadCpuDelay(pctx.memAccessDelay);
         int pres = pctx.prefetchWords[pcDeltaWords];
@@ -270,21 +272,25 @@ public class Sh2Prefetch {
         }
     }
 
-    public void invalidateCachePrefetch(CpuDeviceAccess cpu, int addr, boolean force) {
-        final PrefetchContext p = prefetchContexts[cpu.ordinal()];
-        boolean isCacheAddress = addr >>> PC_CACHE_AREA_SHIFT == 0;
-        assert isCacheAddress : cpu + "," + th(addr);
-        if (force) {
+    //TODO test
+    public void invalidateCachePrefetch(Sh2Cache.CacheInvalidateContext ctx) {
+        final PrefetchContext p = prefetchContexts[ctx.cpu.ordinal()];
+        boolean isCacheAddress = ctx.cacheReadAddr >>> PC_CACHE_AREA_SHIFT == 0;
+        assert isCacheAddress : ctx.cpu + "," + th(ctx.cacheReadAddr);
+        int start = p.prefetchPc;
+        int end = start + (p.pfMaxIndex << 1);
+        int lineStart = ctx.prevCacheAddr;
+        int lineEnd = lineStart + 16;
+        if (ctx.force || lineEnd >= start && lineStart <= end) {
             if (verbose) {
                 ParameterizedMessage pm = new ParameterizedMessage(
-                        "{} cache enable invalidate, set PF dirty at pc {}, window: [{},{}]",
-                        cpu, th(p.prefetchPc), th(p.start), th(p.end));
+                        "{} invalidateCachePrefetch forced={} from addr: {}, cacheLine: [{},{}]" +
+                                ", invalidate PF at pc {}, window: [{},{}]",
+                        ctx.cpu, ctx.force, th(ctx.cacheReadAddr), th(lineStart), th(lineEnd), th(p.prefetchPc), th(start), th(end));
+                System.out.println(pm.getFormattedMessage());
                 LOG.info(pm.getFormattedMessage());
-//                System.out.println(pm.getFormattedMessage());
             }
             p.dirty = true;
-        } else {
-            checkPrefetch(cpu, cpu, addr, 0, Size.WORD);
         }
     }
 }

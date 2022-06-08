@@ -96,8 +96,7 @@ public class DivUnit implements Sh2Device {
         int rem = (int) (dvd - quot * dvsr);
         if (verbose) LOG.info(String.format(formatDiv, cpu, 32, dvd, dvsr, quot, quot, rem));
         writeBuffersLong(regs, DIV_DVDNTH, DIV_DVDNTUH, rem);
-        writeBuffersLong(regs, DIV_DVDNT, DIV_DVDNTL, quot);
-        writeBufferLong(regs, DIV_DVDNTUL, quot);
+        writeBuffersLong(regs, DIV_DVDNT, DIV_DVDNTL, DIV_DVDNTUL, quot);
     }
 
     private void handleOverflow(long quot, boolean divBy0, String msg) {

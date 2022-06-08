@@ -102,7 +102,7 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
     @Override
     protected final void printDebugMaybe(Sh2Context ctx) {
         final int n = ctx.cpuAccess.ordinal();
-        ctx.cycles -= fastDebug[n].isBusyLoop(ctx.PC & 0x0FFF_FFFF, ctx.opcode);
+        ctx.cycles -= fastDebug[n].isBusyLoop(ctx.PC, ctx.opcode);
         fastDebug[n].printDebugMaybe();
     }
 
@@ -112,7 +112,7 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
     //C0_00_0000 - C0_01_0000 CACHE AREA
     public static CpuFastDebug.CpuDebugContext createContext() {
         CpuFastDebug.CpuDebugContext ctx = new CpuFastDebug.CpuDebugContext();
-        ctx.pcAreas = new int[]{0, 2, 6, 0xC0};
+        ctx.pcAreas = new int[]{0, 2, 6, 0xC0, 0x20, 0x22, 0x26};
         ctx.pcAreasNumber = PC_AREAS;
         ctx.pcAreaSize = PC_AREA_SIZE;
         ctx.pcAreaShift = 24;

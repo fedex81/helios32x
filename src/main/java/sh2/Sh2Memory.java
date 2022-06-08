@@ -96,6 +96,7 @@ public final class Sh2Memory implements IMemory {
 					res = sh2MMREGS[cpuAccess.ordinal()].readDramMode(address & 0xFFFF, size);
 				} else {
 					LOG.error("{} read from addr: {}, {}", cpuAccess, th(address), size);
+					if (true) throw new RuntimeException();
 				}
 				break;
 			default:
@@ -163,8 +164,8 @@ public final class Sh2Memory implements IMemory {
 	}
 
 	@Override
-	public void invalidateCachePrefetch(CpuDeviceAccess cpu, int addr, boolean force) {
-		prefetch.invalidateCachePrefetch(cpu, addr, force);
+	public void invalidateCachePrefetch(CacheInvalidateContext ctx) {
+		prefetch.invalidateCachePrefetch(ctx);
 	}
 
 	@Override

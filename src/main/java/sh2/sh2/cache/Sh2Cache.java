@@ -16,7 +16,8 @@ import java.nio.ByteBuffer;
  */
 public interface Sh2Cache {
 
-    static final boolean SH2_ENABLE_CACHE = false; //Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "true"));
+    //TODO Metal Head needs cache false
+    static final boolean SH2_ENABLE_CACHE = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "true"));
 
     int CACHE_LINES = 64;
     int CACHE_BYTES_PER_LINE = 16;
@@ -59,6 +60,13 @@ public interface Sh2Cache {
         int enable; //u32
         int[] lru = new int[CACHE_LINES]; //u32
         Sh2CacheLine[][] way = new Sh2CacheLine[CACHE_WAYS][CACHE_LINES];
+    }
+
+    static class CacheInvalidateContext {
+        public S32xUtil.CpuDeviceAccess cpu;
+        public Sh2CacheLine line;
+        public int cacheReadAddr, prevCacheAddr;
+        public boolean force;
     }
 
     void cacheClear();

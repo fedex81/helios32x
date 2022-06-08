@@ -86,7 +86,7 @@ public class DmaFifo68k {
                 handleDreqCtlWrite68k(address, value, size);
                 break;
             case M68K_FIFO_REG:
-                handleFifoRegWrite68k(value);
+                handleFifoRegWrite68k(value, size);
                 break;
             case M68K_DREQ_LEN:
                 value &= M68K_DMA_FIFO_LEN_MASK;
@@ -106,6 +106,7 @@ public class DmaFifo68k {
     }
 
     private void handleDreqCtlWrite68k(int reg, int value, Size size) {
+        assert size != Size.LONG;
         boolean changed = writeBufferHasChanged(sysRegsMd, reg, value, size);
         if (changed) {
             int res = readBuffer(sysRegsMd, M68K_DMAC_CTRL.addr, Size.WORD);
@@ -123,7 +124,8 @@ public class DmaFifo68k {
         }
     }
 
-    private void handleFifoRegWrite68k(int value) {
+    private void handleFifoRegWrite68k(int value, Size size) {
+        assert size == Size.WORD;
         if (m68S) {
             if (!fifo.isFull()) {
                 fifo.push(value);
@@ -182,6 +184,7 @@ public class DmaFifo68k {
         if (regSpec == SH2_DREQ_CTRL) {
             return readBuffer(sysRegsSh2, address, size);
         } else if (regSpec == SH2_FIFO_REG) {
+            assert size == Size.WORD;
             int res = 0;
             if (m68S && !fifo.isEmpty()) {
                 res = fifo.pop();

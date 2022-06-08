@@ -85,9 +85,11 @@ public class DmaC implements Sh2Device {
         switch (regSpec) {
             case DMA_CHCR0:
             case DMA_CHCR1:
+                assert size == Size.LONG;
                 handleChannelControlWrite(regSpec.addr, value);
                 break;
             case DMA_DMAOR:
+                assert size == Size.LONG;
                 handleOperationRegWrite(value);
                 break;
         }

@@ -42,9 +42,14 @@ public class Md32x extends Genesis {
     static {
         ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "false"));
         ENABLE_PWM = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.enable", "true"));
+        //NOTE: for max compat use 1
         SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "64")); //64;
         Sh2Context.burstCycles = SH2_CYCLES_PER_STEP;
-//        System.setProperty("68k.debug", "true");
+//        System.setProperty("68k.debug", "false");
+//        System.setProperty("helios.68k.busy.loop", "false");
+//        if(System.getProperty("68k.debug").startsWith("t")) {
+//            System.setProperty("helios.68k.debug.mode", "0"); //0-NONE, 1-INST_ONLY, 2-NEW_INST_ONLY, 3-STATE
+//        }
 //        System.setProperty("z80.debug", "true");
 //        System.setProperty("sh2.master.debug", "true");
 //        System.setProperty("sh2.slave.debug", "true");
