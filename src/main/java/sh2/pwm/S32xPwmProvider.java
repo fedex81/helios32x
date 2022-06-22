@@ -1,12 +1,13 @@
 package sh2.pwm;
 
 import omegadrive.sound.PwmProvider;
-import omegadrive.sound.fm.ExternalAudioProvider;
-import omegadrive.sound.javasound.AbstractSoundManager;
+import omegadrive.sound.SoundProvider;
+import omegadrive.sound.fm.GenericAudioProvider;
 import omegadrive.util.RegionDetector;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import javax.sound.sampled.AudioFormat;
 import java.util.Arrays;
 
 import static omegadrive.util.Util.th;
@@ -17,12 +18,15 @@ import static sh2.pwm.Pwm.CYCLE_LIMIT;
  * <p>
  * Copyright 2022
  */
-public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvider {
+public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider {
 
     private static final Logger LOG = LogManager.getLogger(S32xPwmProvider.class.getSimpleName());
     private static final Warmup NO_WARMUP = new Warmup();
     private static final Warmup WARMUP = new Warmup();
     private static final boolean ENABLE = true;
+    public static AudioFormat pwmAudioFormat = new AudioFormat(SoundProvider.SAMPLE_RATE_HZ,
+            16, 2, true, false);
+
     private float sh2ClockMhz, scale = 0;
     private int cycle;
     private int fps;
@@ -45,7 +49,7 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
     }
 
     public S32xPwmProvider(RegionDetector.Region region) {
-        super(RegionDetector.Region.USA, AbstractSoundManager.audioFormat);
+        super(pwmAudioFormat);
         this.fps = region.getFps();
         this.sh2ClockMhz = region == RegionDetector.Region.EUROPE ? PAL_SH2CLOCK_MHZ : NTSC_SH2CLOCK_MHZ;
     }
@@ -55,7 +59,6 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
         float c = cycle;
         int pwmSamplesPerFrame = (int) (sh2ClockMhz / (fps * cycle));
         scale = (Short.MAX_VALUE << 1) / c;
-        int byteSamplesPerFrame = pwmSamplesPerFrame << 2;
         shouldPlay = cycle >= CYCLE_LIMIT;
         this.cycle = cycle;
         start();
@@ -64,6 +67,8 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
                     cycle, CYCLE_LIMIT, pwmSamplesPerFrame);
             stop();
         } else {
+            LOG.info("PWM cycle setting: {}, limit: {}, pwmSamplesPerFrame: {}",
+                    cycle, CYCLE_LIMIT, pwmSamplesPerFrame);
             warmup = WARMUP;
             warmup.reset();
             warmup.isWarmup = true;
@@ -71,6 +76,7 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
         }
     }
 
+    //NOTE source is running ~22khz
     @Override
     public void playSample(int left, int right) {
         if (!shouldPlay) {
@@ -89,9 +95,9 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
             sleft = (short) Math.min(Math.max(sleft, Short.MIN_VALUE), Short.MAX_VALUE);
             sright = (short) Math.min(Math.max(sright, Short.MIN_VALUE), Short.MAX_VALUE);
         }
-        short mono = (short) ((sleft >> 1) + (sright >> 1));
-        addMonoSample(mono);
-        addMonoSample(mono);
+        addStereoSample(sleft, sright);
+        addStereoSample(sleft, sright);
+        monoSamplesPush++;
     }
 
     @Override
@@ -102,6 +108,7 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
     int[] preFilter = new int[0];
     int[] prev = new int[2];
     static final double alpha = 0.995;
+    int monoSamplesFiller = 0, monoSamplesPull = 0, monoSamplesPush = 0;
 
     @Override
     public int updateStereo16(int[] buf_lr, int offset, int countMono) {
@@ -113,15 +120,19 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
             preFilter = buf_lr.clone();
         }
         int actualStereo = super.updateStereo16(preFilter, offset, countMono);
+        monoSamplesPull += actualStereo >> 1;
         if (actualStereo == 0) {
+            monoSamplesFiller += stereoSamples >> 1;
             Arrays.fill(buf_lr, 0, stereoSamples, 0);
             return stereoSamples;
         }
         if (actualStereo < stereoSamples) {
+//            LOG.info("Sample requested {}, available: {}", stereoSamples >> 1, actualStereo >> 1);
             for (int i = actualStereo; i < stereoSamples; i += 2) {
                 preFilter[i] = preFilter[actualStereo - 2];
                 preFilter[i + 1] = preFilter[actualStereo - 1];
             }
+            monoSamplesFiller += (stereoSamples - actualStereo) >> 1;
         }
         dcBlockerLpf(preFilter, buf_lr, prev, stereoSamples);
         doWarmup(buf_lr, stereoSamples);
@@ -164,11 +175,14 @@ public class S32xPwmProvider extends ExternalAudioProvider implements PwmProvide
 
     @Override
     public void newFrame() {
-        int len = queueLen.get();
-        if (len > 5000) {
-            LOG.warn("Pwm qLen: {}", len);
+        int monoLen = stereoQueueLen.get() >> 1;
+//        LOG.info("Pwm frame monoSamplesPush: {}, monoSamplesPull: {}, monoSampleFiller: {}, totMonoSamples: {}, monoQLen: {}",
+//                monoSamplesPush, monoSamplesPull, monoSamplesFiller, monoSamplesPull + monoSamplesFiller, monoLen);
+        monoSamplesFiller = monoSamplesPull = monoSamplesPush = 0;
+        if (monoLen > 5000) {
+            LOG.warn("Pwm monoQLen: {}", monoLen);
             sampleQueue.clear();
-            queueLen.set(0);
+            stereoQueueLen.set(0);
         }
     }
 

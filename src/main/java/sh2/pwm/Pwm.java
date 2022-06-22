@@ -180,16 +180,16 @@ public class Pwm implements StepDevice {
     private void writeFifo(RegSpecS32x regSpec, int reg, Fifo<Integer> fifo, int value, Size size) {
         if (fifo.isFull()) {
             //TODO replace oldest
-//            LOG.warn("PWM FIFO push when fifo full");
-//            dreq();
+//            LOG.warn("PWM FIFO push when fifo full: {} {}", th(value), size);
             return;
         }
-        fifo.push(value & 0xFFF);
+        fifo.push((value - 1) & 0xFFF);
         updateFifoRegs();
     }
 
     public int readFifo(RegSpecS32x regSpec, Fifo<Integer> fifo) {
         if (fifo.isEmpty()) {
+//            LOG.warn("PWM FIFO pop when fifo empty: {}", th(latestPwmValue));
             return latestPwmValue;
         }
         latestPwmValue = fifo.pop();

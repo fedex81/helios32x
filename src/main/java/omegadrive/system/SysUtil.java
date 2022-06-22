@@ -148,10 +148,10 @@ public class SysUtil {
                 }
                 break;
             case NES:
-                fmProvider = new NesSoundWrapper(region, AbstractSoundManager.audioFormat);
+                fmProvider = new NesSoundWrapper(region);
                 break;
             case GB:
-                fmProvider = new GbSoundWrapper(region, AbstractSoundManager.audioFormat);
+                fmProvider = new GbSoundWrapper(region);
                 break;
             default:
                 break;

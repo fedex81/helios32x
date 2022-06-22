@@ -65,8 +65,8 @@ public class DmaFifoTest {
         toggle68kFifo(false);
         setupSh2(masterDmac, data.length);
         toggle68kFifo(true);
-        masterDmac.write(DMA_CHCR0, 0x44E1, Size.WORD);
-        masterDmac.write(DMA_DMAOR, 1, Size.WORD);
+        masterDmac.write(DMA_CHCR0, 0x44E1, Size.LONG);
+        masterDmac.write(DMA_DMAOR, 1, Size.LONG);
 
         int pushFifo = r.nextInt(10) + 2;
         System.out.println("pushFifo: " + pushFifo);
@@ -93,8 +93,8 @@ public class DmaFifoTest {
         setupSh2(masterDmac, data.length);
         toggle68kFifo(true);
         //start Sh2 side
-        masterDmac.write(DMA_CHCR0, 0x44E1, Size.WORD);
-        masterDmac.write(DMA_DMAOR, 1, Size.WORD);
+        masterDmac.write(DMA_CHCR0, 0x44E1, Size.LONG);
+        masterDmac.write(DMA_DMAOR, 1, Size.LONG);
         Assertions.assertFalse(masterDmac.getDmaChannelSetup()[0].dreqLevel);
         Assertions.assertFalse(isFifoFull());
         Assertions.assertTrue(isFifoEmpty());
@@ -133,8 +133,8 @@ public class DmaFifoTest {
     }
 
     private void setupSh2(DmaC dmac, int len) {
-        dmac.write(DMA_CHCR0, 0, Size.WORD);
-        dmac.write(DMA_CHCR0, 0x44E0, Size.WORD);
+        dmac.write(DMA_CHCR0, 0, Size.LONG);
+        dmac.write(DMA_CHCR0, 0x44E0, Size.LONG);
         dmac.write(DMA_TCR0, len, Size.LONG);
         dmac.write(DMA_SAR0, SH2_CACHE_THROUGH_OFFSET + FIFO_OFFSET, Size.LONG);
         dmac.write(DMA_DAR0, SH2_START_SDRAM, Size.LONG);
