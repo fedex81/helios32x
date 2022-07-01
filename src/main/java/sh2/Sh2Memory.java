@@ -120,9 +120,6 @@ public final class Sh2Memory implements IMemory {
 			case CACHE_DATA_ARRAY_H3: //vr
 				//NOTE: vf slave writes to sysReg 0x401c, 0x4038 via cache
 				cache[cpuAccess.ordinal()].cacheMemoryWrite(address, val, size);
-				if (cache[cpuAccess.ordinal()].getCacheContext().cacheEn == 0) {
-					prefetch.dataWrite(cpuAccess, address, val, size);
-				}
 				break;
 			case CACHE_THROUGH_H3:
 				if (address >= START_DRAM && address < END_DRAM) {

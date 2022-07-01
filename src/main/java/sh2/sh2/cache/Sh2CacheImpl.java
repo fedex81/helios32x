@@ -77,6 +77,7 @@ public class Sh2CacheImpl implements Sh2Cache {
             ca.lru[entry] = 0;
             for (int way = 0; way < CACHE_WAYS; way++) {
                 final Sh2CacheLine line = ca.way[way][entry];
+                invalidatePrefetcher(line, entry, -1);
                 line.v = 0;
                 line.tag = 0;
                 Arrays.fill(line.data, 0);
@@ -102,7 +103,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                     }
                 }
                 assert cpu == Md32xRuntimeData.getAccessTypeExt();
-                return readMemoryUncached(memory, addr, size);
+                return readMemoryUncachedNoDelay(memory, addr, size);
             case CACHE_DATA_ARRAY:
                 assert ca.enable == 0 || ctx.twoWay == 1;
                 return readBuffer(data_array, addr & (DATA_ARRAY_MASK >> ctx.twoWay), size);
@@ -270,10 +271,6 @@ public class Sh2CacheImpl implements Sh2Cache {
         //cache enable does not clear the cache
         if (prevCaEn != ctx.cacheEn) {
             if (verbose) LOG.info("Cache enable: " + ctx.cacheEn);
-            if (ctx.cacheEn > 0) {
-                invalidCtx.force = true;
-                memory.invalidateCachePrefetch(invalidCtx);
-            }
         }
     }
 
@@ -341,21 +338,24 @@ public class Sh2CacheImpl implements Sh2Cache {
         Md32xRuntimeData.addCpuDelayExt(4);
         assert cpu == Md32xRuntimeData.getAccessTypeExt();
         for (int i = 0; i < 16; i += 4) {
-            //TODO this adds 4*access delays, should probably not do that?
-            int val = readMemoryUncached(memory, (addr & 0xFFFFFFF0) + i, Size.LONG);
+            int val = readMemoryUncachedNoDelay(memory, (addr & 0xFFFFFFF0) + i, Size.LONG);
             setCachedData(data, i & LINE_MASK, val, Size.LONG);
         }
     }
 
     private void invalidatePrefetcher(Sh2CacheLine line, int entry, int addr) {
         if (line.v > 0) {
+            boolean force = addr < 0;
             invalidCtx.line = line;
-            invalidCtx.force = false;
-            invalidCtx.cacheReadAddr = addr;
             invalidCtx.prevCacheAddr = line.tag | (entry << ENTRY_SHIFT);
-            if (verbose)
-                LOG.info("{} Cache miss on addr {} , replacing line {}", cpu, th(addr), th(line.tag));
-            memory.invalidateCachePrefetch(invalidCtx);
+            int nonCached = readMemoryUncachedNoDelay(memory, invalidCtx.prevCacheAddr, Size.WORD);
+            invalidCtx.cacheReadAddr = force ? invalidCtx.prevCacheAddr : addr;
+            int cached = getCachedData(line.data, invalidCtx.prevCacheAddr & LINE_MASK, Size.WORD);
+            if (force || nonCached != cached) {
+                if (verbose)
+                    LOG.info("{} Cache miss on addr {} , replacing line {}", cpu, th(addr), th(line.tag));
+                memory.invalidateCachePrefetch(invalidCtx);
+            }
         }
     }
 

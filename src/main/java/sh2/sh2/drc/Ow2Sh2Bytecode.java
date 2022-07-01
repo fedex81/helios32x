@@ -31,7 +31,7 @@ public class Ow2Sh2Bytecode {
 
     private final static Logger LOG = LogManager.getLogger(Ow2Sh2Bytecode.class.getSimpleName());
 
-    public static final boolean addPrintStuff = false, printMissingOpcodes = true;
+    public static final boolean addPrintStuff = false, printMissingOpcodes = false;
     private static final Set<String> instSet = new HashSet<>();
 
     /**

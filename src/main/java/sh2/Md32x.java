@@ -41,7 +41,8 @@ public class Md32x extends Genesis {
 
     //TODO vr needs ~ 1/6
     private static final double SH2_CYCLE_DIV = 1 / Double.parseDouble(System.getProperty("helios.32x.sh2.cycle.div", "3.0"));
-    private final static int[] sh2CycleTable = new int[0x200];
+    private static final int CYCLE_TABLE_LEN_MASK = 0xFF;
+    private final static int[] sh2CycleTable = new int[CYCLE_TABLE_LEN_MASK + 1];
 
     static {
         ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "false"));
@@ -112,16 +113,16 @@ public class Md32x extends Genesis {
         if (nextMSh2Cycle == counter) {
             rt.setAccessType(MASTER);
             sh2.run(masterCtx);
-            assert (masterCtx.cycles_ran & (sh2CycleTable.length - 1)) == masterCtx.cycles_ran : masterCtx.cycles_ran;
+            assert (masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == masterCtx.cycles_ran : masterCtx.cycles_ran;
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
-            nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran & 0xFF];
+            nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK];
         }
         if (nextSSh2Cycle == counter) {
             rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
-            assert (slaveCtx.cycles_ran & (sh2CycleTable.length - 1)) == slaveCtx.cycles_ran : slaveCtx.cycles_ran;
+            assert (slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == slaveCtx.cycles_ran : slaveCtx.cycles_ran;
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
-            nextSSh2Cycle += sh2CycleTable[slaveCtx.cycles_ran & 0xFF];
+            nextSSh2Cycle += sh2CycleTable[slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK];
         }
     }
 

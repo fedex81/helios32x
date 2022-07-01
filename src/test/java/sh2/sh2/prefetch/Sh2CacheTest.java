@@ -3,7 +3,6 @@ package sh2.sh2.prefetch;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import s32x.MarsRegTestUtil;
 import sh2.MarsLauncherHelper;
@@ -21,6 +20,7 @@ import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.SH2_START_SDRAM;
 import static sh2.dict.S32xDict.SH2_START_SDRAM_CACHE;
+import static sh2.sh2.Sh2Disassembler.*;
 
 /**
  * Federico Berti
@@ -55,6 +55,7 @@ public class Sh2CacheTest {
             memory.write16(SH2_START_SDRAM | i, NOP);
         }
         memory.write16(SH2_START_SDRAM | 4, JMP_0); //JMP 0
+        memory.write16(SH2_START_SDRAM | 0x18, JMP_0); //JMP 0
     }
 
     @Test
@@ -138,11 +139,11 @@ public class Sh2CacheTest {
         checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr, Size.WORD);
     }
 
-    //TODO fix
-    @Disabled
+    protected int[] cacheReplace_cacheAddr = new int[5];
+
     @Test
     public void testCacheReplace() {
-        int[] cacheAddr = new int[5];
+        int[] cacheAddr = cacheReplace_cacheAddr;
         int[] noCacheAddr = new int[5];
 
         //i == 0 -> this region should be all NOPs
@@ -151,10 +152,16 @@ public class Sh2CacheTest {
             noCacheAddr[i] = SH2_START_SDRAM | cacheAddr[i];
         }
 
-        memory.write16(cacheAddr[1], CLRMAC);
-        memory.write16(cacheAddr[2], SETT);
-        memory.write16(cacheAddr[3], JMP_0);
-        memory.write16(cacheAddr[4], ILLEGAL);
+        //NOTE: add a jump instruction to stop the DRC
+        memory.write16(cacheAddr[0] + 14, JMP);
+        memory.write16(cacheAddr[1], ADD0);
+        memory.write16(cacheAddr[1] + 14, JMP);
+        memory.write16(cacheAddr[2], CLRMAC);
+        memory.write16(cacheAddr[2] + 14, JMP);
+        memory.write16(cacheAddr[3], SETT);
+        memory.write16(cacheAddr[3] + 14, JMP);
+        memory.write16(cacheAddr[4], MACL);
+        memory.write16(cacheAddr[4] + 14, JMP);
 
         enableCache(MASTER, true);
         enableCache(SLAVE, true);
@@ -167,35 +174,33 @@ public class Sh2CacheTest {
         Md32xRuntimeData.setAccessTypeExt(MASTER);
 
         //fetch triggers a cache refill on cacheAddr
-        Sh2.FetchResult ft = new Sh2.FetchResult();
-        ft.pc = cacheAddr[0];
-        memory.fetch(ft, MASTER);
+        doCacheFetch(MASTER, cacheAddr[0]);
 
         checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr[0], Size.WORD);
 
         //cache miss, fill the ways, then replace the entry
         memory.read(cacheAddr[1], Size.WORD);
         checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr[0], Size.WORD);
-        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[1], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(ADD0), noCacheAddr[1], Size.WORD);
 
         memory.read(cacheAddr[2], Size.WORD);
         checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr[0], Size.WORD);
-        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[1], Size.WORD);
-        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr[2], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(ADD0), noCacheAddr[1], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[2], Size.WORD);
 
         memory.read(cacheAddr[3], Size.WORD);
         checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr[0], Size.WORD);
-        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[1], Size.WORD);
-        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr[2], Size.WORD);
-        checkCacheContents(MASTER, Optional.of(JMP_0), noCacheAddr[3], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(ADD0), noCacheAddr[1], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[2], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr[3], Size.WORD);
 
         memory.read(cacheAddr[4], Size.WORD);
         //[0] has been replaced in cache
         checkCacheContents(MASTER, Optional.empty(), noCacheAddr[0], Size.WORD);
-        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[1], Size.WORD);
-        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr[2], Size.WORD);
-        checkCacheContents(MASTER, Optional.of(JMP_0), noCacheAddr[3], Size.WORD);
-        checkCacheContents(MASTER, Optional.of(ILLEGAL), cacheAddr[4], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(ADD0), noCacheAddr[1], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr[2], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr[3], Size.WORD);
+        checkCacheContents(MASTER, Optional.of(MACL), cacheAddr[4], Size.WORD);
     }
 
     @Test
@@ -267,5 +272,12 @@ public class Sh2CacheTest {
         Md32xRuntimeData.setAccessTypeExt(cpu);
         int val = memory.read(addr, size);
         Assertions.assertEquals(expVal, val, cpu + "," + th(addr));
+    }
+
+    protected Sh2.FetchResult doCacheFetch(CpuDeviceAccess cpu, int cacheAddr) {
+        Sh2.FetchResult ft = new Sh2.FetchResult();
+        ft.pc = cacheAddr;
+        memory.fetch(ft, cpu);
+        return ft;
     }
 }
