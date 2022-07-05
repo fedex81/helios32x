@@ -2,13 +2,10 @@ plugins {
     id 'java'
 }
 
-compileJava {
-    options.release = 11
-    //options.compilerArgs += ["-Xlint:deprecation", "-Xlint:unchecked"]
-}
-
 def dateString = getDate()
 group 'com.fbdev.helios'
+
+assert JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_17) : "Java 17 or newer is required"
 
 //version dateString
 version dateString + '-SNAPSHOT'
@@ -115,8 +112,8 @@ task packageDistribution(type: Zip) {
 
     from "$buildDir/packageDir"
     doLast {
-        println("Creating package: " + packageDistribution.getArchiveName() +
-                ", folder: " + packageDistribution.getDestinationDir())
+        println("Creating package: " + getArchiveFileName().getOrNull() +
+                ", folder: " + getDestinationDirectory().getOrNull())
     }
 }
 
