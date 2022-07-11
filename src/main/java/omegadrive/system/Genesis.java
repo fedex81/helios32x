@@ -144,8 +144,6 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
                 cycleDelay = cpu.runInstruction() + Md32xRuntimeData.resetCpuDelayExt();
             }
             //interrupts are processed after the current instruction
-            //TODO check: interrupt shouldnt be processed when 68k is frozen but are
-            //TODO prcessed when 68k is stopped
             if (isRunning) {
                 bus.handleVdpInterrupts68k();
             }

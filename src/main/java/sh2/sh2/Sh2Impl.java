@@ -12,6 +12,7 @@ import sh2.sh2.drc.Ow2Sh2BlockRecompiler;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import static omegadrive.util.Util.th;
+import static sh2.Md32x.SH2_ENABLE_DRC;
 import static sh2.sh2.prefetch.Sh2Prefetcher.Sh2Block.INVALID_BLOCK;
 
 /*
@@ -42,8 +43,6 @@ import static sh2.sh2.prefetch.Sh2Prefetcher.Sh2Block.INVALID_BLOCK;
 public class Sh2Impl implements Sh2 {
 
 	private final static Logger LOG = LogManager.getLogger(Sh2Impl.class.getSimpleName());
-
-	public static final boolean SH2_ENABLE_DRC = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
 
 	protected Sh2Context ctx;
 	protected IMemory memory;

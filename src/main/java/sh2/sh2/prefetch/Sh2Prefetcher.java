@@ -9,11 +9,14 @@ import sh2.sh2.Sh2.FetchResult;
 import sh2.sh2.Sh2Impl;
 import sh2.sh2.Sh2Instructions;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
+import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.drc.Ow2Sh2BlockRecompiler;
 
 import java.nio.ByteBuffer;
+import java.util.List;
 
 import static omegadrive.util.Util.th;
+import static sh2.Md32x.SH2_ENABLE_DRC;
 import static sh2.sh2.Sh2Instructions.generateInst;
 
 /**
@@ -36,6 +39,12 @@ public interface Sh2Prefetcher {
 
     default void dataWrite(CpuDeviceAccess cpu, int addr, int val, Size size) {
     }
+
+    List<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int address);
+
+    void invalidateAllPrefetch(CpuDeviceAccess cpuDeviceAccess);
+
+    void invalidateCachePrefetch(Sh2Cache.CacheInvalidateContext ctx);
 
     public static class Sh2BlockUnit extends Sh2InstructionWrapper {
         public Sh2BlockUnit next;
@@ -118,7 +127,7 @@ public interface Sh2Prefetcher {
         }
 
         public void stage2() {
-            if (Sh2Impl.SH2_ENABLE_DRC) {
+            if (SH2_ENABLE_DRC) {
                 assert drcContext != null;
                 stage2Drc = Ow2Sh2BlockRecompiler.getInstance().createDrcClass(this, drcContext);
             }

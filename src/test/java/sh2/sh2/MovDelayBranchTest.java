@@ -55,6 +55,7 @@ public class MovDelayBranchTest {
         int expR1 = 0xF0;
         int cnt = 0;
         do {
+            ctx.cycles = 1;
             sh2.run(ctx);
             cnt++;
         } while (cnt < 2);
@@ -80,6 +81,7 @@ public class MovDelayBranchTest {
         int expR1 = 0xF0;
         int cnt = 0;
         do {
+            ctx.cycles = 1;
             sh2.run(ctx);
             cnt++;
         } while (cnt < 2);

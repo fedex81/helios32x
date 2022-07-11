@@ -17,8 +17,6 @@ import java.nio.ByteBuffer;
  */
 public interface Sh2Cache {
 
-    static final boolean SH2_ENABLE_CACHE = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "true"));
-
     int CACHE_LINES = 64;
     int CACHE_BYTES_PER_LINE = 16;
     int CACHE_WAYS = 4;
@@ -66,6 +64,7 @@ public interface Sh2Cache {
         public S32xUtil.CpuDeviceAccess cpu;
         public Sh2CacheLine line;
         public int cacheReadAddr, prevCacheAddr;
+        public boolean force;
     }
 
     void cacheClear();

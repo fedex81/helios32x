@@ -10,11 +10,15 @@ import sh2.sh2.Sh2;
 import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.cache.Sh2CacheImpl;
 import sh2.sh2.prefetch.Sh2Prefetch;
+import sh2.sh2.prefetch.Sh2PrefetchSimple;
+import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import java.nio.ByteBuffer;
 import java.util.List;
 
 import static omegadrive.util.Util.th;
+import static sh2.Md32x.SH2_ENABLE_CACHE;
+import static sh2.Md32x.SH2_ENABLE_DRC;
 import static sh2.S32xUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
@@ -31,7 +35,7 @@ public final class Sh2Memory implements IMemory {
 	public ByteBuffer rom;
 
 	public final Sh2Cache[] cache = new Sh2Cache[2];
-	private final Sh2Prefetch prefetch;
+	private final Sh2Prefetcher prefetch;
 
 	public int romSize, romMask;
 
@@ -51,7 +55,7 @@ public final class Sh2Memory implements IMemory {
 
 		romSize = rom.capacity();
 		romMask = Util.getRomMask(romSize);
-		prefetch = new Sh2Prefetch(this, cache, drcCtx);
+		prefetch = SH2_ENABLE_DRC ? new Sh2Prefetch(this, cache, drcCtx) : new Sh2PrefetchSimple(this, cache);
 		LOG.info("Rom size: {}, mask: {}", th(romSize), th(romMask));
 	}
 

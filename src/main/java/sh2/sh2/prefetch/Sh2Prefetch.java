@@ -25,6 +25,7 @@ import java.util.Map;
 
 import static omegadrive.cpu.CpuFastDebug.NOT_VISITED;
 import static omegadrive.util.Util.th;
+import static sh2.Md32x.SH2_ENABLE_PREFETCH;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.SH2_CACHE_THROUGH_OFFSET;
@@ -43,8 +44,6 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     private static final Logger LOG = LogManager.getLogger(Sh2Prefetch.class.getSimpleName());
 
-    //DoomRes needs false
-    public static final boolean SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
     //TODO fix
     public static final int SH2_DRC_MAX_BLOCK_LEN = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.maxBlockLen", "2000"));
 

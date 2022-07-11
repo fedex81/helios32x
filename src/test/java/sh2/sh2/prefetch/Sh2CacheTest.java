@@ -16,6 +16,7 @@ import sh2.sh2.cache.Sh2CacheImpl;
 import java.util.Optional;
 
 import static omegadrive.util.Util.th;
+import static sh2.Md32x.SH2_ENABLE_CACHE;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.SH2_START_SDRAM;
@@ -41,6 +42,7 @@ public class Sh2CacheTest {
 
     @BeforeEach
     public void before() {
+        Assertions.assertTrue(SH2_ENABLE_CACHE);
         rom = new byte[0x1000];
         lc = MarsRegTestUtil.createTestInstance(rom);
         lc.s32XMMREG.aden = 1;

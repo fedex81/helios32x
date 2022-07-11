@@ -32,7 +32,7 @@ public class Md32x extends Genesis {
 
     private static final Logger LOG = LogManager.getLogger(Md32x.class.getSimpleName());
 
-    private static final boolean ENABLE_FM, ENABLE_PWM;
+    public static final boolean ENABLE_FM, ENABLE_PWM, SH2_ENABLE_DRC, SH2_ENABLE_CACHE, SH2_ENABLE_PREFETCH;
 
     //23.01Mhz NTSC
     protected final static int SH2_CYCLES_PER_STEP;
@@ -45,6 +45,9 @@ public class Md32x extends Genesis {
     private final static int[] sh2CycleTable = new int[CYCLE_TABLE_LEN_MASK + 1];
 
     static {
+        SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
+        SH2_ENABLE_DRC = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "false"));
+        SH2_ENABLE_CACHE = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "true"));
         ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "false"));
         ENABLE_PWM = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.enable", "true"));
         SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "64")); //64
@@ -115,14 +118,14 @@ public class Md32x extends Genesis {
             sh2.run(masterCtx);
             assert (masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == masterCtx.cycles_ran : masterCtx.cycles_ran;
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
-            nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK];
+            nextMSh2Cycle += Math.max(1, sh2CycleTable[masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK]);
         }
         if (nextSSh2Cycle == counter) {
             rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
             assert (slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == slaveCtx.cycles_ran : slaveCtx.cycles_ran;
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
-            nextSSh2Cycle += sh2CycleTable[slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK];
+            nextSSh2Cycle += Math.max(1, sh2CycleTable[slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK]);
         }
     }
 
