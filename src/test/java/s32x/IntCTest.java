@@ -3,6 +3,7 @@ package s32x;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import sh2.MarsLauncherHelper;
 import sh2.Md32xRuntimeData;
@@ -228,6 +229,8 @@ public class IntCTest {
     }
 
     @Test
+    @Disabled
+    //TODO not supported
     public void testTwoInterruptsOneOnChip() {
         Sh2MMREG s = lc.mDevCtx.sh2MMREG;
         //DIV interrupt prio 12

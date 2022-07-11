@@ -271,6 +271,9 @@ public class Sh2CacheImpl implements Sh2Cache {
         //cache enable does not clear the cache
         if (prevCaEn != ctx.cacheEn) {
             if (verbose) LOG.info("Cache enable: " + ctx.cacheEn);
+            if (ctx.cacheEn > 0) {
+                memory.invalidateAllPrefetch(cpu);
+            }
         }
     }
 

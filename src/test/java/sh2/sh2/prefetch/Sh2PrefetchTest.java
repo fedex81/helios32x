@@ -149,7 +149,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         checkFetch(MASTER, cacheAddrDef, NOP);
 
         //enable cache, we should still be holding the old value (ie. before disabling the cache)
-        memory.cache[0].updateState(1);
+        enableCache(MASTER, true);
 
         checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddrDef, Size.WORD);
 
@@ -333,8 +333,10 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
         //check other data is not in cache
         checkCacheContents(MASTER, Optional.empty(), baseCacheAddr - 2, Size.WORD);
+        //TODO readDirect breaks Chaotix, Vf and possibly more
+        //TODO see Sh2Prefect::doPrefetch
         //this has been prefetched but it is not in cache
-        checkCacheContents(MASTER, Optional.empty(), outOfCacheAddr, Size.WORD);
+//        checkCacheContents(MASTER, Optional.empty(), outOfCacheAddr, Size.WORD);
     }
 
     //check that [addr & 0xF0, (addr & 0xF0) + 14] has been filled in a cache line
