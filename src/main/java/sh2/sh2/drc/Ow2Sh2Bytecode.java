@@ -84,11 +84,11 @@ public class Ow2Sh2Bytecode {
         Label elseLbl = new Label();
         Label doneLbl = new Label();
         pushSh2ContextAndField(ctx, "SR", int.class);
-        pushIntConstStack(ctx, flagT);
+        emitPushConstToStack(ctx, flagT);
         ctx.mv.visitInsn(IAND);
         ctx.mv.visitJumpInsn(isBF ? IFNE : IFEQ, elseLbl);
         pushSh2Context(ctx);
-        pushIntConstStack(ctx, pcJump);
+        emitPushConstToStack(ctx, pcJump);
         popSh2ContextIntField(ctx, "PC");
         subCyclesExt(ctx, ctx.sh2Inst.cyclesBranch);
         if (isDelaySlot) {
@@ -97,7 +97,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitJumpInsn(GOTO, doneLbl);
         ctx.mv.visitLabel(elseLbl);
         pushSh2Context(ctx);
-        pushIntConstStack(ctx, ctx.pc + 2);
+        emitPushConstToStack(ctx, ctx.pc + 2);
         popSh2ContextIntField(ctx, "PC");
         subCyclesExt(ctx, ctx.sh2Inst.cycles);
         ctx.mv.visitLabel(doneLbl);
@@ -120,7 +120,7 @@ public class Ow2Sh2Bytecode {
 
         //PC = PC + d
         pushSh2Context(ctx);
-        pushIntConstStack(ctx, ctx.pc + d);
+        emitPushConstToStack(ctx, ctx.pc + d);
         popSh2ContextIntField(ctx, "PC");
         subCyclesExt(ctx, ctx.sh2Inst.cycles);
 
@@ -132,7 +132,7 @@ public class Ow2Sh2Bytecode {
 
         //PC = reg[n] + (pc + 4)
         pushSh2Context(ctx);
-        pushIntConstStack(ctx, ctx.pc + 4);
+        emitPushConstToStack(ctx, ctx.pc + 4);
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
         ctx.mv.visitInsn(IADD);
@@ -152,11 +152,11 @@ public class Ow2Sh2Bytecode {
 
         //PR = pc + 4;
         pushSh2Context(ctx);
-        pushIntConstStack(ctx, ctx.pc + 4);
+        emitPushConstToStack(ctx, ctx.pc + 4);
         popSh2ContextIntField(ctx, "PR");
         //PC = pc + d;
         pushSh2Context(ctx);
-        pushIntConstStack(ctx, ctx.pc + d);
+        emitPushConstToStack(ctx, ctx.pc + d);
         popSh2ContextIntField(ctx, "PC");
         subCyclesExt(ctx, ctx.sh2Inst.cycles);
 
@@ -168,12 +168,12 @@ public class Ow2Sh2Bytecode {
 
         //PR = pc + 4;
         pushSh2Context(ctx);
-        pushIntConstStack(ctx, ctx.pc + 4);
+        emitPushConstToStack(ctx, ctx.pc + 4);
         popSh2ContextIntField(ctx, "PR");
 
         //PC = reg[n] + (pc + 4)
         pushSh2Context(ctx);
-        pushIntConstStack(ctx, ctx.pc + 4);
+        emitPushConstToStack(ctx, ctx.pc + 4);
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
         ctx.mv.visitInsn(IADD);
@@ -192,7 +192,7 @@ public class Ow2Sh2Bytecode {
     public static void CLRMAC(BytecodeContext ctx) {
         pushSh2Context(ctx);
         pushSh2Context(ctx);
-        pushIntConstStack(ctx, 0);
+        emitPushConstToStack(ctx, 0);
         ctx.mv.visitInsn(DUP_X1);
         popSh2ContextIntField(ctx, "MACH");
         popSh2ContextIntField(ctx, "MACL");
@@ -202,7 +202,7 @@ public class Ow2Sh2Bytecode {
         pushSh2Context(ctx);
         ctx.mv.visitInsn(DUP);
         pushSR(ctx);
-        pushIntConstStack(ctx, ~flagT);
+        emitPushConstToStack(ctx, ~flagT);
         ctx.mv.visitInsn(IAND);
         popSR(ctx);
     }
@@ -231,7 +231,7 @@ public class Ow2Sh2Bytecode {
         int i = (byte) (ctx.opcode & 0xFF);
         pushRegStack(ctx, 0);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, i);
+        emitPushConstToStack(ctx, i);
         cmpInternal(ctx, IF_ICMPNE);
 
     }
@@ -271,12 +271,12 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
         ctx.mv.visitInsn(I2L);
-        pushLongConstStack(ctx, 0xFFFF_FFFFL);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFFL);
         ctx.mv.visitInsn(LAND);
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
         ctx.mv.visitInsn(I2L);
-        pushLongConstStack(ctx, 0xFFFF_FFFFL);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFFL);
         ctx.mv.visitInsn(LAND);
         ctx.mv.visitInsn(LCMP);
         cmpInternal(ctx, cmpOpcode);
@@ -297,7 +297,7 @@ public class Ow2Sh2Bytecode {
         pushSh2Context(ctx); //then branch
         ctx.mv.visitInsn(DUP);
         pushSR(ctx);
-        pushIntConstStack(ctx, flagT);
+        emitPushConstToStack(ctx, flagT);
         ctx.mv.visitInsn(IOR);
         popSR(ctx);
         ctx.mv.visitJumpInsn(GOTO, endLabel); //then branch end
@@ -305,7 +305,7 @@ public class Ow2Sh2Bytecode {
         pushSh2Context(ctx); //else branch
         ctx.mv.visitInsn(DUP);
         pushSR(ctx);
-        pushIntConstStack(ctx, ~flagT);
+        emitPushConstToStack(ctx, ~flagT);
         ctx.mv.visitInsn(IAND);
         popSR(ctx); //else branch end
         ctx.mv.visitLabel(endLabel);
@@ -319,7 +319,7 @@ public class Ow2Sh2Bytecode {
         pushSh2Context(ctx);
         ctx.mv.visitInsn(DUP);
         pushSR(ctx);
-        pushIntConstStack(ctx, ~(flagM | flagQ | flagT));
+        emitPushConstToStack(ctx, ~(flagM | flagQ | flagT));
         ctx.mv.visitInsn(IAND);
         popSR(ctx);
 
@@ -329,19 +329,19 @@ public class Ow2Sh2Bytecode {
         pushSR(ctx);
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, 31);
+        emitPushConstToStack(ctx, 31);
         ctx.mv.visitInsn(IUSHR);
 //        pushIntConstStack(ctx ,1);  // &1 can be skipped
 //        ctx.mv.visitInsn(IAND);
-        pushIntConstStack(ctx, posQ);
+        emitPushConstToStack(ctx, posQ);
         ctx.mv.visitInsn(ISHL);
 
         //  OR (((regs[11] >>> 31) & 1) << posM)
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, 31);
+        emitPushConstToStack(ctx, 31);
         ctx.mv.visitInsn(IUSHR);
-        pushIntConstStack(ctx, posM);
+        emitPushConstToStack(ctx, posM);
         ctx.mv.visitInsn(ISHL);
         ctx.mv.visitInsn(IOR);
 
@@ -351,7 +351,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
         ctx.mv.visitInsn(IXOR);
-        pushIntConstStack(ctx, 31);
+        emitPushConstToStack(ctx, 31);
         ctx.mv.visitInsn(IUSHR);
 //        pushIntConstStack(ctx , posT); // << 0 can be skipped
 //        ctx.mv.visitInsn(ISHL);
@@ -369,7 +369,7 @@ public class Ow2Sh2Bytecode {
         pushSh2Context(ctx);
         ctx.mv.visitInsn(DUP);
         pushSR(ctx);
-        pushIntConstStack(ctx, ~(flagQ | flagM | flagT));
+        emitPushConstToStack(ctx, ~(flagQ | flagM | flagT));
         ctx.mv.visitInsn(IAND);
         popSR(ctx);
 
@@ -443,7 +443,7 @@ public class Ow2Sh2Bytecode {
         sh2PushReg15(ctx);
         sh2PushReg15(ctx);
         pushSh2ContextAndField(ctx, "VBR", int.class);
-        pushIntConstStack(ctx, ILLEGAL_INST_VN << 2);
+        emitPushConstToStack(ctx, ILLEGAL_INST_VN << 2);
         ctx.mv.visitInsn(IADD);
         readMem(ctx, Size.LONG);
         ctx.mv.visitFieldInsn(PUTFIELD, Type.getInternalName(Sh2Context.class), "PC", intDesc);
@@ -466,7 +466,7 @@ public class Ow2Sh2Bytecode {
         int n = RN(ctx.opcode);
         //PR = PC + 4
         pushSh2Context(ctx);
-        pushIntConstStack(ctx, ctx.pc + 4);
+        emitPushConstToStack(ctx, ctx.pc + 4);
         popSh2ContextIntField(ctx, "PR");
 
         //PC = reg[n]
@@ -551,17 +551,17 @@ public class Ow2Sh2Bytecode {
         int refIdx = ctx.mv.newLocal(Type.INT_TYPE);
         assert !ctx.drcCtx.sh2Ctx.delaySlot;
         Label endLabel = new Label();
-        pushIntConstStack(ctx, pcRef);
+        emitPushConstToStack(ctx, pcRef);
         ctx.mv.visitVarInsn(ISTORE, refIdx);
         pushSh2ContextAndField(ctx, "delaySlot", boolean.class);
         ctx.mv.visitJumpInsn(IFEQ, endLabel);
         //else { ref = ((ctx.delayPC + 2) & 0xfffffffc) + (d << 2);}
         pushSh2ContextAndField(ctx, "delaySlot", boolean.class);
-        pushIntConstStack(ctx, 2);
+        emitPushConstToStack(ctx, 2);
         ctx.mv.visitInsn(IADD);
-        pushIntConstStack(ctx, 0xfffffffc);
+        emitPushConstToStack(ctx, 0xfffffffc);
         ctx.mv.visitInsn(IAND);
-        pushIntConstStack(ctx, dShift);
+        emitPushConstToStack(ctx, dShift);
         ctx.mv.visitInsn(IADD);
         ctx.mv.visitVarInsn(ISTORE, refIdx);
         ctx.mv.visitLabel(endLabel);
@@ -702,7 +702,7 @@ public class Ow2Sh2Bytecode {
         int n = RN(ctx.opcode);
         pushRegStack(ctx, n);
         pushSh2ContextAndField(ctx, "SR", int.class);
-        pushIntConstStack(ctx, flagT);
+        emitPushConstToStack(ctx, flagT);
         ctx.mv.visitInsn(IAND);
         ctx.mv.visitInsn(IASTORE);
 
@@ -829,7 +829,7 @@ public class Ow2Sh2Bytecode {
 
         pushSh2Context(ctx);
         sh2PopReg15(ctx);
-        pushIntConstStack(ctx, SR_MASK);
+        emitPushConstToStack(ctx, SR_MASK);
         ctx.mv.visitInsn(IAND);
         popSh2ContextIntField(ctx, "SR");
         subCyclesExt(ctx, ctx.sh2Inst.cycles);
@@ -975,24 +975,24 @@ public class Ow2Sh2Bytecode {
 
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, 0xFFFF0000);
+        emitPushConstToStack(ctx, 0xFFFF0000);
         ctx.mv.visitInsn(IAND);
         ctx.mv.visitVarInsn(ISTORE, temp0Idx);
 
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, 0xFF);
+        emitPushConstToStack(ctx, 0xFF);
         ctx.mv.visitInsn(IAND);
-        pushIntConstStack(ctx, 8);
+        emitPushConstToStack(ctx, 8);
         ctx.mv.visitInsn(ISHL);
         ctx.mv.visitVarInsn(ISTORE, temp1Idx);
 
         pushRegStack(ctx, n);
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, 0xFF00);
+        emitPushConstToStack(ctx, 0xFF00);
         ctx.mv.visitInsn(IAND);
-        pushIntConstStack(ctx, 8);
+        emitPushConstToStack(ctx, 8);
         ctx.mv.visitInsn(ISHR);
         ctx.mv.visitInsn(IASTORE);
 
@@ -1013,13 +1013,13 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, n);
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, 16);
+        emitPushConstToStack(ctx, 16);
         ctx.mv.visitInsn(ISHL);
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, 16);
+        emitPushConstToStack(ctx, 16);
         ctx.mv.visitInsn(IUSHR);
-        pushIntConstStack(ctx, 0xFFFF);
+        emitPushConstToStack(ctx, 0xFFFF);
         ctx.mv.visitInsn(IAND);
         ctx.mv.visitInsn(IOR);
         ctx.mv.visitInsn(IASTORE);
@@ -1043,7 +1043,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
         ctx.mv.visitVarInsn(ILOAD, valIdx);
-        pushIntConstStack(ctx, 0x80);
+        emitPushConstToStack(ctx, 0x80);
         ctx.mv.visitInsn(IOR);
         ctx.mv.visitInsn(I2B);
         writeMem(ctx, Size.BYTE);
@@ -1111,7 +1111,7 @@ public class Ow2Sh2Bytecode {
         int i = ((ctx.opcode >> 0) & 0xff);
         pushRegStack(ctx, 0);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, i);
+        emitPushConstToStack(ctx, i);
         ctx.mv.visitInsn(IAND);
         cmpInternal(ctx, IFNE);
 
@@ -1125,7 +1125,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(IALOAD);
         ctx.mv.visitInsn(IADD);
         readMem(ctx, Size.BYTE);
-        pushIntConstStack(ctx, i);
+        emitPushConstToStack(ctx, i);
         ctx.mv.visitInsn(IAND);
         cmpInternal(ctx, IFNE);
     }
@@ -1150,15 +1150,15 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, n);
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, 0xffff0000);
+        emitPushConstToStack(ctx, 0xffff0000);
         ctx.mv.visitInsn(IAND);
-        pushIntConstStack(ctx, 16);
+        emitPushConstToStack(ctx, 16);
         ctx.mv.visitInsn(IUSHR);
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, 0xffff);
+        emitPushConstToStack(ctx, 0xffff);
         ctx.mv.visitInsn(IAND);
-        pushIntConstStack(ctx, 16);
+        emitPushConstToStack(ctx, 16);
         ctx.mv.visitInsn(ISHL);
         ctx.mv.visitInsn(IOR);
         ctx.mv.visitInsn(IASTORE);
@@ -1222,7 +1222,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, reg);
         ctx.mv.visitInsn(DUP2);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, i);
+        emitPushConstToStack(ctx, i);
         ctx.mv.visitInsn(opBytecode);
         ctx.mv.visitInsn(IASTORE);
 
@@ -1242,13 +1242,13 @@ public class Ow2Sh2Bytecode {
         pushMemory(ctx);
         ctx.mv.visitVarInsn(ILOAD, memAddrIdx);
         readMem(ctx, Size.BYTE);
-        pushCastFromInt(ctx, Size.BYTE);
+        emitCastIntToSize(ctx, Size.BYTE);
         ctx.mv.visitVarInsn(ISTORE, memValIdx);
 
         pushMemory(ctx);
         ctx.mv.visitVarInsn(ILOAD, memAddrIdx);
         ctx.mv.visitVarInsn(ILOAD, memValIdx);
-        pushIntConstStack(ctx, i);
+        emitPushConstToStack(ctx, i);
         ctx.mv.visitInsn(opBytecode);
         writeMem(ctx, Size.BYTE);
     }
@@ -1275,7 +1275,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
         if (mask > 0) {
-            pushIntConstStack(ctx, Sh2.SR_MASK);
+            emitPushConstToStack(ctx, Sh2.SR_MASK);
             ctx.mv.visitInsn(IAND);
         }
         popSh2ContextIntField(ctx, dest);
@@ -1289,7 +1289,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(IALOAD);
         readMem(ctx, Size.LONG);
         if (mask > 0) {
-            pushIntConstStack(ctx, mask);
+            emitPushConstToStack(ctx, mask);
             ctx.mv.visitInsn(IAND);
         }
         popSh2ContextIntField(ctx, src);
@@ -1319,16 +1319,16 @@ public class Ow2Sh2Bytecode {
         pushSh2Context(ctx);
         ctx.mv.visitInsn(DUP);
         pushSR(ctx);
-        pushIntConstStack(ctx, ~flagT);
+        emitPushConstToStack(ctx, ~flagT);
         ctx.mv.visitInsn(IAND);
 
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
         if (left) {
-            pushIntConstStack(ctx, 31);
+            emitPushConstToStack(ctx, 31);
             ctx.mv.visitInsn(IUSHR);
         }
-        pushIntConstStack(ctx, flagT);
+        emitPushConstToStack(ctx, flagT);
         ctx.mv.visitInsn(IAND);
         ctx.mv.visitInsn(IOR);
         popSR(ctx);
@@ -1336,11 +1336,11 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, n);
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, 1);
+        emitPushConstToStack(ctx, 1);
         ctx.mv.visitInsn(left ? ISHL : IUSHR);
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, 31);
+        emitPushConstToStack(ctx, 31);
         ctx.mv.visitInsn(left ? IUSHR : ISHL);
         ctx.mv.visitInsn(IOR);
         ctx.mv.visitInsn(IASTORE);
@@ -1367,23 +1367,23 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
         if (left) {
-            pushIntConstStack(ctx, 31);
+            emitPushConstToStack(ctx, 31);
             ctx.mv.visitInsn(IUSHR);
         }
-        pushIntConstStack(ctx, 1);
+        emitPushConstToStack(ctx, 1);
         ctx.mv.visitInsn(IAND);
         ctx.mv.visitVarInsn(ISTORE, highLowBit);
 
         pushRegStack(ctx, n);
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, 1);
+        emitPushConstToStack(ctx, 1);
         ctx.mv.visitInsn(left ? ISHL : IUSHR);
         pushSh2ContextAndField(ctx, "SR", int.class);
-        pushIntConstStack(ctx, flagT);
+        emitPushConstToStack(ctx, flagT);
         ctx.mv.visitInsn(IAND);
         if (!left) {
-            pushIntConstStack(ctx, 31);
+            emitPushConstToStack(ctx, 31);
             ctx.mv.visitInsn(ISHL);
         }
         ctx.mv.visitInsn(IOR);
@@ -1392,7 +1392,7 @@ public class Ow2Sh2Bytecode {
         pushSh2Context(ctx);
         ctx.mv.visitInsn(DUP);
         pushSR(ctx);
-        pushIntConstStack(ctx, ~flagT);
+        emitPushConstToStack(ctx, ~flagT);
         ctx.mv.visitInsn(IAND);
         ctx.mv.visitVarInsn(ILOAD, highLowBit);
         ctx.mv.visitInsn(IOR);
@@ -1416,16 +1416,16 @@ public class Ow2Sh2Bytecode {
         pushSh2Context(ctx);
         ctx.mv.visitInsn(DUP);
         pushSR(ctx);
-        pushIntConstStack(ctx, ~flagT);
+        emitPushConstToStack(ctx, ~flagT);
         ctx.mv.visitInsn(IAND);
 
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
         if (left) {
-            pushIntConstStack(ctx, 31);
+            emitPushConstToStack(ctx, 31);
             ctx.mv.visitInsn(IUSHR);
         }
-        pushIntConstStack(ctx, flagT);
+        emitPushConstToStack(ctx, flagT);
         ctx.mv.visitInsn(IAND);
         ctx.mv.visitInsn(IOR);
         popSR(ctx);
@@ -1433,7 +1433,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, n);
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, 1);
+        emitPushConstToStack(ctx, 1);
         ctx.mv.visitInsn(left ? ISHL : ISHR);
         ctx.mv.visitInsn(IASTORE);
 
@@ -1452,15 +1452,15 @@ public class Ow2Sh2Bytecode {
 
         pushSh2Context(ctx);
         pushSh2ContextAndField(ctx, "SR", int.class);
-        pushIntConstStack(ctx, ~flagT);
+        emitPushConstToStack(ctx, ~flagT);
         ctx.mv.visitInsn(IAND);
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
         if (left) {
-            pushIntConstStack(ctx, 31);
+            emitPushConstToStack(ctx, 31);
             ctx.mv.visitInsn(IUSHR);
         }
-        pushIntConstStack(ctx, 1);
+        emitPushConstToStack(ctx, 1);
         ctx.mv.visitInsn(IAND);
         ctx.mv.visitInsn(IOR);
         popSR(ctx);
@@ -1468,7 +1468,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(DUP2);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, 1);
+        emitPushConstToStack(ctx, 1);
         ctx.mv.visitInsn(left ? ISHL : IUSHR);
         ctx.mv.visitInsn(IASTORE);
 
@@ -1481,7 +1481,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, n);
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
-        pushCastFromInt(ctx, size);
+        emitCastIntToSize(ctx, size);
         ctx.mv.visitInsn(IASTORE);
 
     }
@@ -1507,7 +1507,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
         readMem(ctx, size);
-        pushCastFromInt(ctx, size);
+        emitCastIntToSize(ctx, size);
         ctx.mv.visitInsn(IASTORE);
 
     }
@@ -1520,20 +1520,20 @@ public class Ow2Sh2Bytecode {
         pushMemory(ctx);
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, d);
+        emitPushConstToStack(ctx, d);
         switch (size) {
             case WORD:
-                pushIntConstStack(ctx, 1);
+                emitPushConstToStack(ctx, 1);
                 ctx.mv.visitInsn(ISHL);
                 break;
             case LONG:
-                pushIntConstStack(ctx, 2);
+                emitPushConstToStack(ctx, 2);
                 ctx.mv.visitInsn(ISHL);
                 break;
         }
         ctx.mv.visitInsn(IADD);
         readMem(ctx, size);
-        pushCastFromInt(ctx, size);
+        emitCastIntToSize(ctx, size);
         ctx.mv.visitInsn(IASTORE);
 
     }
@@ -1557,14 +1557,14 @@ public class Ow2Sh2Bytecode {
         pushMemory(ctx);
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, d);
+        emitPushConstToStack(ctx, d);
         switch (size) {
             case WORD:
-                pushIntConstStack(ctx, 1);
+                emitPushConstToStack(ctx, 1);
                 ctx.mv.visitInsn(ISHL);
                 break;
             case LONG:
-                pushIntConstStack(ctx, 2);
+                emitPushConstToStack(ctx, 2);
                 ctx.mv.visitInsn(ISHL);
                 break;
         }
@@ -1586,7 +1586,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(IADD);
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
-        pushCastFromInt(ctx, size);
+        emitCastIntToSize(ctx, size);
         writeMem(ctx, size);
 
     }
@@ -1602,7 +1602,7 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitInsn(IALOAD);
         ctx.mv.visitInsn(IADD);
         readMem(ctx, size);
-        pushCastFromInt(ctx, size);
+        emitCastIntToSize(ctx, size);
         ctx.mv.visitInsn(IASTORE);
 
     }
@@ -1625,10 +1625,10 @@ public class Ow2Sh2Bytecode {
 //            pushIntConstStack(ctx, offset);
 //            ctx.mv.visitInsn(IADD);
         } else {
-            pushIntConstStack(ctx, memAddr);
+            emitPushConstToStack(ctx, memAddr);
         }
         readMem(ctx, size);
-        pushCastFromInt(ctx, size);
+        emitCastIntToSize(ctx, size);
         ctx.mv.visitInsn(IASTORE);
 
     }
@@ -1658,13 +1658,13 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
         readMem(ctx, size);
-        pushCastFromInt(ctx, size);
+        emitCastIntToSize(ctx, size);
         ctx.mv.visitInsn(IASTORE);
         if (n != m) {
             pushRegStack(ctx, m);
             ctx.mv.visitInsn(DUP2);
             ctx.mv.visitInsn(IALOAD);
-            pushIntConstStack(ctx, postIncVal);
+            emitPushConstToStack(ctx, postIncVal);
             ctx.mv.visitInsn(IADD);
             ctx.mv.visitInsn(IASTORE);
         }
@@ -1677,12 +1677,12 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, 0);
         pushMemory(ctx);
         pushSh2ContextAndField(ctx, "GBR", int.class);
-        pushIntConstStack(ctx, d);
-        pushIntConstStack(ctx, shiftVal);
+        emitPushConstToStack(ctx, d);
+        emitPushConstToStack(ctx, shiftVal);
         ctx.mv.visitInsn(ISHL);
         ctx.mv.visitInsn(IADD);
         readMem(ctx, size);
-        pushCastFromInt(ctx, size);
+        emitCastIntToSize(ctx, size);
         ctx.mv.visitInsn(IASTORE);
 
     }
@@ -1692,7 +1692,7 @@ public class Ow2Sh2Bytecode {
         int gbrOffset = (ctx.opcode & 0xff) << v;
         pushMemory(ctx);
         pushSh2ContextAndField(ctx, "GBR", int.class);
-        pushIntConstStack(ctx, gbrOffset);
+        emitPushConstToStack(ctx, gbrOffset);
         ctx.mv.visitInsn(IADD);
         pushRegStack(ctx, 0);
         ctx.mv.visitInsn(IALOAD);
@@ -1722,7 +1722,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, reg);
         ctx.mv.visitInsn(DUP2);
         ctx.mv.visitInsn(IALOAD);
-        pushIntConstStack(ctx, val);
+        emitPushConstToStack(ctx, val);
         ctx.mv.visitInsn(ISUB);
         ctx.mv.visitInsn(IASTORE);
     }
@@ -1730,7 +1730,7 @@ public class Ow2Sh2Bytecode {
     public static void pushRegStack(BytecodeContext ctx, int reg) {
         ctx.mv.visitVarInsn(ALOAD, 0); //this
         ctx.mv.visitFieldInsn(GETFIELD, ctx.classDesc, "regs", intArrayDesc);
-        pushIntConstStack(ctx, reg);
+        emitPushConstToStack(ctx, reg);
     }
 
 
@@ -1759,7 +1759,7 @@ public class Ow2Sh2Bytecode {
 
         pushSh2Context(ctx);
         ctx.mv.visitVarInsn(LLOAD, varIndex);
-        pushIntConstStack(ctx, 32);
+        emitPushConstToStack(ctx, 32);
         ctx.mv.visitInsn(LUSHR);
         ctx.mv.visitLdcInsn(-1L);
         ctx.mv.visitInsn(LAND);
@@ -1786,7 +1786,7 @@ public class Ow2Sh2Bytecode {
         pushSh2Context(ctx);
         ctx.mv.visitInsn(DUP);
         ctx.mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2Context.class), "cycles", intDesc);
-        pushIntConstStack(ctx, cycles);
+        emitPushConstToStack(ctx, cycles);
         ctx.mv.visitInsn(ISUB);
         popSh2ContextIntField(ctx, "cycles");
     }
@@ -1803,11 +1803,11 @@ public class Ow2Sh2Bytecode {
         Label topForLbl = new Label();
         Label doneLbl = new Label();
 
-        pushIntConstStack(ctx, 0);
+        emitPushConstToStack(ctx, 0);
         ctx.mv.visitVarInsn(ISTORE, iIdx);
         ctx.mv.visitLabel(topForLbl);
         ctx.mv.visitVarInsn(ILOAD, iIdx);
-        pushIntConstStack(ctx, limit);
+        emitPushConstToStack(ctx, limit);
         ctx.mv.visitJumpInsn(IF_ICMPGE, doneLbl);
         deviceStep(ctx);
         ctx.mv.visitIincInsn(iIdx, 1);

@@ -571,7 +571,7 @@ public class Ow2Sh2Helper {
                 Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(String.class)));
     }
 
-    private static void printField(Sh2Prefetch.BytecodeContext ctx, String name, Class<?> clazz) {
+    private static void emitPrintField(Sh2Prefetch.BytecodeContext ctx, String name, Class<?> clazz) {
         if (!addPrintStuff) {
             return;
         }
@@ -582,11 +582,11 @@ public class Ow2Sh2Helper {
                 Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(clazz)));
     }
 
-    public static void pushLongConstStack(Sh2Prefetch.BytecodeContext ctx, long val) {
+    public static void emitPushLongConstToStack(Sh2Prefetch.BytecodeContext ctx, long val) {
         ctx.mv.visitLdcInsn(val);
     }
 
-    public static void pushIntConstStack(Sh2Prefetch.BytecodeContext ctx, int val) {
+    public static void emitPushConstToStack(Sh2Prefetch.BytecodeContext ctx, int val) {
         if (val >= 0 && val <= 5) {
             ctx.mv.visitInsn(ICONST_0 + val);
         } else if (val >= Byte.MIN_VALUE && val <= Byte.MAX_VALUE) {
@@ -606,7 +606,7 @@ public class Ow2Sh2Helper {
      * short s = (short)d
      * }
      */
-    public static void pushCastFromInt(Sh2Prefetch.BytecodeContext ctx, Size size) {
+    public static void emitCastIntToSize(Sh2Prefetch.BytecodeContext ctx, Size size) {
         switch (size) {
             case BYTE:
                 ctx.mv.visitInsn(I2B);

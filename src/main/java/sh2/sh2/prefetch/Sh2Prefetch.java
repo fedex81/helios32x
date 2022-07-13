@@ -245,7 +245,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private PcInfoWrapper get(int pc, CpuDeviceAccess cpu) {
         PcInfoWrapper[] area = ((PcInfoWrapper[][]) pcInfoWrapperMS[cpu.ordinal()])[pc >>> PC_AREA_SHIFT];
 //        assert (pc & pcAreaMaskMap[pc >>> PC_AREA_SHIFT]) == (pc & 0xFFFFFF) : th(pc) + "," + th(pcAreaMaskMap[pc >>> PC_AREA_SHIFT]);
-        return area[pc & pcAreaMaskMap[pc >>> PC_AREA_SHIFT]];
+            return area[pc & pcAreaMaskMap[pc >>> PC_AREA_SHIFT]];
     }
 
     private PcInfoWrapper getOrCreate(int pc, CpuDeviceAccess cpu) {
@@ -345,7 +345,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             }
             checkAddress(CpuDeviceAccess.cdaValues[i], addr, val, size);
             boolean isCacheEnabled = cache[i].getCacheContext().cacheEn > 0;
-            if (!isCacheEnabled) {
+            if (!isCacheEnabled && !isCacheArray) {
                 int otherAddr = isWriteThrough ? addr & 0xFFF_FFFF : addr | SH2_CACHE_THROUGH_OFFSET;
                 checkAddress(CpuDeviceAccess.cdaValues[i], otherAddr, val, size);
             }
