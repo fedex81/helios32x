@@ -44,8 +44,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     private static final Logger LOG = LogManager.getLogger(Sh2Prefetch.class.getSimpleName());
 
-    //TODO fix
-    public static final int SH2_DRC_MAX_BLOCK_LEN = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.maxBlockLen", "2000"));
+    //TODO fix, see VF
+    public static final int SH2_DRC_MAX_BLOCK_LEN = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.maxBlockLen", "40"));
 
     private static final boolean SH2_REUSE_FETCH_DATA = true; //TODO vr requires false
     //NOTE vf is rewriting code so much that setting this to false slows it down
@@ -151,11 +151,11 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             }
             bytePos += 2;
             currentPc += 2;
-        } while (currentPc <= pcLimit);
+        } while (currentPc < pcLimit);
         block.prefetchWords = Ints.toArray(opcodes);
         block.prefetchLenWords = block.prefetchWords.length;
         block.end = block.start + ((block.prefetchLenWords - 1) << 1);
-        if (verbose) LOG.info("{} prefetch at pc: {}\n{}", cpu, th(pc),
+        if (verbose) LOG.info("{} prefetch at pc: {}, len: {}\n{}", cpu, th(pc), block.prefetchLenWords,
                 instToString(pc, generateInst(block.prefetchWords), cpu));
         return block;
     }

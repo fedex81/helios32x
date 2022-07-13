@@ -1793,6 +1793,17 @@ public class Ow2Sh2Bytecode {
 
     /**
      * {
+     * ctx.PC = val;
+     * }
+     */
+    public static void setPcExt(BytecodeContext ctx, int pc) {
+        pushSh2Context(ctx);
+        ctx.mv.visitLdcInsn(pc);
+        ctx.mv.visitFieldInsn(PUTFIELD, Type.getInternalName(Sh2Context.class), "PC", intDesc);
+    }
+
+    /**
+     * {
      * for (int i = 0; i < limit; i++) {
      * sh2MMREG.deviceStep(bc);
      * }

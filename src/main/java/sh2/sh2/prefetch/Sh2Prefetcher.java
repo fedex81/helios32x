@@ -58,7 +58,7 @@ public interface Sh2Prefetcher {
     public static class Sh2Block {
 
         public static final Sh2Block INVALID_BLOCK = new Sh2Block();
-        private static final int MAX_INST_LEN = (Sh2Prefetch.SH2_DRC_MAX_BLOCK_LEN >> 1) + 1;
+        public static final int MAX_INST_LEN = (Sh2Prefetch.SH2_DRC_MAX_BLOCK_LEN >> 1);
 
         public Sh2BlockUnit[] inst;
         public Sh2BlockUnit curr;
@@ -123,7 +123,8 @@ public interface Sh2Prefetcher {
             curr = inst[0];
             assert sbu.pc != 0;
             assert inst.length == MAX_INST_LEN ||
-                    (sbu.inst.isBranch || (inst[lastIdx - 1].inst.isBranchDelaySlot && !sbu.inst.isBranch)) : inst.length;
+                    (sbu.inst.isBranch || (inst[lastIdx - 1].inst.isBranchDelaySlot && !sbu.inst.isBranch)) :
+                    th(sbu.pc) + "," + inst.length;
         }
 
         public void stage2() {

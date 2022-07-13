@@ -186,6 +186,10 @@ public class Ow2Sh2BlockRecompiler {
                     break;
                 }
             }
+            //TODO reached the block len limit, needs to set the PC, this should be a flag in Sh2Block
+            if (limit == Sh2Prefetcher.Sh2Block.MAX_INST_LEN) {
+                Ow2Sh2Bytecode.setPcExt(ctx, block.inst[limit - 1].pc + 2);
+            }
             Ow2Sh2Bytecode.subCyclesExt(ctx, totCycles);
             Ow2Sh2Bytecode.deviceStepFor(ctx, limit);
             mv.visitInsn(RETURN);
