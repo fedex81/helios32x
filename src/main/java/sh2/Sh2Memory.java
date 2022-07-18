@@ -36,6 +36,7 @@ public final class Sh2Memory implements IMemory {
 
 	public final Sh2Cache[] cache = new Sh2Cache[2];
 	private final Sh2Prefetcher prefetch;
+	private MemAccessStats memAccessStats = MemAccessStats.NO_STATS;
 
 	public int romSize, romMask;
 
@@ -64,6 +65,9 @@ public final class Sh2Memory implements IMemory {
 		CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
 		address &= 0xFFFF_FFFF;
 		int res = 0;
+		if (SH2_MEM_ACCESS_STATS) {
+			memAccessStats.addMemHit(true, address, size);
+		}
 		switch ((address >>> CACHE_ADDRESS_BITS) & 0xFF) {
 			case CACHE_USE_H3:
 			case CACHE_PURGE_H3: //chaotix, bit 27,28 are ignored -> 4
@@ -117,6 +121,9 @@ public final class Sh2Memory implements IMemory {
 	public void write(int address, int val, Size size) {
 		CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
 		val &= size.getMask();
+		if (SH2_MEM_ACCESS_STATS) {
+			memAccessStats.addMemHit(false, address, size);
+		}
 		switch ((address >>> CACHE_ADDRESS_BITS) & 0xFF) {
 			case CACHE_USE_H3:
 			case CACHE_PURGE_H3:
