@@ -23,6 +23,9 @@ import java.nio.file.Paths;
 
 import static omegadrive.util.Util.th;
 import static org.objectweb.asm.Opcodes.*;
+import static sh2.sh2.drc.Ow2Sh2Helper.DRC_CLASS_FIELD.*;
+import static sh2.sh2.drc.Ow2Sh2Helper.SH2CTX_CLASS_FIELD.devices;
+import static sh2.sh2.drc.Ow2Sh2Helper.SH2_DRC_CTX_CLASS_FIELD.sh2Ctx;
 
 /**
  * Federico Berti
@@ -41,6 +44,8 @@ public class Ow2Sh2BlockRecompiler {
     public static final String intArrayDesc = Type.getDescriptor(int[].class);
     public static final String intDesc = Type.getDescriptor(int.class);
     public static final String noArgsNoRetDesc = "()V";
+    public static final String classConstructor = "<init>";
+    public static final String runMethodName = "run";
 
     private static Ow2Sh2BlockRecompiler current = null;
     private String token;
@@ -98,70 +103,59 @@ public class Ow2Sh2BlockRecompiler {
                 new String[]{Type.getInternalName(Runnable.class)});
         {
             //fields
-            cw.visitField(ACC_PRIVATE | ACC_FINAL, "regs", intArrayDesc, null, null).visitEnd();
-            cw.visitField(ACC_PRIVATE | ACC_FINAL, "opcodes", intArrayDesc, null, null).visitEnd();
-            cw.visitField(ACC_PRIVATE | ACC_FINAL, "sh2DrcContext", Type.getDescriptor(Sh2DrcContext.class), null, null).visitEnd();
-            cw.visitField(ACC_PRIVATE | ACC_FINAL, "sh2Context", Type.getDescriptor(Sh2Context.class), null, null).visitEnd();
-            cw.visitField(ACC_PRIVATE | ACC_FINAL, "sh2MMREG", Type.getDescriptor(Sh2MMREG.class), null, null).visitEnd();
-            cw.visitField(ACC_PRIVATE | ACC_FINAL, "memory", Type.getDescriptor(Sh2Memory.class), null, null).visitEnd();
-//            cw.visitField(ACC_PRIVATE, "cycles", intDesc, null, null).visitEnd();
-//            cw.visitField(ACC_PRIVATE, "pc", intDesc, null, null).visitEnd();
+            cw.visitField(ACC_PRIVATE | ACC_FINAL, regs.name(), intArrayDesc, null, null).visitEnd();
+            cw.visitField(ACC_PRIVATE | ACC_FINAL, opcodes.name(), intArrayDesc, null, null).visitEnd();
+            cw.visitField(ACC_PRIVATE | ACC_FINAL, sh2DrcContext.name(), Type.getDescriptor(Sh2DrcContext.class), null, null).visitEnd();
+            cw.visitField(ACC_PRIVATE | ACC_FINAL, sh2Context.name(), Type.getDescriptor(Sh2Context.class), null, null).visitEnd();
+            cw.visitField(ACC_PRIVATE | ACC_FINAL, sh2MMREG.name(), Type.getDescriptor(Sh2MMREG.class), null, null).visitEnd();
+            cw.visitField(ACC_PRIVATE | ACC_FINAL, memory.name(), Type.getDescriptor(Sh2Memory.class), null, null).visitEnd();
         }
         {
 
             // constructor
-            MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, "<init>",
+            MethodVisitor mv = cw.visitMethod(ACC_PUBLIC, classConstructor,
                     Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(int[].class), Type.getType(int[].class),
                             Type.getType(Sh2DrcContext.class)), null, null);
             mv.visitVarInsn(ALOAD, 0); // push `this` to the operand stack
-            mv.visitMethodInsn(INVOKESPECIAL, Type.getInternalName(Object.class), "<init>", noArgsNoRetDesc);// call the constructor of super class
+            mv.visitMethodInsn(INVOKESPECIAL, Type.getInternalName(Object.class), classConstructor, noArgsNoRetDesc);// call the constructor of super class
             {
-                //set regs
-                mv.visitVarInsn(ALOAD, 0); // push `this`
-                mv.visitVarInsn(ALOAD, 1); // push `regs`
-                mv.visitFieldInsn(PUTFIELD, blockClassDesc, "regs", intArrayDesc);
-
-                //set opcodes
-                mv.visitVarInsn(ALOAD, 0); // push `this`
-                mv.visitVarInsn(ALOAD, 2); // push `opcodes`
-                mv.visitFieldInsn(PUTFIELD, blockClassDesc, "opcodes", intArrayDesc);
-
-                //set sh2DrcContext
-                mv.visitVarInsn(ALOAD, 0); // push `this`
-                mv.visitVarInsn(ALOAD, 3); // push `sh2DrcContext`
-                mv.visitFieldInsn(PUTFIELD, blockClassDesc, "sh2DrcContext", Type.getDescriptor(Sh2DrcContext.class));
+                //set fields
+                setClassField(mv, blockClassDesc, 1, regs, intArrayDesc);
+                setClassField(mv, blockClassDesc, 2, opcodes, intArrayDesc);
+                setClassField(mv, blockClassDesc, 3, sh2DrcContext, Type.getDescriptor(Sh2DrcContext.class));
 
                 //set sh2Context
                 mv.visitVarInsn(ALOAD, 0); // push `this`
                 mv.visitVarInsn(ALOAD, 3); // push `sh2DrcContext`
-                mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2DrcContext.class), "sh2Ctx",
-                        Type.getDescriptor(Sh2Context.class));
-                mv.visitFieldInsn(PUTFIELD, blockClassDesc, "sh2Context", Type.getDescriptor(Sh2Context.class));
+                mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2DrcContext.class), sh2Ctx.name(), Type.getDescriptor(Sh2Context.class));
+                mv.visitFieldInsn(PUTFIELD, blockClassDesc, sh2Context.name(), Type.getDescriptor(Sh2Context.class));
 
                 //set sh2mmreg
                 mv.visitVarInsn(ALOAD, 0); // push `this`
                 mv.visitVarInsn(ALOAD, 3); // push `sh2DrcContext`
-                mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2DrcContext.class), "sh2Ctx",
+                mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2DrcContext.class), sh2Ctx.name(),
                         Type.getDescriptor(Sh2Context.class));
-                mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2Context.class), "devices",
+                mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2Context.class), devices.name(),
                         Type.getDescriptor(Sh2DeviceHelper.Sh2DeviceContext.class));
-                mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2DeviceHelper.Sh2DeviceContext.class), "sh2MMREG",
+                mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2DeviceHelper.Sh2DeviceContext.class),
+                        Ow2Sh2Helper.SH2_DEVICE_CTX_CLASS_FIELD.sh2MMREG.name(),
                         Type.getDescriptor(Sh2MMREG.class));
-                mv.visitFieldInsn(PUTFIELD, blockClassDesc, "sh2MMREG", Type.getDescriptor(Sh2MMREG.class));
+                mv.visitFieldInsn(PUTFIELD, blockClassDesc, sh2MMREG.name(), Type.getDescriptor(Sh2MMREG.class));
 
                 //set memory
                 mv.visitVarInsn(ALOAD, 0); // push `this`
                 mv.visitVarInsn(ALOAD, 3); // push `sh2DrcContext`
-                mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2DrcContext.class), "memory",
+                mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2DrcContext.class),
+                        Ow2Sh2Helper.SH2_DRC_CTX_CLASS_FIELD.memory.name(),
                         Type.getDescriptor(Sh2Memory.class));
-                mv.visitFieldInsn(PUTFIELD, blockClassDesc, "memory", Type.getDescriptor(Sh2Memory.class));
+                mv.visitFieldInsn(PUTFIELD, blockClassDesc, memory.name(), Type.getDescriptor(Sh2Memory.class));
             }
             mv.visitInsn(RETURN);
             mv.visitMaxs(0, 0);
             mv.visitEnd();
         }
         {
-            MethodVisitor mv = cw.visitMethod(ACC_PUBLIC | ACC_FINAL, "run", noArgsNoRetDesc, null, null);
+            MethodVisitor mv = cw.visitMethod(ACC_PUBLIC | ACC_FINAL, runMethodName, noArgsNoRetDesc, null, null);
             LocalVariablesSorter lvs = new LocalVariablesSorter(ACC_PUBLIC | ACC_FINAL, noArgsNoRetDesc, mv);
             int limit = block.prefetchWords.length;
             BytecodeContext ctx = new BytecodeContext();
@@ -200,6 +194,11 @@ public class Ow2Sh2BlockRecompiler {
         return cw.toByteArray();
     }
 
+    private static void setClassField(MethodVisitor mv, String classDesc, int varIndex, Ow2Sh2Helper.DRC_CLASS_FIELD field, String typeDesc) {
+        mv.visitVarInsn(ALOAD, 0); // push `this`
+        mv.visitVarInsn(ALOAD, varIndex); // push field
+        mv.visitFieldInsn(PUTFIELD, classDesc, field.name(), typeDesc);
+    }
 
     private static void setDrcContext(BytecodeContext ctx, Sh2BlockUnit sbu, boolean delaySlot) {
         ctx.opcode = sbu.opcode;

@@ -25,6 +25,7 @@ import java.util.Map;
 
 import static omegadrive.cpu.CpuFastDebug.NOT_VISITED;
 import static omegadrive.util.Util.th;
+import static sh2.Md32x.SH2_ENABLE_CACHE;
 import static sh2.Md32x.SH2_ENABLE_PREFETCH;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
@@ -384,6 +385,9 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     private void cacheOnFetch(int pc, int expOpcode, CpuDeviceAccess cpu) {
+        if (!SH2_ENABLE_CACHE) {
+            return;
+        }
         boolean isCache = pc >>> PC_CACHE_AREA_SHIFT == 0;
         if (isCache && cache[cpu.ordinal()].getCacheContext().cacheEn > 0) {
             //NOTE necessary to trigger the cache hit on fetch

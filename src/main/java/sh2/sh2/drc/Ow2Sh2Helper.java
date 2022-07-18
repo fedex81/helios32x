@@ -16,6 +16,7 @@ import static sh2.sh2.drc.Ow2Sh2BlockRecompiler.intDesc;
 import static sh2.sh2.drc.Ow2Sh2Bytecode.JSR;
 import static sh2.sh2.drc.Ow2Sh2Bytecode.NOP;
 import static sh2.sh2.drc.Ow2Sh2Bytecode.*;
+import static sh2.sh2.drc.Ow2Sh2Helper.SH2CTX_CLASS_FIELD.SR;
 
 /**
  * Federico Berti
@@ -25,6 +26,21 @@ import static sh2.sh2.drc.Ow2Sh2Bytecode.*;
 public class Ow2Sh2Helper {
 
     private final static Logger LOG = LogManager.getLogger(Ow2Sh2Helper.class.getSimpleName());
+
+    /**
+     * Boundaries between ASM generated code and normal code
+     */
+    public enum DRC_CLASS_FIELD {regs, opcodes, sh2DrcContext, sh2Context, sh2MMREG, memory}
+
+    public enum SH2CTX_CLASS_FIELD {PC, PR, SR, GBR, VBR, MACH, MACL, delaySlot, cycles, devices}
+
+    public enum SH2_DRC_CTX_CLASS_FIELD {sh2Ctx, memory}
+
+    public enum SH2_DEVICE_CTX_CLASS_FIELD {sh2MMREG}
+
+    public enum SH2MMREG_METHOD {deviceStep}
+
+    public enum SH2MEMORY_METHOD {read, write}
 
     //@formatter:off
     public static void createInst(Sh2Prefetch.BytecodeContext ctx) {
@@ -497,14 +513,14 @@ public class Ow2Sh2Helper {
      * A reference to Sh2Context should already be on the stack.
      */
     public static void popSR(Sh2Prefetch.BytecodeContext ctx) {
-        ctx.mv.visitFieldInsn(PUTFIELD, Type.getInternalName(Sh2Context.class), "SR", intDesc);
+        ctx.mv.visitFieldInsn(PUTFIELD, Type.getInternalName(Sh2Context.class), SR.name(), intDesc);
     }
 
     /**
      * Push Sh2Context::SR on the stack, a reference to Sh2Context should already be on the stack.
      */
     public static void pushSR(Sh2Prefetch.BytecodeContext ctx) {
-        pushField(ctx, Sh2Context.class, "SR", int.class);
+        pushField(ctx, Sh2Context.class, SR.name(), int.class);
     }
 
     public static void pushField(Sh2Prefetch.BytecodeContext ctx, Class<?> refClass, String fieldName, Class<?> fieldClass) {
@@ -513,12 +529,12 @@ public class Ow2Sh2Helper {
 
     public static void pushSh2Context(Sh2Prefetch.BytecodeContext ctx) {
         ctx.mv.visitVarInsn(ALOAD, 0); //this
-        ctx.mv.visitFieldInsn(GETFIELD, ctx.classDesc, "sh2Context", Type.getDescriptor(Sh2Context.class));
+        ctx.mv.visitFieldInsn(GETFIELD, ctx.classDesc, DRC_CLASS_FIELD.sh2Context.name(), Type.getDescriptor(Sh2Context.class));
     }
 
     public static void pushMemory(Sh2Prefetch.BytecodeContext ctx) {
         ctx.mv.visitVarInsn(ALOAD, 0); //this
-        ctx.mv.visitFieldInsn(GETFIELD, ctx.classDesc, "memory", Type.getDescriptor(Sh2Memory.class));
+        ctx.mv.visitFieldInsn(GETFIELD, ctx.classDesc, DRC_CLASS_FIELD.memory.name(), Type.getDescriptor(Sh2Memory.class));
     }
 
     public static void pushSh2ContextAndField(Sh2Prefetch.BytecodeContext ctx, String name, Class<?> clazz) {
