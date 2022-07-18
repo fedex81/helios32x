@@ -1,8 +1,8 @@
 package sh2.sh2.device;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.dict.Sh2Dict;
 
 import java.nio.ByteBuffer;
@@ -19,7 +19,7 @@ import static sh2.dict.Sh2Dict.RegSpec.*;
  **/
 public class FreeRunningTimer implements Sh2Device {
 
-    private static final Logger LOG = LogManager.getLogger(FreeRunningTimer.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(FreeRunningTimer.class.getSimpleName());
 
     /**
      * Looks like 32x sw is not using it as a timer.

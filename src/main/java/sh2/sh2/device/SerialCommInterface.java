@@ -1,8 +1,8 @@
 package sh2.sh2.device;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 
 import java.nio.ByteBuffer;
 
@@ -23,7 +23,7 @@ import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.SCI;
  */
 public class SerialCommInterface implements Sh2Device {
 
-    private static final Logger LOG = LogManager.getLogger(SerialCommInterface.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(SerialCommInterface.class.getSimpleName());
 
     static class SciData {
         public CpuDeviceAccess sender;

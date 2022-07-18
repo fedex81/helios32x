@@ -1,8 +1,8 @@
 package sh2.sh2.prefetch;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.Sh2MMREG;
 import sh2.sh2.Sh2.FetchResult;
@@ -26,7 +26,7 @@ import static sh2.sh2.Sh2Instructions.generateInst;
  */
 public interface Sh2Prefetcher {
 
-    static final Logger LOG = LogManager.getLogger(Sh2Prefetcher.class.getSimpleName());
+    static final Logger LOG = LogHelper.getLogger(Sh2Prefetcher.class.getSimpleName());
 
     static final int OPT_THRESHOLD = 0xFF; //needs to be (powerOf2 - 1)
     static final int OPT_THRESHOLD2 = 0x1FF; //needs to be (powerOf2 - 1)

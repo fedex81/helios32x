@@ -1,11 +1,11 @@
 package sh2.sh2.drc;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.LocalVariablesSorter;
+import org.slf4j.Logger;
 import sh2.Sh2MMREG;
 import sh2.Sh2Memory;
 import sh2.sh2.*;
@@ -32,7 +32,7 @@ import static sh2.sh2.drc.Ow2Sh2Helper.SH2CTX_CLASS_FIELD.*;
  */
 public class Ow2Sh2Bytecode {
 
-    private final static Logger LOG = LogManager.getLogger(Ow2Sh2Bytecode.class.getSimpleName());
+    private final static Logger LOG = LogHelper.getLogger(Ow2Sh2Bytecode.class.getSimpleName());
 
     public static final boolean addPrintStuff = false, printMissingOpcodes = false;
     private static final Set<String> instSet = new HashSet<>();

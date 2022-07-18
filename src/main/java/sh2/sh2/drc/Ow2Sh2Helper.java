@@ -1,9 +1,9 @@
 package sh2.sh2.drc;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.Type;
+import org.slf4j.Logger;
 import sh2.Sh2Memory;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.prefetch.Sh2Prefetch;
@@ -25,7 +25,7 @@ import static sh2.sh2.drc.Ow2Sh2Helper.SH2CTX_CLASS_FIELD.SR;
  */
 public class Ow2Sh2Helper {
 
-    private final static Logger LOG = LogManager.getLogger(Ow2Sh2Helper.class.getSimpleName());
+    private final static Logger LOG = LogHelper.getLogger(Ow2Sh2Helper.class.getSimpleName());
 
     /**
      * Boundaries between ASM generated code and normal code

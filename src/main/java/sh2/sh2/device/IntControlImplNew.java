@@ -1,8 +1,8 @@
 package sh2.sh2.device;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.dict.Sh2Dict.RegSpec;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 
@@ -29,7 +29,7 @@ import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.*;
  */
 public class IntControlImplNew implements IntControl {
 
-    private static final Logger LOG = LogManager.getLogger(IntControlImplNew.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(IntControlImplNew.class.getSimpleName());
 
     private static final boolean verbose = false;
 

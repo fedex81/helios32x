@@ -1,8 +1,8 @@
 package sh2.vdp.debug;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Util;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.vdp.MarsVdp;
 
 import java.io.IOException;
@@ -20,7 +20,7 @@ import java.nio.file.attribute.FileAttribute;
 //NOTE, do not move or change, tests depend on it
 public class DebugVideoRenderContext implements Serializable {
 
-    private static final transient Logger LOG = LogManager.getLogger(DebugVideoRenderContext.class.getSimpleName());
+    private static final transient Logger LOG = LogHelper.getLogger(DebugVideoRenderContext.class.getSimpleName());
 
     private static final long serialVersionUID = -2583260195705611811L;
     public MarsVdp.MarsVdpContext marsVdpContext;

@@ -1,8 +1,8 @@
 package sh2.sh2.device;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 
 import static sh2.dict.S32xDict.RegSpecS32x.SH2_FIFO_REG;
 
@@ -13,7 +13,7 @@ import static sh2.dict.S32xDict.RegSpecS32x.SH2_FIFO_REG;
  */
 public class DmaHelper {
 
-    private static final Logger LOG = LogManager.getLogger(DmaHelper.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(DmaHelper.class.getSimpleName());
 
     private static final int FIFO_REG_SH2 = 0x2000_4000 + SH2_FIFO_REG.addr;
 

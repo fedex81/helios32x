@@ -1,8 +1,8 @@
 package sh2;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.sh2.Sh2;
 import sh2.sh2.cache.Sh2Cache.CacheInvalidateContext;
 import sh2.sh2.prefetch.Sh2Prefetcher;
@@ -75,7 +75,7 @@ public interface IMemory extends Sh2Prefetcher {
 
     class MemAccessStats {
 
-        private static final Logger LOG = LogManager.getLogger(MemAccessStats.class.getSimpleName());
+        private static final Logger LOG = LogHelper.getLogger(MemAccessStats.class.getSimpleName());
 
         static final MemAccessStats NO_STATS = new MemAccessStats();
         //printCnt needs to be a multiple of 2

@@ -19,11 +19,11 @@
 
 package s32x.vdp.composite_render;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Util;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
+import org.slf4j.Logger;
 import s32x.util.TestFileUtil;
 
 import javax.swing.*;
@@ -104,7 +104,7 @@ public abstract class VdpRenderCompareTest {
 
     protected abstract boolean testCompareOne(Path datFile);
 
-    private final static Logger LOG = LogManager.getLogger(Util.class.getSimpleName());
+    private final static Logger LOG = LogHelper.getLogger(Util.class.getSimpleName());
 
     public static Serializable deserializeObject(byte[] data, int offset, int len) {
         if (data == null || data.length == 0 || offset < 0 || len > data.length) {

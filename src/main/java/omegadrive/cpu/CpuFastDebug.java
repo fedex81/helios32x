@@ -2,8 +2,8 @@ package omegadrive.cpu;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import omegadrive.util.LogHelper;
+import org.slf4j.Logger;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -19,7 +19,7 @@ import static omegadrive.util.Util.th;
  */
 public class CpuFastDebug {
 
-    private static final Logger LOG = LogManager.getLogger(CpuFastDebug.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(CpuFastDebug.class.getSimpleName());
 
     private static final boolean logToSysOut = Boolean.parseBoolean(System.getProperty("helios.logToSysOut", "false"));
 

@@ -2,12 +2,12 @@ package sh2.sh2.prefetch;
 
 import com.google.common.primitives.Ints;
 import omegadrive.cpu.CpuFastDebug.PcInfoWrapper;
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import omegadrive.util.Util;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.objectweb.asm.commons.LocalVariablesSorter;
+import org.slf4j.Logger;
+import sh2.BiosHolder;
 import sh2.IMemory;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.Sh2Memory;
@@ -43,7 +43,7 @@ import static sh2.sh2.Sh2Instructions.generateInst;
  */
 public class Sh2Prefetch implements Sh2Prefetcher {
 
-    private static final Logger LOG = LogManager.getLogger(Sh2Prefetch.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(Sh2Prefetch.class.getSimpleName());
 
     //TODO fix, see VF
     public static final int SH2_DRC_MAX_BLOCK_LEN = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.maxBlockLen", "40"));
@@ -68,7 +68,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private final Sh2DrcContext[] sh2Context;
 
     public final int romSize, romMask;
-    public final ByteBuffer[] bios;
+    public final BiosHolder.BiosData[] bios;
     public final ByteBuffer sdram;
     public final ByteBuffer rom;
 
@@ -190,7 +190,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                 break;
             case 0:
             case 0x20:
-                block.fetchBuffer = bios[cpu.ordinal()];
+                block.fetchBuffer = bios[cpu.ordinal()].buffer;
                 block.start = Math.max(0, block.start);
                 block.pcMasked = pc;
                 block.memAccessDelay = S32xMemAccessDelay.BOOT_ROM;
@@ -372,10 +372,10 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                         }
                     }
                     if (verbose) {
-                        ParameterizedMessage pm = new ParameterizedMessage("{} write at addr: {} val: {} {}, invalidate {} block with start: {} blockLen: {}",
+                        String s = LogHelper.formatMessage("{} write at addr: {} val: {} {}, invalidate {} block with start: {} blockLen: {}",
                                 cpu, th(addr), th(val), Size.WORD, cpu, th(b.prefetchPc), b.prefetchLenWords);
-                        LOG.info(pm.getFormattedMessage());
-                        //                    System.out.println(pm.getFormattedMessage());
+                        LOG.info(s);
+                        //                    System.out.println(s);
                     }
                     entry.getValue().invalidate();
                     entry.setValue(Sh2Block.INVALID_BLOCK);
@@ -410,11 +410,11 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                 int end = b.prefetchPc + (b.prefetchLenWords << 1);
                 if (lineEnd >= start && lineStart < end) {
                     if (verbose) {
-                        ParameterizedMessage pm = new ParameterizedMessage(
-                                "{} invalidateCachePrefetch {}, block with start: {} blockLen: {}",
-                                ctx.cpu, "cacheReadAddr: " + th(ctx.cacheReadAddr) + ", " + th(lineStart) + " - " + th(lineEnd), th(b.prefetchPc), b.prefetchLenWords);
-                        LOG.info(pm.getFormattedMessage());
-                        //                    System.out.println(pm.getFormattedMessage());
+                        String s = LogHelper.formatMessage("{} invalidateCachePrefetch {}, block with start: {} blockLen: {}",
+                                ctx.cpu, "cacheReadAddr: " + th(ctx.cacheReadAddr) + ", " + th(lineStart) + " - " +
+                                        th(lineEnd), th(b.prefetchPc), b.prefetchLenWords);
+                        LOG.info(s);
+                        //                    System.out.println(s);
                     }
                     entry.getValue().invalidate();
                     entry.setValue(Sh2Block.INVALID_BLOCK);

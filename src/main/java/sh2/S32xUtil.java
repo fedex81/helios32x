@@ -1,9 +1,9 @@
 package sh2;
 
 import omegadrive.Device;
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.dict.S32xDict;
 
 import java.nio.ByteBuffer;
@@ -19,7 +19,7 @@ import static sh2.dict.Sh2Dict.RegSpec;
  */
 public class S32xUtil {
 
-    private static final Logger LOG = LogManager.getLogger(S32xUtil.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(S32xUtil.class.getSimpleName());
 
     public static final int[] EMPTY_INT_ARRAY = {};
 

@@ -1,9 +1,9 @@
 package sh2.sh2.prefetch;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.slf4j.Logger;
+import sh2.BiosHolder;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
@@ -34,7 +34,7 @@ import static sh2.dict.S32xMemAccessDelay.SDRAM;
  */
 public class Sh2PrefetchSimple implements Sh2Prefetcher {
 
-    private static final Logger LOG = LogManager.getLogger(Sh2PrefetchSimple.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(Sh2PrefetchSimple.class.getSimpleName());
 
     private static final boolean SH2_PREFETCH_DEBUG = false;
 
@@ -79,7 +79,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
     private Sh2Cache[] cache;
 
     public final int romSize, romMask;
-    public final ByteBuffer[] bios;
+    public final BiosHolder.BiosData[] bios;
     public final ByteBuffer sdram;
     public final ByteBuffer rom;
 
@@ -127,7 +127,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
                 break;
             case 0:
             case 0x20:
-                pctx.buf = bios[cpu.ordinal()];
+                pctx.buf = bios[cpu.ordinal()].buffer;
                 pctx.start = Math.max(0, pctx.start);
                 int biosMask = pctx.buf.capacity() - 1;
                 pctx.end = pctx.end & biosMask;
@@ -288,11 +288,11 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         int end = start + (p.pfMaxIndex << 1);
         if (writeAddr >= start && writeAddr <= end) {
             if (verbose) {
-                ParameterizedMessage pm = new ParameterizedMessage("{} write at addr: {} val: {} {}, " +
-                        "{} reload PF at pc {}, window: [{},{}]",
+                String s = LogHelper.formatMessage("{} write at addr: {} val: {} {}, " +
+                                "{} reload PF at pc {}, window: [{},{}]",
                         cpuWrite, th(writeAddr), th(val), size, cpu, th(p.prefetchPc), th(start), th(end));
-                LOG.info(pm.getFormattedMessage());
-//                System.out.println(pm.getFormattedMessage());
+                LOG.info(s);
+//                System.out.println(s);
             }
             p.dirty = true;
         }
@@ -309,12 +309,12 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         int lineEnd = lineStart + 16;
         if (ctx.force || lineEnd >= start && lineStart <= end) {
             if (verbose) {
-                ParameterizedMessage pm = new ParameterizedMessage(
-                        "{} invalidateCachePrefetch forced={} from addr: {}, cacheLine: [{},{}]" +
+                String s = LogHelper.formatMessage("{} invalidateCachePrefetch forced={} from addr: {}, cacheLine: [{},{}]" +
                                 ", invalidate PF at pc {}, window: [{},{}]",
-                        ctx.cpu, ctx.force, th(ctx.cacheReadAddr), th(lineStart), th(lineEnd), th(p.prefetchPc), th(start), th(end));
-                System.out.println(pm.getFormattedMessage());
-                LOG.info(pm.getFormattedMessage());
+                        ctx.cpu, ctx.force, th(ctx.cacheReadAddr), th(lineStart), th(lineEnd), th(p.prefetchPc),
+                        th(start), th(end));
+//                System.out.println(s);
+                LOG.info(s);
             }
             p.dirty = true;
         }

@@ -3,9 +3,9 @@ package sh2.pwm;
 import omegadrive.sound.PwmProvider;
 import omegadrive.sound.SoundProvider;
 import omegadrive.sound.fm.GenericAudioProvider;
+import omegadrive.util.LogHelper;
 import omegadrive.util.RegionDetector;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 
 import javax.sound.sampled.AudioFormat;
 import java.util.Arrays;
@@ -20,7 +20,7 @@ import static sh2.pwm.Pwm.CYCLE_LIMIT;
  */
 public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider {
 
-    private static final Logger LOG = LogManager.getLogger(S32xPwmProvider.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(S32xPwmProvider.class.getSimpleName());
     private static final Warmup NO_WARMUP = new Warmup();
     private static final Warmup WARMUP = new Warmup();
     public static AudioFormat pwmAudioFormat = new AudioFormat(SoundProvider.SAMPLE_RATE_HZ,

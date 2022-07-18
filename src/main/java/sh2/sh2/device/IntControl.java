@@ -1,8 +1,8 @@
 package sh2.sh2.device;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.S32xUtil;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 
@@ -20,7 +20,7 @@ import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.*;
  */
 public interface IntControl extends S32xUtil.Sh2Device {
 
-    static final Logger LOG = LogManager.getLogger(IntControl.class.getSimpleName());
+    static final Logger LOG = LogHelper.getLogger(IntControl.class.getSimpleName());
 
     public enum OnChipSubType {
         S_NONE, RIE, TIE, DMA_C0, DMA_C1, D_OVFI, ERI, RXI, TXI, TEI, ICI, OCI, OVI;

@@ -1,7 +1,7 @@
 package sh2;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import omegadrive.util.LogHelper;
+import org.slf4j.Logger;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.cdaValues;
@@ -13,7 +13,7 @@ import static sh2.S32xUtil.CpuDeviceAccess.cdaValues;
  */
 public class Md32xRuntimeData {
 
-    private static final Logger LOG = LogManager.getLogger(Md32x.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(Md32x.class.getSimpleName());
 
     private S32xUtil.CpuDeviceAccess accessType = MASTER;
     private int accType = accessType.ordinal();

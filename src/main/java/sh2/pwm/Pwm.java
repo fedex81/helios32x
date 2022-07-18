@@ -2,9 +2,9 @@ package sh2.pwm;
 
 import omegadrive.sound.PwmProvider;
 import omegadrive.util.Fifo;
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.S32XMMREG;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xDict.RegSpecS32x;
@@ -29,7 +29,7 @@ import static sh2.sh2.device.IntControl.Sh2Interrupt.PWM_6;
  */
 public class Pwm implements StepDevice {
 
-    private static final Logger LOG = LogManager.getLogger(Pwm.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(Pwm.class.getSimpleName());
 
     enum PwmChannelSetup {
         OFF, SAME, FLIP, INVALID;

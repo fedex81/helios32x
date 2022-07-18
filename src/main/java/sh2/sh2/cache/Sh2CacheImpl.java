@@ -25,9 +25,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 \brief SH2 internal cache operations FIL0016332.PDF section 8
 */
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
@@ -47,7 +47,7 @@ import static sh2.S32xUtil.writeBuffer;
  */
 public class Sh2CacheImpl implements Sh2Cache {
 
-    private static final Logger LOG = LogManager.getLogger(Sh2CacheImpl.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(Sh2CacheImpl.class.getSimpleName());
     private static final boolean verbose = false;
 
     protected Sh2CacheEntry ca;

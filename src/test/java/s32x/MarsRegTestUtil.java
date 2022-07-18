@@ -9,6 +9,7 @@ import omegadrive.util.Util;
 import org.junit.jupiter.api.Assertions;
 import s32x.util.SystemTestUtil;
 import sh2.*;
+import sh2.BiosHolder.BiosData;
 import sh2.MarsLauncherHelper.Sh2LaunchContext;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict;
@@ -74,13 +75,10 @@ public class MarsRegTestUtil {
     }
 
     private static BiosHolder createTestBiosHolder() {
-        ByteBuffer[] biosData = new ByteBuffer[CpuDeviceAccess.values().length];
         ByteBuffer data = ByteBuffer.allocate(0x1000);
-
-        biosData[0] = data;
-        biosData[1] = data;
-        biosData[2] = data;
-        return new BiosHolder(biosData);
+        byte[] d = data.array();
+        BiosData[] bd = {new BiosData(d), new BiosData(d), new BiosData(d)};
+        return new BiosHolder(bd);
     }
 
     public static int readBus(Sh2LaunchContext lc, CpuDeviceAccess sh2Access, int reg, Size size) {

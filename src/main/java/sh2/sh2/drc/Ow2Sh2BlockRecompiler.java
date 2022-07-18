@@ -1,14 +1,14 @@
 package sh2.sh2.drc;
 
 import omegadrive.util.FileUtil;
+import omegadrive.util.LogHelper;
 import omegadrive.util.Util;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.LocalVariablesSorter;
 import org.objectweb.asm.util.ASMifier;
+import org.slf4j.Logger;
 import sh2.Sh2MMREG;
 import sh2.Sh2Memory;
 import sh2.sh2.Sh2Context;
@@ -34,7 +34,7 @@ import static sh2.sh2.drc.Ow2Sh2Helper.SH2_DRC_CTX_CLASS_FIELD.sh2Ctx;
  */
 public class Ow2Sh2BlockRecompiler {
 
-    private final static Logger LOG = LogManager.getLogger(Ow2Sh2BlockRecompiler.class.getSimpleName());
+    private final static Logger LOG = LogHelper.getLogger(Ow2Sh2BlockRecompiler.class.getSimpleName());
     private static final Path drcFolder = Paths.get("./res/drc_" + System.currentTimeMillis());
     private final static boolean writeClass = false;
 

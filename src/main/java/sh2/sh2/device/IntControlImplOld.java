@@ -1,8 +1,8 @@
 package sh2.sh2.device;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.dict.Sh2Dict.RegSpec;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 
@@ -24,7 +24,7 @@ import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
  */
 public class IntControlImplOld implements IntControl {
 
-    private static final Logger LOG = LogManager.getLogger(IntControlImplOld.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(IntControlImplOld.class.getSimpleName());
 
     public static final int MAX_LEVEL = 17; //[0-16]
 

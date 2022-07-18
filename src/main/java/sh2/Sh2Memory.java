@@ -1,9 +1,10 @@
 package sh2;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import omegadrive.util.Util;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import sh2.BiosHolder.BiosData;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.sh2.Sh2;
@@ -28,9 +29,9 @@ import static sh2.sh2.cache.Sh2Cache.*;
 
 public final class Sh2Memory implements IMemory {
 
-	private static final Logger LOG = LogManager.getLogger(Sh2Memory.class.getSimpleName());
+	private static final Logger LOG = LogHelper.getLogger(Sh2Memory.class.getSimpleName());
 
-	public ByteBuffer[] bios = new ByteBuffer[2];
+	public BiosData[] bios = new BiosData[2];
 	public ByteBuffer sdram;
 	public ByteBuffer rom;
 
@@ -94,8 +95,7 @@ public final class Sh2Memory implements IMemory {
 					res = s32XMMREG.read(address, size);
 					S32xMemAccessDelay.addReadCpuDelay(FRAME_BUFFER);
 				} else if (address >= SH2_START_BOOT_ROM && address < SH2_END_BOOT_ROM) {
-					address &= bios[cpuAccess.ordinal()].capacity() - 1; //TODO t-mek
-					res = readBuffer(bios[cpuAccess.ordinal()], address, size);
+					res = bios[cpuAccess.ordinal()].readBuffer(address, size);
 					S32xMemAccessDelay.addReadCpuDelay(BOOT_ROM);
 				}
 				break;
