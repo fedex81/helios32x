@@ -56,11 +56,11 @@ public class DmaC implements Sh2Device {
                 Integer.toHexString(value), size);
         writeBuffer(regs, pos, value, size);
         switch (cpu) {
-            case MASTER:
-            case SLAVE:
+            case MASTER, SLAVE -> {
                 assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
                 writeSh2(cpu, regSpec, value, size);
-                break;
+            }
+            default -> throw new RuntimeException();
         }
     }
 
@@ -83,15 +83,14 @@ public class DmaC implements Sh2Device {
 
     private void writeSh2(CpuDeviceAccess cpu, RegSpec regSpec, int value, Size size) {
         switch (regSpec) {
-            case DMA_CHCR0:
-            case DMA_CHCR1:
+            case DMA_CHCR0, DMA_CHCR1 -> {
                 assert size == Size.LONG;
                 handleChannelControlWrite(regSpec.addr, value);
-                break;
-            case DMA_DMAOR:
+            }
+            case DMA_DMAOR -> {
                 assert size == Size.LONG;
                 handleOperationRegWrite(value);
-                break;
+            }
         }
     }
 
@@ -157,16 +156,18 @@ public class DmaC implements Sh2Device {
         if (verbose) LOG.info("{} Dreq{} Level: {}", cpu, channel, enable);
     }
 
+    //TODO 4. When the cache is used as on-chip RAM, the DMAC cannot access this RAM.
     private void dmaOneStep(DmaChannelSetup c) {
         int len = readBufferForChannel(c.channel, DMA_TCR0.addr, Size.LONG) & 0xFF_FFFF;
         int srcAddress = readBufferForChannel(c.channel, DMA_SAR0.addr, Size.LONG);
         int destAddress = readBufferForChannel(c.channel, DMA_DAR0.addr, Size.LONG);
         int steps = c.transfersPerStep;
         assert cpu == Md32xRuntimeData.getAccessTypeExt();
-        //TODO test DMA cannot write to cache, Zaxxon, Knuckles, RBI Baseball, FIFA 96, Mars Check v2
-        //        assert (destAddress >> Sh2Prefetch.PC_CACHE_AREA_SHIFT) != 0 : th(destAddress);
-        //TODO 4. When the cache is used as on-chip RAM, the DMAC cannot access this RAM.
+//        assert (destAddress >> Sh2Prefetch.PC_CACHE_AREA_SHIFT) != 0 : th(srcAddress) +"," + th(destAddress);
+//        assert (srcAddress >> Sh2Prefetch.PC_CACHE_AREA_SHIFT) != 0 : th(srcAddress) +"," + th(destAddress);
         destAddress |= SH2_CACHE_THROUGH_OFFSET;
+        srcAddress |= SH2_CACHE_THROUGH_OFFSET;
+
         do {
             int val = memory.read(srcAddress, c.trnSize);
             memory.write(destAddress, val, c.trnSize);

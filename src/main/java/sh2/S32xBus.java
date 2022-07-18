@@ -10,6 +10,7 @@ import omegadrive.util.VideoMode;
 import omegadrive.vdp.model.BaseVdpAdapterEventSupport;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
@@ -33,7 +34,7 @@ public class S32xBus extends GenesisBus {
     static final boolean verboseMd = false;
 
     private ByteBuffer rom;
-    private ByteBuffer bios68k;
+    private BiosHolder.BiosData bios68k;
     private final ByteBuffer writeableHintRom = ByteBuffer.allocate(4).putInt(-1);
 
     private S32XMMREG s32XMMREG;
@@ -91,7 +92,7 @@ public class S32xBus extends GenesisBus {
     private long readAdapterEnOn(int address, Size size) {
         long res = 0;
         if (address < M68K_END_VECTOR_ROM) {
-            res = readBuffer(bios68k, address, size);
+            res = bios68k.readBuffer(address, size);
             if (address >= M68K_START_HINT_VECTOR_WRITEABLE && address < M68K_END_HINT_VECTOR_WRITEABLE) {
                 res = readHIntVector(address, size);
             }
@@ -228,7 +229,7 @@ public class S32xBus extends GenesisBus {
 //            LOG.info("HINT vector read, address: {}, size: {}", Long.toHexString(address), size);
             res = readBuffer(writeableHintRom, address & 3, size);
         } else {
-            res = readBuffer(bios68k, address, size);
+            res = bios68k.readBuffer(address, size);
         }
         return res;
     }
@@ -257,7 +258,7 @@ public class S32xBus extends GenesisBus {
         return s32XMMREG;
     }
 
-    public void setBios68k(ByteBuffer bios68k) {
+    public void setBios68k(BiosHolder.BiosData bios68k) {
         this.bios68k = bios68k;
     }
 
@@ -266,8 +267,13 @@ public class S32xBus extends GenesisBus {
     }
 
     public void resetSh2() {
+        CpuDeviceAccess cpu = Md32xRuntimeData.getAccessTypeExt();
+        //NOTE this changes the access type
         sh2.reset(masterCtx);
         sh2.reset(slaveCtx);
-//        sh2.memory.resetSh2(); TODO
+        masterCtx.devices.sh2MMREG.reset();
+        slaveCtx.devices.sh2MMREG.reset();
+        getS32XMMREG().fm = 0;
+        Md32xRuntimeData.setAccessTypeExt(cpu);
     }
 }

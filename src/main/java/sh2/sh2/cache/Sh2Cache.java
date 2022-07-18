@@ -16,9 +16,6 @@ import java.nio.ByteBuffer;
  */
 public interface Sh2Cache {
 
-    //TODO Metal Head needs cache false
-    static final boolean SH2_ENABLE_CACHE = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "true"));
-
     int CACHE_LINES = 64;
     int CACHE_BYTES_PER_LINE = 16;
     int CACHE_WAYS = 4;

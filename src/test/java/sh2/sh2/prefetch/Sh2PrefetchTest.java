@@ -11,6 +11,7 @@ import sh2.sh2.prefetch.Sh2Prefetch.PrefetchContext;
 import java.util.Optional;
 
 import static omegadrive.util.Util.th;
+import static sh2.Md32x.SH2_ENABLE_PREFETCH;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.*;
@@ -32,7 +33,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
     @BeforeEach
     public void beforeEach() {
         super.before();
-        Assertions.assertTrue(Sh2Prefetch.SH2_ENABLE_PREFETCH);
+        Assertions.assertTrue(SH2_ENABLE_PREFETCH);
     }
 
     @Test

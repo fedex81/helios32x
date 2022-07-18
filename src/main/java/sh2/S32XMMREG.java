@@ -303,6 +303,8 @@ public class S32XMMREG implements Device {
         return res;
     }
 
+    public static boolean resetSh2 = false;
+
     private boolean handleAdapterControlRegWrite68k(int reg, int value, Size size) {
         assert size != Size.LONG;
         int val = readWordFromBuffer(M68K_ADAPTER_CTRL);
@@ -313,17 +315,20 @@ public class S32XMMREG implements Device {
             System.out.println("#### Disabling ADEN not allowed");
             newVal |= 1;
         }
+        //TODO this breaks test2
         //reset cancel
         if ((val & P32XS_nRES) == 0 && (newVal & P32XS_nRES) > 0) {
-            LOG.info("{} Reset Cancel?", Md32xRuntimeData.getAccessTypeExt());
-            //TODO this breaks test2
-//                bus.resetSh2();
+            LOG.info("{} unset reset Sh2s (nRes = 0)", Md32xRuntimeData.getAccessTypeExt());
+            resetSh2 = false;
+            aden = 0;
+            bus.resetSh2();
         }
+        //TODO this breaks test2
         //reset
         if ((val & P32XS_nRES) > 0 && (newVal & P32XS_nRES) == 0) {
-            LOG.info("{} Reset?", Md32xRuntimeData.getAccessTypeExt());
-            //TODO this breaks test2
-//                bus.resetSh2();
+            LOG.info("{} set reset SH2s (nRes = 1)", Md32xRuntimeData.getAccessTypeExt());
+            resetSh2 = true;
+            aden = 1;
         }
         writeBufferWord(M68K_ADAPTER_CTRL, newVal);
         setAdenSh2Reg(newVal & 1); //sh2 side read-only

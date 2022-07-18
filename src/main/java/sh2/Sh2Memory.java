@@ -4,6 +4,7 @@ import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import sh2.BiosHolder.BiosData;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.sh2.cache.Sh2Cache;
@@ -13,6 +14,7 @@ import sh2.sh2.prefetch.Sh2Prefetch;
 import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.th;
+import static sh2.Md32x.SH2_ENABLE_CACHE;
 import static sh2.S32xUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
@@ -24,7 +26,7 @@ public final class Sh2Memory implements IMemory {
 
 	private static final Logger LOG = LogManager.getLogger(Sh2Memory.class.getSimpleName());
 
-	public ByteBuffer[] bios = new ByteBuffer[2];
+	public BiosData[] bios = new BiosData[2];
 	public ByteBuffer sdram;
 	public ByteBuffer rom;
 
@@ -37,6 +39,10 @@ public final class Sh2Memory implements IMemory {
 	private S32XMMREG s32XMMREG;
 
 	public Sh2Memory(S32XMMREG s32XMMREG, ByteBuffer rom, BiosHolder biosHolder) {
+		init(s32XMMREG, rom, biosHolder);
+	}
+
+	private void init(S32XMMREG s32XMMREG, ByteBuffer rom, BiosHolder biosHolder) {
 		this.s32XMMREG = s32XMMREG;
 		this.rom = rom;
 		bios[MASTER.ordinal()] = biosHolder.getBiosData(MASTER);
@@ -84,8 +90,7 @@ public final class Sh2Memory implements IMemory {
 					res = s32XMMREG.read(address, size);
 					S32xMemAccessDelay.addReadCpuDelay(FRAME_BUFFER);
 				} else if (address >= SH2_START_BOOT_ROM && address < SH2_END_BOOT_ROM) {
-					address &= bios[cpuAccess.ordinal()].capacity() - 1; //TODO t-mek
-					res = readBuffer(bios[cpuAccess.ordinal()], address, size);
+					res = bios[cpuAccess.ordinal()].readBuffer(address, size);
 					S32xMemAccessDelay.addReadCpuDelay(BOOT_ROM);
 				}
 				break;
@@ -189,11 +194,5 @@ public final class Sh2Memory implements IMemory {
 
 	public Sh2MMREG getSh2MMREGS(CpuDeviceAccess cpu) {
 		return sh2MMREGS[cpu.ordinal()];
-	}
-
-	@Override
-	public void resetSh2() {
-		sh2MMREGS[MASTER.ordinal()].reset();
-		sh2MMREGS[SLAVE.ordinal()].reset();
 	}
 }

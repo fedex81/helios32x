@@ -31,7 +31,8 @@ public class Md32x extends Genesis {
 
     private static final Logger LOG = LogManager.getLogger(Md32x.class.getSimpleName());
 
-    private static final boolean ENABLE_FM, ENABLE_PWM;
+    //TODO Metal Head needs cache false
+    public static final boolean ENABLE_FM, ENABLE_PWM, SH2_ENABLE_PREFETCH, SH2_ENABLE_CACHE;
 
     //23.01Mhz NTSC
     protected final static int SH2_CYCLES_PER_STEP;
@@ -40,7 +41,9 @@ public class Md32x extends Genesis {
     private Md32xRuntimeData rt;
 
     static {
-        ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "false"));
+        SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
+        SH2_ENABLE_CACHE = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "true"));
+        ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "true"));
         ENABLE_PWM = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.enable", "true"));
         //NOTE: for max compat use 1
         SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "64")); //64;
@@ -70,7 +73,6 @@ public class Md32x extends Genesis {
 
     @Override
     protected void initAfterRomLoad() {
-        BiosHolder biosHolder = MarsLauncherHelper.initBios();
         ctx = MarsLauncherHelper.setupRom((S32xBus) bus, memory.getRomHolder());
         masterCtx = ctx.masterCtx;
         slaveCtx = ctx.slaveCtx;
@@ -162,6 +164,10 @@ public class Md32x extends Genesis {
             sh2.run(slaveCtx);
             nextSSh2Cycle += Math.max(1, (slaveCtx.cycles_ran * 5) >> 5);
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
+        }
+        if (S32XMMREG.resetSh2) {
+            nextMSh2Cycle = nextSSh2Cycle = Integer.MAX_VALUE;
+            return;
         }
     }
 

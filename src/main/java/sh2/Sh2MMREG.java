@@ -228,6 +228,7 @@ public class Sh2MMREG {
         handleWriteBSC(RegSpec.BSC_BCR1, BSC_LONG_WRITE_MASK | 0x3f0, Size.LONG);
         handleWriteBSC(RegSpec.BSC_BCR2, BSC_LONG_WRITE_MASK | 0xFC, Size.LONG);
         handleWriteBSC(RegSpec.BSC_WCR, BSC_LONG_WRITE_MASK | 0xAAFF, Size.LONG);
+        write(RegSpec.NONE_CCR.addr, 0x10, Size.BYTE); //purge and disable
     }
 
     public void deviceStep() {

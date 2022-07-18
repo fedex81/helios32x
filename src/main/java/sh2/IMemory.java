@@ -16,8 +16,6 @@ public interface IMemory {
 
     void prefetch(int pc, S32xUtil.CpuDeviceAccess cpu);
 
-    void resetSh2();
-
     default int fetch(int pc, S32xUtil.CpuDeviceAccess cpu) {
         return read16(pc);
     }

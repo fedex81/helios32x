@@ -2,6 +2,8 @@ package sh2;
 
 import omegadrive.util.RomHolder;
 import omegadrive.util.Util;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import sh2.pwm.Pwm;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
@@ -24,19 +26,29 @@ import static sh2.S32xUtil.CpuDeviceAccess.*;
  */
 public class MarsLauncherHelper {
 
-    static String biosBasePath = "res/bios/";
-    static String masterBiosName = "32x_bios_m.bin";
-    static String slaveBiosName = "32x_bios_s.bin";
-    static String mdBiosName = "32x_bios_g.bin";
+    private static final Logger LOG = LogManager.getLogger(MarsLauncherHelper.class.getSimpleName());
 
     static final boolean masterDebug = Boolean.parseBoolean(System.getProperty("sh2.master.debug", "false"));
     static final boolean slaveDebug = Boolean.parseBoolean(System.getProperty("sh2.slave.debug", "false"));
+    static final boolean homebrewBios = Boolean.parseBoolean(System.getProperty("32x.use.homebrew.bios", "false"));
 
-//    static String masterBiosName = "32x_hbrew_bios_m.bin";
-//    static String slaveBiosName = "32x_hbrew_bios_s.bin";
-//    static String mdBiosName = "32x_hbrew_bios_g.bin";
+    static String biosBasePath = "res/bios/";
+
+    static String masterBiosName = "32x_bios_m.bin";
+    static String slaveBiosName = "32x_bios_s.bin";
+    static String mdBiosName = "32x_bios_g.bin";
+    static String hb_masterBiosName = "32x_hbrew_bios_m.bin";
+    static String hb_slaveBiosName = "32x_hbrew_bios_s.bin";
+    static String hb_mdBiosName = "32x_hbrew_bios_g.bin";
+
 
     public static BiosHolder initBios() {
+        if (homebrewBios) {
+            LOG.warn("Using homebrew bioses: {}, {}, {}", hb_masterBiosName, hb_slaveBiosName, hb_mdBiosName);
+            masterBiosName = hb_masterBiosName;
+            slaveBiosName = hb_slaveBiosName;
+            mdBiosName = hb_mdBiosName;
+        }
         Path biosMasterPath = Paths.get(biosBasePath, masterBiosName);
         Path biosSlavePath = Paths.get(biosBasePath, slaveBiosName);
         Path biosM68kPath = Paths.get(biosBasePath, mdBiosName);
@@ -91,6 +103,7 @@ public class MarsLauncherHelper {
             s32XMMREG.setInterruptControl(mDevCtx.intC, sDevCtx.intC);
             s32XMMREG.setDmaControl(dmaFifo68k);
             s32XMMREG.setPwm(pwm);
+            s32XMMREG.setBus(bus);
             pwm.setIntControls(mDevCtx.intC, sDevCtx.intC);
             pwm.setDmac(mDevCtx.dmaC, sDevCtx.dmaC);
             dmaFifo68k.setDmac(mDevCtx.dmaC, sDevCtx.dmaC);

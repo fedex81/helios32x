@@ -138,10 +138,6 @@ public class J2CoreTest {
             @Override
             public void prefetch(int pc, S32xUtil.CpuDeviceAccess cpu) {
             }
-
-            @Override
-            public void resetSh2() {
-            }
         };
     }
 }

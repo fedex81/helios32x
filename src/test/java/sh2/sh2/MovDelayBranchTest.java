@@ -33,6 +33,7 @@ public class MovDelayBranchTest {
         rom.putInt(0, 0x10); //PC
         rom.putInt(4, 0xF0); //SP
         Md32xRuntimeData.newInstance();
+        Sh2Context.burstCycles = 1;
         sh2.reset(ctx);
         System.out.println("Reset, PC: " + ctx.PC + ", SP: " + ctx.registers[15]);
     }
@@ -45,6 +46,7 @@ public class MovDelayBranchTest {
      */
     @Test
     public void testMOVWI_delayBranch() {
+        int stopHere = 0x80;
         int expR6 = 0x1981;
         rom.putShort(0x9E, (short) expR6);
 
@@ -57,7 +59,7 @@ public class MovDelayBranchTest {
         do {
             sh2.run(ctx);
             cnt++;
-        } while (cnt < 2);
+        } while (sh2.ctx.PC < stopHere);
         Assertions.assertEquals(expR1, ctx.registers[1]);
         Assertions.assertEquals(expR6, ctx.registers[6]);
     }
@@ -70,6 +72,7 @@ public class MovDelayBranchTest {
      */
     @Test
     public void testMOVLI_delayBranch() {
+        int stopHere = 0x80;
         int expR6 = 0x1981_ABCD;
         rom.putInt(0x90, expR6);
 
@@ -82,7 +85,7 @@ public class MovDelayBranchTest {
         do {
             sh2.run(ctx);
             cnt++;
-        } while (cnt < 2);
+        } while (sh2.ctx.PC < stopHere);
         Assertions.assertEquals(expR1, ctx.registers[1]);
         Assertions.assertEquals(expR6, ctx.registers[6]);
     }

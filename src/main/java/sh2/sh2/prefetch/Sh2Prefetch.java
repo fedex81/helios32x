@@ -4,6 +4,7 @@ import omegadrive.util.Size;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
+import sh2.BiosHolder.BiosData;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
@@ -17,6 +18,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 import static omegadrive.util.Util.th;
+import static sh2.Md32x.SH2_ENABLE_PREFETCH;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.*;
 import static sh2.dict.S32xMemAccessDelay.SDRAM;
@@ -30,7 +32,6 @@ public class Sh2Prefetch {
 
     private static final Logger LOG = LogManager.getLogger(Sh2Prefetch.class.getSimpleName());
 
-    public static final boolean SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
     private static final boolean SH2_PREFETCH_DEBUG = false;
 
     public static final int DEFAULT_PREFETCH_LOOKAHEAD = 0x16;
@@ -74,7 +75,7 @@ public class Sh2Prefetch {
     private Sh2Cache[] cache;
 
     public final int romSize, romMask;
-    public final ByteBuffer[] bios;
+    public final BiosData[] bios;
     public final ByteBuffer sdram;
     public final ByteBuffer rom;
 
@@ -122,10 +123,9 @@ public class Sh2Prefetch {
                 break;
             case 0:
             case 0x20:
-                pctx.buf = bios[cpu.ordinal()];
+                pctx.buf = bios[cpu.ordinal()].buffer;
                 pctx.start = Math.max(0, pctx.start);
-                int biosMask = pctx.buf.capacity() - 1;
-                pctx.end = pctx.end & biosMask;
+                pctx.end = pctx.end & bios[cpu.ordinal()].padMask;
                 pctx.pcMasked = pc;
                 pctx.memAccessDelay = S32xMemAccessDelay.BOOT_ROM;
                 break;
