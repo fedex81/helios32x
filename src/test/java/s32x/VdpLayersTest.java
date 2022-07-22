@@ -1,12 +1,12 @@
 package s32x;
 
 import omegadrive.util.ImageUtil;
+import omegadrive.util.LogHelper;
 import omegadrive.util.Util;
 import omegadrive.vdp.VdpRenderDump;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
 import sh2.vdp.MarsVdp.VdpPriority;
 import sh2.vdp.debug.DebugVideoRenderContext;
 
@@ -26,7 +26,7 @@ import java.nio.file.Paths;
 @Disabled
 public class VdpLayersTest {
 
-    private final static Logger LOG = LogManager.getLogger(VdpLayersTest.class.getSimpleName());
+    private final static Logger LOG = LogHelper.getLogger(VdpLayersTest.class.getSimpleName());
 
     private int scale = 3;
     int w = 256;

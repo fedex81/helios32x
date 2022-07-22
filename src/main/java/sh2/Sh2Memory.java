@@ -1,9 +1,9 @@
 package sh2;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import omegadrive.util.Util;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.BiosHolder.BiosData;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
@@ -24,7 +24,7 @@ import static sh2.sh2.cache.Sh2Cache.*;
 
 public final class Sh2Memory implements IMemory {
 
-	private static final Logger LOG = LogManager.getLogger(Sh2Memory.class.getSimpleName());
+	private static final Logger LOG = LogHelper.getLogger(Sh2Memory.class.getSimpleName());
 
 	public BiosData[] bios = new BiosData[2];
 	public ByteBuffer sdram;

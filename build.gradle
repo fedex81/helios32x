@@ -17,7 +17,6 @@ repositories {
 
 dependencies {
     //START helios
-    implementation group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.14.1'
     implementation group: 'com.google.guava', name: 'guava', version: '31.0.1-jre'
     implementation group: 'org.jctools', name: 'jctools-core', version: '3.3.0'
     implementation group: 'org.jaudiolibs', name: 'audioservers-javasound', version: '2.0.0'
@@ -25,6 +24,9 @@ dependencies {
     implementation group: 'com.github.trilarion', name: 'java-vorbis-support', version: '1.2.1'
     implementation group: 'net.java.jinput', name: 'jinput', version: '2.0.9'
     implementation 'com.google.code.gson:gson:2.9.0'
+    implementation 'org.tinylog:tinylog-api:2.4.1'
+    implementation 'org.tinylog:tinylog-impl:2.4.1'
+    implementation 'org.tinylog:slf4j-tinylog:2.4.1'
 
     //include local jars
     implementation fileTree(dir: 'lib', include: ['*.jar'])
@@ -124,7 +126,7 @@ task writeToFile {
     //win: default to busy wait
     List<String> winOpts = ["-Dhelios.busy.wait=true"]
     List<String> sampleBase = [ "java",
-                                "-Dlog4j.configurationFile=./log4j2.properties",
+                                "-Dtinylog.configuration=./tinylog-info.properties",
                                 "-Djinput.enable=true -Djinput.native.location=lib",
                                 "-jar", "$jarName"] as String[]
     sampleBase.addAll(1, javaAdvOpts)

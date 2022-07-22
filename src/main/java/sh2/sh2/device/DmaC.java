@@ -1,8 +1,8 @@
 package sh2.sh2.device;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.DmaFifo68k;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
@@ -27,7 +27,7 @@ import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DMA;
  */
 public class DmaC implements Sh2Device {
 
-    private static final Logger LOG = LogManager.getLogger(DmaC.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(DmaC.class.getSimpleName());
 
     private static final int SH2_CHCR_TRANSFER_END_BIT = 1;
     private static final boolean verbose = false;

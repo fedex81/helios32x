@@ -1,9 +1,9 @@
 package sh2.dict;
 
 import com.google.common.collect.ImmutableMap;
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.Md32xRuntimeData;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 
@@ -20,7 +20,7 @@ import static sh2.Sh2MMREG.SH2_REG_SIZE;
  */
 public class Sh2Dict {
 
-    private static final Logger LOG = LogManager.getLogger(Sh2Dict.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(Sh2Dict.class.getSimpleName());
 
     public static Sh2DeviceType[] sh2RegDeviceMapping = new Sh2DeviceType[SH2_REG_SIZE];
     public static RegSpec[] sh2RegMapping = new RegSpec[SH2_REG_SIZE];

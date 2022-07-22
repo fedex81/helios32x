@@ -1,8 +1,8 @@
 package sh2.sh2.device;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.Md32xRuntimeData;
 
 import java.nio.ByteBuffer;
@@ -20,7 +20,7 @@ import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DIV;
  */
 public class DivUnit implements Sh2Device {
 
-    private static final Logger LOG = LogManager.getLogger(DivUnit.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(DivUnit.class.getSimpleName());
 
     private static final int DIV_OVERFLOW_BIT = 0;
     private static final int DIV_OVERFLOW_INT_EN_BIT = 1;

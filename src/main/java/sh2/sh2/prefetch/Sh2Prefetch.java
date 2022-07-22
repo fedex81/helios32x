@@ -1,9 +1,8 @@
 package sh2.sh2.prefetch;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.slf4j.Logger;
 import sh2.BiosHolder.BiosData;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
@@ -30,7 +29,7 @@ import static sh2.dict.S32xMemAccessDelay.SDRAM;
  */
 public class Sh2Prefetch {
 
-    private static final Logger LOG = LogManager.getLogger(Sh2Prefetch.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(Sh2Prefetch.class.getSimpleName());
 
     private static final boolean SH2_PREFETCH_DEBUG = false;
 
@@ -262,10 +261,9 @@ public class Sh2Prefetch {
         int end = start + (p.pfMaxIndex << 1);
         if (writeAddr >= start && writeAddr <= end) {
             if (verbose) {
-                ParameterizedMessage pm = new ParameterizedMessage("{} write at addr: {} val: {} {}, " +
-                        "{} reload PF at pc {}, window: [{},{}]",
-                        cpuWrite, th(writeAddr), th(val), size, cpu, th(p.prefetchPc), th(start), th(end));
-                LOG.info(pm.getFormattedMessage());
+                LOG.info(LogHelper.formatMessage("{} write at addr: {} val: {} {}, " +
+                                "{} reload PF at pc {}, window: [{},{}]", cpuWrite, th(writeAddr), th(val), size, cpu,
+                        th(p.prefetchPc), th(start), th(end)));
 //                System.out.println(pm.getFormattedMessage());
             }
             p.dirty = true;
@@ -283,12 +281,11 @@ public class Sh2Prefetch {
         int lineEnd = lineStart + 16;
         if (ctx.force || lineEnd >= start && lineStart <= end) {
             if (verbose) {
-                ParameterizedMessage pm = new ParameterizedMessage(
-                        "{} invalidateCachePrefetch forced={} from addr: {}, cacheLine: [{},{}]" +
-                                ", invalidate PF at pc {}, window: [{},{}]",
-                        ctx.cpu, ctx.force, th(ctx.cacheReadAddr), th(lineStart), th(lineEnd), th(p.prefetchPc), th(start), th(end));
-                System.out.println(pm.getFormattedMessage());
-                LOG.info(pm.getFormattedMessage());
+                String msg = LogHelper.formatMessage("{} invalidateCachePrefetch forced={} from addr: {}, cacheLine: [{},{}]" +
+                                ", invalidate PF at pc {}, window: [{},{}]", ctx.cpu, ctx.force, th(ctx.cacheReadAddr),
+                        th(lineStart), th(lineEnd), th(p.prefetchPc), th(start), th(end));
+//                System.out.println(msg);
+                LOG.info(msg);
             }
             p.dirty = true;
         }

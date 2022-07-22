@@ -37,6 +37,11 @@ public class S32XPerformanceTest {
         System.setProperty("helios.headless", "true");
         System.setProperty("helios.fullSpeed", "true");
         System.setProperty("helios.enable.sound", "false");
+        System.setProperty("helios.32x.fm.enable", "false");
+        System.setProperty("helios.32x.pwm.enable", "false");
+        System.setProperty("helios.32x.sh2.prefetch", "true");
+        System.setProperty("helios.32x.sh2.drc", "true");
+        System.setProperty("helios.32x.sh2.cache", "false");
         System.setProperty("68k.debug", "false");
         System.setProperty("z80.debug", "false");
 //        System.setProperty("md.show.vdp.debug.viewer", "true");

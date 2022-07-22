@@ -1,11 +1,11 @@
 package sh2.vdp;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import omegadrive.util.VideoMode;
 import omegadrive.vdp.util.UpdatableViewer;
 import omegadrive.vdp.util.VdpDebugView;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.Md32xRuntimeData;
 import sh2.S32XMMREG;
 import sh2.S32xUtil;
@@ -37,7 +37,7 @@ import static sh2.vdp.MarsVdp.VdpPriority.S32X;
  */
 public class MarsVdpImpl implements MarsVdp {
 
-    private static final Logger LOG = LogManager.getLogger(MarsVdpImpl.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(MarsVdpImpl.class.getSimpleName());
 
     private final ByteBuffer colorPalette = ByteBuffer.allocateDirect(SIZE_32X_COLPAL);
     private final ByteBuffer[] dramBanks = new ByteBuffer[2];

@@ -1,9 +1,9 @@
 package sh2;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.RomHolder;
 import omegadrive.util.Util;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.pwm.Pwm;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
@@ -26,7 +26,7 @@ import static sh2.S32xUtil.CpuDeviceAccess.*;
  */
 public class MarsLauncherHelper {
 
-    private static final Logger LOG = LogManager.getLogger(MarsLauncherHelper.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(MarsLauncherHelper.class.getSimpleName());
 
     static final boolean masterDebug = Boolean.parseBoolean(System.getProperty("sh2.master.debug", "false"));
     static final boolean slaveDebug = Boolean.parseBoolean(System.getProperty("sh2.slave.debug", "false"));

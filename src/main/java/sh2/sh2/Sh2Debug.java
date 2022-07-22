@@ -2,8 +2,8 @@ package sh2.sh2;
 
 import omegadrive.cpu.CpuFastDebug;
 import omegadrive.cpu.CpuFastDebug.DebugMode;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import omegadrive.util.LogHelper;
+import org.slf4j.Logger;
 import sh2.IMemory;
 
 import java.util.function.Predicate;
@@ -15,7 +15,7 @@ import java.util.function.Predicate;
  */
 public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvider {
 
-    private static final Logger LOG = LogManager.getLogger(Sh2Debug.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(Sh2Debug.class.getSimpleName());
 
     private static final int PC_AREAS = 0x100;
     private static final int PC_AREA_SIZE = 0x4_0000;

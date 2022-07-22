@@ -1,8 +1,8 @@
 package sh2.dict;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.S32xUtil;
 import sh2.vdp.MarsVdp;
 
@@ -20,7 +20,7 @@ import static sh2.dict.S32xDict.S32xRegType.*;
  */
 public class S32xDict {
 
-    private static final Logger LOG = LogManager.getLogger(S32xDict.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(S32xDict.class.getSimpleName());
 
     public static final int S32X_REG_SIZE = 0x200;
     public static final int S32X_REG_MASK = S32X_REG_SIZE - 1;

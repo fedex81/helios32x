@@ -7,9 +7,9 @@ import omegadrive.sound.PwmProvider;
 import omegadrive.system.Genesis;
 import omegadrive.system.SystemProvider;
 import omegadrive.ui.DisplayWindow;
+import omegadrive.util.LogHelper;
 import omegadrive.vdp.md.GenesisVdp;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.MarsLauncherHelper.Sh2LaunchContext;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
@@ -29,9 +29,9 @@ import static sh2.S32xUtil.CpuDeviceAccess.*;
  */
 public class Md32x extends Genesis {
 
-    private static final Logger LOG = LogManager.getLogger(Md32x.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(Md32x.class.getSimpleName());
 
-    //TODO Metal Head needs cache false
+    //TODO T-Mek needs cache on, prefetch off
     public static final boolean ENABLE_FM, ENABLE_PWM, SH2_ENABLE_PREFETCH, SH2_ENABLE_CACHE;
 
     //23.01Mhz NTSC

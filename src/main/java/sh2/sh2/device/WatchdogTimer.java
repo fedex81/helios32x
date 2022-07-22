@@ -1,8 +1,8 @@
 package sh2.sh2.device;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.S32xUtil;
 import sh2.dict.Sh2Dict;
 
@@ -32,7 +32,7 @@ import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.WDT;
  */
 public class WatchdogTimer implements Sh2Device {
 
-    private static final Logger LOG = LogManager.getLogger(WatchdogTimer.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(WatchdogTimer.class.getSimpleName());
 
     private static final int ADDR_WRITE_80 = 0xFE80 & SH2_REG_MASK;
     private static final int ADDR_WRITE_82 = 0xFE82 & SH2_REG_MASK;

@@ -1,10 +1,10 @@
 package sh2;
 
 import omegadrive.Device;
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import omegadrive.util.VideoMode;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.pwm.Pwm;
@@ -31,7 +31,7 @@ import static sh2.sh2.device.IntControl.Sh2Interrupt.VRES_14;
  */
 public class S32XMMREG implements Device {
 
-    private static final Logger LOG = LogManager.getLogger(S32XMMREG.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(S32XMMREG.class.getSimpleName());
 
     private static final boolean verbose = false, verboseRead = false;
 

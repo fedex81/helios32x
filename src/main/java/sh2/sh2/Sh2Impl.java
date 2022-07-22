@@ -2,8 +2,8 @@ package sh2.sh2;
 
 
 import omegadrive.cpu.CpuFastDebug;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import omegadrive.util.LogHelper;
+import org.slf4j.Logger;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
@@ -38,7 +38,7 @@ import static omegadrive.util.Util.th;
  */
 public class Sh2Impl implements Sh2 {
 
-	private final static Logger LOG = LogManager.getLogger(Sh2Impl.class.getSimpleName());
+	private final static Logger LOG = LogHelper.getLogger(Sh2Impl.class.getSimpleName());
 
 	protected Sh2Context ctx;
 	protected IMemory memory;

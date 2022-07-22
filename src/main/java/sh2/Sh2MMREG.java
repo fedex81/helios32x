@@ -1,9 +1,9 @@
 package sh2;
 
 import com.google.common.collect.Maps;
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.device.*;
 
@@ -22,7 +22,7 @@ import static sh2.dict.Sh2Dict.*;
  */
 public class Sh2MMREG {
 
-    private static final Logger LOG = LogManager.getLogger(Sh2MMREG.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(Sh2MMREG.class.getSimpleName());
     public static final int SH2_REG_SIZE = 0x200;
     public static final int SH2_REG_MASK = SH2_REG_SIZE - 1;
 

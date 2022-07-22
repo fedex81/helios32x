@@ -1,8 +1,8 @@
 package sh2.sh2.device;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.dict.Sh2Dict.RegSpec;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 
@@ -24,7 +24,7 @@ import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
  */
 public class IntControl implements Sh2Device {
 
-    private static final Logger LOG = LogManager.getLogger(IntControl.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(IntControl.class.getSimpleName());
 
     public enum Sh2Interrupt {
         NONE_0(0), NONE_1(0), NONE_2(0), NONE_3(0), NONE_4(0), NONE_5(0),

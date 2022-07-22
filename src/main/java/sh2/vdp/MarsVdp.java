@@ -1,12 +1,12 @@
 package sh2.vdp;
 
 import omegadrive.Device;
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import omegadrive.util.Util;
 import omegadrive.util.VideoMode;
 import omegadrive.vdp.util.UpdatableViewer;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.dict.S32xDict;
 
 import java.awt.*;
@@ -24,7 +24,7 @@ import java.nio.file.attribute.FileAttribute;
  */
 public interface MarsVdp extends Device {
 
-    static final Logger LOG = LogManager.getLogger(MarsVdp.class.getSimpleName());
+    static final Logger LOG = LogHelper.getLogger(MarsVdp.class.getSimpleName());
 
     static final int PANEL_TEXT_HEIGHT = 20;
     static final int PANEL_HEIGHT = 256 + PANEL_TEXT_HEIGHT;

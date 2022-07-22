@@ -4,12 +4,12 @@ import omegadrive.Device;
 import omegadrive.bus.md.GenesisBus;
 import omegadrive.bus.model.GenesisBusProvider;
 import omegadrive.sound.PwmProvider;
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import omegadrive.util.Util;
 import omegadrive.util.VideoMode;
 import omegadrive.vdp.model.BaseVdpAdapterEventSupport;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict;
 import sh2.sh2.Sh2;
@@ -30,7 +30,7 @@ import static sh2.dict.S32xDict.*;
  */
 public class S32xBus extends GenesisBus {
 
-    private static final Logger LOG = LogManager.getLogger(S32xBus.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(S32xBus.class.getSimpleName());
     static final boolean verboseMd = false;
 
     private ByteBuffer rom;
