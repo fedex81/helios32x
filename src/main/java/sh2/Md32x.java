@@ -39,7 +39,8 @@ public class Md32x extends Genesis {
     //3 cycles @ 23Mhz = 1 cycle @ 7.67, 23.01/7.67 = 3
     protected final static int SH2_CYCLE_RATIO = 3;
 
-    //TODO vr needs ~ 1/6
+    //TODO vr needs ~ 1/6,
+    // DRC_MAX_LEN broken see Ecco, Vf
     private static final double SH2_CYCLE_DIV = 1 / Double.parseDouble(System.getProperty("helios.32x.sh2.cycle.div", "3.0"));
     private static final int CYCLE_TABLE_LEN_MASK = 0xFF;
     private final static int[] sh2CycleTable = new int[CYCLE_TABLE_LEN_MASK + 1];
@@ -76,7 +77,6 @@ public class Md32x extends Genesis {
 
     @Override
     protected void initAfterRomLoad() {
-        BiosHolder biosHolder = MarsLauncherHelper.initBios();
         ctx = MarsLauncherHelper.setupRom((S32xBus) bus, memory.getRomHolder());
         masterCtx = ctx.masterCtx;
         slaveCtx = ctx.slaveCtx;
@@ -118,14 +118,14 @@ public class Md32x extends Genesis {
             sh2.run(masterCtx);
             assert (masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == masterCtx.cycles_ran : masterCtx.cycles_ran;
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
-            nextMSh2Cycle += Math.max(1, sh2CycleTable[masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK]);
+            nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran];
         }
         if (nextSSh2Cycle == counter) {
             rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
             assert (slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == slaveCtx.cycles_ran : slaveCtx.cycles_ran;
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
-            nextSSh2Cycle += Math.max(1, sh2CycleTable[slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK]);
+            nextSSh2Cycle += sh2CycleTable[slaveCtx.cycles_ran];
         }
         //TODO check
 //        if (S32XMMREG.resetSh2) {

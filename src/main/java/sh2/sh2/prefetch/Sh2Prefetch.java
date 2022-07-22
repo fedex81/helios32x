@@ -45,8 +45,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     private static final Logger LOG = LogHelper.getLogger(Sh2Prefetch.class.getSimpleName());
 
-    //TODO fix, see VF
-    public static final int SH2_DRC_MAX_BLOCK_LEN = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.maxBlockLen", "40"));
+    //TODO fix, see VF, ECCO
+    public static final int SH2_DRC_MAX_BLOCK_LEN = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.maxBlockLen", "40000"));
 
     private static final boolean SH2_REUSE_FETCH_DATA = true; //TODO vr requires false
     //NOTE vf is rewriting code so much that setting this to false slows it down
@@ -58,10 +58,10 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private static final boolean verbose = false;
     private static final boolean collectStats = verbose || false;
 
-    private Map<PcInfoWrapper, Sh2Block>[] prefetchMap = new Map[]{new HashMap<PcInfoWrapper, Sh2Block>(), new HashMap<PcInfoWrapper, Sh2Block>()};
+    private final Map<PcInfoWrapper, Sh2Block>[] prefetchMap = new Map[]{new HashMap<PcInfoWrapper, Sh2Block>(), new HashMap<PcInfoWrapper, Sh2Block>()};
     private final Object[] pcInfoWrapperMS = new Object[2];
 
-    private Stats[] stats = {new Stats(MASTER), new Stats(SLAVE)};
+    private final Stats[] stats = {new Stats(MASTER), new Stats(SLAVE)};
 
     private final IMemory memory;
     private final Sh2Cache[] cache;

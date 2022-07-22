@@ -54,8 +54,8 @@ public class S32XMMREG implements Device {
     }
 
     public RegContext regContext = new RegContext();
-    private ByteBuffer sysRegsSh2 = regContext.sysRegsSh2;
-    private ByteBuffer sysRegsMd = regContext.sysRegsMd;
+    private final ByteBuffer sysRegsSh2 = regContext.sysRegsSh2;
+    private final ByteBuffer sysRegsMd = regContext.sysRegsMd;
 
     public IntControl[] interruptControls;
     public Pwm pwm;
@@ -318,16 +318,16 @@ public class S32XMMREG implements Device {
         //reset cancel
         if ((val & P32XS_nRES) == 0 && (newVal & P32XS_nRES) > 0) {
             LOG.info("{} unset reset Sh2s (nRes = 0)", Md32xRuntimeData.getAccessTypeExt());
-            resetSh2 = false;
-            aden = 0;
-            bus.resetSh2();
+//            resetSh2 = false;
+//            aden = 0;
+//            bus.resetSh2();
         }
         //TODO this breaks test2
         //reset
         if ((val & P32XS_nRES) > 0 && (newVal & P32XS_nRES) == 0) {
             LOG.info("{} set reset SH2s (nRes = 1)", Md32xRuntimeData.getAccessTypeExt());
-            resetSh2 = true;
-            aden = 1;
+//            resetSh2 = true;
+//            aden = 1;
         }
         writeBufferWord(M68K_ADAPTER_CTRL, newVal);
         setAdenSh2Reg(newVal & 1); //sh2 side read-only

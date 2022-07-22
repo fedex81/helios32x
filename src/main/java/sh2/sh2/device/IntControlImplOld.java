@@ -34,15 +34,15 @@ public class IntControlImplOld implements IntControl {
     private final Map<Integer, Sh2Interrupt> s32xInt = new HashMap<>(MAX_LEVEL);
 
     //valid = not masked
-    private boolean[] intValid = new boolean[MAX_LEVEL];
-    private boolean[] intPending = new boolean[MAX_LEVEL];
-    private boolean[] intTrigger = new boolean[MAX_LEVEL];
+    private final boolean[] intValid = new boolean[MAX_LEVEL];
+    private final boolean[] intPending = new boolean[MAX_LEVEL];
+    private final boolean[] intTrigger = new boolean[MAX_LEVEL];
 
     // V, H, CMD and PWM each possesses exclusive address on the master side and the slave side.
-    private ByteBuffer sh2_int_mask;
-    private ByteBuffer regs;
+    private final ByteBuffer sh2_int_mask;
+    private final ByteBuffer regs;
     private int interruptLevel;
-    private CpuDeviceAccess cpu;
+    private final CpuDeviceAccess cpu;
     private int additionalIntData = 0;
 
     public IntControlImplOld(CpuDeviceAccess cpu, ByteBuffer regs) {

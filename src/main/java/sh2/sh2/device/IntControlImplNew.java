@@ -47,9 +47,9 @@ public class IntControlImplNew implements IntControl {
     private InterruptContext currentInterrupt = LEV_0;
 
     // V, H, CMD and PWM each possesses exclusive address on the master side and the slave side.
-    private ByteBuffer sh2_int_mask;
-    private ByteBuffer regs;
-    private CpuDeviceAccess cpu;
+    private final ByteBuffer sh2_int_mask;
+    private final ByteBuffer regs;
+    private final CpuDeviceAccess cpu;
 
     private static final boolean legacy = true;
 

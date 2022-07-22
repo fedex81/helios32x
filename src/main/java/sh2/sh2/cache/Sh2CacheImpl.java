@@ -51,11 +51,11 @@ public class Sh2CacheImpl implements Sh2Cache {
     private static final boolean verbose = false;
 
     protected Sh2CacheEntry ca;
-    private CpuDeviceAccess cpu;
-    private IMemory memory;
-    private CacheContext ctx;
-    private ByteBuffer data_array = ByteBuffer.allocate(DATA_ARRAY_SIZE); // cache (can be used as RAM)
-    private CacheInvalidateContext invalidCtx;
+    private final CpuDeviceAccess cpu;
+    private final IMemory memory;
+    private final CacheContext ctx;
+    private final ByteBuffer data_array = ByteBuffer.allocate(DATA_ARRAY_SIZE); // cache (can be used as RAM)
+    private final CacheInvalidateContext invalidCtx;
 
     public Sh2CacheImpl(CpuDeviceAccess cpu, IMemory memory) {
         this.memory = memory;
@@ -351,7 +351,7 @@ public class Sh2CacheImpl implements Sh2Cache {
             boolean force = addr < 0;
             invalidCtx.line = line;
             invalidCtx.prevCacheAddr = line.tag | (entry << ENTRY_SHIFT);
-            int nonCached = readMemoryUncachedNoDelay(memory, invalidCtx.prevCacheAddr, Size.WORD);
+            int nonCached = force ? 0 : readMemoryUncachedNoDelay(memory, invalidCtx.prevCacheAddr, Size.WORD);
             invalidCtx.cacheReadAddr = force ? invalidCtx.prevCacheAddr : addr;
             int cached = getCachedData(line.data, invalidCtx.prevCacheAddr & LINE_MASK, Size.WORD);
             if (force || nonCached != cached) {

@@ -55,9 +55,9 @@ public class WatchdogTimer implements Sh2Device {
 
     private static final boolean verbose = false;
 
-    private ByteBuffer regs;
-    private S32xUtil.CpuDeviceAccess cpu;
-    private IntControl intControl;
+    private final ByteBuffer regs;
+    private final S32xUtil.CpuDeviceAccess cpu;
+    private final IntControl intControl;
     private boolean wdtTimerEnable, timerMode = true;
     private int count = 0, clockDivider = 2;
     private int sh2TicksToNextWdtClock;

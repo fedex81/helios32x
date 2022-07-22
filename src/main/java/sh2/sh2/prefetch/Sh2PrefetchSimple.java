@@ -75,8 +75,8 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         }
     }
 
-    private IMemory memory;
-    private Sh2Cache[] cache;
+    private final IMemory memory;
+    private final Sh2Cache[] cache;
 
     public final int romSize, romMask;
     public final BiosHolder.BiosData[] bios;
@@ -127,10 +127,10 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
                 break;
             case 0:
             case 0x20:
-                pctx.buf = bios[cpu.ordinal()].buffer;
+                final BiosHolder.BiosData bd = bios[cpu.ordinal()];
+                pctx.buf = bd.buffer;
                 pctx.start = Math.max(0, pctx.start);
-                int biosMask = pctx.buf.capacity() - 1;
-                pctx.end = pctx.end & biosMask;
+                pctx.end = pctx.end & bd.padMask;
                 pctx.pcMasked = pc;
                 pctx.memAccessDelay = S32xMemAccessDelay.BOOT_ROM;
                 break;

@@ -38,7 +38,7 @@ public class Ow2Sh2BlockRecompiler {
     private static final Path drcFolder = Paths.get("./res/drc_" + System.currentTimeMillis());
     private final static boolean writeClass = false;
 
-    private OwnClassLoader cl = new OwnClassLoader();
+    private final OwnClassLoader cl = new OwnClassLoader();
 
     public static final String drcPackage = "sh2.sh2.drc";
     public static final String intArrayDesc = Type.getDescriptor(int[].class);
@@ -81,7 +81,7 @@ public class Ow2Sh2BlockRecompiler {
         String blockClass = drcPackage + "." + drcCtx.sh2Ctx.sh2TypeCode + "_" + th(block.prefetchPc) + "_" + System.nanoTime();
         byte[] binc = createClassBinary(block, drcCtx, blockClass);
         writeClassMaybe(blockClass, binc);
-        Class clazz = cl.defineClass(blockClass, binc);
+        Class<?> clazz = cl.defineClass(blockClass, binc);
         Runnable r = null;
         try {
             Object b = clazz.getDeclaredConstructor(int[].class, int[].class, Sh2DrcContext.class).

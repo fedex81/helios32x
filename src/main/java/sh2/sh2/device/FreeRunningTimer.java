@@ -53,9 +53,9 @@ public class FreeRunningTimer implements Sh2Device {
 
     private static final boolean verbose = false;
 
-    private ByteBuffer regs;
-    private CpuDeviceAccess cpu;
-    private IntControl intControl;
+    private final ByteBuffer regs;
+    private final CpuDeviceAccess cpu;
+    private final IntControl intControl;
 
     private int ocra, ocrb;
     private boolean isOcra;

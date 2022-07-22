@@ -37,12 +37,12 @@ public final class Sh2Memory implements IMemory {
 
 	public final Sh2Cache[] cache = new Sh2Cache[2];
 	private final Sh2Prefetcher prefetch;
-	private MemAccessStats memAccessStats = MemAccessStats.NO_STATS;
+	private final MemAccessStats memAccessStats = MemAccessStats.NO_STATS;
 
 	public int romSize, romMask;
 
-	private Sh2MMREG[] sh2MMREGS = new Sh2MMREG[2];
-	private S32XMMREG s32XMMREG;
+	private final Sh2MMREG[] sh2MMREGS = new Sh2MMREG[2];
+	private final S32XMMREG s32XMMREG;
 
 	public Sh2Memory(S32XMMREG s32XMMREG, ByteBuffer rom, BiosHolder biosHolder, Sh2Prefetch.Sh2DrcContext... drcCtx) {
 		this.s32XMMREG = s32XMMREG;
