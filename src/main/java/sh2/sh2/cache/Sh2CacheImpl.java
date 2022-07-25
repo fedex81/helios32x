@@ -125,17 +125,20 @@ public class Sh2CacheImpl implements Sh2Cache {
                 final int tagaddr = (addr & TAG_MASK);
                 final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
 
-                for (int i = 0; i < 4; i++) {
+                for (int i = 0; i < CACHE_WAYS; i++) {
                     Sh2CacheLine line = ca.way[i][entry];
                     if ((line.v > 0) && (line.tag == tagaddr)) {
                         updateLru(i, ca.lru, entry);
                         if (verbose) LOG.info("{} Cache hit, read at {} {}, val: {}", cpu, th(addr), size,
                                 th(getCachedData(line.data, addr & LINE_MASK, size)));
+                        //two way uses ways0,1
+                        assert ctx.twoWay == 0 || (ctx.twoWay == 1 && i > 1);
                         return getCachedData(line.data, addr & LINE_MASK, size);
                     }
                 }
                 // cache miss
                 int lruway = selectWayToReplace(ctx.twoWay, ca.lru[entry]);
+                assert ctx.twoWay == 0 || (ctx.twoWay == 1 && lruway > 1);
                 final Sh2CacheLine line = ca.way[lruway][entry];
                 invalidatePrefetcher(line, entry, addr);
                 updateLru(lruway, ca.lru, entry);
@@ -180,9 +183,10 @@ public class Sh2CacheImpl implements Sh2Cache {
                 final int tagaddr = (addr & TAG_MASK);
                 final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
 
-                for (int i = 0; i < 4; i++) {
+                for (int i = 0; i < CACHE_WAYS; i++) {
                     Sh2CacheLine line = ca.way[i][entry];
                     if ((line.v > 0) && (line.tag == tagaddr)) {
+                        assert ctx.twoWay == 0 || (ctx.twoWay == 1 && i > 1);
                         setCachedData(line.data, addr & LINE_MASK, val, size);
                         updateLru(i, ca.lru, entry);
                         if (verbose) LOG.info("Cache write at {}, val: {} {}", th(addr), th(val), size);
@@ -207,10 +211,11 @@ public class Sh2CacheImpl implements Sh2Cache {
                 //can purge more than one line
                 for (int i = 0; i < CACHE_WAYS; i++) {
                     if (ca.way[i][entry].tag == tagaddr) {
+                        assert ctx.twoWay == 0 || (ctx.twoWay == 1 && i > 1);
+                        Md32xRuntimeData.addCpuDelayExt(CACHE_PURGE_DELAY);
+                        invalidatePrefetcher(ca.way[i][entry], entry, addr & CACHE_PURGE_MASK);
                         //only v bit is changed, the rest of the data remains
                         ca.way[i][entry].v = 0;
-                        Md32xRuntimeData.addCpuDelayExt(CACHE_PURGE_DELAY);
-                        invalidatePrefetcher(ca.way[i][entry], entry, addr);
                     }
                 }
                 if (verbose) LOG.info("{} Cache purge: {}", cpu, th(addr));
@@ -352,7 +357,7 @@ public class Sh2CacheImpl implements Sh2Cache {
             invalidCtx.line = line;
             invalidCtx.force = false;
             invalidCtx.cacheReadAddr = addr;
-            invalidCtx.prevCacheAddr = line.tag | (entry << ENTRY_SHIFT);
+            invalidCtx.prevCacheAddr = line.tag;
             if (verbose)
                 LOG.info("{} Cache miss on addr {} , replacing line {}", cpu, th(addr), th(line.tag));
             memory.invalidateCachePrefetch(invalidCtx);

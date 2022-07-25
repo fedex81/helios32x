@@ -32,6 +32,7 @@ public class Md32x extends Genesis {
     private static final Logger LOG = LogHelper.getLogger(Md32x.class.getSimpleName());
 
     //TODO T-Mek needs cache on, prefetch off
+    //TODO vr needs cache off, SH2_CYCLE_DIV = 8.0
     public static final boolean ENABLE_FM, ENABLE_PWM, SH2_ENABLE_PREFETCH, SH2_ENABLE_CACHE;
 
     //23.01Mhz NTSC
@@ -39,6 +40,9 @@ public class Md32x extends Genesis {
     //3 cycles @ 23Mhz = 1 cycle @ 7.67, 23.01/7.67 = 3
     protected final static int SH2_CYCLE_RATIO = 3;
     private Md32xRuntimeData rt;
+    private static final double SH2_CYCLE_DIV = 1 / Double.parseDouble(System.getProperty("helios.32x.sh2.cycle.div", "3.0"));
+    private static final int CYCLE_TABLE_LEN_MASK = 0xFF;
+    private final static int[] sh2CycleTable = new int[CYCLE_TABLE_LEN_MASK + 1];
 
     static {
         SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
@@ -57,6 +61,9 @@ public class Md32x extends Genesis {
 //        System.setProperty("sh2.master.debug", "true");
 //        System.setProperty("sh2.slave.debug", "true");
         LOG.info("Enable FM: {}, Enable PWM: {}, Sh2Cycles: {}", ENABLE_FM, ENABLE_PWM, SH2_CYCLES_PER_STEP);
+        for (int i = 0; i < sh2CycleTable.length; i++) {
+            sh2CycleTable[i] = Math.max(1, (int) Math.round(i * SH2_CYCLE_DIV));
+        }
     }
 
     private int nextMSh2Cycle = 0, nextSSh2Cycle = 0;
@@ -91,6 +98,7 @@ public class Md32x extends Genesis {
         return debugPerf ? null : new Md32x(emuFrame);
     }
 
+    @Override
     protected void loop() {
         updateVideoMode(true);
         do {
@@ -156,14 +164,16 @@ public class Md32x extends Genesis {
         if (nextMSh2Cycle == counter) {
             rt.setAccessType(MASTER);
             sh2.run(masterCtx);
-            nextMSh2Cycle += Math.max(1, (masterCtx.cycles_ran * 5) >> 5); //5/16 ~= 1/3
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
+            assert (masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == masterCtx.cycles_ran : masterCtx.cycles_ran;
+            nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK];
         }
         if (nextSSh2Cycle == counter) {
             rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
-            nextSSh2Cycle += Math.max(1, (slaveCtx.cycles_ran * 5) >> 5);
+            assert (slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == slaveCtx.cycles_ran : slaveCtx.cycles_ran;
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
+            nextSSh2Cycle += sh2CycleTable[slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK];
         }
         if (S32XMMREG.resetSh2) {
             nextMSh2Cycle = nextSSh2Cycle = Integer.MAX_VALUE;

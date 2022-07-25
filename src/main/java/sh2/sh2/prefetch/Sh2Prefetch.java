@@ -3,6 +3,7 @@ package sh2.sh2.prefetch;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
+import org.slf4j.helpers.MessageFormatter;
 import sh2.BiosHolder.BiosData;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
@@ -53,6 +54,7 @@ public class Sh2Prefetch {
 
         public PrefetchContext(int lookahead) {
             prefetchWords = new int[lookahead];
+            dirty = true;
         }
 
         @Override
@@ -261,9 +263,10 @@ public class Sh2Prefetch {
         int end = start + (p.pfMaxIndex << 1);
         if (writeAddr >= start && writeAddr <= end) {
             if (verbose) {
-                LOG.info(LogHelper.formatMessage("{} write at addr: {} val: {} {}, " +
+                String s = formatMessage("{} write at addr: {} val: {} {}, " +
                                 "{} reload PF at pc {}, window: [{},{}]", cpuWrite, th(writeAddr), th(val), size, cpu,
-                        th(p.prefetchPc), th(start), th(end)));
+                        th(p.prefetchPc), th(start), th(end));
+                LOG.info(s);
 //                System.out.println(pm.getFormattedMessage());
             }
             p.dirty = true;
@@ -273,15 +276,18 @@ public class Sh2Prefetch {
     //TODO test
     public void invalidateCachePrefetch(Sh2Cache.CacheInvalidateContext ctx) {
         final PrefetchContext p = prefetchContexts[ctx.cpu.ordinal()];
+        if (p.dirty) {
+            return;
+        }
         boolean isCacheAddress = ctx.cacheReadAddr >>> PC_CACHE_AREA_SHIFT == 0;
         assert isCacheAddress : ctx.cpu + "," + th(ctx.cacheReadAddr);
         int start = p.prefetchPc;
         int end = start + (p.pfMaxIndex << 1);
         int lineStart = ctx.prevCacheAddr;
-        int lineEnd = lineStart + 16;
+        int lineEnd = lineStart + Sh2Cache.CACHE_BYTES_PER_LINE;
         if (ctx.force || lineEnd >= start && lineStart <= end) {
             if (verbose) {
-                String msg = LogHelper.formatMessage("{} invalidateCachePrefetch forced={} from addr: {}, cacheLine: [{},{}]" +
+                String msg = formatMessage("{} invalidateCachePrefetch forced={} from addr: {}, cacheLine: [{},{}]" +
                                 ", invalidate PF at pc {}, window: [{},{}]", ctx.cpu, ctx.force, th(ctx.cacheReadAddr),
                         th(lineStart), th(lineEnd), th(p.prefetchPc), th(start), th(end));
 //                System.out.println(msg);
@@ -289,5 +295,10 @@ public class Sh2Prefetch {
             }
             p.dirty = true;
         }
+    }
+
+    //TODO remove
+    public static String formatMessage(String s, Object... o) {
+        return MessageFormatter.arrayFormat(s, o).getMessage();
     }
 }
