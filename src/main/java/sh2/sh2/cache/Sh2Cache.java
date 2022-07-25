@@ -2,6 +2,7 @@ package sh2.sh2.cache;
 
 import omegadrive.util.Size;
 import sh2.IMemory;
+import sh2.Md32xRuntimeData;
 import sh2.S32xUtil;
 
 import java.nio.ByteBuffer;
@@ -18,6 +19,7 @@ public interface Sh2Cache {
 
     int CACHE_LINES = 64;
     int CACHE_BYTES_PER_LINE = 16;
+    int CACHE_BYTES_PER_LINE_MASK = CACHE_BYTES_PER_LINE - 1;
     int CACHE_WAYS = 4;
 
     int AREA_MASK = 0xE0000000;
@@ -85,6 +87,18 @@ public interface Sh2Cache {
     default int readMemoryUncached(IMemory memory, int address, Size size) {
         return memory.read(address | CACHE_THROUGH, size);
     }
+
+    /**
+     * TODO better way??
+     */
+    default int readMemoryUncachedNoDelay(IMemory memory, int address, Size size) {
+        int delay = Md32xRuntimeData.resetCpuDelayExt();
+        int res = memory.read(address | CACHE_THROUGH, size);
+        Md32xRuntimeData.resetCpuDelayExt();
+        Md32xRuntimeData.addCpuDelayExt(delay);
+        return res;
+    }
+
 
     default void writeMemoryUncached(IMemory memory, int address, int value, Size size) {
         memory.write(address | CACHE_THROUGH, value, size);

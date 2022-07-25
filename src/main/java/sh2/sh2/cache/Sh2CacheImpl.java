@@ -27,6 +27,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
+import omegadrive.util.Util;
 import org.slf4j.Logger;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
@@ -102,7 +103,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                     }
                 }
                 assert cpu == Md32xRuntimeData.getAccessTypeExt();
-                return readMemoryUncached(memory, addr, size);
+                return readMemoryUncachedNoDelay(memory, addr, size);
             case CACHE_DATA_ARRAY:
                 assert ca.enable == 0 || ctx.twoWay == 1;
                 return readBuffer(data_array, addr & (DATA_ARRAY_MASK >> ctx.twoWay), size);
@@ -345,9 +346,8 @@ public class Sh2CacheImpl implements Sh2Cache {
     private void refillCache(int[] data, int addr) {
         Md32xRuntimeData.addCpuDelayExt(4);
         assert cpu == Md32xRuntimeData.getAccessTypeExt();
-        for (int i = 0; i < 16; i += 4) {
-            //TODO this adds 4*access delays, should probably not do that?
-            int val = readMemoryUncached(memory, (addr & 0xFFFFFFF0) + i, Size.LONG);
+        for (int i = 0; i < CACHE_BYTES_PER_LINE; i += 4) {
+            int val = readMemoryUncachedNoDelay(memory, (addr & 0xFFFFFFF0) + i, Size.LONG);
             setCachedData(data, i & LINE_MASK, val, Size.LONG);
         }
     }
@@ -370,38 +370,10 @@ public class Sh2CacheImpl implements Sh2Cache {
     }
 
     private void setCachedData(final int[] data, int addr, int val, Size size) {
-        switch (size) {
-            case BYTE:
-                data[addr] = val;
-                break;
-            case WORD:
-                data[addr] = val >> 8;
-                data[addr + 1] = val;
-                break;
-            case LONG:
-                data[addr] = ((val >> 24) & 0xFF);
-                data[addr + 1] = ((val >> 16) & 0xFF);
-                data[addr + 2] = ((val >> 8) & 0xFF);
-                data[addr + 3] = ((val >> 0) & 0xFF);
-                break;
-            default:
-                throw new RuntimeException();
-        }
+        Util.writeDataMask(data, size, addr, val, CACHE_BYTES_PER_LINE_MASK);
     }
 
     private static int getCachedData(final int[] data, int addr, Size size) {
-        switch (size) {
-            case BYTE:
-                return data[addr];
-            case WORD:
-                return ((data[addr]) << 8) | data[(addr + 1) & LINE_MASK];
-            case LONG:
-                return ((data[addr]) << 24) |
-                        ((data[addr + 1]) << 16) |
-                        ((data[addr + 2]) << 8) |
-                        ((data[addr + 3]) << 0);
-            default:
-                throw new RuntimeException();
-        }
+        return (int) Util.readDataMask(data, size, addr, CACHE_BYTES_PER_LINE_MASK);
     }
 }

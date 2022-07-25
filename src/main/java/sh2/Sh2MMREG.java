@@ -201,7 +201,7 @@ public class Sh2MMREG {
         try {
             writeBuffer(regs, reg & SH2_REG_MASK, value, size);
         } catch (Exception e) {
-            //do nothing
+            if (verbose) LOG.error("Exception", e);
         }
     }
 

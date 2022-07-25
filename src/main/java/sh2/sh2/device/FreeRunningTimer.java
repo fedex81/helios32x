@@ -114,7 +114,11 @@ public class FreeRunningTimer implements Sh2Device {
                 sh2TicksToNextFrtClock = clockDivider;
                 break;
             case FRT_TIER:
-                assert size == Size.BYTE;
+                //Sonic32x homebrew is using LONG, buggy?
+//                assert size == Size.BYTE;
+                if (size != Size.BYTE) {
+                    LOG.warn("{} illegal FRT write {}: {} {}", cpu, regSpec.name, th(value), size);
+                }
                 //x000xxx1
                 writeBuffer(regs, pos, (value & 0x8e) | 1, size);
                 break;

@@ -33,7 +33,7 @@ public class Md32x extends Genesis {
 
     //TODO T-Mek needs cache on, prefetch off
     //TODO vr needs cache off, SH2_CYCLE_DIV = 8.0
-    public static final boolean ENABLE_FM, ENABLE_PWM, SH2_ENABLE_PREFETCH, SH2_ENABLE_CACHE;
+    public static final boolean ENABLE_FM, ENABLE_PWM, SH2_ENABLE_PREFETCH, SH2_ENABLE_CACHE, SH2_IGNORE_DELAYS;
 
     //23.01Mhz NTSC
     protected final static int SH2_CYCLES_PER_STEP;
@@ -49,6 +49,7 @@ public class Md32x extends Genesis {
         SH2_ENABLE_CACHE = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "true"));
         ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "true"));
         ENABLE_PWM = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.enable", "true"));
+        SH2_IGNORE_DELAYS = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.ignore.delays", "true"));
         //NOTE: for max compat use 1
         SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "64")); //64;
         Sh2Context.burstCycles = SH2_CYCLES_PER_STEP;
