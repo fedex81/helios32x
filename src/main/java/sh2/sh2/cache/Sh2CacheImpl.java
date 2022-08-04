@@ -34,7 +34,6 @@ import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.Optional;
 
 import static omegadrive.util.Util.th;
@@ -77,10 +76,7 @@ public class Sh2CacheImpl implements Sh2Cache {
         for (int entry = 0; entry < CACHE_LINES; entry++) {
             ca.lru[entry] = 0;
             for (int way = 0; way < CACHE_WAYS; way++) {
-                final Sh2CacheLine line = ca.way[way][entry];
-                line.v = 0;
-                line.tag = 0;
-                Arrays.fill(line.data, 0);
+                ca.way[way][entry].v = 0;
             }
         }
         if (verbose) LOG.info("{} Cache clear", cpu);

@@ -31,7 +31,8 @@ public class Md32x extends Genesis {
 
     private static final Logger LOG = LogHelper.getLogger(Md32x.class.getSimpleName());
 
-    //TODO T-Mek needs cache on, prefetch off
+    //TODO T-Mek needs {cache on, prefetch off, ignoreDelays false} or
+    // {cache on, prefetch on, ignoreDelays true}
     //TODO vr needs cache off, SH2_CYCLE_DIV = 8.0
     public static final boolean ENABLE_FM, ENABLE_PWM, SH2_ENABLE_PREFETCH, SH2_ENABLE_CACHE, SH2_IGNORE_DELAYS;
 
