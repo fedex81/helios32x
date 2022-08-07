@@ -164,7 +164,8 @@ public class Ow2Sh2BlockRecompiler {
             ctx.drcCtx = dsCtx.drcCtx = drcCtx;
             ctx.mv = dsCtx.mv = lvs;
             int totCycles = 0;
-            for (int i = 0; i < limit; i++) {
+            Ow2DrcOptimizer.InstCtx instCtx = Ow2DrcOptimizer.optimizeMaybe(block, ctx);
+            for (int i = instCtx.start; i < instCtx.end; i++) {
                 setDrcContext(ctx, block.inst[i], false);
                 if (ctx.sh2Inst.isBranchDelaySlot) {
                     setDrcContext(dsCtx, block.inst[i + 1], true);

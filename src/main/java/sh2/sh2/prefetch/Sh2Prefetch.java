@@ -9,6 +9,7 @@ import org.objectweb.asm.commons.LocalVariablesSorter;
 import org.slf4j.Logger;
 import sh2.BiosHolder;
 import sh2.IMemory;
+import sh2.Md32x;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.Sh2Memory;
 import sh2.dict.S32xMemAccessDelay;
@@ -16,6 +17,7 @@ import sh2.sh2.*;
 import sh2.sh2.Sh2.FetchResult;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.cache.Sh2Cache;
+import sh2.sh2.drc.Ow2DrcOptimizer;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -178,14 +180,14 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             case 0x26:
                 block.start = Math.max(0, block.start) & SH2_SDRAM_MASK;
                 block.pcMasked = pc & SH2_SDRAM_MASK;
-                block.memAccessDelay = SDRAM;
+                block.fetchMemAccessDelay = SDRAM;
                 block.fetchBuffer = sdram;
                 break;
             case 2:
             case 0x22:
                 block.start = Math.max(0, block.start) & romMask;
                 block.pcMasked = pc & romMask;
-                block.memAccessDelay = S32xMemAccessDelay.ROM;
+                block.fetchMemAccessDelay = S32xMemAccessDelay.ROM;
                 block.fetchBuffer = rom;
                 break;
             case 0:
@@ -193,14 +195,14 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                 block.fetchBuffer = bios[cpu.ordinal()].buffer;
                 block.start = Math.max(0, block.start);
                 block.pcMasked = pc;
-                block.memAccessDelay = S32xMemAccessDelay.BOOT_ROM;
+                block.fetchMemAccessDelay = S32xMemAccessDelay.BOOT_ROM;
                 break;
             default:
                 if ((pc >>> 28) == 0xC) {
                     int twoWay = cache[cpu.ordinal()].getCacheContext().twoWay;
                     final int mask = Sh2Cache.DATA_ARRAY_MASK >> twoWay;
                     block.start = Math.max(0, block.start) & mask;
-                    block.memAccessDelay = S32xMemAccessDelay.SYS_REG;
+                    block.fetchMemAccessDelay = S32xMemAccessDelay.SYS_REG;
                     block.fetchBuffer = cache[cpu.ordinal()].getDataArray();
                     block.pcMasked = pc & mask;
                 } else {
@@ -294,7 +296,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
         cacheOnFetch(pc, block.prefetchWords[pcDeltaWords], cpu);
         if (collectStats) stats[cpu.ordinal()].pfTotal++;
-        S32xMemAccessDelay.addReadCpuDelay(block.memAccessDelay);
+        S32xMemAccessDelay.addReadCpuDelay(block.fetchMemAccessDelay);
         assert block != Sh2Block.INVALID_BLOCK && block.prefetchWords != null && block.prefetchWords.length > 0;
         fetchResult.opcode = block.prefetchWords[pcDeltaWords];
         return;
@@ -310,7 +312,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         int res;
         boolean withinFetchWindow = pcDeltaWords < block.prefetchLenWords && pcDeltaWords >= 0;
         if (withinFetchWindow) {
-            S32xMemAccessDelay.addReadCpuDelay(block.memAccessDelay);
+            S32xMemAccessDelay.addReadCpuDelay(block.fetchMemAccessDelay);
             res = block.prefetchWords[pcDeltaWords];
             cacheOnFetch(pc, res, cpu);
         } else {
@@ -322,6 +324,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     @Override
     public void dataWrite(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
+        checkPoller(cpuWrite, addr, val, size);
         if (pcAreaMaskMap[addr >>> PC_AREA_SHIFT] == 0) return;
         switch (size) {
             case WORD:
@@ -332,6 +335,29 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                 dataWriteWord(cpuWrite, addr, val >> 16, Size.WORD);
                 dataWriteWord(cpuWrite, addr + 2, val & 0xFFFF, Size.WORD);
                 break;
+        }
+    }
+
+    private void checkPoller(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
+        for (var entry : Ow2DrcOptimizer.map.entrySet()) {
+            final Ow2DrcOptimizer.PollerCtx c = entry.getValue();
+            if (c.isPolling) {
+                addr = addr & 0xFFF_FFFF;
+                int tgtStart = c.memoryTarget & 0xFFF_FFFF;
+                int tgtEnd = tgtStart + Math.max(1, c.memTargetSize.ordinal() << 1);
+                int addrEnd = addr + Math.max(1, size.ordinal() << 1);
+                if ((addrEnd > tgtStart) && (addr <= tgtEnd)) {
+                    LOG.info("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
+                            th(addr), size, c.cpu, th(c.memoryTarget), c.memTargetSize, th(val));
+                    Sh2Block.currentPollers[c.cpu.ordinal()].isPolling = false;
+                    Sh2Block.currentPollers[c.cpu.ordinal()] = Ow2DrcOptimizer.NO_POLLER;
+                    if (c.cpu == SLAVE) {
+                        Md32x.md32x.nextSSh2Cycle = Md32x.md32x.nextMSh2Cycle + 1;
+                    } else {
+                        Md32x.md32x.nextMSh2Cycle = Md32x.md32x.nextSSh2Cycle + 1;
+                    }
+                }
+            }
         }
     }
 

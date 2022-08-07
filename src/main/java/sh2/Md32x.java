@@ -63,16 +63,20 @@ public class Md32x extends Genesis {
         }
     }
 
-    private int nextMSh2Cycle = 0, nextSSh2Cycle = 0;
+    public int nextMSh2Cycle = 0, nextSSh2Cycle = 0;
     private Md32xRuntimeData rt;
     private Sh2LaunchContext ctx;
     private Sh2 sh2;
     private Sh2Context masterCtx, slaveCtx;
     private MarsVdp marsVdp;
 
+    //TODO fix
+    public static Md32x md32x;
+
     public Md32x(DisplayWindow emuFrame) {
         super(emuFrame);
         systemType = SystemLoader.SystemType.S32X;
+        md32x = this;
     }
 
     @Override
@@ -118,14 +122,15 @@ public class Md32x extends Genesis {
             sh2.run(masterCtx);
             assert (masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == masterCtx.cycles_ran : masterCtx.cycles_ran;
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
-            nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran];
+            //TODO remove AND
+            nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK];
         }
         if (nextSSh2Cycle == counter) {
             rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
             assert (slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == slaveCtx.cycles_ran : slaveCtx.cycles_ran;
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
-            nextSSh2Cycle += sh2CycleTable[slaveCtx.cycles_ran];
+            nextSSh2Cycle += sh2CycleTable[slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK];
         }
         //TODO check
 //        if (S32XMMREG.resetSh2) {

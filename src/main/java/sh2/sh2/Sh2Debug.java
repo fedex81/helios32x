@@ -47,7 +47,7 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
         }
     }
 
-    private static final Predicate<Integer> isBranchOpcode = op ->
+    public static final Predicate<Integer> isBranchOpcode = op ->
             (op & 0xFF00) == 0x8900 //bt
                     || (op & 0xFF00) == 0x8B00 //bf
                     || (op & 0xFF00) == 0x8F00 //bf/s
@@ -55,7 +55,7 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
                     || (op & 0xF000) == 0xA000 //bsr
             ;
 
-    private static final Predicate<Integer> isCmpOpcode = op ->
+    public static final Predicate<Integer> isCmpOpcode = op ->
             (op & 0xF00F) == 0x3000 //cmp/eq
                     || (op & 0xF00F) == 0x3002 //CMP/HS Rm,Rn
                     || (op & 0xF00F) == 0x3006 //CMP/HI Rm,Rn
@@ -65,13 +65,13 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
 
             ;
 
-    private static final Predicate<Integer> isTstOpcode = op ->
+    public static final Predicate<Integer> isTstOpcode = op ->
             (op & 0xF00F) == 0x2008 //tst Rm,Rn
                     || (op & 0xFF00) == 0xC800 //TST#imm,R0
                     || (op & 0xFF00) == 0xCC00 //TST.B#imm,@(R0,GBR)
             ;
 
-    private static final Predicate<Integer> isMovOpcode = op ->
+    public static final Predicate<Integer> isMovOpcode = op ->
             (op & 0xF00F) == 0x6002 //mov.l @Rm, Rn
                     || (op & 0xF00F) == 0x6001 //mov.w @Rm, Rn
                     || (op & 0xF00F) == 0x6000 //mov.b @Rm, Rn

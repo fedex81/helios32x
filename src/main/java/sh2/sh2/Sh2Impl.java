@@ -95,7 +95,7 @@ public class Sh2Impl implements Sh2 {
 		final IntControl intControl = ctx.devices.intC;
 		for (; ctx.cycles >= 0; ) {
 			decode();
-			sh2MMREG.deviceStep();
+			sh2MMREG.deviceStep(); //TODO drc does one extra deviceStep
 			boolean res = acceptInterrupts(intControl.getInterruptLevel());
 			ctx.cycles -= Md32xRuntimeData.resetCpuDelayExt(); //TODO check perf
 			if (res) {

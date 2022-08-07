@@ -3,21 +3,26 @@ package sh2.sh2.prefetch;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
+import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.Sh2MMREG;
 import sh2.sh2.Sh2.FetchResult;
+import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Impl;
 import sh2.sh2.Sh2Instructions;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.cache.Sh2Cache;
+import sh2.sh2.drc.Ow2DrcOptimizer;
 import sh2.sh2.drc.Ow2Sh2BlockRecompiler;
 
 import java.nio.ByteBuffer;
 import java.util.List;
 
 import static omegadrive.util.Util.th;
+import static sh2.Md32x.CYCLE_TABLE_LEN_MASK;
 import static sh2.Md32x.SH2_ENABLE_DRC;
 import static sh2.sh2.Sh2Instructions.generateInst;
+import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 
 /**
  * Federico Berti
@@ -63,11 +68,12 @@ public interface Sh2Prefetcher {
         public Sh2BlockUnit[] inst;
         public Sh2BlockUnit curr;
         public int[] prefetchWords;
-        public int prefetchPc, hits, start, end, pcMasked, prefetchLenWords, memAccessDelay;
+        public int prefetchPc, hits, start, end, pcMasked, prefetchLenWords, fetchMemAccessDelay, cyclesConsumed;
         public ByteBuffer fetchBuffer;
         public Sh2Block nextBlock = INVALID_BLOCK;
         public Sh2Prefetch.Sh2DrcContext drcContext;
         public boolean isCacheFetch;
+        public byte poller = -1;
         public Runnable stage2Drc;
 
         public boolean runOne() {
@@ -76,13 +82,31 @@ public interface Sh2Prefetcher {
             return curr != null;
         }
 
+        public static Ow2DrcOptimizer.PollerCtx[] currentPollers = {NO_POLLER, NO_POLLER};
+
         public final void runBlock(Sh2Impl sh2, Sh2MMREG sm) {
             if (stage2Drc != null) {
+                Ow2DrcOptimizer.PollerCtx currentPoller = currentPollers[drcContext.cpu.ordinal()];
+                if (currentPoller.isPolling) {
+                    //add max delay
+                    this.drcContext.sh2Ctx.cycles = Sh2Context.burstCycles - CYCLE_TABLE_LEN_MASK + 5;
+                    Md32xRuntimeData.resetCpuDelayExt();
+                    return;
+                }
+                if (poller > 0 && currentPoller == NO_POLLER) {
+                    Ow2DrcOptimizer.PollerCtx pctx = Ow2DrcOptimizer.map.getOrDefault(prefetchPc, NO_POLLER);
+                    if (pctx != NO_POLLER) {
+                        LOG.info("{} entering poller at PC: {}", this.drcContext.cpu, th(this.prefetchPc));
+                        pctx.isPolling = true;
+                        currentPollers[drcContext.cpu.ordinal()] = pctx;
+                    }
+                }
                 stage2Drc.run();
                 return;
             }
             Sh2BlockUnit prev = curr;
             addHit();
+            int startCycle = this.drcContext.sh2Ctx.cycles;
             do {
                 sh2.printDebugMaybe(curr.opcode);
                 curr.runnable.run();
@@ -92,6 +116,7 @@ public interface Sh2Prefetcher {
                 }
                 curr = curr.next;
             } while (true);
+            cyclesConsumed = (startCycle - this.drcContext.sh2Ctx.cycles) + Md32xRuntimeData.getCpuDelayExt();
             curr = prev;
         }
 
@@ -105,6 +130,12 @@ public interface Sh2Prefetcher {
             } else if (stage2Drc == null && ((hits + 1) & OPT_THRESHOLD2) == 0) {
                 if (verbose) LOG.info("{} HRC2 count: {}\n{}", "", th(hits), Sh2Instructions.toListOfInst(this));
                 stage2();
+            }
+            if (((hits + 1) & 0xFFF) == 0) {
+//                LOG.info("{} hits: {}, cycles: {}, tot: {}\n{}", drcContext.cpu, th(hits), cyclesConsumed,
+//                        th(hits*cyclesConsumed),
+//                        Sh2Instructions.toListOfInst(this));
+                Ow2DrcOptimizer.pollDetector(this);
             }
         }
 
