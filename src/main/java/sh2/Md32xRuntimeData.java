@@ -71,15 +71,20 @@ public class Md32xRuntimeData {
         rt.accType = accessType.ordinal();
     }
 
+    public static int resetCpuDelayExt(int value) {
+        int res = rt.cpuDelay[rt.accType];
+        rt.cpuDelay[rt.accType] = value;
+        return res;
+    }
+
+    public static int resetCpuDelayExt() {
+        return resetCpuDelayExt(0);
+    }
+
     public static int getCpuDelayExt() {
         return rt.cpuDelay[rt.accType];
     }
 
-    public static int resetCpuDelayExt() {
-        int res = rt.cpuDelay[rt.accType];
-        rt.cpuDelay[rt.accType] = 0;
-        return res;
-    }
 
     public static S32xUtil.CpuDeviceAccess getAccessTypeExt() {
         return rt.accessType;

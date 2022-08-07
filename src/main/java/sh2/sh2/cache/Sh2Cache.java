@@ -86,17 +86,12 @@ public interface Sh2Cache {
         return memory.read(address | CACHE_THROUGH, size);
     }
 
-    /**
-     * TODO better way??
-     */
     default int readMemoryUncachedNoDelay(IMemory memory, int address, Size size) {
-        int delay = Md32xRuntimeData.resetCpuDelayExt();
+        int delay = Md32xRuntimeData.getCpuDelayExt();
         int res = memory.read(address | CACHE_THROUGH, size);
-        Md32xRuntimeData.resetCpuDelayExt();
-        Md32xRuntimeData.addCpuDelayExt(delay);
+        Md32xRuntimeData.resetCpuDelayExt(delay);
         return res;
     }
-
 
     default void writeMemoryUncached(IMemory memory, int address, int value, Size size) {
         memory.write(address | CACHE_THROUGH, value, size);
