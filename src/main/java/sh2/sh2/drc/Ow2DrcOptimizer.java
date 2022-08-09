@@ -1,9 +1,13 @@
 package sh2.sh2.drc;
 
+import com.google.common.collect.ImmutableMap;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
 import sh2.S32xUtil;
+import sh2.dict.S32xDict;
+import sh2.dict.S32xDict.S32xRegType;
+import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Debug;
 import sh2.sh2.Sh2Instructions;
 import sh2.sh2.prefetch.Sh2Prefetch;
@@ -15,11 +19,15 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 import static omegadrive.util.Util.th;
+import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
+import static sh2.sh2.Sh2Disassembler.NOP;
+import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.*;
 
 /**
  * Federico Berti
  * <p>
  * Copyright 2022
+ * TODO busyLoop is effectively polling an interrupt change, needs to trigger an event
  */
 public class Ow2DrcOptimizer {
 
@@ -33,12 +41,52 @@ public class Ow2DrcOptimizer {
 
     private static final Predicate<Integer> isCmpTstOpcode = Sh2Debug.isTstOpcode.or(Sh2Debug.isCmpOpcode);
 
+    public static final Map<S32xRegType, PollType> ptMap = ImmutableMap.of(
+            S32xRegType.NONE, NONE,
+            S32xRegType.COMM, COMM
+            //TODO needs to notify when a reg changes and it is NOT triggered by a memory write
+//            S32xRegType.DMA, DMAC,
+//            S32xRegType.PWM, PWM,
+//            S32xRegType.VDP, VDP
+    );
+
+    public enum PollState {NO_POLL, ACTIVE_POLL}
+
+    public enum PollType {
+        UNKNOWN,
+        NONE,
+        BUSY_LOOP,
+        SDRAM,
+        COMM,
+        DMAC,
+        PWM,
+        VDP;
+    }
+
     public static class PollerCtx {
         public S32xUtil.CpuDeviceAccess cpu;
-        public int pc, memoryTarget;
+        public int pc, memoryTarget, branchDest;
         public Size memTargetSize;
-        public Sh2Prefetcher.Sh2Block block;
-        public boolean isPolling;
+        public Sh2Prefetcher.Sh2Block block = Sh2Prefetcher.Sh2Block.INVALID_BLOCK;
+        public PollState pollState = PollState.NO_POLL;
+
+        public boolean isPollingActive() {
+//            assert isPollingBlock();
+            return pollState != PollState.NO_POLL;
+        }
+
+        public boolean isPollingBlock() {
+            return block.pollType.ordinal() > NONE.ordinal();
+        }
+
+        public void stopPolling() {
+            if (isPollingActive()) {
+//                LOG.info("{} Stopping {} poll at PC {}, on address: {}", cpu, block.pollType, th(pc), th(memoryTarget));
+            }
+//            block = Sh2Prefetcher.Sh2Block.INVALID_BLOCK;
+            pollState = PollState.NO_POLL;
+//            memoryTarget = 0;
+        }
     }
 
     public static final PollerCtx NO_POLLER = new PollerCtx();
@@ -65,46 +113,142 @@ public class Ow2DrcOptimizer {
      * 06003a8c	c438	mov.b @(56, GBR), R0
      * 00003a8e	c880	tst H'80, R0
      * 00003a90	8b1e	bf H'00003ad0
+     *
+     * Space Harrier
      */
     public static void pollDetector(Sh2Prefetcher.Sh2Block block) {
-        if (block.poller < 0 && block.prefetchWords.length == 3) {
+        if (block.pollType == UNKNOWN) {
+            if (block.prefetchLenWords == 3) { //TODO
+                checkPollLen3(block);
+            }
+            if (block.pollType == UNKNOWN) {
+                busyLoopDetector(block);
+            }
+        }
+        //mark this block as processed
+        if (block.pollType == UNKNOWN) {
+            block.pollType = NONE;
+        }
+    }
+
+    /**
+     * Space Harrier
+     * S 0600016e	0009	nop
+     * S 06000170	affd	bra H'0600016e
+     * S 06000172	0009	nop
+     */
+    public static void busyLoopDetector(Sh2Prefetcher.Sh2Block block) {
+        assert block.pollType == UNKNOWN;
+        if (block.prefetchLenWords == 3) {
             int w1 = block.prefetchWords[0];
             int w2 = block.prefetchWords[1];
             int w3 = block.prefetchWords[2];
-            boolean poll = Sh2Debug.isMovOpcode.test(w1) && isCmpTstOpcode.test(w2) && Sh2Debug.isBranchOpcode.test(w3);
-            block.poller = 0;
-            if (poll) {
-                LOG.info("{} Poll detected: {}\n{}", block.drcContext.cpu, th(block.prefetchPc), Sh2Instructions.toListOfInst(block));
+            boolean busyLoop = w1 == NOP && w2 == 0xaffd && w3 == NOP;
+            if (busyLoop) {
+                LOG.info("{} BusyLoop detected: {}\n{}", block.drcContext.cpu, th(block.prefetchPc), Sh2Instructions.toListOfInst(block));
                 PollerCtx ctx = new PollerCtx();
                 ctx.pc = block.prefetchPc;
                 ctx.block = block;
                 ctx.cpu = block.drcContext.cpu;
-                if ((w1 & 0xF000) == 0x5000) {
-                    ctx.memoryTarget = ((w1 & 0xF) << 2) + block.drcContext.sh2Ctx.registers[(w1 & 0xF0) >> 4];
-                    ctx.memTargetSize = Size.LONG;
-                } else if ((w1 & 0xFF00) == 0xC600) {
-                    ctx.memoryTarget = ((w1 & 0xFF) << 2) + block.drcContext.sh2Ctx.GBR;
-                    ctx.memTargetSize = Size.LONG;
-                } else if ((w1 & 0xFF00) == 0xC400) {
-                    ctx.memoryTarget = (w1 & 0xFF) + block.drcContext.sh2Ctx.GBR;
-                    ctx.memTargetSize = Size.BYTE;
-                }
-                if (ctx.memoryTarget != 0) {
-                    int region = ctx.memoryTarget >> 24;
-                    switch (region) {
-                        //SDRAM, COMM
-                        case 0, 6, 0x20, 0x26 -> {
-                            LOG.info("{} Poll detected: {}, memTarget: {}\n{}", block.drcContext.cpu, th(block.prefetchPc),
-                                    th(ctx.memoryTarget), Sh2Instructions.toListOfInst(block));
-                            ctx.isPolling = true;
-                            block.poller = 1;
-                            map.put(ctx.pc, ctx);
-                        }
-                    }
-                }
+                block.pollType = BUSY_LOOP;
+                map.put(ctx.pc, ctx);
             }
-        } else {
-//                LOG.info("{} Not a poller: {}\n{}", block.drcContext.cpu, th(block.prefetchPc), Sh2Instructions.toListOfInst(block));
+        }
+    }
+
+    /**
+     * S 0603fc24	e000	mov H'00, R0 [NEW]
+     * S 0603fc26	d103	mov.l @(H'0603fc34), R1 [NEW]
+     * S 0603fc28	2102	mov.l R0, @R1 [NEW]
+     * S 0603fc2a	6012	mov.l @R1, R0 [NEW]
+     * S 0603fc2c	8800	cmp/eq H'00, R0 [NEW]
+     * S 0603fc2e	89fc	bt H'0603fc2a [NEW]
+     *
+     * @param block
+     */
+    private static void checkPollLen3(Sh2Prefetcher.Sh2Block block) {
+        int blen = block.prefetchLenWords;
+        int w1 = block.prefetchWords[blen - 3];
+        int w2 = block.prefetchWords[blen - 2];
+        int w3 = block.prefetchWords[blen - 1];
+
+        boolean poll = Sh2Debug.isMovOpcode.test(w1) && isCmpTstOpcode.test(w2) && Sh2Debug.isBranchOpcode.test(w3);
+        if (poll) {
+            PollerCtx ctx = new PollerCtx();
+            ctx.pc = block.prefetchPc;
+            ctx.block = block;
+            ctx.cpu = block.drcContext.cpu;
+            int jumpPc = ctx.pc + ((blen - 1) << 1);
+            setTargetInfo(ctx, w1, w3, jumpPc);
+            if (ctx.memoryTarget != 0 && ctx.branchDest == ctx.pc) {
+                block.pollType = getAccessType(ctx, ctx.memoryTarget);
+                map.put(ctx.pc, ctx);
+            }
+            LOG.info("{} Poll {} at PC {}: {} {}\n{}", block.drcContext.cpu,
+                    block.pollType == UNKNOWN ? "ignored" : "detected", th(block.prefetchPc),
+                    th(ctx.memoryTarget), block.pollType,
+                    Sh2Instructions.toListOfInst(block));
+            if (block.pollType == UNKNOWN) {
+//                LOG.info("oops");
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        //020a5878	59b2	mov.l @(2, R11), R9
+        int w1 = 0x59b2;
+        int memoryTarget;
+        Size memTargetSize;
+        int[] r = new int[16];
+        if ((w1 & 0xF000) == 0x5000) {
+            memoryTarget = ((w1 & 0xF) << 2) + r[(w1 & 0xF0) >> 4];
+            memTargetSize = Size.LONG;
+            System.out.println(memoryTarget + " " + memTargetSize);
+        }
+    }
+
+    private static void setTargetInfo(PollerCtx ctx, int w1, int w3, int jmpPc) {
+        final Sh2Context sh2Ctx = ctx.block.drcContext.sh2Ctx;
+        final int[] r = sh2Ctx.registers;
+        if ((w1 & 0xF000) == 0x5000) {
+            //MOV.L@(disp,Rm),  Rn(disp × 4 + Rm) → Rn    0101nnnnmmmmdddd
+            ctx.memoryTarget = ((w1 & 0xF) << 2) + r[(w1 & 0xF0) >> 4];
+            ctx.memTargetSize = Size.LONG;
+        } else if (((w1 & 0xF000) == 0xC000) && ((((w1 >> 8) & 0xF) == 4) || (((w1 >> 8) & 0xF) == 5) || (((w1 >> 8) & 0xF) == 6))) {
+            //mov.x @(disp, GBR), R0
+            //MOV.B@(disp,GBR),     R0(disp + GBR) → sign extension → R0    11000100dddddddd
+            ctx.memTargetSize = Size.vals[(w1 >> 10) & 0xF];
+            ctx.memoryTarget = ((w1 & 0xFF) << ctx.memTargetSize.ordinal()) + sh2Ctx.GBR;
+        } else if (((w1 & 0xF000) == 0x6000) && ((w1 & 0xF) < 3)) {
+            //MOVXL, MOV.X @Rm,Rn
+            ctx.memoryTarget = r[(w1 & 0xF0) >> 4];
+            ctx.memTargetSize = Size.vals[w1 & 0xF];
+        } else if (((w1 & 0xF000) == 0x8000) && (((w1 & 0xF00) == 0x400) || ((w1 & 0xF00) == 0x500))) {
+            //MOVBL4, MOV.B @(disp,Rm),R0
+            //MOVWL4, MOV.W @(disp,Rm),R0
+            ctx.memoryTarget = r[(w1 & 0xF0) >> 4] + (w1 & 0xF);
+            ctx.memTargetSize = Size.vals[(w1 >> 8) & 1];
+        }
+        if ((w3 & 0xF000) == 0x8000) { //BT, BF, BTS, BFS
+            int d = (byte) (w3 & 0xFF) << 1;
+            ctx.branchDest = jmpPc + d + 4;
+        }
+    }
+
+
+    public static PollType getAccessType(PollerCtx ctx, int address) {
+        switch (address >> 24) {
+            case 6:
+            case 0x26:
+                return SDRAM;
+            case 0:
+            case 0x20:
+                PollType pt = ptMap.get(S32xDict.getRegSpec(MASTER, address).deviceType);
+                assert pt != null : th(address);
+                return pt == null ? UNKNOWN : pt;
+            default:
+                LOG.error("Unexpected access type for polling: {}", th(address));
+                return UNKNOWN;
         }
     }
 

@@ -143,9 +143,6 @@ public class CpuFastDebug {
     private void printNewInstruction() {
         final int pc = debugInfoProvider.getPc();
         final int area = pc >>> ctx.pcAreaShift;
-        if (area == 0xC0) {
-            System.out.print("");
-        }
         final int mask = ctx.pcAreasMaskMap[area];
         final int pcMasked = pc & mask;
         final int opcode = debugInfoProvider.getOpcode();

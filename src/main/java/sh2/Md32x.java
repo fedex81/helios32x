@@ -177,6 +177,7 @@ public class Md32x extends Genesis {
         ctx.pwm.newFrame();
         ctx.mDevCtx.sh2MMREG.newFrame();
         ctx.sDevCtx.sh2MMREG.newFrame();
+        ctx.memory.newFrame();
     }
 
     @Override

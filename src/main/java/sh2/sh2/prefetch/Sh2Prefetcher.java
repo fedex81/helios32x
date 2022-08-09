@@ -16,13 +16,17 @@ import sh2.sh2.drc.Ow2DrcOptimizer;
 import sh2.sh2.drc.Ow2Sh2BlockRecompiler;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.List;
+import java.util.StringJoiner;
 
 import static omegadrive.util.Util.th;
 import static sh2.Md32x.CYCLE_TABLE_LEN_MASK;
 import static sh2.Md32x.SH2_ENABLE_DRC;
 import static sh2.sh2.Sh2Instructions.generateInst;
-import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
+import static sh2.sh2.drc.Ow2DrcOptimizer.*;
+import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.BUSY_LOOP;
+import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.NONE;
 
 /**
  * Federico Berti
@@ -31,12 +35,12 @@ import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
  */
 public interface Sh2Prefetcher {
 
-    static final Logger LOG = LogHelper.getLogger(Sh2Prefetcher.class.getSimpleName());
+    Logger LOG = LogHelper.getLogger(Sh2Prefetcher.class.getSimpleName());
 
-    static final int OPT_THRESHOLD = 0xFF; //needs to be (powerOf2 - 1)
-    static final int OPT_THRESHOLD2 = 0x1FF; //needs to be (powerOf2 - 1)
+    int OPT_THRESHOLD = 0xFF; //needs to be (powerOf2 - 1)
+    int OPT_THRESHOLD2 = 0x1FF; //needs to be (powerOf2 - 1)
 
-    static final boolean verbose = false;
+    boolean verbose = false;
 
     void fetch(FetchResult ft, CpuDeviceAccess cpu);
 
@@ -50,6 +54,9 @@ public interface Sh2Prefetcher {
     void invalidateAllPrefetch(CpuDeviceAccess cpuDeviceAccess);
 
     void invalidateCachePrefetch(Sh2Cache.CacheInvalidateContext ctx);
+
+    default void newFrame() {
+    }
 
     public static class Sh2BlockUnit extends Sh2InstructionWrapper {
         public Sh2BlockUnit next;
@@ -73,8 +80,10 @@ public interface Sh2Prefetcher {
         public Sh2Block nextBlock = INVALID_BLOCK;
         public Sh2Prefetch.Sh2DrcContext drcContext;
         public boolean isCacheFetch;
-        public byte poller = -1;
+        public PollType pollType = PollType.UNKNOWN;
         public Runnable stage2Drc;
+
+        private static boolean verbose = false;
 
         public boolean runOne() {
             curr.runnable.run();
@@ -86,21 +95,7 @@ public interface Sh2Prefetcher {
 
         public final void runBlock(Sh2Impl sh2, Sh2MMREG sm) {
             if (stage2Drc != null) {
-                Ow2DrcOptimizer.PollerCtx currentPoller = currentPollers[drcContext.cpu.ordinal()];
-                if (currentPoller.isPolling) {
-                    //add max delay
-                    this.drcContext.sh2Ctx.cycles = Sh2Context.burstCycles - CYCLE_TABLE_LEN_MASK + 5;
-                    Md32xRuntimeData.resetCpuDelayExt();
-                    return;
-                }
-                if (poller > 0 && currentPoller == NO_POLLER) {
-                    Ow2DrcOptimizer.PollerCtx pctx = Ow2DrcOptimizer.map.getOrDefault(prefetchPc, NO_POLLER);
-                    if (pctx != NO_POLLER) {
-                        LOG.info("{} entering poller at PC: {}", this.drcContext.cpu, th(this.prefetchPc));
-                        pctx.isPolling = true;
-                        currentPollers[drcContext.cpu.ordinal()] = pctx;
-                    }
-                }
+                handlePoll();
                 stage2Drc.run();
                 return;
             }
@@ -120,6 +115,41 @@ public interface Sh2Prefetcher {
             curr = prev;
         }
 
+
+        private void handlePoll() {
+            if (!isPollingBlock()) {
+                final PollerCtx current = currentPollers[drcContext.cpu.ordinal()];
+                if (current != NO_POLLER && pollType == BUSY_LOOP) {
+                    current.stopPolling();
+                    currentPollers[drcContext.cpu.ordinal()] = NO_POLLER;
+                }
+                return;
+            }
+            final Ow2DrcOptimizer.PollerCtx pollerCtx = currentPollers[drcContext.cpu.ordinal()];
+            if (pollerCtx == NO_POLLER) {
+                Ow2DrcOptimizer.PollerCtx pctx = Ow2DrcOptimizer.map.getOrDefault(prefetchPc, NO_POLLER);
+                if (pctx != NO_POLLER) {
+                    if (verbose)
+                        LOG.info("{} entering {} poll at PC {}, on address: {}", this.drcContext.cpu, pctx.block.pollType,
+                                th(this.prefetchPc), th(pctx.memoryTarget));
+                    pctx.pollState = PollState.ACTIVE_POLL;
+                    assert pctx != NO_POLLER;
+                    currentPollers[drcContext.cpu.ordinal()] = pctx;
+                } else {
+                    if (verbose)
+                        LOG.info("{} ignoring {} poll at PC {}, on address: {}", this.drcContext.cpu, pctx.block.pollType,
+                                th(this.prefetchPc), th(pctx.memoryTarget));
+                    pollType = NONE;
+                }
+            } else if (pollerCtx.isPollingActive()) {
+                //add max delay
+                this.drcContext.sh2Ctx.cycles = Sh2Context.burstCycles - CYCLE_TABLE_LEN_MASK + 5;
+                Md32xRuntimeData.resetCpuDelayExt();
+            } else {
+                throw new RuntimeException("unexpected");
+            }
+        }
+
         public void addHit() {
             hits++;
             if (inst == null) {
@@ -130,11 +160,6 @@ public interface Sh2Prefetcher {
             } else if (stage2Drc == null && ((hits + 1) & OPT_THRESHOLD2) == 0) {
                 if (verbose) LOG.info("{} HRC2 count: {}\n{}", "", th(hits), Sh2Instructions.toListOfInst(this));
                 stage2();
-            }
-            if (((hits + 1) & 0xFFF) == 0) {
-//                LOG.info("{} hits: {}, cycles: {}, tot: {}\n{}", drcContext.cpu, th(hits), cyclesConsumed,
-//                        th(hits*cyclesConsumed),
-//                        Sh2Instructions.toListOfInst(this));
                 Ow2DrcOptimizer.pollDetector(this);
             }
         }
@@ -169,6 +194,10 @@ public interface Sh2Prefetcher {
             curr = inst[pcDeltaWords];
         }
 
+        public boolean isPollingBlock() {
+            return pollType.ordinal() > NONE.ordinal();
+        }
+
         public void invalidate() {
             nextBlock = INVALID_BLOCK;
             inst = null;
@@ -176,6 +205,29 @@ public interface Sh2Prefetcher {
             prefetchPc = prefetchLenWords = -1;
             stage2Drc = null;
             hits = 0;
+        }
+
+        @Override
+        public String toString() {
+            return new StringJoiner(", ", Sh2Block.class.getSimpleName() + "[", "]")
+                    .add("inst=" + Arrays.toString(inst))
+                    .add("curr=" + curr)
+                    .add("prefetchWords=" + Arrays.toString(prefetchWords))
+                    .add("prefetchPc=" + prefetchPc)
+                    .add("hits=" + hits)
+                    .add("start=" + start)
+                    .add("end=" + end)
+                    .add("pcMasked=" + pcMasked)
+                    .add("prefetchLenWords=" + prefetchLenWords)
+                    .add("fetchMemAccessDelay=" + fetchMemAccessDelay)
+                    .add("cyclesConsumed=" + cyclesConsumed)
+                    .add("fetchBuffer=" + fetchBuffer)
+                    .add("nextBlock=" + nextBlock.prefetchPc)
+                    .add("drcContext=" + drcContext)
+                    .add("isCacheFetch=" + isCacheFetch)
+                    .add("pollType=" + pollType)
+                    .add("stage2Drc=" + stage2Drc)
+                    .toString();
         }
     }
 

@@ -17,13 +17,13 @@ import sh2.sh2.*;
 import sh2.sh2.Sh2.FetchResult;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.cache.Sh2Cache;
-import sh2.sh2.drc.Ow2DrcOptimizer;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import static omegadrive.cpu.CpuFastDebug.NOT_VISITED;
 import static omegadrive.util.Util.th;
@@ -36,6 +36,7 @@ import static sh2.dict.S32xDict.SH2_SDRAM_MASK;
 import static sh2.dict.S32xMemAccessDelay.SDRAM;
 import static sh2.sh2.Sh2Debug.pcAreaMaskMap;
 import static sh2.sh2.Sh2Instructions.generateInst;
+import static sh2.sh2.drc.Ow2DrcOptimizer.*;
 
 /**
  * Federico Berti
@@ -233,9 +234,6 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         if (SH2_REUSE_FETCH_DATA) {
             piw = get(pc, cpu);
             Sh2Block prev = pMap.get(piw);
-            if (SH2_LIMIT_BLOCK_MAP_LOAD) {
-                handleMapLoad(pMap, cpu);
-            }
             pMap.put(piw, block);
             if (verbose && prev != null && !block.equals(prev)) {
                 LOG.warn("{} New block generated at PC: {}", cpu, th(pc));
@@ -264,10 +262,16 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         return piw;
     }
 
+    static Predicate<Map.Entry<PcInfoWrapper, Sh2Block>> removeEntryPred =
+            e -> e.getValue() == Sh2Block.INVALID_BLOCK || e.getValue().hits < 50;
+
     private void handleMapLoad(Map<PcInfoWrapper, Sh2Block> pMap, CpuDeviceAccess cpu) {
         if (pMap.size() > blockLimit) {
             int size = pMap.size();
-            pMap.entrySet().removeIf(e -> e.getValue() == Sh2Block.INVALID_BLOCK || e.getValue().inst == null);
+//            pMap.entrySet().stream().filter(removeEntryPred).forEach(
+//                    System.out::println
+//            );
+            pMap.entrySet().removeIf(removeEntryPred);
             int newSize = pMap.size();
             int prevLimit = blockLimit;
             blockLimit = blockLimit << ((newSize > blockLimit * 0.75) ? 1 : 0);
@@ -293,6 +297,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             checkBlock(fetchResult, cpu);
             pcDeltaWords = 0;
             block = fetchResult.block;
+        } else {
+            block.addHit(); //keeps looping on the same block
         }
         cacheOnFetch(pc, block.prefetchWords[pcDeltaWords], cpu);
         if (collectStats) stats[cpu.ordinal()].pfTotal++;
@@ -339,25 +345,34 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     private void checkPoller(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
-        for (var entry : Ow2DrcOptimizer.map.entrySet()) {
-            final Ow2DrcOptimizer.PollerCtx c = entry.getValue();
-            if (c.isPolling) {
-                addr = addr & 0xFFF_FFFF;
-                int tgtStart = c.memoryTarget & 0xFFF_FFFF;
-                int tgtEnd = tgtStart + Math.max(1, c.memTargetSize.ordinal() << 1);
-                int addrEnd = addr + Math.max(1, size.ordinal() << 1);
-                if ((addrEnd > tgtStart) && (addr <= tgtEnd)) {
-                    LOG.info("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
-                            th(addr), size, c.cpu, th(c.memoryTarget), c.memTargetSize, th(val));
-                    Sh2Block.currentPollers[c.cpu.ordinal()].isPolling = false;
-                    Sh2Block.currentPollers[c.cpu.ordinal()] = Ow2DrcOptimizer.NO_POLLER;
-                    if (c.cpu == SLAVE) {
-                        Md32x.md32x.nextSSh2Cycle = Md32x.md32x.nextMSh2Cycle + 1;
-                    } else {
-                        Md32x.md32x.nextMSh2Cycle = Md32x.md32x.nextSSh2Cycle + 1;
+        for (var entry : map.entrySet()) {
+            final PollerCtx c = entry.getValue();
+            boolean busyLoop = c.block.pollType == PollType.BUSY_LOOP;
+            if (c.isPollingActive()) {
+                if (!busyLoop) {
+                    addr = addr & 0xFFF_FFFF;
+                    int tgtStart = c.memoryTarget & 0xFFF_FFFF;
+                    int tgtEnd = tgtStart + Math.max(1, c.memTargetSize.ordinal() << 1);
+                    int addrEnd = addr + Math.max(1, size.ordinal() << 1);
+                    if ((addrEnd > tgtStart) && (addr <= tgtEnd)) {
+                        if (verbose) LOG.info("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
+                                th(addr), size, c.cpu, th(c.memoryTarget), c.memTargetSize, th(val));
+                        stopPoller(c);
                     }
+                } else if (busyLoop) {
+                    //TODO busyLoop can only be waiting for an interrupt ??
                 }
             }
+        }
+    }
+
+    private void stopPoller(PollerCtx c) {
+        c.stopPolling();
+        Sh2Block.currentPollers[c.cpu.ordinal()] = NO_POLLER;
+        if (c.cpu == SLAVE) {
+            Md32x.md32x.nextSSh2Cycle = Md32x.md32x.nextMSh2Cycle + 1;
+        } else {
+            Md32x.md32x.nextMSh2Cycle = Md32x.md32x.nextSSh2Cycle + 1;
         }
     }
 
@@ -424,6 +439,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     public void invalidateAllPrefetch(CpuDeviceAccess cpu) {
         prefetchMap[cpu.ordinal()].clear();
+        if (verbose) LOG.info("{} invalidate all prefetch data");
     }
 
     public void invalidateCachePrefetch(Sh2Cache.CacheInvalidateContext ctx) {
@@ -462,5 +478,14 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             }
         }
         return l;
+    }
+
+    @Override
+    public void newFrame() {
+        //TODO improve this, shouldn't remove blocks that poll
+        if (SH2_LIMIT_BLOCK_MAP_LOAD) {
+            handleMapLoad(prefetchMap[MASTER.ordinal()], MASTER);
+            handleMapLoad(prefetchMap[SLAVE.ordinal()], SLAVE);
+        }
     }
 }

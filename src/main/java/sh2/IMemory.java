@@ -73,6 +73,9 @@ public interface IMemory extends Sh2Prefetcher {
         return Collections.emptyList();
     }
 
+    default void newFrame() {
+    }
+
     class MemAccessStats {
 
         private static final Logger LOG = LogHelper.getLogger(MemAccessStats.class.getSimpleName());

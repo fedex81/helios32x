@@ -204,6 +204,11 @@ public final class Sh2Memory implements IMemory {
 	}
 
 	@Override
+	public void newFrame() {
+		prefetch.newFrame();
+	}
+
+	@Override
 	public void resetSh2() {
 		sh2MMREGS[MASTER.ordinal()].reset();
 		sh2MMREGS[SLAVE.ordinal()].reset();
