@@ -1,6 +1,7 @@
 package sh2.sh2;
 
 import sh2.IMemory;
+import sh2.sh2.drc.Sh2Block;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import java.util.Arrays;
@@ -64,7 +65,7 @@ public class Sh2Instructions {
         return Arrays.stream(opcodes).mapToObj(op -> new Sh2Prefetcher.Sh2BlockUnit(instOpcodeMap[op])).toArray(Sh2Prefetcher.Sh2BlockUnit[]::new);
     }
 
-    public static StringBuilder toListOfInst(Sh2Prefetcher.Sh2Block ctx) {
+    public static StringBuilder toListOfInst(Sh2Block ctx) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < ctx.prefetchWords.length; i++) {
             int pc = ctx.start + (i << 1);

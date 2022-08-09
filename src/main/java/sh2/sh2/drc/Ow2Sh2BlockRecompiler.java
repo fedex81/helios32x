@@ -15,7 +15,6 @@ import sh2.sh2.Sh2Context;
 import sh2.sh2.device.Sh2DeviceHelper;
 import sh2.sh2.prefetch.Sh2Prefetch.BytecodeContext;
 import sh2.sh2.prefetch.Sh2Prefetch.Sh2DrcContext;
-import sh2.sh2.prefetch.Sh2Prefetcher;
 import sh2.sh2.prefetch.Sh2Prefetcher.Sh2BlockUnit;
 
 import java.nio.file.Path;
@@ -77,7 +76,7 @@ public class Ow2Sh2BlockRecompiler {
         }
     }
 
-    public Runnable createDrcClass(Sh2Prefetcher.Sh2Block block, Sh2DrcContext drcCtx) {
+    public Runnable createDrcClass(Sh2Block block, Sh2DrcContext drcCtx) {
         String blockClass = drcPackage + "." + drcCtx.sh2Ctx.sh2TypeCode + "_" + th(block.prefetchPc) + "_" + System.nanoTime();
         byte[] binc = createClassBinary(block, drcCtx, blockClass);
         writeClassMaybe(blockClass, binc);
@@ -96,7 +95,7 @@ public class Ow2Sh2BlockRecompiler {
         return r;
     }
 
-    private static byte[] createClassBinary(Sh2Prefetcher.Sh2Block block, Sh2DrcContext drcCtx, String blockClass) {
+    private static byte[] createClassBinary(Sh2Block block, Sh2DrcContext drcCtx, String blockClass) {
         String blockClassDesc = blockClass.replace('.', '/');
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
         cw.visit(V11, ACC_PUBLIC | ACC_FINAL, blockClassDesc, null, Type.getInternalName(Object.class),
@@ -182,7 +181,7 @@ public class Ow2Sh2BlockRecompiler {
                 }
             }
             //TODO reached the block len limit, needs to set the PC, this should be a flag in Sh2Block
-            if (limit == Sh2Prefetcher.Sh2Block.MAX_INST_LEN) {
+            if (limit == Sh2Block.MAX_INST_LEN) {
                 Ow2Sh2Bytecode.setPcExt(ctx, block.inst[limit - 1].pc + 2);
             }
             Ow2Sh2Bytecode.subCyclesExt(ctx, totCycles);

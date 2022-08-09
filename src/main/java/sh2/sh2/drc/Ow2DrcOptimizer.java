@@ -11,7 +11,6 @@ import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Debug;
 import sh2.sh2.Sh2Instructions;
 import sh2.sh2.prefetch.Sh2Prefetch;
-import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -67,7 +66,7 @@ public class Ow2DrcOptimizer {
         public S32xUtil.CpuDeviceAccess cpu;
         public int pc, memoryTarget, branchDest;
         public Size memTargetSize;
-        public Sh2Prefetcher.Sh2Block block = Sh2Prefetcher.Sh2Block.INVALID_BLOCK;
+        public Sh2Block block = Sh2Block.INVALID_BLOCK;
         public PollState pollState = PollState.NO_POLL;
 
         public boolean isPollingActive() {
@@ -83,7 +82,7 @@ public class Ow2DrcOptimizer {
             if (isPollingActive()) {
 //                LOG.info("{} Stopping {} poll at PC {}, on address: {}", cpu, block.pollType, th(pc), th(memoryTarget));
             }
-//            block = Sh2Prefetcher.Sh2Block.INVALID_BLOCK;
+//            block = Sh2Block.INVALID_BLOCK;
             pollState = PollState.NO_POLL;
 //            memoryTarget = 0;
         }
@@ -116,10 +115,17 @@ public class Ow2DrcOptimizer {
      *
      * Space Harrier
      */
-    public static void pollDetector(Sh2Prefetcher.Sh2Block block) {
+    public static void pollDetector(Sh2Block block) {
+        if (false) {
+            block.pollType = NONE;
+            return;
+        }
+        //TODO
         if (block.pollType == UNKNOWN) {
-            if (block.prefetchLenWords == 3) { //TODO
+            if (block.prefetchLenWords == 3) {
                 checkPollLen3(block);
+            } else if (block.prefetchLenWords == 2) {
+                checkPollLen2(block);
             }
             if (block.pollType == UNKNOWN) {
                 busyLoopDetector(block);
@@ -137,24 +143,31 @@ public class Ow2DrcOptimizer {
      * S 06000170	affd	bra H'0600016e
      * S 06000172	0009	nop
      */
-    public static void busyLoopDetector(Sh2Prefetcher.Sh2Block block) {
+    public static void busyLoopDetector(Sh2Block block) {
         assert block.pollType == UNKNOWN;
+        boolean busyLoop = false;
         if (block.prefetchLenWords == 3) {
             int w1 = block.prefetchWords[0];
             int w2 = block.prefetchWords[1];
             int w3 = block.prefetchWords[2];
-            boolean busyLoop = w1 == NOP && w2 == 0xaffd && w3 == NOP;
-            if (busyLoop) {
-                LOG.info("{} BusyLoop detected: {}\n{}", block.drcContext.cpu, th(block.prefetchPc), Sh2Instructions.toListOfInst(block));
-                PollerCtx ctx = new PollerCtx();
-                ctx.pc = block.prefetchPc;
-                ctx.block = block;
-                ctx.cpu = block.drcContext.cpu;
-                block.pollType = BUSY_LOOP;
-                map.put(ctx.pc, ctx);
-            }
+            busyLoop = w1 == NOP && w2 == 0xaffd && w3 == NOP;
+        } else if (block.prefetchLenWords == 2) {
+            int w1 = block.prefetchWords[0];
+            int w2 = block.prefetchWords[1];
+            busyLoop = w1 == 0xaffe && w2 == NOP;
+        }
+        if (busyLoop) {
+            LOG.info("{} BusyLoop detected: {}\n{}", block.drcContext.cpu, th(block.prefetchPc),
+                    Sh2Instructions.toListOfInst(block));
+            PollerCtx ctx = new PollerCtx();
+            ctx.pc = block.prefetchPc;
+            ctx.block = block;
+            ctx.cpu = block.drcContext.cpu;
+            block.pollType = BUSY_LOOP;
+            map.put(ctx.pc, ctx);
         }
     }
+
 
     /**
      * S 0603fc24	e000	mov H'00, R0 [NEW]
@@ -166,7 +179,7 @@ public class Ow2DrcOptimizer {
      *
      * @param block
      */
-    private static void checkPollLen3(Sh2Prefetcher.Sh2Block block) {
+    private static void checkPollLen3(Sh2Block block) {
         int blen = block.prefetchLenWords;
         int w1 = block.prefetchWords[blen - 3];
         int w2 = block.prefetchWords[blen - 2];
@@ -179,58 +192,80 @@ public class Ow2DrcOptimizer {
             ctx.block = block;
             ctx.cpu = block.drcContext.cpu;
             int jumpPc = ctx.pc + ((blen - 1) << 1);
-            setTargetInfo(ctx, w1, w3, jumpPc);
-            if (ctx.memoryTarget != 0 && ctx.branchDest == ctx.pc) {
-                block.pollType = getAccessType(ctx, ctx.memoryTarget);
+            setTargetInfoMov(ctx, w1, w3, jumpPc);
+            addPollMaybe(ctx, block);
+        }
+    }
+
+    private static void checkPollLen2(Sh2Block block) {
+        int blen = block.prefetchLenWords;
+        int w1 = block.prefetchWords[blen - 2];
+        int w2 = block.prefetchWords[blen - 1];
+
+        boolean poll = isCmpTstOpcode.test(w1) && Sh2Debug.isBranchOpcode.test(w2);
+        if (poll) {
+            PollerCtx ctx = new PollerCtx();
+            ctx.pc = block.prefetchPc;
+            ctx.block = block;
+            ctx.cpu = block.drcContext.cpu;
+            int jumpPc = ctx.pc + ((blen - 1) << 1);
+            setTargetInfoCmp(ctx, w1, w2, jumpPc);
+            addPollMaybe(ctx, block);
+        }
+    }
+
+    private static void addPollMaybe(PollerCtx ctx, Sh2Block block) {
+        if (ctx.memoryTarget != 0 && ctx.branchDest == ctx.pc) {
+            block.pollType = getAccessType(ctx, ctx.memoryTarget);
+            if (block.pollType != UNKNOWN) {
                 map.put(ctx.pc, ctx);
             }
-            LOG.info("{} Poll {} at PC {}: {} {}\n{}", block.drcContext.cpu,
-                    block.pollType == UNKNOWN ? "ignored" : "detected", th(block.prefetchPc),
-                    th(ctx.memoryTarget), block.pollType,
-                    Sh2Instructions.toListOfInst(block));
-            if (block.pollType == UNKNOWN) {
-//                LOG.info("oops");
-            }
         }
+        LOG.info("{} Poll {} at PC {}: {} {}\n{}", block.drcContext.cpu,
+                block.pollType == UNKNOWN ? "ignored" : "detected", th(block.prefetchPc),
+                th(ctx.memoryTarget), block.pollType,
+                Sh2Instructions.toListOfInst(block));
     }
 
-    public static void main(String[] args) {
-        //020a5878	59b2	mov.l @(2, R11), R9
-        int w1 = 0x59b2;
-        int memoryTarget;
-        Size memTargetSize;
-        int[] r = new int[16];
-        if ((w1 & 0xF000) == 0x5000) {
-            memoryTarget = ((w1 & 0xF) << 2) + r[(w1 & 0xF0) >> 4];
-            memTargetSize = Size.LONG;
-            System.out.println(memoryTarget + " " + memTargetSize);
-        }
-    }
-
-    private static void setTargetInfo(PollerCtx ctx, int w1, int w3, int jmpPc) {
+    private static void setTargetInfoCmp(PollerCtx ctx, int cmp, int jmp, int jmpPc) {
         final Sh2Context sh2Ctx = ctx.block.drcContext.sh2Ctx;
         final int[] r = sh2Ctx.registers;
-        if ((w1 & 0xF000) == 0x5000) {
+        if ((cmp & 0xFF00) == 0xCC00) {
+            //TST.B #imm,@(R0,GBR) 11001100iiiiiiii     (R0 + GBR) & imm;if the result is 0, 1→T
+            ctx.memoryTarget = r[0] + sh2Ctx.GBR;
+        } else if (cmp == NOP) {
+            //TODO busy loop
+        }
+        if ((jmp & 0xF000) == 0x8000) { //BT, BF, BTS, BFS
+            int d = (byte) (jmp & 0xFF) << 1;
+            ctx.branchDest = jmpPc + d + 4;
+        }
+    }
+
+    private static void setTargetInfoMov(PollerCtx ctx, int mov, int jmp, int jmpPc) {
+        final Sh2Context sh2Ctx = ctx.block.drcContext.sh2Ctx;
+        final int[] r = sh2Ctx.registers;
+        if ((mov & 0xF000) == 0x5000) {
             //MOV.L@(disp,Rm),  Rn(disp × 4 + Rm) → Rn    0101nnnnmmmmdddd
-            ctx.memoryTarget = ((w1 & 0xF) << 2) + r[(w1 & 0xF0) >> 4];
+            ctx.memoryTarget = ((mov & 0xF) << 2) + r[(mov & 0xF0) >> 4];
             ctx.memTargetSize = Size.LONG;
-        } else if (((w1 & 0xF000) == 0xC000) && ((((w1 >> 8) & 0xF) == 4) || (((w1 >> 8) & 0xF) == 5) || (((w1 >> 8) & 0xF) == 6))) {
+        } else if (((mov & 0xF000) == 0xC000) && ((((mov >> 8) & 0xF) == 4) || (((mov >> 8) & 0xF) == 5) || (((mov >> 8) & 0xF) == 6))) {
             //mov.x @(disp, GBR), R0
             //MOV.B@(disp,GBR),     R0(disp + GBR) → sign extension → R0    11000100dddddddd
-            ctx.memTargetSize = Size.vals[(w1 >> 10) & 0xF];
-            ctx.memoryTarget = ((w1 & 0xFF) << ctx.memTargetSize.ordinal()) + sh2Ctx.GBR;
-        } else if (((w1 & 0xF000) == 0x6000) && ((w1 & 0xF) < 3)) {
+            ctx.memTargetSize = Size.vals[(mov >> 10) & 0xF];
+            ctx.memoryTarget = ((mov & 0xFF) << ctx.memTargetSize.ordinal()) + sh2Ctx.GBR;
+        } else if (((mov & 0xF000) == 0x6000) && ((mov & 0xF) < 3)) {
             //MOVXL, MOV.X @Rm,Rn
-            ctx.memoryTarget = r[(w1 & 0xF0) >> 4];
-            ctx.memTargetSize = Size.vals[w1 & 0xF];
-        } else if (((w1 & 0xF000) == 0x8000) && (((w1 & 0xF00) == 0x400) || ((w1 & 0xF00) == 0x500))) {
+            ctx.memoryTarget = r[(mov & 0xF0) >> 4];
+            ctx.memTargetSize = Size.vals[mov & 0xF];
+        } else if (((mov & 0xF000) == 0x8000) && (((mov & 0xF00) == 0x400) || ((mov & 0xF00) == 0x500))) {
             //MOVBL4, MOV.B @(disp,Rm),R0
             //MOVWL4, MOV.W @(disp,Rm),R0
-            ctx.memoryTarget = r[(w1 & 0xF0) >> 4] + (w1 & 0xF);
-            ctx.memTargetSize = Size.vals[(w1 >> 8) & 1];
+            ctx.memoryTarget = r[(mov & 0xF0) >> 4] + (mov & 0xF);
+            ctx.memTargetSize = Size.vals[(mov >> 8) & 1];
         }
-        if ((w3 & 0xF000) == 0x8000) { //BT, BF, BTS, BFS
-            int d = (byte) (w3 & 0xFF) << 1;
+        if ((jmp & 0xF000) == 0x8000) { //BT, BF, BTS, BFS
+            int d = (byte) (jmp & 0xFF) << 1;
             ctx.branchDest = jmpPc + d + 4;
         }
     }
@@ -252,7 +287,7 @@ public class Ow2DrcOptimizer {
         }
     }
 
-    public static InstCtx optimizeMaybe(Sh2Prefetcher.Sh2Block block, Sh2Prefetch.BytecodeContext ctx) {
+    public static InstCtx optimizeMaybe(Sh2Block block, Sh2Prefetch.BytecodeContext ctx) {
         instCtx.start = 0;
         instCtx.end = block.prefetchWords.length;
         /**

@@ -1,7 +1,7 @@
 package sh2.sh2;
 
 import omegadrive.Device;
-import sh2.sh2.prefetch.Sh2Prefetcher.Sh2Block;
+import sh2.sh2.drc.Sh2Block;
 
 /**
  * Federico Berti

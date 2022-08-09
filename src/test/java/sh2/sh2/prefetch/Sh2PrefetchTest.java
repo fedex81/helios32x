@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.sh2.Sh2;
+import sh2.sh2.drc.Sh2Block;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,7 +19,6 @@ import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.*;
 import static sh2.sh2.cache.Sh2Cache.CACHE_BYTES_PER_LINE;
-import static sh2.sh2.prefetch.Sh2Prefetcher.Sh2Block;
 
 /**
  * Federico Berti

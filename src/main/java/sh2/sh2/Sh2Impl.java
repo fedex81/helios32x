@@ -9,11 +9,11 @@ import sh2.Sh2MMREG;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.device.IntControl;
 import sh2.sh2.drc.Ow2Sh2BlockRecompiler;
-import sh2.sh2.prefetch.Sh2Prefetcher;
+import sh2.sh2.drc.Sh2Block;
 
 import static omegadrive.util.Util.th;
 import static sh2.Md32x.SH2_ENABLE_DRC;
-import static sh2.sh2.prefetch.Sh2Prefetcher.Sh2Block.INVALID_BLOCK;
+import static sh2.sh2.drc.Sh2Block.INVALID_BLOCK;
 
 /*
  *  Revision 1 -  port the code from Dcemu and use information provided by dark||raziel (done)
@@ -128,7 +128,7 @@ public class Sh2Impl implements Sh2 {
 				fr.block.runBlock(this, ctx.devices.sh2MMREG);
 				boolean nextBlockOk = fr.block.nextBlock.prefetchPc == ctx.PC;
 				if (!nextBlockOk) {
-					Sh2Prefetcher.Sh2Block prevBlock = fr.block;
+					Sh2Block prevBlock = fr.block;
 					fr.pc = ctx.PC;
 					memory.fetch(fr, ctx.cpuAccess);
 					//jump in the middle of a block

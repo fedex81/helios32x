@@ -13,6 +13,7 @@ import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Instructions;
 import sh2.sh2.Sh2Instructions.Sh2BaseInstruction;
 import sh2.sh2.cache.Sh2Cache;
+import sh2.sh2.drc.Sh2Block;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;

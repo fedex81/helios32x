@@ -2,8 +2,8 @@ package sh2;
 
 import sh2.sh2.Sh2Context;
 import sh2.sh2.device.Sh2DeviceHelper;
+import sh2.sh2.drc.Sh2Block;
 import sh2.sh2.prefetch.Sh2Prefetch;
-import sh2.sh2.prefetch.Sh2Prefetcher;
 
 /**
  * Federico Berti
@@ -31,14 +31,14 @@ public class AsmExample implements Runnable {
         this.regs[10] &= this.regs[11];
     }
 
-    private void createClassBinary(Sh2Prefetcher.Sh2Block block, Sh2Prefetch.Sh2DrcContext drcCtx, String blockClass) {
+    private void createClassBinary(Sh2Block block, Sh2Prefetch.Sh2DrcContext drcCtx, String blockClass) {
         this.regs = drcCtx.sh2Ctx.registers;
         this.opcodes = block.prefetchWords;
     }
 
     public static void main(String[] args) {
         Sh2Context sh2Context = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
-        Sh2Prefetcher.Sh2Block block = new Sh2Prefetcher.Sh2Block();
+        Sh2Block block = new Sh2Block();
         Sh2Context context = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
         context.devices = new Sh2DeviceHelper.Sh2DeviceContext();
         AsmExample b = new AsmExample(sh2Context.registers, block.prefetchWords, context);

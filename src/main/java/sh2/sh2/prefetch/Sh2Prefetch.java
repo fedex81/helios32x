@@ -17,6 +17,7 @@ import sh2.sh2.*;
 import sh2.sh2.Sh2.FetchResult;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.cache.Sh2Cache;
+import sh2.sh2.drc.Sh2Block;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static omegadrive.cpu.CpuFastDebug.NOT_VISITED;
 import static omegadrive.util.Util.th;
@@ -263,24 +265,26 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     static Predicate<Map.Entry<PcInfoWrapper, Sh2Block>> removeEntryPred =
-            e -> e.getValue() == Sh2Block.INVALID_BLOCK || e.getValue().hits < 50;
+            e -> e.getValue() == Sh2Block.INVALID_BLOCK || e.getValue().inst == null;
 
     private void handleMapLoad(Map<PcInfoWrapper, Sh2Block> pMap, CpuDeviceAccess cpu) {
         if (pMap.size() > blockLimit) {
             int size = pMap.size();
-//            pMap.entrySet().stream().filter(removeEntryPred).forEach(
-//                    System.out::println
-//            );
+            String s = null;
+            if (verbose) {
+                s = pMap.entrySet().stream().filter(removeEntryPred).map(e -> e.getValue().toString()).
+                        collect(Collectors.joining("\n"));
+            }
             pMap.entrySet().removeIf(removeEntryPred);
             int newSize = pMap.size();
             int prevLimit = blockLimit;
             blockLimit = blockLimit << ((newSize > blockLimit * 0.75) ? 1 : 0);
             blockLimit = blockLimit >> ((newSize < blockLimit >> 2) ? 1 : 0);
             blockLimit = Math.max(24, blockLimit);
+            if (verbose) LOG.info("{} clear {}->{}, limit {}\n{}", cpu, size, newSize, blockLimit, s);
             if (blockLimit != prevLimit) {
-                if (verbose) LOG.info("{} clear {}->{}, limit {}", cpu, size, newSize, blockLimit);
+                if (verbose) LOG.info("{} clear {}->{}, limit {}\n{}", cpu, size, newSize, blockLimit, s);
             }
-//            LOG.info("{} clear {}->{}, limit {}", cpu, size, newSize, blockLimit);
         }
     }
 
@@ -437,6 +441,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
     }
 
+    //TODO this should check cache contents vs SDRAM to detect inconsistencies
     public void invalidateAllPrefetch(CpuDeviceAccess cpu) {
         prefetchMap[cpu.ordinal()].clear();
         if (verbose) LOG.info("{} invalidate all prefetch data");
@@ -482,7 +487,6 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     @Override
     public void newFrame() {
-        //TODO improve this, shouldn't remove blocks that poll
         if (SH2_LIMIT_BLOCK_MAP_LOAD) {
             handleMapLoad(prefetchMap[MASTER.ordinal()], MASTER);
             handleMapLoad(prefetchMap[SLAVE.ordinal()], SLAVE);

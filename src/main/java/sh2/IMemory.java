@@ -5,6 +5,7 @@ import omegadrive.util.Size;
 import org.slf4j.Logger;
 import sh2.sh2.Sh2;
 import sh2.sh2.cache.Sh2Cache.CacheInvalidateContext;
+import sh2.sh2.drc.Sh2Block;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import java.util.*;

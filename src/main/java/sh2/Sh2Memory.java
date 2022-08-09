@@ -10,6 +10,7 @@ import sh2.dict.S32xMemAccessDelay;
 import sh2.sh2.Sh2;
 import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.cache.Sh2CacheImpl;
+import sh2.sh2.drc.Sh2Block;
 import sh2.sh2.prefetch.Sh2Prefetch;
 import sh2.sh2.prefetch.Sh2PrefetchSimple;
 import sh2.sh2.prefetch.Sh2Prefetcher;
