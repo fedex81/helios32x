@@ -42,6 +42,7 @@ public class CpuFastDebug {
         public int pcMasked;
         public int opcode;
         public int pcLoops;
+        public long hits;
 
         @Override
         public boolean equals(Object o) {

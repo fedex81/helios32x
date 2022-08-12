@@ -13,6 +13,8 @@ import org.slf4j.Logger;
 import sh2.MarsLauncherHelper.Sh2LaunchContext;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
+import sh2.sh2.drc.Ow2DrcOptimizer;
+import sh2.sh2.drc.Sh2Block;
 import sh2.vdp.MarsVdp;
 import sh2.vdp.MarsVdp.MarsVdpRenderContext;
 import sh2.vdp.debug.DebugVideoRenderContext;
@@ -22,6 +24,7 @@ import java.util.Optional;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
+import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 
 /**
  * Federico Berti
@@ -192,5 +195,23 @@ public class Md32x extends Genesis {
     public void handleNewRom(Path file) {
         super.handleNewRom(file);
         rt = Md32xRuntimeData.newInstance();
+    }
+
+    public void resumeNow(Ow2DrcOptimizer.PollCancelType type, S32xUtil.CpuDeviceAccess cpu) {
+        final Ow2DrcOptimizer.PollerCtx pc = Sh2Block.currentPollers[cpu.ordinal()];
+        boolean stopBusyLoopDueToInt = type == Ow2DrcOptimizer.PollCancelType.INT && pc.isPollingActive() &&
+                pc.block.pollType == Ow2DrcOptimizer.PollType.BUSY_LOOP;
+        if (pc.isPollingActive()) {
+            pc.stopPolling();
+            if (cpu == SLAVE) {
+                Md32x.md32x.nextSSh2Cycle = Md32x.md32x.counter + 1;
+            } else {
+                Md32x.md32x.nextMSh2Cycle = Md32x.md32x.counter + 1;
+            }
+            Sh2Block.currentPollers[cpu.ordinal()] = NO_POLLER;
+//            if ("VDP".equals(reason)) {
+//                LOG.info("{} Stop polling: {}", cpu, reason);
+//            }
+        }
     }
 }

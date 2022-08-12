@@ -9,6 +9,7 @@ import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.pwm.Pwm;
 import sh2.sh2.device.IntControl;
+import sh2.sh2.prefetch.Sh2Prefetch;
 import sh2.vdp.MarsVdp;
 import sh2.vdp.MarsVdp.MarsVdpContext;
 import sh2.vdp.MarsVdpImpl;
@@ -178,6 +179,9 @@ public class S32XMMREG implements Device {
         }
         if (verbose && regChanged) {
             doLog(cpu, regSpec, address, value, size, false);
+        }
+        if (regChanged) {
+            Sh2Prefetch.checkPoller(cpu, regSpec.deviceType, address, value, size);
         }
         return regChanged;
     }

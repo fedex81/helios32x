@@ -11,6 +11,7 @@ import sh2.S32XMMREG;
 import sh2.S32xUtil;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
+import sh2.sh2.prefetch.Sh2Prefetch;
 import sh2.vdp.debug.MarsVdpDebugView;
 
 import java.nio.ByteBuffer;
@@ -20,6 +21,8 @@ import java.util.Optional;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32XMMREG.RegContext;
+import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
+import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.S32xUtil.*;
 import static sh2.dict.S32xDict.*;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
@@ -260,6 +263,7 @@ public class MarsVdpImpl implements MarsVdp {
         } while (len >= 0);
         writeBufferWord(AFSAR, addrFixed + addrVariable); //star wars arcade
         if (verbose) LOG.info("AutoFill done, AFSAR {}, len {}", th(afsarEnd), th(Math.max(len, 0)));
+        vdpRegChange(AFSAR);
     }
 
     private void setPen(int pen) {
@@ -284,6 +288,7 @@ public class MarsVdpImpl implements MarsVdp {
             s32XMMREG.interruptControls[1].setIntPending(VINT_12, true);
         }
         setPen(vdpContext.hBlankOn || vBlankOn ? 1 : 0);
+        vdpRegChange(FBCR);
 //        System.out.println("VBlank: " + vBlankOn);
     }
 
@@ -304,7 +309,14 @@ public class MarsVdpImpl implements MarsVdp {
             }
         }
         setPen(hBlankOn || vdpContext.vBlankOn ? 1 : 0);
+        vdpRegChange(FBCR);
 //        System.out.println("HBlank: " + hBlankOn);
+    }
+
+    private void vdpRegChange(RegSpecS32x regSpec) {
+        //TODO vdp address
+        Sh2Prefetch.checkPoller(MASTER, regSpec.deviceType, SH2_CACHE_THROUGH_OFFSET | 0x4000 | regSpec.fullAddress, 0xBEEF, Size.WORD);
+        Sh2Prefetch.checkPoller(SLAVE, regSpec.deviceType, SH2_CACHE_THROUGH_OFFSET | 0x4000 | regSpec.fullAddress, 0xBEEF, Size.WORD);
     }
 
     private void writeBufferWord(RegSpecS32x reg, int value) {

@@ -2,9 +2,10 @@ package sh2.sh2.drc;
 
 import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
+import sh2.Md32x;
 import sh2.Md32xRuntimeData;
+import sh2.S32xUtil;
 import sh2.Sh2MMREG;
-import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Impl;
 import sh2.sh2.Sh2Instructions;
 import sh2.sh2.prefetch.Sh2Prefetch;
@@ -15,12 +16,12 @@ import java.util.Arrays;
 import java.util.StringJoiner;
 
 import static omegadrive.util.Util.th;
-import static sh2.Md32x.CYCLE_TABLE_LEN_MASK;
 import static sh2.Md32x.SH2_ENABLE_DRC;
 import static sh2.sh2.Sh2Instructions.generateInst;
 import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.BUSY_LOOP;
 import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.NONE;
+import static sh2.sh2.drc.Ow2DrcOptimizer.map;
 
 /**
  * Federico Berti
@@ -106,7 +107,13 @@ public class Sh2Block {
             }
         } else if (pollerCtx.isPollingActive()) {
             //add max delay
-            this.drcContext.sh2Ctx.cycles = Sh2Context.burstCycles - CYCLE_TABLE_LEN_MASK + 5;
+            if (pollerCtx.cpu == S32xUtil.CpuDeviceAccess.MASTER) {
+                Md32x.md32x.nextMSh2Cycle = 1;
+            } else {
+                Md32x.md32x.nextSSh2Cycle = 1;
+            }
+            drcContext.sh2Ctx.cycles = -1;
+//            this.drcContext.sh2Ctx.cycles = Sh2Context.burstCycles - CYCLE_TABLE_LEN_MASK + 5;
             Md32xRuntimeData.resetCpuDelayExt();
         } else {
             throw new RuntimeException("unexpected");
@@ -162,6 +169,10 @@ public class Sh2Block {
     }
 
     public void invalidate() {
+        Ow2DrcOptimizer.PollerCtx pctx = map.remove(prefetchPc);
+        if (pctx != null) {
+            LOG.warn("{} invalidating a polling block: {}", pctx);
+        }
         nextBlock = INVALID_BLOCK;
         inst = null;
         prefetchWords = null;
@@ -185,7 +196,6 @@ public class Sh2Block {
                 .add("fetchMemAccessDelay=" + fetchMemAccessDelay)
                 .add("cyclesConsumed=" + cyclesConsumed)
                 .add("fetchBuffer=" + fetchBuffer)
-                .add("nextBlock=" + nextBlock.prefetchPc)
                 .add("drcContext=" + drcContext)
                 .add("isCacheFetch=" + isCacheFetch)
                 .add("pollType=" + pollType)

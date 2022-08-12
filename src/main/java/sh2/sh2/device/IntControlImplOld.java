@@ -3,8 +3,10 @@ package sh2.sh2.device;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
+import sh2.Md32x;
 import sh2.dict.Sh2Dict.RegSpec;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
+import sh2.sh2.drc.Ow2DrcOptimizer;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -176,7 +178,8 @@ public class IntControlImplOld implements IntControl {
             }
         }
         interruptLevel = newLevel;
-        if (prev > 0 && interruptLevel != prev && interruptLevel > 0) {
+        if (interruptLevel != prev && interruptLevel > 0) {
+            Md32x.md32x.resumeNow(Ow2DrcOptimizer.PollCancelType.INT, cpu);
 //            LOG.warn("IRQ {} -> {}", prev, interruptLevel);
         }
     }

@@ -113,19 +113,23 @@ public class Sh2Impl implements Sh2 {
 	long blockLoops, nextBlockTaken, blockPcMismatch, blockOuts, fetchNoBlock, mapRun, blockRunOne;
 
 	protected final void decode() {
-		final FetchResult fr = ctx.fetchResult;
 		if (!SH2_ENABLE_DRC) {
+			final FetchResult fr = ctx.fetchResult;
 			fr.pc = ctx.PC;
 			memory.fetch(fr, ctx.cpuAccess);
 			printDebugMaybe(fr.opcode);
 			opcodeMap[fr.opcode].runnable.run();
 			return;
 		}
+		final FetchResult fr = ctx.fetchResult;
 		fr.pc = ctx.PC;
 		if (fr.block.inst != null) {
 			if (fr.block.prefetchPc == fr.pc) {
 				blockLoops++;
 				fr.block.runBlock(this, ctx.devices.sh2MMREG);
+				if (ctx.PC == fr.block.prefetchPc) {
+					fr.block.nextBlock = fr.block;
+				}
 				boolean nextBlockOk = fr.block.nextBlock.prefetchPc == ctx.PC;
 				if (!nextBlockOk) {
 					Sh2Block prevBlock = fr.block;

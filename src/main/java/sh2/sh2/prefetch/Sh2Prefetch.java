@@ -12,11 +12,13 @@ import sh2.IMemory;
 import sh2.Md32x;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.Sh2Memory;
+import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.sh2.*;
 import sh2.sh2.Sh2.FetchResult;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.cache.Sh2Cache;
+import sh2.sh2.drc.Ow2DrcOptimizer;
 import sh2.sh2.drc.Sh2Block;
 
 import java.nio.ByteBuffer;
@@ -56,6 +58,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private static final boolean SH2_REUSE_FETCH_DATA = true; //TODO vr requires false
     //NOTE vf is rewriting code so much that setting this to false slows it down
     private static final boolean SH2_LIMIT_BLOCK_MAP_LOAD = true;
+
+    private static final boolean SH2_LOG_PC_HITS = false;
     private static final int INITIAL_BLOCK_LIMIT = 50;
     public static final int PC_AREA_SHIFT = 24;
     public static final int PC_CACHE_AREA_SHIFT = 28;
@@ -110,6 +114,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
         pcInfoWrapperMS[0] = Sh2Debug.getPcInfoWrapper(MASTER);
         pcInfoWrapperMS[1] = Sh2Debug.getPcInfoWrapper(SLAVE);
+
+        Ow2DrcOptimizer.clear();
     }
 
     private Sh2Block doPrefetch(int pc, CpuDeviceAccess cpu) {
@@ -248,7 +254,9 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private PcInfoWrapper get(int pc, CpuDeviceAccess cpu) {
         PcInfoWrapper[] area = ((PcInfoWrapper[][]) pcInfoWrapperMS[cpu.ordinal()])[pc >>> PC_AREA_SHIFT];
 //        assert (pc & pcAreaMaskMap[pc >>> PC_AREA_SHIFT]) == (pc & 0xFFFFFF) : th(pc) + "," + th(pcAreaMaskMap[pc >>> PC_AREA_SHIFT]);
-            return area[pc & pcAreaMaskMap[pc >>> PC_AREA_SHIFT]];
+        PcInfoWrapper piw = area[pc & pcAreaMaskMap[pc >>> PC_AREA_SHIFT]];
+        piw.hits++;
+        return piw;
     }
 
     private PcInfoWrapper getOrCreate(int pc, CpuDeviceAccess cpu) {
@@ -295,20 +303,20 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             return;
         }
         Sh2Block block = fetchResult.block;
-        int pcDeltaWords = block != null ? (pc - block.prefetchPc) >> 1 : -1;
-        boolean newBlock = pcDeltaWords < 0 || pcDeltaWords >= block.prefetchLenWords;
-        if (newBlock) {
+        int pcPosWords = block != null ? (pc - block.prefetchPc) >> 1 : -1; //0 based
+        boolean withinFetchWindow = pcPosWords < block.prefetchLenWords && pcPosWords >= 0;
+        if (!withinFetchWindow) {
             checkBlock(fetchResult, cpu);
-            pcDeltaWords = 0;
+            pcPosWords = 0;
             block = fetchResult.block;
         } else {
             block.addHit(); //keeps looping on the same block
         }
-        cacheOnFetch(pc, block.prefetchWords[pcDeltaWords], cpu);
+        cacheOnFetch(pc, block.prefetchWords[pcPosWords], cpu);
         if (collectStats) stats[cpu.ordinal()].pfTotal++;
         S32xMemAccessDelay.addReadCpuDelay(block.fetchMemAccessDelay);
         assert block != Sh2Block.INVALID_BLOCK && block.prefetchWords != null && block.prefetchWords.length > 0;
-        fetchResult.opcode = block.prefetchWords[pcDeltaWords];
+        fetchResult.opcode = block.prefetchWords[pcPosWords];
         return;
     }
 
@@ -334,7 +342,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     @Override
     public void dataWrite(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
-        checkPoller(cpuWrite, addr, val, size);
+        checkPoller(cpuWrite, PollCancelType.SDRAM, addr, val, size);
         if (pcAreaMaskMap[addr >>> PC_AREA_SHIFT] == 0) return;
         switch (size) {
             case WORD:
@@ -348,36 +356,38 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
     }
 
-    private void checkPoller(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
-        for (var entry : map.entrySet()) {
-            final PollerCtx c = entry.getValue();
-            boolean busyLoop = c.block.pollType == PollType.BUSY_LOOP;
-            if (c.isPollingActive()) {
-                if (!busyLoop) {
-                    addr = addr & 0xFFF_FFFF;
-                    int tgtStart = c.memoryTarget & 0xFFF_FFFF;
-                    int tgtEnd = tgtStart + Math.max(1, c.memTargetSize.ordinal() << 1);
-                    int addrEnd = addr + Math.max(1, size.ordinal() << 1);
-                    if ((addrEnd > tgtStart) && (addr <= tgtEnd)) {
-                        if (verbose) LOG.info("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
-                                th(addr), size, c.cpu, th(c.memoryTarget), c.memTargetSize, th(val));
-                        stopPoller(c);
-                    }
-                } else if (busyLoop) {
-                    //TODO busyLoop can only be waiting for an interrupt ??
-                }
-            }
+    public static void checkPoller(CpuDeviceAccess cpuWrite, S32xDict.S32xRegType type, int addr, int val, Size size) {
+        checkPoller(cpuWrite, PollCancelType.valueOf(type.name()), addr, val, size);
+    }
+
+    public static void checkPoller(CpuDeviceAccess cpuWrite, PollCancelType type, int addr, int val, Size size) {
+        if (Sh2Block.currentPollers[0].isPollingActive()) {
+            checkPollerInternal(Sh2Block.currentPollers[0], cpuWrite, type, addr, val, size);
+        }
+        if (Sh2Block.currentPollers[1].isPollingActive()) {
+            checkPollerInternal(Sh2Block.currentPollers[1], cpuWrite, type, addr, val, size);
         }
     }
 
-    private void stopPoller(PollerCtx c) {
-        c.stopPolling();
-        Sh2Block.currentPollers[c.cpu.ordinal()] = NO_POLLER;
-        if (c.cpu == SLAVE) {
-            Md32x.md32x.nextSSh2Cycle = Md32x.md32x.nextMSh2Cycle + 1;
-        } else {
-            Md32x.md32x.nextMSh2Cycle = Md32x.md32x.nextSSh2Cycle + 1;
+    public static void checkPollerInternal(PollerCtx c, CpuDeviceAccess cpuWrite, PollCancelType type,
+                                           int addr, int val, Size size) {
+        if (c.block.pollType == PollType.BUSY_LOOP) {
+            return;
         }
+        addr = addr & 0xFFF_FFFF;
+        int tgtStart = (c.memoryTarget & 0xFFF_FFFF);
+        int tgtEnd = tgtStart + Math.max(1, c.memTargetSize.ordinal() << 1);
+        int addrEnd = addr + Math.max(1, size.ordinal() << 1);
+        if ((addrEnd > tgtStart) && (addr <= tgtEnd)) {
+            if (verbose)
+                LOG.info("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
+                        th(addr), size, c.cpu, th(c.memoryTarget), c.memTargetSize, th(val));
+            stopPoller(type, c);
+        }
+    }
+
+    public static void stopPoller(PollCancelType type, PollerCtx c) {
+        Md32x.md32x.resumeNow(type, c.cpu);
     }
 
     public void dataWriteWord(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
@@ -443,8 +453,10 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     //TODO this should check cache contents vs SDRAM to detect inconsistencies
     public void invalidateAllPrefetch(CpuDeviceAccess cpu) {
-        prefetchMap[cpu.ordinal()].clear();
-        if (verbose) LOG.info("{} invalidate all prefetch data");
+        if (SH2_ENABLE_CACHE) {
+            prefetchMap[cpu.ordinal()].clear();
+            if (verbose) LOG.info("{} invalidate all prefetch data");
+        }
     }
 
     public void invalidateCachePrefetch(Sh2Cache.CacheInvalidateContext ctx) {
@@ -485,11 +497,55 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         return l;
     }
 
+    long cnt = 0;
+
     @Override
     public void newFrame() {
         if (SH2_LIMIT_BLOCK_MAP_LOAD) {
             handleMapLoad(prefetchMap[MASTER.ordinal()], MASTER);
             handleMapLoad(prefetchMap[SLAVE.ordinal()], SLAVE);
         }
+
+        if (SH2_LOG_PC_HITS && (++cnt & 0x2FF) == 0) {
+            logPcHits(MASTER);
+            logPcHits(SLAVE);
+        }
+    }
+
+    private void logPcHits(CpuDeviceAccess cpu) {
+        PcInfoWrapper[][] pw = (PcInfoWrapper[][]) pcInfoWrapperMS[cpu.ordinal()];
+        Map<PcInfoWrapper, Long> hitMap = new HashMap<>();
+        long top10 = 10;
+        for (int i = 0; i < pw.length; i++) {
+            for (int j = 0; j < pw[i].length; j++) {
+                PcInfoWrapper piw = pw[i][j];
+                if (piw != NOT_VISITED) {
+                    if (piw.hits < top10) {
+                        continue;
+                    }
+                    int pc = (i << PC_AREA_SHIFT) | j;
+                    hitMap.put(piw, piw.hits);
+                    top10 = hitMap.values().stream().sorted().limit(10).findFirst().orElse(10L);
+//                        LOG.info("{} PC: {} hits: {}, {}", cpu, th(pc), piw.hits, piw);
+                }
+            }
+        }
+        List<Map.Entry<PcInfoWrapper, Long>> l = hitMap.entrySet().stream().sorted((e1, e2) -> Long.compare(e2.getValue(), e1.getValue())).
+                limit(10).collect(Collectors.toList());
+        StringBuilder sb = new StringBuilder();
+        l.forEach(e -> {
+            PcInfoWrapper piw = e.getKey();
+            int pc = (piw.area << PC_AREA_SHIFT) | piw.pcMasked;
+            Sh2Block res = prefetchMap[cpu.ordinal()].getOrDefault(piw, Sh2Block.INVALID_BLOCK);
+            if (res == Sh2Block.INVALID_BLOCK) {
+                System.out.println("oops");
+            }
+            sb.append(cpu + " " + th(pc) + "," + e.getValue() + ", block: " +
+                    th(res.prefetchPc) + "," + res.pollType + "," + res.hits + "\n" + Sh2Instructions.toListOfInst(res)).append("\n");
+
+        });
+//            String s = hitMap.entrySet().stream().sorted((e1, e2) -> Long.compare(e2.getValue(), e1.getValue())).
+//                    limit(10).map(Objects::toString).collect(Collectors.joining("\n"));
+        LOG.info(sb.toString());
     }
 }
