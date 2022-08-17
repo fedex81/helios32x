@@ -5,7 +5,7 @@ An EXPERIMENTAL Sega 32x emulator, written in Java.
 Most of the emulator infrastructure is borrowed from the [helios](https://github.com/fedex81/helios) project.
 
 # How to Run
-Requires java 11+ installed.
+Requires java 17+ installed.
 
 Get the most recent zip file from the download section,
 for example `helios32x-21.1101.zip` and extract to a folder.
