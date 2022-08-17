@@ -163,12 +163,12 @@ public class Ow2Sh2BlockRecompiler {
             ctx.drcCtx = dsCtx.drcCtx = drcCtx;
             ctx.mv = dsCtx.mv = lvs;
             int totCycles = 0;
-            Ow2DrcOptimizer.InstCtx instCtx = Ow2DrcOptimizer.optimizeMaybe(block, ctx);
-            for (int i = instCtx.start; i < instCtx.end; i++) {
+            for (int i = 0; i < block.prefetchLenWords; i++) {
                 setDrcContext(ctx, block.inst[i], false);
                 if (ctx.sh2Inst.isBranchDelaySlot) {
                     setDrcContext(dsCtx, block.inst[i + 1], true);
                     ctx.delaySlotCtx = dsCtx;
+                    //LOG.info("Block at PC {}, setting delaySlot ctx\nctx {}\nds  {}", th(block.prefetchPc), ctx, dsCtx);
                 }
                 Ow2Sh2Helper.createInst(ctx);
                 //branch inst cycles taken are not known at this point

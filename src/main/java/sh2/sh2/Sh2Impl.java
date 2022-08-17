@@ -574,6 +574,8 @@ public class Sh2Impl implements Sh2 {
 		//point to an address specified by (the starting address of the branch destination) + 2.
 		if (ctx.delaySlot) {
 			ref = ((ctx.delayPC + 2) & 0xfffffffc) + (d << 2);
+//			LOG.error("MOVA delaySlot at PC: {}, branchPc: {}", th(ctx.PC), th(ctx.delayPC));
+//			System.err.println("MOVA delaySlot at PC: " + th(ctx.PC));
 		}
 		ctx.registers[0] = ref;
 

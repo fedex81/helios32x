@@ -95,7 +95,7 @@ public class Ow2Sh2Bytecode {
         popSh2ContextIntField(ctx, PC.name());
         subCyclesExt(ctx, ctx.sh2Inst.cyclesBranch);
         if (isDelaySlot) {
-            delaySlot(ctx);
+            delaySlot(ctx, pcJump);
         }
         ctx.mv.visitJumpInsn(GOTO, doneLbl);
         ctx.mv.visitLabel(elseLbl);
@@ -127,7 +127,7 @@ public class Ow2Sh2Bytecode {
         popSh2ContextIntField(ctx, PC.name());
         subCyclesExt(ctx, ctx.sh2Inst.cycles);
 
-        delaySlot(ctx);
+        delaySlot(ctx, ctx.pc + d);
     }
 
     public static void BRAF(BytecodeContext ctx) {
@@ -163,7 +163,7 @@ public class Ow2Sh2Bytecode {
         popSh2ContextIntField(ctx, PC.name());
         subCyclesExt(ctx, ctx.sh2Inst.cycles);
 
-        delaySlot(ctx);
+        delaySlot(ctx, ctx.pc + d);
     }
 
     public static void BSRF(BytecodeContext ctx) {
@@ -549,30 +549,17 @@ public class Ow2Sh2Bytecode {
     }
 
     public static void MOVA(BytecodeContext ctx) {
-        int dShift = (ctx.opcode & 0x000000ff) << 2;
-        int pcRef = ((ctx.pc + 4) & 0xfffffffc) + dShift;
-        int refIdx = ctx.mv.newLocal(Type.INT_TYPE);
-        assert !ctx.drcCtx.sh2Ctx.delaySlot;
-        Label endLabel = new Label();
-        emitPushConstToStack(ctx, pcRef);
-        ctx.mv.visitVarInsn(ISTORE, refIdx);
-        pushSh2ContextAndField(ctx, delaySlot.name(), boolean.class);
-        ctx.mv.visitJumpInsn(IFEQ, endLabel);
-        //else { ref = ((ctx.delayPC + 2) & 0xfffffffc) + (d << 2);}
-        pushSh2ContextAndField(ctx, delaySlot.name(), boolean.class);
-        emitPushConstToStack(ctx, 2);
-        ctx.mv.visitInsn(IADD);
-        emitPushConstToStack(ctx, 0xfffffffc);
-        ctx.mv.visitInsn(IAND);
-        emitPushConstToStack(ctx, dShift);
-        ctx.mv.visitInsn(IADD);
-        ctx.mv.visitVarInsn(ISTORE, refIdx);
-        ctx.mv.visitLabel(endLabel);
-        // end of else
+        int pcBase = ctx.pc + 4;
+        int d = ctx.opcode & 0xff;
+        if (ctx.delaySlot) { //TODO test
+            LOG.info("MOVA delaySlot at PC: {}, branchPc: {}", th(ctx.pc), th(ctx.branchPc));
+            assert ctx.branchPc != 0;
+            pcBase = ctx.branchPc + 2;
+        }
+        int memAddr = (pcBase & 0xfffffffc) + (d << 2);
         pushRegStack(ctx, 0);
-        ctx.mv.visitVarInsn(ILOAD, refIdx);
+        emitPushConstToStack(ctx, memAddr);
         ctx.mv.visitInsn(IASTORE);
-
     }
 
     public final static void MOVBL(BytecodeContext ctx) {
@@ -851,8 +838,13 @@ public class Ow2Sh2Bytecode {
     }
 
     private static void delaySlot(BytecodeContext ctx) {
+        delaySlot(ctx, 0);
+    }
+
+    private static void delaySlot(BytecodeContext ctx, int branchPc) {
         assert ctx.delaySlotCtx != null && ctx.delaySlotCtx.delaySlot && !ctx.delaySlot;
         assert ctx.drcCtx.sh2Ctx == ctx.delaySlotCtx.drcCtx.sh2Ctx;
+        ctx.delaySlotCtx.branchPc = branchPc;
         createInst(ctx.delaySlotCtx);
     }
 
@@ -1600,33 +1592,26 @@ public class Ow2Sh2Bytecode {
         readMem(ctx, size);
         emitCastIntToSize(ctx, size);
         ctx.mv.visitInsn(IASTORE);
-
     }
 
     public static void movMemWithPcOffsetToReg(BytecodeContext ctx, Size size) {
         assert size != Size.BYTE;
         int d = (ctx.opcode & 0xff);
         int n = ((ctx.opcode >> 8) & 0x0f);
-
-        pushRegStack(ctx, n);
-        pushMemory(ctx);
-
+        int pcBase = ctx.pc + 4;
         //If this instruction is placed immediately after a delayed branch instruction, the PC must
         //point to an address specified by (the starting address of the branch destination) + 2.
-        int memAddr = size == Size.WORD ? ctx.pc + 4 + (d << 1) : (ctx.pc & 0xfffffffc) + 4 + (d << 2);
-        if (false && ctx.delaySlot) { //TODO
-//            //int memAddr = !ctx.delaySlot ? ctx.PC + 4 + (d << 1) : ctx.delayPC + 2 + (d << 1);
-//            int offset = size == Size.WORD ? 4 + (d << 1) : 0;
-//            pushSh2ContextAndField(ctx, PC.name(), int.class);
-//            pushIntConstStack(ctx, offset);
-//            ctx.mv.visitInsn(IADD);
-        } else {
-            emitPushConstToStack(ctx, memAddr);
+        if (ctx.delaySlot) {
+            assert ctx.branchPc != 0;
+            pcBase = ctx.branchPc + 2;
         }
+        int memAddr = size == Size.WORD ? pcBase + (d << 1) : (pcBase & 0xfffffffc) + (d << 2);
+        pushRegStack(ctx, n);
+        pushMemory(ctx);
+        emitPushConstToStack(ctx, memAddr);
         readMem(ctx, size);
         emitCastIntToSize(ctx, size);
         ctx.mv.visitInsn(IASTORE);
-
     }
 
     public static void movRegPredecToMem(BytecodeContext ctx, Size size) {
