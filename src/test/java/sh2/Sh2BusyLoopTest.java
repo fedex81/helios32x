@@ -1,14 +1,18 @@
 package sh2;
 
 import omegadrive.cpu.CpuFastDebug;
+import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import sh2.dict.S32xDict;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Debug;
 import sh2.sh2.drc.Ow2DrcOptimizer;
+import sh2.sh2.drc.Ow2Sh2Bytecode;
 import sh2.sh2.drc.Sh2Block;
 import sh2.sh2.prefetch.Sh2Prefetch;
+
+import java.util.Arrays;
 
 /**
  * Federico Berti
@@ -283,6 +287,29 @@ public class Sh2BusyLoopTest {
         Assertions.assertFalse(isIgnored(opcodes));
         Assertions.assertTrue(isPollSequence(opcodes));
         Assertions.assertFalse(isBusyLoopSequence(opcodes));
+
+        /**
+         * FIFA 96
+         *
+         * S 06000690	e08c	mov H'ffffff8c, R0 [NEW] //ffff8c = DMA_CHCR0
+         * S 06000692	6002	mov.l @R0, R0 [NEW]      //read DMA_CHCR0
+         * S 06000694	c802	tst H'02, R0 [NEW]       // while TE=0 (ie. dma in progress)
+         *                                               // (R0 & 2 == 0 -> T = 1)
+         * S 06000696	89fb	bt H'06000690 [NEW]
+         */
+        /**
+         * Spiderman
+         * sh2.sh2.drc.S_6000990_1803010976427.run() 12%
+         * S 06000990	5034	mov.l @(4, R3), R0 [NEW] //R3 = 0x60051E8
+         * S 06000992	6903	mov R0, R9 [NEW]
+         * S 06000994	8800	cmp/eq H'00, R0 [NEW]
+         * S 06000996	8d20	bt/s H'060009da [NEW]
+         * S 06000998	5130	mov.l @(0, R3), R1 [NEW] //R3 = 0x60051E8
+         *
+         * S 060009da	7318	add H'18, R3 [NEW]
+         * S 060009dc	4410	dt R4 [NEW] //R4 = 4
+         * S 060009de	8bd7	bf H'06000990 [NEW]
+         */
     }
 
 
@@ -339,5 +366,56 @@ public class Sh2BusyLoopTest {
     private Sh2Context setReg(Sh2Context sh2Context, int reg, int val) {
         sh2Context.registers[reg] = val;
         return sh2Context;
+    }
+
+    //TODO Optimizer
+    static class InstCtx {
+        public int start, end;
+    }
+
+    private static final InstCtx instCtx = new InstCtx();
+
+    public static InstCtx optimizeMaybe(Sh2Block block, Sh2Prefetch.BytecodeContext ctx) {
+
+        instCtx.start = 0;
+        instCtx.end = block.prefetchWords.length;
+
+        if (true) return instCtx;
+        /**
+         *
+         * NOTE: no perf increase when using it, revisit at some point
+         *
+         * Space Harrier
+         *  R4 = R3 = 0 95%
+         *  can be simplified:
+         *
+         *  R1 = R0 = 0
+         *  000002c2	4710	dt R7
+         *  000002c4	8fda	bf/s H'0000027c
+         *  000002c6	7e20	add H'20, R14
+         *
+         * Sh2Prefetcher$Sh2Block: SLAVE block, hitCount: 9fffff
+         *  060002b0	e100	mov H'00, R1
+         *  000002b2	e000	mov H'00, R0
+         *  000002b4	201f	muls.w R1, R0
+         *  000002b6	4129	shlr16 R1
+         *  000002b8	021a	sts MACL, R2   //MACL,R2 always 0
+         *  000002ba	201f	muls.w R1, R0
+         *  000002bc	342c	add R2, R4     //R4 never changes
+         *  000002be	021a	sts MACL, R2
+         *  000002c0	332c	add R2, R3     //R3 never changes
+         *  000002c2	4710	dt R7          //SR |= 1 when R7 = 1
+         *  000002c4	8fda	bf/s H'0000027c
+         *  000002c6	7e20	add H'20, R14
+         */
+        if (block.prefetchPc == 0x060002b0 && Arrays.hashCode(block.prefetchWords) == -888790968) {
+            Ow2Sh2Bytecode.storeToReg(ctx, 0, 0, Size.BYTE); //r0 = 0
+            Ow2Sh2Bytecode.storeToReg(ctx, 1, 0, Size.BYTE); //r1 = 0
+            instCtx.start = 9; //start from: dt r7
+//            LOG.info("{} Optimizing at PC: {}, cyclesConsumed: {}\n{}", block.drcContext.cpu,
+//                    th(block.prefetchPc), block.cyclesConsumed,
+//                    Sh2Instructions.toListOfInst(block));
+        }
+        return instCtx;
     }
 }

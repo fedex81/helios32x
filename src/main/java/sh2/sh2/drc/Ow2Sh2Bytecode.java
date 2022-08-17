@@ -1142,8 +1142,7 @@ public class Ow2Sh2Bytecode {
     }
 
     public static void XORM(BytecodeContext ctx) {
-        LOG.warn("Check this: XORM");
-        opReg0Mem(ctx, IXOR); //TODO test
+        opReg0Mem(ctx, IXOR);
     }
 
     public static void XTRCT(BytecodeContext ctx) {

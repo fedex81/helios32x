@@ -171,7 +171,7 @@ public class Sh2Block {
     public void invalidate() {
         Ow2DrcOptimizer.PollerCtx pctx = map.remove(prefetchPc);
         if (pctx != null) {
-            LOG.warn("{} invalidating a polling block: {}", pctx);
+            LOG.warn("{} invalidating a polling block: {}", drcContext.cpu, pctx);
         }
         nextBlock = INVALID_BLOCK;
         inst = null;
