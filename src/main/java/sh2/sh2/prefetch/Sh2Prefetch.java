@@ -455,7 +455,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     public void invalidateAllPrefetch(CpuDeviceAccess cpu) {
         if (SH2_ENABLE_CACHE) {
             prefetchMap[cpu.ordinal()].clear();
-            if (verbose) LOG.info("{} invalidate all prefetch data");
+            if (verbose) LOG.info("{} invalidate all prefetch data", cpu);
         }
     }
 

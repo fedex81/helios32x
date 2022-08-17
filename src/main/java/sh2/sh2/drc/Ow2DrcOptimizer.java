@@ -285,6 +285,8 @@ public class Ow2DrcOptimizer {
         boolean log = false;
         if (ctx.memTargetSize != null && ctx.branchDest == ctx.pc) {
             block.pollType = getAccessType(ctx, ctx.memoryTarget);
+            log |= block.pollType == null;
+            block.pollType = block.pollType == null ? UNKNOWN : block.pollType;
             if (block.pollType != UNKNOWN) {
                 log = true;
                 PollerCtx prevCtx = map.put(ctx.pc, ctx);
@@ -320,7 +322,7 @@ public class Ow2DrcOptimizer {
                 return pt == null ? UNKNOWN : pt;
             default:
                 LOG.error("Unexpected access type for polling: {}", th(address));
-                return UNKNOWN;
+                return null;
         }
     }
     public static void clear() {

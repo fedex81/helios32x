@@ -288,6 +288,15 @@ public class Sh2BusyLoopTest {
         Assertions.assertTrue(isPollSequence(opcodes));
         Assertions.assertFalse(isBusyLoopSequence(opcodes));
 
+
+        /**
+         * VR
+         * MASTER Poll ignored at PC 6004482: ffffff8c UNKNOWN /ffff8c = DMA_CHCR0
+         *  06004482	50e3	mov.l @(3, R14), R0
+         *  00004484	c802	tst H'02, R0
+         *  00004486	89fc	bt H'00004482
+         */
+
         /**
          * FIFA 96
          *
