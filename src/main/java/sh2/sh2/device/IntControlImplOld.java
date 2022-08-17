@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
@@ -179,7 +180,7 @@ public class IntControlImplOld implements IntControl {
         }
         interruptLevel = newLevel;
         if (interruptLevel != prev && interruptLevel > 0) {
-            Md32x.md32x.resumeNow(Ow2DrcOptimizer.PollCancelType.INT, cpu);
+            Optional.ofNullable(Md32x.md32x).ifPresent(m -> m.resumeNow(Ow2DrcOptimizer.PollCancelType.INT, cpu));
 //            LOG.warn("IRQ {} -> {}", prev, interruptLevel);
         }
     }

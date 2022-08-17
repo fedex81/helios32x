@@ -369,6 +369,7 @@ public class Sh2BusyLoopTest {
     private Sh2Context clearSh2Context() {
         Ow2DrcOptimizer.clear();
         sh2Context = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
+        sh2Context.PC = 0x100;
         return sh2Context;
     }
 
