@@ -1,3 +1,18 @@
+## 22.0817-PD-SNAPSHOT
+* (pre-drc branch)
+* 32x: partial sh2 reset impl, improve homebrew bios handling
+* 32x: tweak vpd rendering
+* 32x: improve HEN handling
+* 32x: improve divUnit
+* helios: migrate to tinylog
+* helios: require jdk 17 or later
+* sh2: ignore most delays for now, tweak cache mem reads
+* sh2: change sh2 cycle counting, fix prefetch invalidation on cache purge
+* sh2: handle cache address array r/w access
+* sh2: prevent interrupts in a delay slot
+* sh2: DMA cannot write to cache
+* sh2: cache and prefetcher fixes
+
 ## 22.0516-PD-SNAPSHOT
 * (pre-drc branch)
 * 32x: fix bug on address masking
