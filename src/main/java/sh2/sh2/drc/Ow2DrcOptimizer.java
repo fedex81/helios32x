@@ -4,7 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
-import sh2.S32xUtil;
+import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xDict.S32xRegType;
 import sh2.sh2.Sh2Context;
@@ -136,7 +136,7 @@ public class Ow2DrcOptimizer {
     }
 
     public static class PollerCtx {
-        public S32xUtil.CpuDeviceAccess cpu;
+        public CpuDeviceAccess cpu;
         public int pc, memoryTarget, branchDest;
         public Size memTargetSize;
         public Sh2Block block = Sh2Block.INVALID_BLOCK;
@@ -179,12 +179,13 @@ public class Ow2DrcOptimizer {
 
     public static final PollerCtx NO_POLLER = new PollerCtx();
 
-    public static final Map<Integer, PollerCtx> map = new HashMap<>();
+    public static final Map<Integer, PollerCtx>[] map = new HashMap[]{new HashMap<>(), new HashMap<>()};
 
     public static void pollDetector(Sh2Block block) {
-        if (map.containsKey(block.prefetchPc)) {
-            PollerCtx ctx = map.getOrDefault(block.prefetchPc, NO_POLLER);
-            assert ctx != NO_POLLER && ctx.block == block && ctx.cpu == block.drcContext.cpu;
+        final var pollerMap = map[block.drcContext.cpu.ordinal()];
+        if (pollerMap.containsKey(block.prefetchPc)) {
+            PollerCtx ctx = pollerMap.getOrDefault(block.prefetchPc, NO_POLLER);
+            assert ctx != NO_POLLER && ctx.block == block && ctx.cpu == block.drcContext.cpu : "Prev: " + ctx.block + "\nNew : " + block;
             return;
         }
         if (block.pollType == UNKNOWN) {
@@ -221,7 +222,7 @@ public class Ow2DrcOptimizer {
             ctx.block = block;
             ctx.cpu = block.drcContext.cpu;
             block.pollType = BUSY_LOOP;
-            map.put(ctx.pc, ctx);
+            map[ctx.cpu.ordinal()].put(ctx.pc, ctx);
         }
     }
 
@@ -278,6 +279,9 @@ public class Ow2DrcOptimizer {
         if ((jmp & 0xF000) == 0x8000) { //BT, BF, BTS, BFS
             int d = (byte) (jmp & 0xFF) << 1;
             ctx.branchDest = jmpPc + d + 4;
+        } else if ((jmp & 0xF000) == 0xA000) { //BRA
+            int disp = ((jmp & 0x800) == 0) ? 0x00000FFF & jmp : 0xFFFFF000 | jmp;
+            ctx.branchDest = jmpPc + 4 + (disp << 1);
         }
         assert ctx.memTargetSize != null ? ctx.branchDest != 0 : true;
     }
@@ -289,7 +293,7 @@ public class Ow2DrcOptimizer {
             block.pollType = block.pollType == null ? UNKNOWN : block.pollType;
             if (block.pollType != UNKNOWN) {
                 log = true;
-                PollerCtx prevCtx = map.put(ctx.pc, ctx);
+                PollerCtx prevCtx = map[ctx.cpu.ordinal()].put(ctx.pc, ctx);
                 assert prevCtx == null : ctx + "\n" + prevCtx;
             }
         }
@@ -326,6 +330,7 @@ public class Ow2DrcOptimizer {
         }
     }
     public static void clear() {
-        map.clear();
+        map[0].clear();
+        map[1].clear();
     }
 }

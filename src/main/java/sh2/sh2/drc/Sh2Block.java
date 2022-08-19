@@ -17,7 +17,7 @@ import java.util.StringJoiner;
 
 import static omegadrive.util.Util.th;
 import static sh2.Md32x.SH2_ENABLE_DRC;
-import static sh2.sh2.Sh2Instructions.generateInst;
+import static sh2.Md32x.SH2_ENABLE_POLL_DETECT;
 import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.BUSY_LOOP;
 import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.NONE;
@@ -30,8 +30,12 @@ import static sh2.sh2.drc.Ow2DrcOptimizer.map;
  */
 public class Sh2Block {
     private static final Logger LOG = LogHelper.getLogger(Sh2Block.class.getSimpleName());
-    private static final int OPT_THRESHOLD = 0xFF; //needs to be (powerOf2 - 1)
-    private static final int OPT_THRESHOLD2 = 0x1FF; //needs to be (powerOf2 - 1)
+    //needs to be (powerOf2 - 1)
+    private static final int OPT_THRESHOLD = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.keep.hits", "63"));
+
+    //needs to be (powerOf2 - 1)
+    private static final int OPT_THRESHOLD2 = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.stage2.hits", "511"));
+
 
     public static final Sh2Block INVALID_BLOCK = new Sh2Block();
     public static final int MAX_INST_LEN = (Sh2Prefetch.SH2_DRC_MAX_BLOCK_LEN >> 1);
@@ -48,18 +52,17 @@ public class Sh2Block {
     public Runnable stage2Drc;
 
     private static boolean verbose = false;
-
-    public boolean runOne() {
-        curr.runnable.run();
-        curr = curr.next;
-        return curr != null;
-    }
-
     public static Ow2DrcOptimizer.PollerCtx[] currentPollers = {NO_POLLER, NO_POLLER};
+
+    static {
+        assert !INVALID_BLOCK.shouldKeep();
+    }
 
     public final void runBlock(Sh2Impl sh2, Sh2MMREG sm) {
         if (stage2Drc != null) {
-            handlePoll();
+            if (SH2_ENABLE_POLL_DETECT) {
+                handlePoll();
+            }
             stage2Drc.run();
             return;
         }
@@ -91,7 +94,7 @@ public class Sh2Block {
         }
         final Ow2DrcOptimizer.PollerCtx pollerCtx = currentPollers[drcContext.cpu.ordinal()];
         if (pollerCtx == NO_POLLER) {
-            Ow2DrcOptimizer.PollerCtx pctx = Ow2DrcOptimizer.map.getOrDefault(prefetchPc, NO_POLLER);
+            Ow2DrcOptimizer.PollerCtx pctx = Ow2DrcOptimizer.map[drcContext.cpu.ordinal()].getOrDefault(prefetchPc, NO_POLLER);
             if (pctx != NO_POLLER) {
                 if (verbose)
                     LOG.info("{} entering {} poll at PC {}, on address: {}", this.drcContext.cpu, pctx.block.pollType,
@@ -122,19 +125,22 @@ public class Sh2Block {
 
     public void addHit() {
         hits++;
-        if (inst == null) {
-            if (((hits + 1) & OPT_THRESHOLD) == 0) {
-                stage1(generateInst(prefetchWords));
-                if (verbose) LOG.info("{} HRC1 count: {}\n{}", "", th(hits), Sh2Instructions.toListOfInst(this));
-            }
-        } else if (stage2Drc == null && ((hits + 1) & OPT_THRESHOLD2) == 0) {
+        if (stage2Drc == null && ((hits + 1) & OPT_THRESHOLD2) == 0) {
+            assert inst != null;
             if (verbose) LOG.info("{} HRC2 count: {}\n{}", "", th(hits), Sh2Instructions.toListOfInst(this));
             stage2();
-            Ow2DrcOptimizer.pollDetector(this);
+            if (SH2_ENABLE_POLL_DETECT) {
+                Ow2DrcOptimizer.pollDetector(this);
+            }
         }
     }
 
+    public boolean shouldKeep() {
+        return hits > OPT_THRESHOLD;
+    }
+
     public void stage1(Sh2Prefetcher.Sh2BlockUnit[] ic) {
+        assert inst == null;
         inst = ic;
         inst[0].next = inst.length > 1 ? inst[1] : null;
         inst[0].pc = prefetchPc;
@@ -159,17 +165,12 @@ public class Sh2Block {
             stage2Drc = Ow2Sh2BlockRecompiler.getInstance().createDrcClass(this, drcContext);
         }
     }
-
-    public void setCurrent(int pcDeltaWords) {
-        curr = inst[pcDeltaWords];
-    }
-
     public boolean isPollingBlock() {
         return pollType.ordinal() > NONE.ordinal();
     }
 
     public void invalidate() {
-        Ow2DrcOptimizer.PollerCtx pctx = map.remove(prefetchPc);
+        Ow2DrcOptimizer.PollerCtx pctx = map[drcContext.cpu.ordinal()].remove(prefetchPc);
         if (pctx != null) {
             LOG.warn("{} invalidating a polling block: {}", drcContext.cpu, pctx);
         }

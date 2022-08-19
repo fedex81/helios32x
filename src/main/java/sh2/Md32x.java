@@ -35,7 +35,7 @@ public class Md32x extends Genesis {
 
     private static final Logger LOG = LogHelper.getLogger(Md32x.class.getSimpleName());
 
-    public static final boolean ENABLE_FM, ENABLE_PWM, SH2_ENABLE_DRC, SH2_ENABLE_CACHE, SH2_ENABLE_PREFETCH;
+    public static final boolean ENABLE_FM, ENABLE_PWM, SH2_ENABLE_DRC, SH2_ENABLE_CACHE, SH2_ENABLE_PREFETCH, SH2_ENABLE_POLL_DETECT;
 
     //23.01Mhz NTSC
     protected final static int SH2_CYCLES_PER_STEP;
@@ -50,8 +50,9 @@ public class Md32x extends Genesis {
 
     static {
         SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
-        SH2_ENABLE_DRC = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "false"));
-        SH2_ENABLE_CACHE = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "true"));
+        SH2_ENABLE_DRC = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
+        SH2_ENABLE_CACHE = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "false"));
+        SH2_ENABLE_POLL_DETECT = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "true"));
         ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "false"));
         ENABLE_PWM = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.enable", "true"));
         SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "64")); //64

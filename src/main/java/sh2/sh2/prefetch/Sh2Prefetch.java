@@ -7,6 +7,7 @@ import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.objectweb.asm.commons.LocalVariablesSorter;
 import org.slf4j.Logger;
+import org.slf4j.helpers.MessageFormatter;
 import sh2.BiosHolder;
 import sh2.IMemory;
 import sh2.Md32x;
@@ -167,6 +168,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         block.prefetchWords = Ints.toArray(opcodes);
         block.prefetchLenWords = block.prefetchWords.length;
         block.end = block.start + ((block.prefetchLenWords - 1) << 1);
+        block.stage1(generateInst(block.prefetchWords));
         if (verbose) LOG.info("{} prefetch at pc: {}, len: {}\n{}", cpu, th(pc), block.prefetchLenWords,
                 instToString(pc, generateInst(block.prefetchWords), cpu));
         return block;
@@ -273,7 +275,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     static Predicate<Map.Entry<PcInfoWrapper, Sh2Block>> removeEntryPred =
-            e -> e.getValue() == Sh2Block.INVALID_BLOCK || e.getValue().inst == null;
+            e -> !e.getValue().shouldKeep();
 
     private void handleMapLoad(Map<PcInfoWrapper, Sh2Block> pMap, CpuDeviceAccess cpu) {
         if (pMap.size() > blockLimit) {
@@ -317,6 +319,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         S32xMemAccessDelay.addReadCpuDelay(block.fetchMemAccessDelay);
         assert block != Sh2Block.INVALID_BLOCK && block.prefetchWords != null && block.prefetchWords.length > 0;
         fetchResult.opcode = block.prefetchWords[pcPosWords];
+        assert fetchResult.block != null;
         return;
     }
 
@@ -399,21 +402,21 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             if (isCacheArray && i != cpuWrite.ordinal()) {
                 continue;
             }
-            checkAddress(CpuDeviceAccess.cdaValues[i], addr, val, size);
+            checkAddress(cpuWrite, CpuDeviceAccess.cdaValues[i], addr, val, size);
             boolean isCacheEnabled = cache[i].getCacheContext().cacheEn > 0;
             if (!isCacheEnabled && !isCacheArray) {
                 int otherAddr = isWriteThrough ? addr & 0xFFF_FFFF : addr | SH2_CACHE_THROUGH_OFFSET;
-                checkAddress(CpuDeviceAccess.cdaValues[i], otherAddr, val, size);
+                checkAddress(cpuWrite, CpuDeviceAccess.cdaValues[i], otherAddr, val, size);
             }
         }
     }
 
-    private void checkAddress(CpuDeviceAccess cpu, int addr, int val, Size size) {
-        PcInfoWrapper piw = get(addr, cpu);
+    private void checkAddress(CpuDeviceAccess writer, CpuDeviceAccess blockOwner, int addr, int val, Size size) {
+        PcInfoWrapper piw = get(addr, blockOwner);
         if (piw == null || piw == NOT_VISITED) {
             return;
         }
-        for (var entry : prefetchMap[cpu.ordinal()].entrySet()) {
+        for (var entry : prefetchMap[blockOwner.ordinal()].entrySet()) {
             Sh2Block b = entry.getValue();
             if (b != null) {
                 int start = b.prefetchPc;
@@ -427,16 +430,19 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                         }
                     }
                     if (verbose) {
-                        String s = LogHelper.formatMessage("{} write at addr: {} val: {} {}, invalidate {} block with start: {} blockLen: {}",
-                                cpu, th(addr), th(val), Size.WORD, cpu, th(b.prefetchPc), b.prefetchLenWords);
+                        String s = formatMessage("{} write at addr: {} val: {} {}, invalidate {} block with start: {} blockLen: {}",
+                                writer, th(addr), th(val), Size.WORD, blockOwner, th(b.prefetchPc), b.prefetchLenWords);
                         LOG.info(s);
-                        //                    System.out.println(s);
                     }
                     entry.getValue().invalidate();
                     entry.setValue(Sh2Block.INVALID_BLOCK);
                 }
             }
         }
+    }
+
+    public static String formatMessage(String s, Object... o) {
+        return MessageFormatter.arrayFormat(s, o).getMessage();
     }
 
     private void cacheOnFetch(int pc, int expOpcode, CpuDeviceAccess cpu) {

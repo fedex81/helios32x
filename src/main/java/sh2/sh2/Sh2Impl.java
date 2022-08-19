@@ -13,6 +13,7 @@ import sh2.sh2.drc.Sh2Block;
 
 import static omegadrive.util.Util.th;
 import static sh2.Md32x.SH2_ENABLE_DRC;
+import static sh2.Md32x.SH2_ENABLE_PREFETCH;
 import static sh2.sh2.drc.Sh2Block.INVALID_BLOCK;
 
 /*
@@ -112,18 +113,22 @@ public class Sh2Impl implements Sh2 {
 
 	long blockLoops, nextBlockTaken, blockPcMismatch, blockOuts, fetchNoBlock, mapRun, blockRunOne;
 
+	protected final void decodeSimple() {
+		final FetchResult fr = ctx.fetchResult;
+		fr.pc = ctx.PC;
+		memory.fetch(fr, ctx.cpuAccess);
+		printDebugMaybe(fr.opcode);
+		opcodeMap[fr.opcode].runnable.run();
+	}
+
 	protected final void decode() {
 		if (!SH2_ENABLE_DRC) {
-			final FetchResult fr = ctx.fetchResult;
-			fr.pc = ctx.PC;
-			memory.fetch(fr, ctx.cpuAccess);
-			printDebugMaybe(fr.opcode);
-			opcodeMap[fr.opcode].runnable.run();
+			decodeSimple();
 			return;
 		}
 		final FetchResult fr = ctx.fetchResult;
 		fr.pc = ctx.PC;
-		if (fr.block.inst != null) {
+		if (fr.block != INVALID_BLOCK) {
 			if (fr.block.prefetchPc == fr.pc) {
 				blockLoops++;
 				fr.block.runBlock(this, ctx.devices.sh2MMREG);
@@ -132,18 +137,12 @@ public class Sh2Impl implements Sh2 {
 				}
 				boolean nextBlockOk = fr.block.nextBlock.prefetchPc == ctx.PC;
 				if (!nextBlockOk) {
-					Sh2Block prevBlock = fr.block;
-					fr.pc = ctx.PC;
-					memory.fetch(fr, ctx.cpuAccess);
-					//jump in the middle of a block
-					if (prevBlock == fr.block && fr.pc != fr.block.prefetchPc) {
-//						LOG.info("{} Jump in the middle of a block: {}, startPc: {}", ctx.cpuAccess,
-//								th(fr.pc), th(fr.block.prefetchPc));
-						fr.block = INVALID_BLOCK;
-					}
-					prevBlock.nextBlock = fr.block;
+					fetchNextBlock(fr);
 				} else {
 					nextBlockTaken++;
+					fr.pc = ctx.PC;
+					fr.block = fr.block.nextBlock;
+					fr.opcode = fr.block.prefetchWords[0];
 				}
 				return;
 			}
@@ -154,11 +153,28 @@ public class Sh2Impl implements Sh2 {
 		fetchNoBlock++;
 		fr.pc = ctx.PC;
 		memory.fetch(fr, ctx.cpuAccess);
-		if (fr.block == null || fr.block.inst == null) {
-			printDebugMaybe(fr.opcode);
-			opcodeMap[fr.opcode].runnable.run();
-			mapRun++;
+		assert fr.block != null && fr.block != INVALID_BLOCK;
+		//when prefetch disabled
+		if (!SH2_ENABLE_PREFETCH) {
+			if (fr.block == null) {
+				printDebugMaybe(fr.opcode);
+				opcodeMap[fr.opcode].runnable.run();
+				mapRun++;
+			}
 		}
+	}
+
+	private void fetchNextBlock(final FetchResult fr) {
+		Sh2Block prevBlock = fr.block;
+		fr.pc = ctx.PC;
+		memory.fetch(fr, ctx.cpuAccess);
+		//jump in the middle of a block
+		if (prevBlock == fr.block && fr.pc != fr.block.prefetchPc) {
+//						LOG.info("{} Jump in the middle of a block: {}, startPc: {}", ctx.cpuAccess,
+//								th(fr.pc), th(fr.block.prefetchPc));
+			fr.block = INVALID_BLOCK;
+		}
+		prevBlock.nextBlock = fr.block;
 	}
 
 	public void setCtx(Sh2Context ctx) {
