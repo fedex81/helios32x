@@ -60,7 +60,7 @@ public class J2CoreTest {
     @BeforeEach
     public void before() {
         IMemory memory = getMemory(rom);
-        sh2 = sh2Debug ? new Sh2Debug(memory) : new Sh2Impl(memory);
+        sh2 = getSh2Interpreter(memory, sh2Debug);
         ctx = createContext(S32xUtil.CpuDeviceAccess.MASTER, memory);
         sh2.reset(ctx);
         System.out.println("Reset, PC: " + ctx.PC + ", SP: " + ctx.registers[15]);
@@ -100,6 +100,21 @@ public class J2CoreTest {
         if (ctx.registers[0] == FAIL_VALUE && ctx.registers[0] == ctx.registers[1]) {
             Assertions.fail(ctx.toString());
         }
+    }
+
+    public static Sh2 getSh2Interpreter(IMemory memory, boolean debug) {
+        Sh2 sh2 = sh2Debug ? new Sh2Debug(memory) {
+            @Override
+            protected void decode() {
+                super.decodeSimple();
+            }
+        } : new Sh2Impl(memory) {
+            @Override
+            protected void decode() {
+                super.decodeSimple();
+            }
+        };
+        return sh2;
     }
 
 

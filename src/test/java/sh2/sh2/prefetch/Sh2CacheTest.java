@@ -12,6 +12,7 @@ import sh2.Sh2Memory;
 import sh2.sh2.Sh2;
 import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.cache.Sh2CacheImpl;
+import sh2.sh2.drc.Sh2Block;
 
 import java.util.Optional;
 
@@ -278,6 +279,7 @@ public class Sh2CacheTest {
 
     protected Sh2.FetchResult doCacheFetch(CpuDeviceAccess cpu, int cacheAddr) {
         Sh2.FetchResult ft = new Sh2.FetchResult();
+        ft.block = Sh2Block.INVALID_BLOCK;
         ft.pc = cacheAddr;
         memory.fetch(ft, cpu);
         return ft;

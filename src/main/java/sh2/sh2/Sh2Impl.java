@@ -121,7 +121,7 @@ public class Sh2Impl implements Sh2 {
 		opcodeMap[fr.opcode].runnable.run();
 	}
 
-	protected final void decode() {
+	protected void decode() {
 		if (!SH2_ENABLE_DRC) {
 			decodeSimple();
 			return;
@@ -153,9 +153,9 @@ public class Sh2Impl implements Sh2 {
 		fetchNoBlock++;
 		fr.pc = ctx.PC;
 		memory.fetch(fr, ctx.cpuAccess);
-		assert fr.block != null && fr.block != INVALID_BLOCK;
 		//when prefetch disabled
 		if (!SH2_ENABLE_PREFETCH) {
+			assert fr.block != INVALID_BLOCK; //TODO check
 			if (fr.block == null) {
 				printDebugMaybe(fr.opcode);
 				opcodeMap[fr.opcode].runnable.run();
@@ -1222,10 +1222,11 @@ public class Sh2Impl implements Sh2 {
 		ctx.PC += 2;
 	}
 
+	//TODO test
 	protected final void TAS(int code) {
 		int n = RN(code);
-
 		int value = memory.read8(ctx.registers[n]);
+//		int value = memory.read8(SH2_CACHE_THROUGH_OFFSET | ctx.registers[n]);
 		if (value == 0)
 			ctx.SR |= 0x1;
 		else ctx.SR &= ~0x1;

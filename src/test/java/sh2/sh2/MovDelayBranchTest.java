@@ -22,13 +22,12 @@ public class MovDelayBranchTest {
     private static boolean sh2Debug = false;
 
     static ByteBuffer rom = ByteBuffer.allocate(0x1000);
-    private Sh2Impl sh2;
+    private Sh2 sh2;
     private Sh2Context ctx;
-
     @BeforeEach
     public void before() {
         IMemory memory = J2CoreTest.getMemory(rom);
-        sh2 = sh2Debug ? new Sh2Debug(memory) : new Sh2Impl(memory);
+        sh2 = J2CoreTest.getSh2Interpreter(memory, sh2Debug);
         ctx = J2CoreTest.createContext(S32xUtil.CpuDeviceAccess.MASTER, memory);
         rom.putInt(0, 0x10); //PC
         rom.putInt(4, 0xF0); //SP
@@ -60,7 +59,7 @@ public class MovDelayBranchTest {
             ctx.cycles = 1;
             sh2.run(ctx);
             cnt++;
-        } while (sh2.ctx.PC < stopHere);
+        } while (ctx.PC < stopHere);
         Assertions.assertEquals(expR1, ctx.registers[1]);
         Assertions.assertEquals(expR6, ctx.registers[6]);
     }
@@ -87,7 +86,7 @@ public class MovDelayBranchTest {
             ctx.cycles = 1;
             sh2.run(ctx);
             cnt++;
-        } while (sh2.ctx.PC < stopHere);
+        } while (ctx.PC < stopHere);
         Assertions.assertEquals(expR1, ctx.registers[1]);
         Assertions.assertEquals(expR6, ctx.registers[6]);
     }
