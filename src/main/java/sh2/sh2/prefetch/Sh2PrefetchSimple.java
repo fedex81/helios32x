@@ -3,8 +3,11 @@ package sh2.sh2.prefetch;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
-import sh2.*;
+import sh2.BiosHolder;
+import sh2.IMemory;
+import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
+import sh2.Sh2Memory;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Instructions;
@@ -90,7 +93,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         sdram = memory.sdram;
         rom = memory.rom;
         bios = memory.bios;
-        sh2Config = Md32x.sh2Config;
+        sh2Config = Sh2.Sh2Config.instance.get();
     }
 
     public PrefetchContext prefetchCreate(int pc, CpuDeviceAccess cpu) {

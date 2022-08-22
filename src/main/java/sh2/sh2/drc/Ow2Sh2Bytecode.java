@@ -1028,6 +1028,9 @@ public class Ow2Sh2Bytecode {
         pushMemory(ctx);
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
+        //TODO check
+//        emitPushConstToStack(ctx, SH2_CACHE_THROUGH_OFFSET);
+//        ctx.mv.visitInsn(IOR);
         readMem(ctx, Size.BYTE);
         ctx.mv.visitInsn(DUP);
         ctx.mv.visitVarInsn(ISTORE, valIdx);

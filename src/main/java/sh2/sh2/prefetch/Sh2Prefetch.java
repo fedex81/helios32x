@@ -114,7 +114,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
         pcInfoWrapperMS[0] = Sh2Debug.getPcInfoWrapper(MASTER);
         pcInfoWrapperMS[1] = Sh2Debug.getPcInfoWrapper(SLAVE);
-        sh2Config = Md32x.sh2Config;
+        sh2Config = Sh2.Sh2Config.instance.get();
         Ow2DrcOptimizer.clear();
     }
 

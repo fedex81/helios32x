@@ -48,7 +48,7 @@ public class Md32x extends Genesis {
     private static final double SH2_CYCLE_DIV = 1 / Double.parseDouble(System.getProperty("helios.32x.sh2.cycle.div", "3.0"));
     private static final int CYCLE_TABLE_LEN_MASK = 0xFF;
     private final static int[] sh2CycleTable = new int[CYCLE_TABLE_LEN_MASK + 1];
-    public final static Sh2Config sh2Config;
+    private final static Sh2Config sh2Config;
 
     static {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));

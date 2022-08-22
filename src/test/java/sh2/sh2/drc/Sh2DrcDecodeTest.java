@@ -73,6 +73,7 @@ public class Sh2DrcDecodeTest {
 
     @Test
     public void testTrace1() {
+        System.out.println(Sh2.Sh2Config.instance.get());
         setTrace(trace1, masterCtx);
         triggerDrcBlocks();
         sh2.run(masterCtx);
@@ -80,6 +81,7 @@ public class Sh2DrcDecodeTest {
 
     @Test
     public void testTrace2() {
+        System.out.println(Sh2.Sh2Config.instance.get());
         setTrace(trace2, masterCtx);
         triggerDrcBlocks();
         sh2.run(masterCtx);

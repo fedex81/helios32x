@@ -19,7 +19,6 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 import static omegadrive.util.Util.th;
-import static sh2.Md32x.sh2Config;
 import static sh2.S32xUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
@@ -50,6 +49,7 @@ public final class Sh2Memory implements IMemory {
 		bios[MASTER.ordinal()] = biosHolder.getBiosData(MASTER);
 		bios[SLAVE.ordinal()] = biosHolder.getBiosData(SLAVE);
 		sdram = ByteBuffer.allocateDirect(SH2_SDRAM_SIZE);
+		Sh2.Sh2Config sh2Config = Sh2.Sh2Config.instance.get();
 		cache[MASTER.ordinal()] = sh2Config.cacheEn ? new Sh2CacheImpl(MASTER, this) : Sh2Cache.createNoCacheInstance(MASTER, this);
 		cache[SLAVE.ordinal()] = sh2Config.cacheEn ? new Sh2CacheImpl(SLAVE, this) : Sh2Cache.createNoCacheInstance(SLAVE, this);
 		sh2MMREGS[MASTER.ordinal()] = new Sh2MMREG(MASTER, cache[MASTER.ordinal()]);

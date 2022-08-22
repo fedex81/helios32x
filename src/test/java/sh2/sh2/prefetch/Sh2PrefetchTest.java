@@ -4,10 +4,10 @@ import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import sh2.Md32x;
 import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.sh2.Sh2;
+import sh2.sh2.Sh2.Sh2Config;
 import sh2.sh2.drc.Sh2Block;
 
 import java.util.List;
@@ -35,8 +35,9 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
     @BeforeEach
     public void beforeEach() {
+        configCacheEn = new Sh2Config(true, true, false, false);
         super.before();
-        Assertions.assertTrue(Md32x.sh2Config.prefetchEn);
+        Assertions.assertTrue(Sh2Config.instance.get().prefetchEn);
     }
 
     @Test
@@ -324,7 +325,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         int baseCacheAddr = cacheAddr & 0xFFFF_FFF0;
         int outOfCacheAddr = baseCacheAddr + CACHE_BYTES_PER_LINE;
         //TODO fix for interpreter
-        if (Md32x.sh2Config.drcEn) {
+        if (Sh2Config.instance.get().drcEn) {
             Assertions.assertTrue(prefetchEndAddress + 2 == blockEndAddress);
         }
         Assertions.assertTrue(blockEndAddress > outOfCacheAddr);
@@ -339,7 +340,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         checkCacheContents(MASTER, Optional.empty(), baseCacheAddr - 2, Size.WORD);
         //TODO DRC: readDirect breaks Chaotix, Vf and possibly more
         //TODO see Sh2Prefect::doPrefetch
-        if (Md32x.sh2Config.drcEn) {
+        if (Sh2Config.instance.get().drcEn) {
             return;
         }
         //this has been prefetched but it is not in cache

@@ -6,11 +6,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import s32x.MarsRegTestUtil;
 import sh2.MarsLauncherHelper;
-import sh2.Md32x;
 import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.Sh2Memory;
 import sh2.sh2.Sh2;
+import sh2.sh2.Sh2.Sh2Config;
 import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.cache.Sh2CacheImpl;
 import sh2.sh2.drc.Sh2Block;
@@ -41,9 +41,12 @@ public class Sh2CacheTest {
     public static final int CLRMAC = 0x28;
     public static final int JMP_0 = 0x402b;
 
+    protected Sh2Config configCacheEn = Sh2Config.DEFAULT_CONFIG;
+
     @BeforeEach
     public void before() {
-        Assertions.assertTrue(Md32x.sh2Config.cacheEn);
+        Sh2Config.instance.set(configCacheEn);
+        Assertions.assertTrue(Sh2Config.instance.get().cacheEn);
         rom = new byte[0x1000];
         lc = MarsRegTestUtil.createTestInstance(rom);
         lc.s32XMMREG.aden = 1;

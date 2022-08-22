@@ -94,8 +94,8 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
 
     private static PcInfoWrapper[][] piwM, piwS;
 
-    public Sh2Debug(Sh2Config config, IMemory memory) {
-        super(config, memory);
+    public Sh2Debug(IMemory memory) {
+        super(memory);
         LOG.warn("Sh2 cpu: creating debug instance");
         init();
     }

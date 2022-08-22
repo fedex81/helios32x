@@ -59,7 +59,7 @@ public class Sh2Block {
     }
 
     public Sh2Block() {
-        sh2Config = Md32x.sh2Config;
+        sh2Config = Sh2.Sh2Config.instance.get();
     }
 
     public final void runBlock(Sh2Impl sh2, Sh2MMREG sm) {

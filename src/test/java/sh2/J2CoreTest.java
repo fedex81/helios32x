@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.sh2.Sh2;
+import sh2.sh2.Sh2.Sh2Config;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Debug;
 import sh2.sh2.Sh2Impl;
@@ -48,7 +49,7 @@ public class J2CoreTest {
 
     private Sh2 sh2;
     private Sh2Context ctx;
-    private static Sh2.Sh2Config config = new Sh2.Sh2Config(false, false, false, false);
+    private static Sh2Config config = new Sh2Config(false, false, false, false);
 
     @BeforeAll
     public static void beforeAll() {
@@ -60,6 +61,7 @@ public class J2CoreTest {
 
     @BeforeEach
     public void before() {
+        Sh2Config.reset(config);
         IMemory memory = getMemory(rom);
         sh2 = getSh2Interpreter(memory, sh2Debug);
         ctx = createContext(S32xUtil.CpuDeviceAccess.MASTER, memory);
@@ -69,10 +71,15 @@ public class J2CoreTest {
 
     @Test
     public void testJ2() {
+        int limit = 3_000;
+        int cnt = 0;
         do {
             sh2.run(ctx);
             checkFail(ctx);
-        } while (!done);
+            cnt++;
+        } while (!done && cnt < limit);
+        Assertions.assertTrue(cnt < limit);
+        System.out.println(cnt);
         System.out.println("All tests done: success");
         System.out.println(ctx.toString());
     }
@@ -104,7 +111,7 @@ public class J2CoreTest {
     }
 
     public static Sh2 getSh2Interpreter(IMemory memory, boolean debug) {
-        return sh2Debug ? new Sh2Debug(config, memory) : new Sh2Impl(config, memory);
+        return sh2Debug ? new Sh2Debug(memory) : new Sh2Impl(memory);
     }
 
 

@@ -19,7 +19,7 @@ public abstract class Sh2BaseTest {
     @BeforeEach
     public void before() {
         memory = new Sh2Memory(new S32XMMREG(), ByteBuffer.allocate(0xFF), BiosHolder.NO_BIOS);
-        sh2 = new Sh2Impl(Md32x.sh2Config, memory);
+        sh2 = new Sh2Impl(memory);
         ctx = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
         sh2.setCtx(ctx);
     }

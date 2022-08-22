@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import sh2.sh2.drc.Sh2Block;
 
 import java.util.StringJoiner;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Federico Berti
@@ -48,14 +49,37 @@ public interface Sh2 extends Device {
     }
 
     class Sh2Config {
+        public final static Sh2Config DEFAULT_CONFIG;
+        public static final AtomicReference<Sh2Config> instance;
         public final boolean prefetchEn, cacheEn, drcEn, pollDetectEn;
+
+        static {
+            DEFAULT_CONFIG = new Sh2Config();
+            instance = new AtomicReference<>(DEFAULT_CONFIG);
+        }
+
+        private Sh2Config() {
+            cacheEn = true;
+            prefetchEn = drcEn = pollDetectEn = false;
+            LOG.info("Default config: {}", toString());
+        }
 
         public Sh2Config(boolean prefetchEn, boolean cacheEn, boolean drcEn, boolean pollDetectEn) {
             this.prefetchEn = prefetchEn;
             this.cacheEn = cacheEn;
             this.drcEn = drcEn;
             this.pollDetectEn = pollDetectEn;
-            LOG.info(toString());
+            if (instance.compareAndSet(DEFAULT_CONFIG, this)) {
+                LOG.info("Using config: {}", toString());
+            } else {
+                LOG.error("Ignoring config: {}, current: {}", this, instance);
+            }
+        }
+
+        //force config, test only
+        public static void reset(Sh2Config config) {
+            instance.set(config);
+            LOG.warn("Overriding config: {}", config);
         }
 
         @Override

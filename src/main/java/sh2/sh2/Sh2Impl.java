@@ -48,10 +48,10 @@ public class Sh2Impl implements Sh2 {
 	protected final Sh2Config sh2Config;
 	protected final Sh2InstructionWrapper[] opcodeMap;
 
-	public Sh2Impl(Sh2Config sh2Config, IMemory memory) {
+	public Sh2Impl(IMemory memory) {
 		this.memory = memory;
 		this.opcodeMap = Sh2Instructions.createOpcodeMap(this);
-		this.sh2Config = sh2Config;
+		this.sh2Config = Sh2Config.instance.get();
 		if (sh2Config.drcEn) {
 			Ow2Sh2BlockRecompiler.newInstance("" + System.currentTimeMillis());
 		}
