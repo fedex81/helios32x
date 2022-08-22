@@ -48,6 +48,7 @@ public class J2CoreTest {
 
     private Sh2 sh2;
     private Sh2Context ctx;
+    private static Sh2.Sh2Config config = new Sh2.Sh2Config(false, false, false, false);
 
     @BeforeAll
     public static void beforeAll() {
@@ -103,18 +104,7 @@ public class J2CoreTest {
     }
 
     public static Sh2 getSh2Interpreter(IMemory memory, boolean debug) {
-        Sh2 sh2 = sh2Debug ? new Sh2Debug(memory) {
-            @Override
-            protected void decode() {
-                super.decodeSimple();
-            }
-        } : new Sh2Impl(memory) {
-            @Override
-            protected void decode() {
-                super.decodeSimple();
-            }
-        };
-        return sh2;
+        return sh2Debug ? new Sh2Debug(config, memory) : new Sh2Impl(config, memory);
     }
 
 

@@ -32,8 +32,6 @@ import java.util.stream.Collectors;
 
 import static omegadrive.cpu.CpuFastDebug.NOT_VISITED;
 import static omegadrive.util.Util.th;
-import static sh2.Md32x.SH2_ENABLE_CACHE;
-import static sh2.Md32x.SH2_ENABLE_PREFETCH;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.SH2_CACHE_THROUGH_OFFSET;
@@ -76,6 +74,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private final IMemory memory;
     private final Sh2Cache[] cache;
     private final Sh2DrcContext[] sh2Context;
+    private final Sh2.Sh2Config sh2Config;
 
     public final int romSize, romMask;
     public final BiosHolder.BiosData[] bios;
@@ -115,7 +114,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
         pcInfoWrapperMS[0] = Sh2Debug.getPcInfoWrapper(MASTER);
         pcInfoWrapperMS[1] = Sh2Debug.getPcInfoWrapper(SLAVE);
-
+        sh2Config = Md32x.sh2Config;
         Ow2DrcOptimizer.clear();
     }
 
@@ -300,7 +299,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     public void fetch(FetchResult fetchResult, CpuDeviceAccess cpu) {
         final int pc = fetchResult.pc;
-        if (!SH2_ENABLE_PREFETCH) {
+        if (!sh2Config.prefetchEn) {
             fetchResult.opcode = memory.read(pc, Size.WORD);
             return;
         }
@@ -324,7 +323,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     public int fetchDelaySlot(int pc, Sh2.FetchResult ft, CpuDeviceAccess cpu) {
-        if (!SH2_ENABLE_PREFETCH) {
+        if (!sh2Config.prefetchEn) {
             return memory.read(pc, Size.WORD);
         }
         Sh2Block block = ft.block;
@@ -446,7 +445,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     private void cacheOnFetch(int pc, int expOpcode, CpuDeviceAccess cpu) {
-        if (!SH2_ENABLE_CACHE) {
+        if (!sh2Config.cacheEn) {
             return;
         }
         boolean isCache = pc >>> PC_CACHE_AREA_SHIFT == 0;
@@ -459,7 +458,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     //TODO this should check cache contents vs SDRAM to detect inconsistencies
     public void invalidateAllPrefetch(CpuDeviceAccess cpu) {
-        if (SH2_ENABLE_CACHE) {
+        if (sh2Config.cacheEn) {
             prefetchMap[cpu.ordinal()].clear();
             if (verbose) LOG.info("{} invalidate all prefetch data", cpu);
         }
@@ -530,7 +529,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                         continue;
                     }
                     int pc = (i << PC_AREA_SHIFT) | j;
-                    hitMap.put(piw, piw.hits);
+                    hitMap.put(piw, Long.valueOf(piw.hits));
                     top10 = hitMap.values().stream().sorted().limit(10).findFirst().orElse(10L);
 //                        LOG.info("{} PC: {} hits: {}, {}", cpu, th(pc), piw.hits, piw);
                 }

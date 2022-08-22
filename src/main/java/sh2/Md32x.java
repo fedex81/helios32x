@@ -12,6 +12,7 @@ import omegadrive.vdp.md.GenesisVdp;
 import org.slf4j.Logger;
 import sh2.MarsLauncherHelper.Sh2LaunchContext;
 import sh2.sh2.Sh2;
+import sh2.sh2.Sh2.Sh2Config;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.drc.Ow2DrcOptimizer;
 import sh2.sh2.drc.Sh2Block;
@@ -35,7 +36,7 @@ public class Md32x extends Genesis {
 
     private static final Logger LOG = LogHelper.getLogger(Md32x.class.getSimpleName());
 
-    public static final boolean ENABLE_FM, ENABLE_PWM, SH2_ENABLE_DRC, SH2_ENABLE_CACHE, SH2_ENABLE_PREFETCH, SH2_ENABLE_POLL_DETECT;
+    private static final boolean ENABLE_FM, ENABLE_PWM;
 
     //23.01Mhz NTSC
     protected final static int SH2_CYCLES_PER_STEP;
@@ -47,13 +48,17 @@ public class Md32x extends Genesis {
     private static final double SH2_CYCLE_DIV = 1 / Double.parseDouble(System.getProperty("helios.32x.sh2.cycle.div", "3.0"));
     private static final int CYCLE_TABLE_LEN_MASK = 0xFF;
     private final static int[] sh2CycleTable = new int[CYCLE_TABLE_LEN_MASK + 1];
+    public final static Sh2Config sh2Config;
 
     static {
-        SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
-        SH2_ENABLE_DRC = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
-        SH2_ENABLE_CACHE = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "false"));
-        SH2_ENABLE_POLL_DETECT = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "true"));
-        ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "false"));
+        boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
+        boolean drcEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
+        boolean cacheEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "true"));
+        //TODO stellar assault sega logo broken
+        boolean pollEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "false"));
+        sh2Config = new Sh2Config(prefEn, cacheEn, drcEn, pollEn);
+
+        ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "true"));
         ENABLE_PWM = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.enable", "true"));
         SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "64")); //64
         Sh2Context.burstCycles = SH2_CYCLES_PER_STEP;
@@ -65,6 +70,7 @@ public class Md32x extends Genesis {
         for (int i = 0; i < sh2CycleTable.length; i++) {
             sh2CycleTable[i] = Math.max(1, (int) Math.round(i * SH2_CYCLE_DIV));
         }
+
     }
 
     public int nextMSh2Cycle = 0, nextSSh2Cycle = 0;

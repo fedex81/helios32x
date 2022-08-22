@@ -94,21 +94,8 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
 
     private static PcInfoWrapper[][] piwM, piwS;
 
-    public static PcInfoWrapper[][] getPcInfoWrapper(CpuDeviceAccess cpu) {
-        PcInfoWrapper[][] piw = cpu == CpuDeviceAccess.MASTER ? piwM : piwS;
-        if (piw == null) {
-            piw = CpuFastDebug.createWrapper(PC_AREAS, areaMaskMap);
-            if (cpu == CpuDeviceAccess.MASTER) {
-                piwM = piw;
-            } else {
-                piwS = piw;
-            }
-        }
-        return piw;
-    }
-
-    public Sh2Debug(IMemory memory) {
-        super(memory);
+    public Sh2Debug(Sh2Config config, IMemory memory) {
+        super(config, memory);
         LOG.warn("Sh2 cpu: creating debug instance");
         init();
     }
@@ -145,11 +132,21 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
         }
     }
 
+    public static PcInfoWrapper[][] getPcInfoWrapper(CpuDeviceAccess cpu) {
+        PcInfoWrapper[][] piw = cpu == CpuDeviceAccess.MASTER ? piwM : piwS;
+        if (piw == null) {
+            piw = CpuFastDebug.createWrapper(createContext());
+            if (cpu == CpuDeviceAccess.MASTER) {
+                piwM = piw;
+            } else {
+                piwS = piw;
+            }
+        }
+        return piw;
+    }
 
     public static CpuFastDebug.CpuDebugContext createContext() {
-        CpuFastDebug.CpuDebugContext ctx = new CpuFastDebug.CpuDebugContext();
-        ctx.pcAreasMaskMap = pcAreaMaskMap;
-        ctx.pcAreasNumber = PC_AREAS;
+        CpuFastDebug.CpuDebugContext ctx = new CpuFastDebug.CpuDebugContext(areaMaskMap);
         ctx.pcAreaShift = PC_AREA_SHIFT;
         ctx.isLoopOpcode = isLoopOpcode;
         ctx.isIgnoreOpcode = isIgnoreOpcode;

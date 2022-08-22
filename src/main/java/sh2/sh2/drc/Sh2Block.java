@@ -6,6 +6,7 @@ import sh2.Md32x;
 import sh2.Md32xRuntimeData;
 import sh2.S32xUtil;
 import sh2.Sh2MMREG;
+import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Impl;
 import sh2.sh2.Sh2Instructions;
 import sh2.sh2.prefetch.Sh2Prefetch;
@@ -16,8 +17,6 @@ import java.util.Arrays;
 import java.util.StringJoiner;
 
 import static omegadrive.util.Util.th;
-import static sh2.Md32x.SH2_ENABLE_DRC;
-import static sh2.Md32x.SH2_ENABLE_POLL_DETECT;
 import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.BUSY_LOOP;
 import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.NONE;
@@ -47,6 +46,7 @@ public class Sh2Block {
     public ByteBuffer fetchBuffer;
     public Sh2Block nextBlock = INVALID_BLOCK;
     public Sh2Prefetch.Sh2DrcContext drcContext;
+    private final Sh2.Sh2Config sh2Config;
     public boolean isCacheFetch;
     public Ow2DrcOptimizer.PollType pollType = Ow2DrcOptimizer.PollType.UNKNOWN;
     public Runnable stage2Drc;
@@ -58,9 +58,13 @@ public class Sh2Block {
         assert !INVALID_BLOCK.shouldKeep();
     }
 
+    public Sh2Block() {
+        sh2Config = Md32x.sh2Config;
+    }
+
     public final void runBlock(Sh2Impl sh2, Sh2MMREG sm) {
         if (stage2Drc != null) {
-            if (SH2_ENABLE_POLL_DETECT) {
+            if (sh2Config.drcEn) {
                 handlePoll();
             }
             stage2Drc.run();
@@ -129,7 +133,7 @@ public class Sh2Block {
             assert inst != null;
             if (verbose) LOG.info("{} HRC2 count: {}\n{}", "", th(hits), Sh2Instructions.toListOfInst(this));
             stage2();
-            if (SH2_ENABLE_POLL_DETECT) {
+            if (sh2Config.pollDetectEn) {
                 Ow2DrcOptimizer.pollDetector(this);
             }
         }
@@ -160,7 +164,7 @@ public class Sh2Block {
     }
 
     public void stage2() {
-        if (SH2_ENABLE_DRC) {
+        if (sh2Config.drcEn) {
             assert drcContext != null;
             stage2Drc = Ow2Sh2BlockRecompiler.getInstance().createDrcClass(this, drcContext);
         }

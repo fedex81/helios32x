@@ -3,11 +3,8 @@ package sh2.sh2.prefetch;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
-import sh2.BiosHolder;
-import sh2.IMemory;
-import sh2.Md32xRuntimeData;
+import sh2.*;
 import sh2.S32xUtil.CpuDeviceAccess;
-import sh2.Sh2Memory;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Instructions;
@@ -21,7 +18,6 @@ import java.util.Collections;
 import java.util.List;
 
 import static omegadrive.util.Util.th;
-import static sh2.Md32x.SH2_ENABLE_PREFETCH;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.*;
 import static sh2.dict.S32xMemAccessDelay.SDRAM;
@@ -78,7 +74,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
 
     private final IMemory memory;
     private final Sh2Cache[] cache;
-
+    private final Sh2.Sh2Config sh2Config;
     public final int romSize, romMask;
     public final BiosHolder.BiosData[] bios;
     public final ByteBuffer sdram;
@@ -94,6 +90,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         sdram = memory.sdram;
         rom = memory.rom;
         bios = memory.bios;
+        sh2Config = Md32x.sh2Config;
     }
 
     public PrefetchContext prefetchCreate(int pc, CpuDeviceAccess cpu) {
@@ -103,7 +100,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
     }
 
     public void doPrefetch(final PrefetchContext pctx, int pc, CpuDeviceAccess cpu) {
-        if (!SH2_ENABLE_PREFETCH) return;
+        if (!sh2Config.prefetchEn) return;
         final Sh2Cache sh2Cache = cache[cpu.ordinal()];
         final boolean isCache = (pc >>> PC_CACHE_AREA_SHIFT) == 0 && sh2Cache.getCacheContext().cacheEn > 0;
         pctx.start = (pc & 0xFF_FFFF);
@@ -183,7 +180,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
 
     public int fetch(int pc, CpuDeviceAccess cpu) {
         assert cpu == Md32xRuntimeData.getAccessTypeExt();
-        if (!SH2_ENABLE_PREFETCH) {
+        if (!sh2Config.prefetchEn) {
             return memory.read(pc, Size.WORD);
         }
         PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
@@ -219,7 +216,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
 
 
     public int fetchDelaySlot(int pc, Sh2.FetchResult ft, CpuDeviceAccess cpu) {
-        if (!SH2_ENABLE_PREFETCH) {
+        if (!sh2Config.prefetchEn) {
             assert cpu == Md32xRuntimeData.getAccessTypeExt();
             return memory.read(pc, Size.WORD);
         }
@@ -246,7 +243,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
     }
 
     public void dataWrite(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
-        if (!SH2_ENABLE_PREFETCH) {
+        if (!sh2Config.prefetchEn) {
             return;
         }
         boolean isCacheArray = addr >>> PC_AREA_SHIFT == 0xC0;

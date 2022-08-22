@@ -19,8 +19,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 import static omegadrive.util.Util.th;
-import static sh2.Md32x.SH2_ENABLE_CACHE;
-import static sh2.Md32x.SH2_ENABLE_DRC;
+import static sh2.Md32x.sh2Config;
 import static sh2.S32xUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
@@ -51,14 +50,14 @@ public final class Sh2Memory implements IMemory {
 		bios[MASTER.ordinal()] = biosHolder.getBiosData(MASTER);
 		bios[SLAVE.ordinal()] = biosHolder.getBiosData(SLAVE);
 		sdram = ByteBuffer.allocateDirect(SH2_SDRAM_SIZE);
-		cache[MASTER.ordinal()] = SH2_ENABLE_CACHE ? new Sh2CacheImpl(MASTER, this) : Sh2Cache.createNoCacheInstance(MASTER, this);
-		cache[SLAVE.ordinal()] = SH2_ENABLE_CACHE ? new Sh2CacheImpl(SLAVE, this) : Sh2Cache.createNoCacheInstance(SLAVE, this);
+		cache[MASTER.ordinal()] = sh2Config.cacheEn ? new Sh2CacheImpl(MASTER, this) : Sh2Cache.createNoCacheInstance(MASTER, this);
+		cache[SLAVE.ordinal()] = sh2Config.cacheEn ? new Sh2CacheImpl(SLAVE, this) : Sh2Cache.createNoCacheInstance(SLAVE, this);
 		sh2MMREGS[MASTER.ordinal()] = new Sh2MMREG(MASTER, cache[MASTER.ordinal()]);
 		sh2MMREGS[SLAVE.ordinal()] = new Sh2MMREG(SLAVE, cache[SLAVE.ordinal()]);
 
 		romSize = rom.capacity();
 		romMask = Util.getRomMask(romSize);
-		prefetch = SH2_ENABLE_DRC ? new Sh2Prefetch(this, cache, drcCtx) : new Sh2PrefetchSimple(this, cache);
+		prefetch = sh2Config.drcEn ? new Sh2Prefetch(this, cache, drcCtx) : new Sh2PrefetchSimple(this, cache);
 		LOG.info("Rom size: {}, mask: {}", th(romSize), th(romMask));
 	}
 

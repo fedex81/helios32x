@@ -1,7 +1,11 @@
 package sh2.sh2;
 
 import omegadrive.Device;
+import omegadrive.util.LogHelper;
+import org.slf4j.Logger;
 import sh2.sh2.drc.Sh2Block;
+
+import java.util.StringJoiner;
 
 /**
  * Federico Berti
@@ -9,6 +13,8 @@ import sh2.sh2.drc.Sh2Block;
  * Copyright 2022
  */
 public interface Sh2 extends Device {
+
+    Logger LOG = LogHelper.getLogger(Sh2.class.getSimpleName());
 
     public static final int posT = 0;
     public static final int posS = 1;
@@ -35,9 +41,31 @@ public interface Sh2 extends Device {
         //NO-OP
     }
 
-    static class FetchResult {
+    class FetchResult {
         public int pc;
         public int opcode;
         public Sh2Block block;
+    }
+
+    class Sh2Config {
+        public final boolean prefetchEn, cacheEn, drcEn, pollDetectEn;
+
+        public Sh2Config(boolean prefetchEn, boolean cacheEn, boolean drcEn, boolean pollDetectEn) {
+            this.prefetchEn = prefetchEn;
+            this.cacheEn = cacheEn;
+            this.drcEn = drcEn;
+            this.pollDetectEn = pollDetectEn;
+            LOG.info(toString());
+        }
+
+        @Override
+        public String toString() {
+            return new StringJoiner(", ", Sh2Config.class.getSimpleName() + "[", "]")
+                    .add("prefetchEn=" + prefetchEn)
+                    .add("cacheEn=" + cacheEn)
+                    .add("drcEn=" + drcEn)
+                    .add("pollDetectEn=" + pollDetectEn)
+                    .toString();
+        }
     }
 }

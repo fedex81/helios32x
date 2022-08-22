@@ -12,8 +12,6 @@ import sh2.sh2.drc.Ow2Sh2BlockRecompiler;
 import sh2.sh2.drc.Sh2Block;
 
 import static omegadrive.util.Util.th;
-import static sh2.Md32x.SH2_ENABLE_DRC;
-import static sh2.Md32x.SH2_ENABLE_PREFETCH;
 import static sh2.sh2.drc.Sh2Block.INVALID_BLOCK;
 
 /*
@@ -47,12 +45,14 @@ public class Sh2Impl implements Sh2 {
 
 	protected Sh2Context ctx;
 	protected IMemory memory;
+	protected final Sh2Config sh2Config;
 	protected final Sh2InstructionWrapper[] opcodeMap;
 
-	public Sh2Impl(IMemory memory) {
+	public Sh2Impl(Sh2Config sh2Config, IMemory memory) {
 		this.memory = memory;
 		this.opcodeMap = Sh2Instructions.createOpcodeMap(this);
-		if (SH2_ENABLE_DRC) {
+		this.sh2Config = sh2Config;
+		if (sh2Config.drcEn) {
 			Ow2Sh2BlockRecompiler.newInstance("" + System.currentTimeMillis());
 		}
 	}
@@ -122,7 +122,7 @@ public class Sh2Impl implements Sh2 {
 	}
 
 	protected void decode() {
-		if (!SH2_ENABLE_DRC) {
+		if (!sh2Config.drcEn) {
 			decodeSimple();
 			return;
 		}
@@ -154,7 +154,7 @@ public class Sh2Impl implements Sh2 {
 		fr.pc = ctx.PC;
 		memory.fetch(fr, ctx.cpuAccess);
 		//when prefetch disabled
-		if (!SH2_ENABLE_PREFETCH) {
+		if (!sh2Config.prefetchEn) {
 			assert fr.block != INVALID_BLOCK; //TODO check
 			if (fr.block == null) {
 				printDebugMaybe(fr.opcode);
