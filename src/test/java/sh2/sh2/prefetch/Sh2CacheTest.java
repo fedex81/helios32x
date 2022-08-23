@@ -42,10 +42,11 @@ public class Sh2CacheTest {
     public static final int JMP_0 = 0x402b;
 
     protected Sh2Config configCacheEn = Sh2Config.DEFAULT_CONFIG;
+    protected Sh2Config configDrcEn = new Sh2Config(true, true, true, false);
 
     @BeforeEach
     public void before() {
-        Sh2Config.instance.set(configCacheEn);
+        Sh2Config.reset(configCacheEn);
         Assertions.assertTrue(Sh2Config.instance.get().cacheEn);
         rom = new byte[0x1000];
         lc = MarsRegTestUtil.createTestInstance(rom);
@@ -66,6 +67,12 @@ public class Sh2CacheTest {
 
     @Test
     public void testCacheOff() {
+        testCacheOffInternal();
+        Sh2Config.reset(configDrcEn);
+        testCacheOffInternal();
+    }
+
+    protected void testCacheOffInternal() {
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         initRam(0x100);
         int noCacheAddr = SH2_START_SDRAM | 0x8;
@@ -95,6 +102,12 @@ public class Sh2CacheTest {
 
     @Test
     public void testCacheOn() {
+        testCacheOnInternal();
+        Sh2Config.reset(configDrcEn);
+        testCacheOnInternal();
+    }
+
+    protected void testCacheOnInternal() {
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         initRam(0x100);
         int noCacheAddr = SH2_START_SDRAM | 0x8;
@@ -149,6 +162,12 @@ public class Sh2CacheTest {
 
     @Test
     public void testCacheReplace() {
+        testCacheReplaceInternal();
+        Sh2Config.reset(configDrcEn);
+        testCacheReplaceInternal();
+    }
+
+    protected void testCacheReplaceInternal() {
         int[] cacheAddr = cacheReplace_cacheAddr;
         int[] noCacheAddr = new int[5];
 
@@ -212,15 +231,21 @@ public class Sh2CacheTest {
     @Test
     public void testCacheWriteNoHitByte() {
         testCacheWriteNoHitInternal(Size.BYTE);
+        Sh2Config.reset(configDrcEn);
+        testCacheWriteNoHitInternal(Size.BYTE);
     }
 
     @Test
     public void testCacheWriteNoHitWord() {
         testCacheWriteNoHitInternal(Size.WORD);
+        Sh2Config.reset(configDrcEn);
+        testCacheWriteNoHitInternal(Size.WORD);
     }
 
     @Test
     public void testCacheWriteNoHitLong() {
+        testCacheWriteNoHitInternal(Size.LONG);
+        Sh2Config.reset(configDrcEn);
         testCacheWriteNoHitInternal(Size.LONG);
     }
 

@@ -49,14 +49,9 @@ public interface Sh2 extends Device {
     }
 
     class Sh2Config {
-        public final static Sh2Config DEFAULT_CONFIG;
-        public static final AtomicReference<Sh2Config> instance;
+        public final static Sh2Config DEFAULT_CONFIG = new Sh2Config();
+        public static final AtomicReference<Sh2Config> instance = new AtomicReference<>(DEFAULT_CONFIG);
         public final boolean prefetchEn, cacheEn, drcEn, pollDetectEn;
-
-        static {
-            DEFAULT_CONFIG = new Sh2Config();
-            instance = new AtomicReference<>(DEFAULT_CONFIG);
-        }
 
         private Sh2Config() {
             cacheEn = true;

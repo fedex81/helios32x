@@ -10,11 +10,12 @@ import org.slf4j.Logger;
 import org.slf4j.helpers.MessageFormatter;
 import sh2.BiosHolder;
 import sh2.IMemory;
-import sh2.Md32x;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.Sh2Memory;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
+import sh2.event.SysEventManager;
+import sh2.event.SysEventManager.SysEvent;
 import sh2.sh2.*;
 import sh2.sh2.Sh2.FetchResult;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
@@ -39,7 +40,8 @@ import static sh2.dict.S32xDict.SH2_SDRAM_MASK;
 import static sh2.dict.S32xMemAccessDelay.SDRAM;
 import static sh2.sh2.Sh2Debug.pcAreaMaskMap;
 import static sh2.sh2.Sh2Instructions.generateInst;
-import static sh2.sh2.drc.Ow2DrcOptimizer.*;
+import static sh2.sh2.drc.Ow2DrcOptimizer.PollType;
+import static sh2.sh2.drc.Ow2DrcOptimizer.PollerCtx;
 
 /**
  * Federico Berti
@@ -120,11 +122,10 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     private Sh2Block doPrefetch(int pc, CpuDeviceAccess cpu) {
         if (collectStats) stats[cpu.ordinal()].addMiss();
-        final Sh2Block block = new Sh2Block();
+        final Sh2Block block = new Sh2Block(pc);
         final Sh2Cache sh2Cache = cache[cpu.ordinal()];
         final boolean isCache = (pc >>> PC_CACHE_AREA_SHIFT) == 0 && sh2Cache.getCacheContext().cacheEn > 0;
         block.isCacheFetch = (pc >>> PC_CACHE_AREA_SHIFT) == 0;
-        block.prefetchPc = pc;
         block.drcContext = this.sh2Context[cpu.ordinal()];
         setupPrefetch(block, cpu);
         final PcInfoWrapper piw = getOrCreate(pc, cpu);
@@ -344,7 +345,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     @Override
     public void dataWrite(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
-        checkPoller(cpuWrite, PollCancelType.SDRAM, addr, val, size);
+        checkPoller(cpuWrite, SysEvent.SDRAM, addr, val, size);
         if (pcAreaMaskMap[addr >>> PC_AREA_SHIFT] == 0) return;
         switch (size) {
             case WORD:
@@ -359,19 +360,19 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     public static void checkPoller(CpuDeviceAccess cpuWrite, S32xDict.S32xRegType type, int addr, int val, Size size) {
-        checkPoller(cpuWrite, PollCancelType.valueOf(type.name()), addr, val, size);
+        checkPoller(cpuWrite, SysEvent.valueOf(type.name()), addr, val, size);
     }
 
-    public static void checkPoller(CpuDeviceAccess cpuWrite, PollCancelType type, int addr, int val, Size size) {
-        if (Sh2Block.currentPollers[0].isPollingActive()) {
-            checkPollerInternal(Sh2Block.currentPollers[0], cpuWrite, type, addr, val, size);
+    public static void checkPoller(CpuDeviceAccess cpuWrite, SysEvent type, int addr, int val, Size size) {
+        if (SysEventManager.currentPollers[0].isPollingActive()) {
+            checkPollerInternal(SysEventManager.currentPollers[0], cpuWrite, type, addr, val, size);
         }
-        if (Sh2Block.currentPollers[1].isPollingActive()) {
-            checkPollerInternal(Sh2Block.currentPollers[1], cpuWrite, type, addr, val, size);
+        if (SysEventManager.currentPollers[1].isPollingActive()) {
+            checkPollerInternal(SysEventManager.currentPollers[1], cpuWrite, type, addr, val, size);
         }
     }
 
-    public static void checkPollerInternal(PollerCtx c, CpuDeviceAccess cpuWrite, PollCancelType type,
+    public static void checkPollerInternal(PollerCtx c, CpuDeviceAccess cpuWrite, SysEvent type,
                                            int addr, int val, Size size) {
         if (c.block.pollType == PollType.BUSY_LOOP) {
             return;
@@ -380,16 +381,17 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         int tgtStart = (c.memoryTarget & 0xFFF_FFFF);
         int tgtEnd = tgtStart + Math.max(1, c.memTargetSize.ordinal() << 1);
         int addrEnd = addr + Math.max(1, size.ordinal() << 1);
-        if ((addrEnd > tgtStart) && (addr <= tgtEnd)) {
+        if ((addrEnd > tgtStart) && (addr < tgtEnd)) { //TODO check <= tgtEnd
             if (verbose)
                 LOG.info("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
                         th(addr), size, c.cpu, th(c.memoryTarget), c.memTargetSize, th(val));
-            stopPoller(type, c);
+            //TODO stellar assault, interrupt ??
+            if (c.block.pollType == PollType.COMM && c.cpu == cpuWrite) {
+                LOG.warn("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
+                        th(addr), size, c.cpu, th(c.memoryTarget), c.memTargetSize, th(val));
+            }
+            SysEventManager.instance.fireSysEvent(c.cpu, type);
         }
-    }
-
-    public static void stopPoller(PollCancelType type, PollerCtx c) {
-        Md32x.md32x.resumeNow(type, c.cpu);
     }
 
     public void dataWriteWord(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {

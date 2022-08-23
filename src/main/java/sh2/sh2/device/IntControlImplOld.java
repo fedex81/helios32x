@@ -3,8 +3,8 @@ package sh2.sh2.device;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
-import sh2.Md32x;
 import sh2.dict.Sh2Dict.RegSpec;
+import sh2.event.SysEventManager;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 import sh2.sh2.drc.Ow2DrcOptimizer;
 
@@ -12,11 +12,11 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.dict.Sh2Dict.RegSpec.*;
+import static sh2.event.SysEventManager.SysEvent.INT;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
 
 /**
@@ -180,8 +180,10 @@ public class IntControlImplOld implements IntControl {
         }
         interruptLevel = newLevel;
         if (interruptLevel != prev && interruptLevel > 0) {
-            Optional.ofNullable(Md32x.md32x).ifPresent(m -> m.resumeNow(Ow2DrcOptimizer.PollCancelType.INT, cpu));
-//            LOG.warn("IRQ {} -> {}", prev, interruptLevel);
+            Ow2DrcOptimizer.PollerCtx ctx = SysEventManager.currentPollers[cpu.ordinal()];
+            if (ctx.isPollingActive() && ctx.isPollingBusyLoop()) {
+                SysEventManager.instance.fireSysEvent(cpu, INT);
+            }
         }
     }
 

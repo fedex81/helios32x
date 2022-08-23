@@ -42,6 +42,12 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
     @Test
     public void testRamCacheOff() {
+        testRamCacheOffInternal();
+        Sh2Config.reset(configDrcEn);
+        testRamCacheOffInternal();
+    }
+
+    protected void testRamCacheOffInternal() {
         enableCache(MASTER, false);
         enableCache(SLAVE, false);
         clearCache(MASTER);
@@ -53,6 +59,12 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
     @Test
     public void testRamCacheOffWrite() {
+        testRamCacheOffWriteInternal();
+        Sh2Config.reset(configDrcEn);
+        testRamCacheOffWriteInternal();
+    }
+
+    protected void testRamCacheOffWriteInternal() {
         testRamCacheOff();
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         memory.write16(cacheAddrDef, CLRMAC);
@@ -81,6 +93,12 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
     @Test
     public void testRamCacheOnWrite_01() {
+        testRamCacheOnWrite_01Internal();
+        Sh2Config.reset(configDrcEn);
+        testRamCacheOnWrite_01Internal();
+    }
+
+    protected void testRamCacheOnWrite_01Internal() {
         testRamCacheOff();
         enableCache(MASTER, true);
 
@@ -100,6 +118,12 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
     @Test
     public void testRamCacheOnWrite_02() {
+        testRamCacheOnWrite_02Internal();
+        Sh2Config.reset(configDrcEn);
+        testRamCacheOnWrite_02Internal();
+    }
+
+    protected void testRamCacheOnWrite_02Internal() {
         testRamCacheOff();
         enableCache(MASTER, true);
         enableCache(SLAVE, true);
@@ -131,6 +155,12 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
     @Test
     public void testRamCacheToggle() {
+        testRamCacheToggleInternal();
+        Sh2Config.reset(configDrcEn);
+        testRamCacheToggleInternal();
+    }
+
+    protected void testRamCacheToggleInternal() {
         testRamCacheOff();
         enableCache(MASTER, true);
 
@@ -168,7 +198,17 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
     @Test
     public void testLongWrite() {
-        testRamCacheOff();
+        testLongWriteInternal();
+    }
+
+    @Test
+    public void testLongWriteDrc() {
+        Sh2Config.reset(configDrcEn);
+        testLongWriteInternal();
+    }
+
+    protected void testLongWriteInternal() {
+        testRamCacheOffInternal();
         enableCache(MASTER, true);
         enableCache(SLAVE, true);
         clearCache(MASTER);
@@ -215,8 +255,18 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
     }
 
     @Test
+    public void testRamCacheMasterSlaveDrc() {
+        Sh2Config.reset(configDrcEn);
+        testRamCacheMasterSlaveInternal();
+    }
+
+    @Test
     public void testRamCacheMasterSlave() {
-        testRamCacheOff();
+        testRamCacheMasterSlaveInternal();
+    }
+
+    protected void testRamCacheMasterSlaveInternal() {
+        testRamCacheOffInternal();
         enableCache(MASTER, true);
         enableCache(SLAVE, true);
         clearCache(MASTER);
@@ -288,6 +338,12 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
     @Test
     public void testCacheReplaceWithPrefetch() {
+        testCacheReplaceWithPrefetchInternal();
+        Sh2Config.reset(configDrcEn);
+        testCacheReplaceWithPrefetchInternal();
+    }
+
+    protected void testCacheReplaceWithPrefetchInternal() {
         super.testCacheReplace();
         List<Sh2Block> blocks = getPrefetchBlocksAt(MASTER, cacheReplace_cacheAddr[0]);
         blocks.stream().allMatch(b -> Sh2Block.INVALID_BLOCK == b);
@@ -295,6 +351,13 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
     @Test
     public void testCacheEffectsOnPrefetch() {
+        testCacheEffectsOnPrefetchInternal(false);
+        Sh2Config.reset(configDrcEn);
+        testCacheEffectsOnPrefetchInternal(true);
+    }
+
+    protected void testCacheEffectsOnPrefetchInternal(boolean drcEn) {
+        Assertions.assertEquals(drcEn, Sh2Config.instance.get().drcEn);
         testRamCacheOff();
         enableCache(MASTER, true);
         enableCache(SLAVE, true);
@@ -320,14 +383,12 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         Assertions.assertEquals(1, l.size());
         Sh2Block block = l.get(0);
 
+        //JMP + delaySlot (NOP)
         int blockEndAddress = SH2_START_SDRAM_CACHE | block.end;
         int[] exp = {NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP};
         int baseCacheAddr = cacheAddr & 0xFFFF_FFF0;
         int outOfCacheAddr = baseCacheAddr + CACHE_BYTES_PER_LINE;
-        //TODO fix for interpreter
-        if (Sh2Config.instance.get().drcEn) {
-            Assertions.assertTrue(prefetchEndAddress + 2 == blockEndAddress);
-        }
+        Assertions.assertEquals(prefetchEndAddress + 4, blockEndAddress);
         Assertions.assertTrue(blockEndAddress > outOfCacheAddr);
 
         //fetch continued after to load data after the cache line limit
@@ -338,11 +399,6 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
         //check other data is not in cache
         checkCacheContents(MASTER, Optional.empty(), baseCacheAddr - 2, Size.WORD);
-        //TODO DRC: readDirect breaks Chaotix, Vf and possibly more
-        //TODO see Sh2Prefect::doPrefetch
-        if (Sh2Config.instance.get().drcEn) {
-            return;
-        }
         //this has been prefetched but it is not in cache
         checkCacheContents(MASTER, Optional.empty(), outOfCacheAddr, Size.WORD);
     }

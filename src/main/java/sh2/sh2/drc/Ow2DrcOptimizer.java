@@ -76,8 +76,9 @@ public class Ow2DrcOptimizer {
         BUSY_LOOP,
         SDRAM,
         COMM,
-        DMAC,
+        DMA,
         PWM,
+        SYS,
         VDP;
     }
 
@@ -159,6 +160,10 @@ public class Ow2DrcOptimizer {
             return block.pollType.ordinal() > NONE.ordinal();
         }
 
+        public boolean isPollingBusyLoop() {
+            return block.pollType == BUSY_LOOP;
+        }
+
         public void stopPolling() {
             pollState = PollState.NO_POLL;
         }
@@ -185,7 +190,7 @@ public class Ow2DrcOptimizer {
         final var pollerMap = map[block.drcContext.cpu.ordinal()];
         if (pollerMap.containsKey(block.prefetchPc)) {
             PollerCtx ctx = pollerMap.getOrDefault(block.prefetchPc, NO_POLLER);
-            assert ctx != NO_POLLER && ctx.block == block && ctx.cpu == block.drcContext.cpu : "Prev: " + ctx.block + "\nNew : " + block;
+            assert ctx != NO_POLLER && ctx.block == block && ctx.cpu == block.drcContext.cpu : "\nPrev: " + ctx.block + "\nNew : " + block;
             return;
         }
         if (block.pollType == UNKNOWN) {
@@ -222,7 +227,8 @@ public class Ow2DrcOptimizer {
             ctx.block = block;
             ctx.cpu = block.drcContext.cpu;
             block.pollType = BUSY_LOOP;
-            map[ctx.cpu.ordinal()].put(ctx.pc, ctx);
+            PollerCtx prevCtx = map[ctx.cpu.ordinal()].put(ctx.pc, ctx);
+            assert prevCtx == null : ctx + "\n" + prevCtx;
         }
     }
 

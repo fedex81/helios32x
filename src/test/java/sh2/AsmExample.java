@@ -38,7 +38,7 @@ public class AsmExample implements Runnable {
 
     public static void main(String[] args) {
         Sh2Context sh2Context = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
-        Sh2Block block = new Sh2Block();
+        Sh2Block block = new Sh2Block(0);
         Sh2Context context = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
         context.devices = new Sh2DeviceHelper.Sh2DeviceContext();
         AsmExample b = new AsmExample(sh2Context.registers, block.prefetchWords, context);

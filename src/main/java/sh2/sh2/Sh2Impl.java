@@ -121,7 +121,7 @@ public class Sh2Impl implements Sh2 {
 		opcodeMap[fr.opcode].runnable.run();
 	}
 
-	protected void decode() {
+	protected final void decode() {
 		if (!sh2Config.drcEn) {
 			decodeSimple();
 			return;

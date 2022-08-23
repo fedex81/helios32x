@@ -11,6 +11,7 @@ import omegadrive.util.LogHelper;
 import omegadrive.vdp.md.GenesisVdp;
 import org.slf4j.Logger;
 import sh2.MarsLauncherHelper.Sh2LaunchContext;
+import sh2.event.SysEventManager;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2.Sh2Config;
 import sh2.sh2.Sh2Context;
@@ -32,7 +33,7 @@ import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
  * <p>
  * Copyright 2021
  */
-public class Md32x extends Genesis {
+public class Md32x extends Genesis implements SysEventManager.SysEventListener {
 
     private static final Logger LOG = LogHelper.getLogger(Md32x.class.getSimpleName());
 
@@ -80,13 +81,10 @@ public class Md32x extends Genesis {
     private Sh2Context masterCtx, slaveCtx;
     private MarsVdp marsVdp;
 
-    //TODO fix
-    public static Md32x md32x;
-
     public Md32x(DisplayWindow emuFrame) {
         super(emuFrame);
         systemType = SystemLoader.SystemType.S32X;
-        md32x = this;
+        SysEventManager.instance.addSysEventListener(getClass().getSimpleName(), this);
     }
 
     @Override
@@ -204,21 +202,48 @@ public class Md32x extends Genesis {
         rt = Md32xRuntimeData.newInstance();
     }
 
-    public void resumeNow(Ow2DrcOptimizer.PollCancelType type, S32xUtil.CpuDeviceAccess cpu) {
-        final Ow2DrcOptimizer.PollerCtx pc = Sh2Block.currentPollers[cpu.ordinal()];
-        boolean stopBusyLoopDueToInt = type == Ow2DrcOptimizer.PollCancelType.INT && pc.isPollingActive() &&
-                pc.block.pollType == Ow2DrcOptimizer.PollType.BUSY_LOOP;
-        if (pc.isPollingActive()) {
+    @Override
+    public void onSysEvent(S32xUtil.CpuDeviceAccess cpu, SysEventManager.SysEvent event) {
+        final Ow2DrcOptimizer.PollerCtx pc = SysEventManager.currentPollers[cpu.ordinal()];
+        final Sh2Context sh2Context = cpu == MASTER ? masterCtx : slaveCtx;
+        switch (event) {
+            case START_POLLING -> {
+                assert !pc.isPollingActive() : event + "," + pc;
+                pc.pollState = Ow2DrcOptimizer.PollState.ACTIVE_POLL;
+//                LOG.info("{} {}: {}", cpu, event, pc);
+                if (pc.cpu == S32xUtil.CpuDeviceAccess.MASTER) {
+                    nextMSh2Cycle = 1;
+                } else {
+                    nextSSh2Cycle = 1;
+                }
+                sh2Context.cycles = -1;
+                Md32xRuntimeData.resetCpuDelayExt();
+            }
+            default -> { //stop polling
+                if (pc.isPollingActive()) {
+                    stopPolling(cpu, event, pc);
+                } else {
+                    LOG.warn("{} {} but polling inactive: {}", cpu, event, pc);
+                }
+            }
+        }
+    }
+
+    private void stopPolling(S32xUtil.CpuDeviceAccess cpu, SysEventManager.SysEvent event, Ow2DrcOptimizer.PollerCtx pc) {
+//        LOG.info("{} {} stop polling: {}", cpu, event, pc);
+        assert event == SysEventManager.SysEvent.INT ? pc.isPollingBusyLoop() : true;
+        boolean stopOk = event == SysEventManager.SysEvent.INT ||
+                pc.block.pollType == Ow2DrcOptimizer.PollType.valueOf(event.name());
+        if (stopOk) {
             pc.stopPolling();
             if (cpu == SLAVE) {
-                Md32x.md32x.nextSSh2Cycle = Md32x.md32x.counter + 1;
+                nextSSh2Cycle = counter + 1;
             } else {
-                Md32x.md32x.nextMSh2Cycle = Md32x.md32x.counter + 1;
+                nextMSh2Cycle = counter + 1;
             }
-            Sh2Block.currentPollers[cpu.ordinal()] = NO_POLLER;
-//            if ("VDP".equals(reason)) {
-//                LOG.info("{} Stop polling: {}", cpu, reason);
-//            }
+            SysEventManager.currentPollers[cpu.ordinal()] = NO_POLLER;
+        } else {
+            LOG.warn("{} {} ignore stop polling: {}", cpu, event, pc);
         }
     }
 }

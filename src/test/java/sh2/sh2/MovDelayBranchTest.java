@@ -26,6 +26,7 @@ public class MovDelayBranchTest {
     private Sh2Context ctx;
     @BeforeEach
     public void before() {
+        Sh2.Sh2Config.reset(Sh2.Sh2Config.DEFAULT_CONFIG);
         IMemory memory = J2CoreTest.getMemory(rom);
         sh2 = J2CoreTest.getSh2Interpreter(memory, sh2Debug);
         ctx = J2CoreTest.createContext(S32xUtil.CpuDeviceAccess.MASTER, memory);
@@ -35,6 +36,7 @@ public class MovDelayBranchTest {
         Sh2Context.burstCycles = 1;
         sh2.reset(ctx);
         System.out.println("Reset, PC: " + ctx.PC + ", SP: " + ctx.registers[15]);
+        Assertions.assertFalse(Sh2.Sh2Config.instance.get().drcEn);
     }
 
     /**

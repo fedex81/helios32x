@@ -351,8 +351,7 @@ public class Sh2BusyLoopTest {
     }
 
     private Ow2DrcOptimizer.PollType getPollType(int[] opcodes) {
-        Sh2Block block = new Sh2Block();
-        block.prefetchPc = sh2Context.PC;
+        Sh2Block block = new Sh2Block(sh2Context.PC);
         block.prefetchWords = opcodes;
         block.prefetchLenWords = opcodes.length;
         block.drcContext = new Sh2Prefetch.Sh2DrcContext();

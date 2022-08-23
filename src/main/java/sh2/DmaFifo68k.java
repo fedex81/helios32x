@@ -117,7 +117,7 @@ public class DmaFifo68k {
             writeBuffer(sysRegsSh2, SH2_DREQ_CTRL.addr + 1, res & 7, Size.BYTE);
             if (verbose) LOG.info("{} write DREQ_CTL, dmaOn: {} , RV: {}", M68K, m68S, rv);
             if (wasDmaOn && !m68S) {
-                LOG.error("TODO check, 68S = 0, stops DMA while running");
+                LOG.info("{} Setting 68S = 0, stops DMA while running", M68K);
                 dmaEnd();
             }
             updateFifoState();
