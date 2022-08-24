@@ -26,7 +26,7 @@ public class Sh2MMREG {
     public static final int SH2_REG_SIZE = 0x200;
     public static final int SH2_REG_MASK = SH2_REG_SIZE - 1;
 
-    private ByteBuffer regs = ByteBuffer.allocateDirect(SH2_REG_SIZE);
+    private final ByteBuffer regs = ByteBuffer.allocateDirect(SH2_REG_SIZE);
     private final Map<Integer, Integer> dramModeRegs = Maps.newHashMap(dramModeRegsSpec);
 
     private SerialCommInterface sci;
@@ -35,9 +35,9 @@ public class Sh2MMREG {
     public IntControl intC;
     private WatchdogTimer wdt;
     private FreeRunningTimer frt;
-    private Sh2Cache cache;
+    private final Sh2Cache cache;
 
-    private CpuDeviceAccess cpu;
+    private final CpuDeviceAccess cpu;
     private int ticksPerFrame, sh2TicksPerFrame;
     private static final boolean verbose = false;
 

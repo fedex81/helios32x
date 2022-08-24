@@ -1,12 +1,18 @@
 package sh2.sh2;
 
+import com.google.common.collect.ImmutableMap;
 import omegadrive.cpu.CpuFastDebug;
 import omegadrive.cpu.CpuFastDebug.DebugMode;
+import omegadrive.cpu.CpuFastDebug.PcInfoWrapper;
 import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
 import sh2.IMemory;
 
+import java.util.Map;
 import java.util.function.Predicate;
+
+import static omegadrive.util.Util.th;
+import static sh2.S32xUtil.CpuDeviceAccess;
 
 /**
  * Federico Berti
@@ -18,10 +24,30 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
     private static final Logger LOG = LogHelper.getLogger(Sh2Debug.class.getSimpleName());
 
     private static final int PC_AREAS = 0x100;
-    private static final int PC_AREA_SIZE = 0x4_0000;
-    private static final int PC_AREA_MASK = PC_AREA_SIZE - 1;
+    public static final int PC_AREA_SHIFT = 24;
 
-    private static final Predicate<Integer> isBranchOpcode = op ->
+    //00_00_0000 - 00_00_4000 BOOT ROM
+    //02_00_0000 - 02_40_0000 ROM
+    //04_00_0000 - 04_04_0000 FRAME BUFFER + OVERWRITE
+    //06_00_0000 - 06_04_0000 RAM
+    //C0_00_0000 - C0_01_0000 CACHE AREA
+    public static final Map<Integer, Integer> areaMaskMap = ImmutableMap.<Integer, Integer>builder().
+            //boot rom + regs, rom, frame buffer + overwrite, sdram
+                    put(0, 0x8000 - 1).put(2, 0x40_0000 - 1).put(4, 0x4_0000 - 1).put(6, 0x4_0000 - 1).
+            //cache through
+                    put(0x20, 0x8000 - 1).put(0x22, 0x40_0000 - 1).put(0x24, 0x4_0000 - 1).put(0x26, 0x4_0000 - 1).
+            //cache access
+                    put(0xC0, 0x10000 - 1).build();
+
+    public static final int[] pcAreaMaskMap = new int[PC_AREAS];
+
+    static {
+        for (var e : areaMaskMap.entrySet()) {
+            pcAreaMaskMap[e.getKey()] = e.getValue();
+        }
+    }
+
+    public static final Predicate<Integer> isBranchOpcode = op ->
             (op & 0xFF00) == 0x8900 //bt
                     || (op & 0xFF00) == 0x8B00 //bf
                     || (op & 0xFF00) == 0x8F00 //bf/s
@@ -29,7 +55,7 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
                     || (op & 0xF000) == 0xA000 //bsr
             ;
 
-    private static final Predicate<Integer> isCmpOpcode = op ->
+    public static final Predicate<Integer> isCmpOpcode = op ->
             (op & 0xF00F) == 0x3000 //cmp/eq
                     || (op & 0xF00F) == 0x3002 //CMP/HS Rm,Rn
                     || (op & 0xF00F) == 0x3006 //CMP/HI Rm,Rn
@@ -39,13 +65,13 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
 
             ;
 
-    private static final Predicate<Integer> isTstOpcode = op ->
+    public static final Predicate<Integer> isTstOpcode = op ->
             (op & 0xF00F) == 0x2008 //tst Rm,Rn
                     || (op & 0xFF00) == 0xC800 //TST#imm,R0
                     || (op & 0xFF00) == 0xCC00 //TST.B#imm,@(R0,GBR)
             ;
 
-    private static final Predicate<Integer> isMovOpcode = op ->
+    public static final Predicate<Integer> isMovOpcode = op ->
             (op & 0xF00F) == 0x6002 //mov.l @Rm, Rn
                     || (op & 0xF00F) == 0x6001 //mov.w @Rm, Rn
                     || (op & 0xF00F) == 0x6000 //mov.b @Rm, Rn
@@ -66,6 +92,7 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
 
     private CpuFastDebug[] fastDebug = new CpuFastDebug[2];
 
+    private static PcInfoWrapper[][] piwM, piwS;
 
     public Sh2Debug(IMemory memory) {
         super(memory);
@@ -79,6 +106,8 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
         fastDebug[1] = new CpuFastDebug(this, createContext());
         fastDebug[0].debugMode = DebugMode.NEW_INST_ONLY;
         fastDebug[1].debugMode = DebugMode.NEW_INST_ONLY;
+        piwM = fastDebug[0].pcInfoWrapper;
+        piwS = fastDebug[1].pcInfoWrapper;
     }
 
 //    @Override
@@ -91,32 +120,33 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
 //        }
 //    }
 
-    protected final void printDebug(DebugMode mode, Sh2Context ctx) {
-        CpuFastDebug f = fastDebug[ctx.cpuAccess.ordinal()];
-        DebugMode prev = f.debugMode;
-        f.debugMode = mode;
-        f.printDebugMaybe();
-        f.debugMode = prev;
-    }
-
-    @Override
-    protected final void printDebugMaybe(Sh2Context ctx) {
+    public final void printDebugMaybe(int opcode) {
+        ctx.opcode = opcode;
         final int n = ctx.cpuAccess.ordinal();
-        ctx.cycles -= fastDebug[n].isBusyLoop(ctx.PC, ctx.opcode);
+        fastDebug[n].isBusyLoop(ctx.PC & 0x0FFF_FFFF, ctx.opcode);
         fastDebug[n].printDebugMaybe();
+        if ((ctx.PC & 1) > 0) {
+            LOG.error("Odd PC: {}", th(ctx.PC));
+            throw new RuntimeException("Odd PC");
+        }
     }
 
-    //00_00_0000 - 00_00_4000 BOOT ROM
-    //06_00_0000 - 06_04_0000 RAM
-    //02_00_0000 - 02_04_0000 ROM
-    //C0_00_0000 - C0_01_0000 CACHE AREA
+    public static PcInfoWrapper[][] getPcInfoWrapper(CpuDeviceAccess cpu) {
+        PcInfoWrapper[][] piw = cpu == CpuDeviceAccess.MASTER ? piwM : piwS;
+        if (piw == null) {
+            piw = CpuFastDebug.createWrapper(createContext());
+            if (cpu == CpuDeviceAccess.MASTER) {
+                piwM = piw;
+            } else {
+                piwS = piw;
+            }
+        }
+        return piw;
+    }
+
     public static CpuFastDebug.CpuDebugContext createContext() {
-        CpuFastDebug.CpuDebugContext ctx = new CpuFastDebug.CpuDebugContext();
-        ctx.pcAreas = new int[]{0, 2, 6, 0xC0, 0x20, 0x22, 0x26};
-        ctx.pcAreasNumber = PC_AREAS;
-        ctx.pcAreaSize = PC_AREA_SIZE;
-        ctx.pcAreaShift = 24;
-        ctx.pcMask = PC_AREA_MASK;
+        CpuFastDebug.CpuDebugContext ctx = new CpuFastDebug.CpuDebugContext(areaMaskMap);
+        ctx.pcAreaShift = PC_AREA_SHIFT;
         ctx.isLoopOpcode = isLoopOpcode;
         ctx.isIgnoreOpcode = isIgnoreOpcode;
         return ctx;

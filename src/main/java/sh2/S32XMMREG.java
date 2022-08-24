@@ -54,8 +54,8 @@ public class S32XMMREG implements Device {
     }
 
     public RegContext regContext = new RegContext();
-    private ByteBuffer sysRegsSh2 = regContext.sysRegsSh2;
-    private ByteBuffer sysRegsMd = regContext.sysRegsMd;
+    private final ByteBuffer sysRegsSh2 = regContext.sysRegsSh2;
+    private final ByteBuffer sysRegsMd = regContext.sysRegsMd;
 
     public IntControl[] interruptControls;
     public Pwm pwm;
@@ -248,7 +248,6 @@ public class S32XMMREG implements Device {
         interruptControls[sh2Access.ordinal()].clearInterrupt(intIdx);
         //autoclear Int_control_reg too
         if (intType == CMD_8) {
-            interruptControls[sh2Access.ordinal()].clearInterrupt(intIdx);
             int newVal = readWordFromBuffer(M68K_INT_CTRL) & ~(1 << sh2Access.ordinal());
             boolean change = handleIntControlWrite68k(M68K_INT_CTRL.addr, newVal, Size.WORD);
             if (change && verbose) {

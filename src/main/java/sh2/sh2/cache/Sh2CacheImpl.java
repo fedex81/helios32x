@@ -51,11 +51,11 @@ public class Sh2CacheImpl implements Sh2Cache {
     private static final boolean verbose = false;
 
     protected Sh2CacheEntry ca;
-    private CpuDeviceAccess cpu;
-    private IMemory memory;
-    private CacheContext ctx;
-    private ByteBuffer data_array = ByteBuffer.allocate(DATA_ARRAY_SIZE); // cache (can be used as RAM)
-    private CacheInvalidateContext invalidCtx;
+    private final CpuDeviceAccess cpu;
+    private final IMemory memory;
+    private final CacheContext ctx;
+    private final ByteBuffer data_array = ByteBuffer.allocate(DATA_ARRAY_SIZE); // cache (can be used as RAM)
+    private final CacheInvalidateContext invalidCtx;
 
     public Sh2CacheImpl(CpuDeviceAccess cpu, IMemory memory) {
         this.memory = memory;
@@ -209,10 +209,10 @@ public class Sh2CacheImpl implements Sh2Cache {
                 for (int i = 0; i < CACHE_WAYS; i++) {
                     if (ca.way[i][entry].tag == tagaddr) {
                         assert ctx.twoWay == 0 || (ctx.twoWay == 1 && i > 1);
-                        Md32xRuntimeData.addCpuDelayExt(CACHE_PURGE_DELAY);
-                        invalidatePrefetcher(ca.way[i][entry], entry, addr & CACHE_PURGE_MASK);
                         //only v bit is changed, the rest of the data remains
                         ca.way[i][entry].v = 0;
+                        Md32xRuntimeData.addCpuDelayExt(CACHE_PURGE_DELAY);
+                        invalidatePrefetcher(ca.way[i][entry], entry, addr & CACHE_PURGE_MASK);
                     }
                 }
                 if (verbose) LOG.info("{} Cache purge: {}", cpu, th(addr));
@@ -353,7 +353,7 @@ public class Sh2CacheImpl implements Sh2Cache {
             invalidCtx.line = line;
             invalidCtx.force = false;
             invalidCtx.cacheReadAddr = addr;
-            invalidCtx.prevCacheAddr = line.tag;
+            invalidCtx.prevCacheAddr = line.tag | (entry << ENTRY_SHIFT);
             if (verbose)
                 LOG.info("{} Cache miss on addr {} , replacing line {}", cpu, th(addr), th(line.tag));
             memory.invalidateCachePrefetch(invalidCtx);

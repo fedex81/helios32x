@@ -47,7 +47,7 @@ public class Md32x extends Genesis {
 
     static {
         SH2_ENABLE_PREFETCH = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
-        SH2_ENABLE_CACHE = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "true"));
+        SH2_ENABLE_CACHE = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "false"));
         ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "true"));
         ENABLE_PWM = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.enable", "true"));
         SH2_IGNORE_DELAYS = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.ignore.delays", "true"));

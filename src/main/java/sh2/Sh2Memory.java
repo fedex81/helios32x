@@ -30,20 +30,20 @@ public final class Sh2Memory implements IMemory {
 	public ByteBuffer sdram;
 	public ByteBuffer rom;
 
-	public Sh2Cache[] cache = new Sh2Cache[2];
+	public final Sh2Cache[] cache = new Sh2Cache[2];
 	private Sh2Prefetch prefetch;
 
 	public int romSize, romMask;
 
-	private Sh2MMREG[] sh2MMREGS = new Sh2MMREG[2];
-	private S32XMMREG s32XMMREG;
+	private final Sh2MMREG[] sh2MMREGS = new Sh2MMREG[2];
+	private final S32XMMREG s32XMMREG;
 
 	public Sh2Memory(S32XMMREG s32XMMREG, ByteBuffer rom, BiosHolder biosHolder) {
-		init(s32XMMREG, rom, biosHolder);
+		this.s32XMMREG = s32XMMREG;
+		init(rom, biosHolder);
 	}
 
-	private void init(S32XMMREG s32XMMREG, ByteBuffer rom, BiosHolder biosHolder) {
-		this.s32XMMREG = s32XMMREG;
+	private void init(ByteBuffer rom, BiosHolder biosHolder) {
 		this.rom = rom;
 		bios[MASTER.ordinal()] = biosHolder.getBiosData(MASTER);
 		bios[SLAVE.ordinal()] = biosHolder.getBiosData(SLAVE);

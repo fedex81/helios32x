@@ -55,10 +55,13 @@ public class BiosHolder {
         assert sh2s.toFile().exists();
         assert m68k.toFile().exists();
 
-
         biosData[CpuDeviceAccess.MASTER.ordinal()] = new BiosData(FileUtil.readFileSafe(sh2m));
         biosData[CpuDeviceAccess.SLAVE.ordinal()] = new BiosData(FileUtil.readFileSafe(sh2s));
         biosData[CpuDeviceAccess.M68K.ordinal()] = new BiosData(FileUtil.readFileSafe(m68k));
+
+        assert biosData[CpuDeviceAccess.MASTER.ordinal()].buffer.capacity() > 0;
+        assert biosData[CpuDeviceAccess.SLAVE.ordinal()].buffer.capacity() > 0;
+        assert biosData[CpuDeviceAccess.M68K.ordinal()].buffer.capacity() > 0;
     }
 
     public BiosData getBiosData(CpuDeviceAccess type) {

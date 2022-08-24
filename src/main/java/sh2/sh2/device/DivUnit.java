@@ -29,9 +29,9 @@ public class DivUnit implements Sh2Device {
     private static final String formatDivBy0 = "%s div%d overflow (div by 0), dvd: %16X, dvsr: %08X";
     private static final boolean verbose = false;
 
-    private CpuDeviceAccess cpu;
-    private ByteBuffer regs;
-    private IntControl intControl;
+    private final CpuDeviceAccess cpu;
+    private final ByteBuffer regs;
+    private final IntControl intControl;
 
     public DivUnit(CpuDeviceAccess cpu, IntControl intControl, ByteBuffer regs) {
         this.cpu = cpu;

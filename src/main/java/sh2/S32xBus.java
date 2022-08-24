@@ -121,6 +121,7 @@ public class S32xBus extends GenesisBus {
         } else if (address >= M68K_START_32X_COLPAL && address < M68K_END_32X_COLPAL) {
             res = read32xWord((address & M68K_MASK_32X_COLPAL) | SH2_COLPAL_32X_OFFSET, size);
         } else if (address >= M68K_START_MARS_ID && address < M68K_END_MARS_ID) {
+            assert address == M68K_START_MARS_ID;
             res = 0x4d415253; //'MARS'
         } else {
             if (!DmaFifo68k.rv && address <= GenesisBus.DEFAULT_ROM_END_ADDRESS) {

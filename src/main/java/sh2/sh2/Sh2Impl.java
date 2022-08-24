@@ -83,7 +83,7 @@ public class Sh2Impl implements Sh2 {
 		return res;
 	}
 
-	protected void ILLEGAL(int code) {
+	protected final void ILLEGAL(int code) {
 		push(ctx.SR);
 		push(ctx.PC);
 		LOG.error("{} illegal instruction: {}\n{}", ctx.cpuAccess, th(code),
@@ -1443,13 +1443,11 @@ public class Sh2Impl implements Sh2 {
 
 	protected final void RTE(int code) {
 		int prevPc = ctx.PC;
-		//int prevInt = getIMASK();
 		//NOTE should be +4, but we don't do it, see processInt
 		ctx.PC = pop();
 		ctx.SR = pop() & SR_MASK;
 		delaySlot(prevPc + 2);
 		ctx.cycles -= 4;
-		//LOG.info("RTE {} -> {}", prevInt, getIMASK());
 	}
 
 	private void delaySlot(int pc) {
@@ -1610,6 +1608,7 @@ public class Sh2Impl implements Sh2 {
 
 	protected final void SLEEP(int code) {
 		ctx.cycles -= 4;
+		LOG.info("{} exec sleep at PC: {}", ctx.cpuAccess, th(ctx.PC));
 	}
 
 	protected final void STCSR(int code) {

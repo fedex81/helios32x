@@ -33,7 +33,7 @@ public class S32xDict {
     public static S32xRegType[] s32xRegTypeMapping = new S32xRegType[S32X_REG_SIZE];
     public static RegSpecS32x[][] s32xRegMapping = new RegSpecS32x[S32xRegCpuType.values().length][S32X_REG_SIZE];
 
-    private static S32xRegCpuType[] cpuToRegTypeMapper =
+    private static final S32xRegCpuType[] cpuToRegTypeMapper =
             new S32xRegCpuType[S32xRegCpuType.values().length];
 
     static {

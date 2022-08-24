@@ -51,9 +51,9 @@ public interface Sh2Cache {
     int DATA_ARRAY_MASK = DATA_ARRAY_SIZE - 1;
 
     static class Sh2CacheLine {
-        int tag; //u32
-        int v;
-        int[] data = new int[CACHE_BYTES_PER_LINE]; //u8
+        public int tag; //u32
+        public int v;
+        public int[] data = new int[CACHE_BYTES_PER_LINE]; //u8
     }
 
     static class Sh2CacheEntry {

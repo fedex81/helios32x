@@ -54,9 +54,9 @@ public class FreeRunningTimer implements Sh2Device {
 
     private static final boolean verbose = false;
 
-    private ByteBuffer regs;
-    private CpuDeviceAccess cpu;
-    private IntControl intControl;
+    private final ByteBuffer regs;
+    private final CpuDeviceAccess cpu;
+    private final IntControl intControl;
 
     private int ocra, ocrb;
     private boolean isOcra;
@@ -127,9 +127,9 @@ public class FreeRunningTimer implements Sh2Device {
 
     @Override
     public void step(int cycles) {
-            while (cycles-- > 0) {
-                stepOne();
-            }
+        while (cycles-- > 0) {
+            stepOne();
+        }
     }
 
     private void stepOne() {

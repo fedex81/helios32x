@@ -38,9 +38,9 @@ public class SerialCommInterface implements Sh2Device {
 
     private final static boolean verbose = false;
 
-    private ByteBuffer regs;
-    private CpuDeviceAccess cpu;
-    private IntControl intControl;
+    private final ByteBuffer regs;
+    private final CpuDeviceAccess cpu;
+    private final IntControl intControl;
 
     private int tdre, rdrf;
     boolean txDataReady, rxDataReady, txEn, rxEn;
