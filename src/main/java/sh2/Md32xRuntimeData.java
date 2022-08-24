@@ -74,7 +74,7 @@ public class Md32xRuntimeData {
     public static int resetCpuDelayExt(int value) {
         int res = rt.cpuDelay[rt.accType];
         rt.cpuDelay[rt.accType] = value;
-        return res;
+        return Md32x.SH2_IGNORE_DELAYS ? 0 : res;
     }
 
     public static int resetCpuDelayExt() {

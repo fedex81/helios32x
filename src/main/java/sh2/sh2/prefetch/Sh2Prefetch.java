@@ -3,7 +3,6 @@ package sh2.sh2.prefetch;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
-import org.slf4j.helpers.MessageFormatter;
 import sh2.BiosHolder.BiosData;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
@@ -33,8 +32,9 @@ public class Sh2Prefetch {
     private static final Logger LOG = LogHelper.getLogger(Sh2Prefetch.class.getSimpleName());
 
     private static final boolean SH2_PREFETCH_DEBUG = false;
-
-    public static final int DEFAULT_PREFETCH_LOOKAHEAD = 0x16;
+    public static final int SH2_PREFETCH_MAX_INST = Integer.parseInt(
+            System.getProperty("helios.32x.sh2.prefetch.max.inst", "12"));
+    public static final int SH2_PREFETCH_MAX_BYTES = SH2_PREFETCH_MAX_INST << 1;
 
     public static final int PC_AREA_SHIFT = 24;
     public static final int PC_CACHE_AREA_SHIFT = 28;
@@ -49,7 +49,7 @@ public class Sh2Prefetch {
         public ByteBuffer buf;
 
         public PrefetchContext() {
-            this(DEFAULT_PREFETCH_LOOKAHEAD);
+            this(SH2_PREFETCH_MAX_INST);
         }
 
         public PrefetchContext(int lookahead) {
@@ -103,7 +103,7 @@ public class Sh2Prefetch {
         final Sh2Cache sh2Cache = cache[cpu.ordinal()];
         final boolean isCache = (pc >>> PC_CACHE_AREA_SHIFT) == 0 && sh2Cache.getCacheContext().cacheEn > 0;
         pctx.start = (pc & 0xFF_FFFF);
-        pctx.end = (pc & 0xFF_FFFF) + (DEFAULT_PREFETCH_LOOKAHEAD << 1);
+        pctx.end = (pc & 0xFF_FFFF) + (SH2_PREFETCH_MAX_INST << 1);
 
         switch (pc >> PC_AREA_SHIFT) {
             case 6:
@@ -155,6 +155,9 @@ public class Sh2Prefetch {
             if (instType.isBranchDelaySlot) {
                 outNext = true;
             } else if (instType.isBranch || outNext) {
+                pctx.end = bytePos + 2;
+                break;
+            } else if (bytePos - pctx.start > SH2_PREFETCH_MAX_BYTES) { //block too big
                 pctx.end = bytePos + 2;
                 break;
             }
@@ -263,7 +266,7 @@ public class Sh2Prefetch {
         int end = start + (p.pfMaxIndex << 1);
         if (writeAddr >= start && writeAddr <= end) {
             if (verbose) {
-                String s = formatMessage("{} write at addr: {} val: {} {}, " +
+                String s = LogHelper.formatMessage("{} write at addr: {} val: {} {}, " +
                                 "{} reload PF at pc {}, window: [{},{}]", cpuWrite, th(writeAddr), th(val), size, cpu,
                         th(p.prefetchPc), th(start), th(end));
                 LOG.info(s);
@@ -287,7 +290,7 @@ public class Sh2Prefetch {
         int lineEnd = lineStart + Sh2Cache.CACHE_BYTES_PER_LINE;
         if (ctx.force || lineEnd >= start && lineStart <= end) {
             if (verbose) {
-                String msg = formatMessage("{} invalidateCachePrefetch forced={} from addr: {}, cacheLine: [{},{}]" +
+                String msg = LogHelper.formatMessage("{} invalidateCachePrefetch forced={} from addr: {}, cacheLine: [{},{}]" +
                                 ", invalidate PF at pc {}, window: [{},{}]", ctx.cpu, ctx.force, th(ctx.cacheReadAddr),
                         th(lineStart), th(lineEnd), th(p.prefetchPc), th(start), th(end));
 //                System.out.println(msg);
@@ -295,10 +298,5 @@ public class Sh2Prefetch {
             }
             p.dirty = true;
         }
-    }
-
-    //TODO remove
-    public static String formatMessage(String s, Object... o) {
-        return MessageFormatter.arrayFormat(s, o).getMessage();
     }
 }

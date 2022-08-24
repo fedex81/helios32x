@@ -5,7 +5,6 @@ import omegadrive.cpu.CpuFastDebug;
 import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
 import sh2.IMemory;
-import sh2.Md32x;
 import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
 import sh2.sh2.device.IntControl;
@@ -1746,7 +1745,7 @@ public class Sh2Impl implements Sh2 {
 	}
 
 	//NO-OP
-	protected void printDebugMaybe(Sh2Context ctx) {
+	protected void printDebugMaybe(int opcode) {
 	}
 
 	protected void printDebug(CpuFastDebug.DebugMode mode, Sh2Context ctx) {
@@ -1793,24 +1792,19 @@ public class Sh2Impl implements Sh2 {
 		for (; ctx.cycles >= 0; ) {
 			decode(memory.fetch(ctx.PC, ctx.cpuAccess));
 			sh2MMREG.deviceStep();
-			if (!Md32x.SH2_IGNORE_DELAYS) {
-				ctx.cycles -= Md32xRuntimeData.resetCpuDelayExt();
-			}
+			ctx.cycles -= Md32xRuntimeData.resetCpuDelayExt();
 			if (acceptInterrupts(intControl.getInterruptLevel())) {
-				ctx.cycles -= Md32xRuntimeData.resetCpuDelayExt();
 				break;
 			}
 		}
-		if (Md32x.SH2_IGNORE_DELAYS) {
-			Md32xRuntimeData.resetCpuDelayExt();
-		}
+		ctx.cycles -= Md32xRuntimeData.resetCpuDelayExt();
 		ctx.cycles_ran = Sh2Context.burstCycles - ctx.cycles;
 		ctx.cycles = Sh2Context.burstCycles;
 	}
 
 	protected final void decode(int instruction) {
 		ctx.opcode = instruction;
-		printDebugMaybe(ctx);
+		printDebugMaybe(instruction);
 		switch ((instruction >>> 12) & 0xf) {
 			case 0:
 				switch ((instruction >>> 0) & 0xf) {

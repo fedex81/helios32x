@@ -5,6 +5,8 @@ import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceContext;
 
 import java.util.Arrays;
 
+import static omegadrive.util.Util.th;
+
 /**
  * Federico Berti
  * <p>
@@ -47,13 +49,13 @@ public class Sh2Context {
     public String toString() {
         return "Sh2Context{" +
                 "registers=" + Arrays.toString(registers) +
-                ", GBR=" + GBR +
-                ", VBR=" + VBR +
-                ", SR=" + SR +
-                ", MACH=" + MACH +
-                ", MACL=" + MACL +
-                ", PR=" + PR +
-                ", PC=" + PC +
+                ", GBR=" + th(GBR) +
+                ", VBR=" + th(VBR) +
+                ", SR=" + th(SR) +
+                ", MACH=" + th(MACH) +
+                ", MACL=" + th(MACL) +
+                ", PR=" + th(PR) +
+                ", PC=" + th(PC) +
                 ", delayPC=" + delayPC +
                 ", cycles=" + cycles +
                 ", cycles_ran=" + cycles_ran +

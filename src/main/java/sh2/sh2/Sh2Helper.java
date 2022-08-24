@@ -1,5 +1,7 @@
 package sh2.sh2;
 
+import sh2.sh2.prefetch.Sh2Prefetch;
+
 /**
  * Federico Berti
  * <p>
@@ -24,6 +26,15 @@ public class Sh2Helper {
 
     public static String getInstString(String sh2Type, int pc, int opcode) {
         return String.format(simpleFormat, sh2Type, pc, opcode, disasm.disassemble(pc, opcode));
+    }
+
+    public static StringBuilder toListOfInst(Sh2Prefetch.PrefetchContext ctx) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i <= ctx.pfMaxIndex; i++) {
+            int pc = ctx.start + (i << 1);
+            sb.append(Sh2Helper.getInstString("", ctx.prefetchPc + (pc - ctx.start), ctx.prefetchWords[i])).append("\n");
+        }
+        return sb;
     }
 
     public static void printState(Sh2Context ctx) {
