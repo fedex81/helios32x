@@ -35,7 +35,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
     @BeforeEach
     public void beforeEach() {
-        configCacheEn = new Sh2Config(true, true, false, false);
+        configCacheEn = new Sh2Config(true, true, false, false, false);
         super.before();
         Assertions.assertTrue(Sh2Config.instance.get().prefetchEn);
     }

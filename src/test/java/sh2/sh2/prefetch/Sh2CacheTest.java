@@ -42,7 +42,7 @@ public class Sh2CacheTest {
     public static final int JMP_0 = 0x402b;
 
     protected Sh2Config configCacheEn = Sh2Config.DEFAULT_CONFIG;
-    protected Sh2Config configDrcEn = new Sh2Config(true, true, true, false);
+    protected Sh2Config configDrcEn = new Sh2Config(true, true, true, false, false);
 
     @BeforeEach
     public void before() {

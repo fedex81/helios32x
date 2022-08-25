@@ -249,20 +249,23 @@ public class MarsVdpImpl implements MarsVdp {
 
     //for testing
     public void runAutoFillInternal(ByteBuffer buffer, int startAddrWord, int data, int len) {
-        int addrFixed = startAddrWord & 0xFF00;
-        int addrVariable = startAddrWord & 0xFF;
-        if (verbose) LOG.info("AutoFill start {}, len {}, data {}", th(startAddrWord), th(len), th(data));
+        int wordAddrFixed = startAddrWord & 0xFF00;
+        int wordAddrVariable = startAddrWord & 0xFF;
+        if (verbose) LOG.info("AutoFill startWord {}, len(word) {}, data {}", th(startAddrWord), th(len), th(data));
         final int dataWord = data & 0xFFFF;
-        int afsarEnd = addrFixed + (len & 0xFF);
+        int afsarEnd = wordAddrFixed + (len & 0xFF);
+//        assert ((startAddrWord + len) & 0xFF) >= wordAddrVariable;
         do {
-            writeBuffer(buffer, (addrFixed + addrVariable) << 1, dataWord, Size.WORD);
-            if (verbose) LOG.info("AutoFill write(byte): {}, len(word) {}, data {}",
-                    th((addrFixed + addrVariable) << 1), th(len), th(dataWord));
-            addrVariable = (addrVariable + 1) & 0xFF;
+            writeBuffer(buffer, (wordAddrFixed + wordAddrVariable) << 1, dataWord, Size.WORD);
+            if (verbose) LOG.info("AutoFill addr(word): {}, addr(byte): {}, len(word) {}, data(word) {}",
+                    th(wordAddrFixed + wordAddrVariable), th((wordAddrFixed + wordAddrVariable) << 1), th(len), th(dataWord));
+            wordAddrVariable = (wordAddrVariable + 1) & 0xFF;
             len--;
         } while (len >= 0);
-        writeBufferWord(AFSAR, addrFixed + addrVariable); //star wars arcade
-        if (verbose) LOG.info("AutoFill done, AFSAR {}, len {}", th(afsarEnd), th(Math.max(len, 0)));
+        assert len == -1;
+        writeBufferWord(AFSAR, wordAddrFixed + wordAddrVariable); //star wars arcade
+        if (verbose)
+            LOG.info("AutoFill done, startWord {}, AFSAR {}, data: {}", th(startAddrWord), th(afsarEnd), th(dataWord));
         vdpRegChange(AFSAR);
     }
 

@@ -54,7 +54,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private static final Logger LOG = LogHelper.getLogger(Sh2Prefetch.class.getSimpleName());
 
     //TODO fix, see VF, ECCO
-    public static final int SH2_DRC_MAX_BLOCK_LEN = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.maxBlockLen", "40000"));
+    public static final int SH2_DRC_MAX_BLOCK_LEN = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.maxBlockLen", "32"));
 
     private static final boolean SH2_REUSE_FETCH_DATA = true; //TODO vr requires false
     //NOTE vf is rewriting code so much that setting this to false slows it down
@@ -145,8 +145,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             if (inst.isIllegal) {
                 LOG.error("{} Invalid fetch, start PC: {}, current: {} opcode: {}", cpu, th(pc), th(bytePos), th(val));
                 if (block.prefetchWords != null) {
-                    block.stage1(generateInst(block.prefetchWords));
-                    LOG.info(instToString(pc, block.inst, cpu));
+                    LOG.info(Sh2Helper.toListOfInst(block).toString());
                 }
                 throw new RuntimeException("Fatal! " + inst + "," + th(val));
             }
@@ -170,17 +169,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         block.end = block.start + ((block.prefetchLenWords - 1) << 1);
         block.stage1(generateInst(block.prefetchWords));
         if (verbose) LOG.info("{} prefetch at pc: {}, len: {}\n{}", cpu, th(pc), block.prefetchLenWords,
-                instToString(pc, generateInst(block.prefetchWords), cpu));
+                Sh2Helper.toListOfInst(block), cpu);
         return block;
-    }
-
-    private static String instToString(int pc, Sh2InstructionWrapper[] inst, CpuDeviceAccess cpu) {
-        StringBuilder sb = new StringBuilder("\n");
-        final String type = cpu.name().substring(0, 1);
-        for (int i = 0; i < inst.length; i++) {
-            sb.append(Sh2Helper.getInstString(type, pc + (i << 1), inst[i].opcode)).append("\n");
-        }
-        return sb.toString();
     }
 
     private void setupPrefetch(final Sh2Block block, CpuDeviceAccess cpu) {
@@ -544,11 +534,9 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             PcInfoWrapper piw = e.getKey();
             int pc = (piw.area << PC_AREA_SHIFT) | piw.pcMasked;
             Sh2Block res = prefetchMap[cpu.ordinal()].getOrDefault(piw, Sh2Block.INVALID_BLOCK);
-            if (res == Sh2Block.INVALID_BLOCK) {
-                System.out.println("oops");
-            }
+            assert res != Sh2Block.INVALID_BLOCK;
             sb.append(cpu + " " + th(pc) + "," + e.getValue() + ", block: " +
-                    th(res.prefetchPc) + "," + res.pollType + "," + res.hits + "\n" + Sh2Instructions.toListOfInst(res)).append("\n");
+                    th(res.prefetchPc) + "," + res.pollType + "," + res.hits + "\n" + Sh2Helper.toListOfInst(res)).append("\n");
 
         });
 //            String s = hitMap.entrySet().stream().sorted((e1, e2) -> Long.compare(e2.getValue(), e1.getValue())).

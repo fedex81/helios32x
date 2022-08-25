@@ -1,5 +1,7 @@
 package sh2.sh2;
 
+import sh2.sh2.drc.Sh2Block;
+
 /**
  * Federico Berti
  * <p>
@@ -28,6 +30,16 @@ public class Sh2Helper {
 
     public static void printState(Sh2Context ctx) {
         System.out.println(toDebuggingString(ctx));
+    }
+
+    public static StringBuilder toListOfInst(Sh2Block ctx) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < ctx.prefetchWords.length; i++) {
+            int pc = ctx.start + (i << 1);
+            pc = pc != ctx.pcMasked ? pc : ctx.prefetchPc;
+            sb.append(Sh2Helper.getInstString("", pc, ctx.prefetchWords[i])).append("\n");
+        }
+        return sb;
     }
 
     public static String toDebuggingString(Sh2Context ctx) {

@@ -2,6 +2,7 @@ package sh2;
 
 import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
+import sh2.sh2.Sh2;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.cdaValues;
@@ -18,10 +19,12 @@ public class Md32xRuntimeData {
     private S32xUtil.CpuDeviceAccess accessType = MASTER;
     private int accType = accessType.ordinal();
     private final int[] cpuDelay = new int[cdaValues.length];
+    private final boolean ignoreDelays;
 
     private static Md32xRuntimeData rt;
 
     private Md32xRuntimeData() {
+        ignoreDelays = Sh2.Sh2Config.instance.get().ignoreDelays;
     }
 
     public static Md32xRuntimeData newInstance() {
@@ -74,7 +77,7 @@ public class Md32xRuntimeData {
     public static int resetCpuDelayExt(int value) {
         int res = rt.cpuDelay[rt.accType];
         rt.cpuDelay[rt.accType] = value;
-        return res;
+        return rt.ignoreDelays ? 0 : res;
     }
 
     public static int resetCpuDelayExt() {

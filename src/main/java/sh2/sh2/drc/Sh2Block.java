@@ -7,8 +7,8 @@ import sh2.Sh2MMREG;
 import sh2.event.SysEventManager;
 import sh2.event.SysEventManager.SysEvent;
 import sh2.sh2.Sh2;
+import sh2.sh2.Sh2Helper;
 import sh2.sh2.Sh2Impl;
-import sh2.sh2.Sh2Instructions;
 import sh2.sh2.prefetch.Sh2Prefetch;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
@@ -123,7 +123,7 @@ public class Sh2Block {
         hits++;
         if (stage2Drc == null && ((hits + 1) & OPT_THRESHOLD2) == 0) {
             assert inst != null;
-            if (verbose) LOG.info("{} HRC2 count: {}\n{}", "", th(hits), Sh2Instructions.toListOfInst(this));
+            if (verbose) LOG.info("{} HRC2 count: {}\n{}", "", th(hits), Sh2Helper.toListOfInst(this));
             stage2();
             if (sh2Config.pollDetectEn) {
                 Ow2DrcOptimizer.pollDetector(this);

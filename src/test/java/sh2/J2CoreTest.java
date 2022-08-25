@@ -49,7 +49,7 @@ public class J2CoreTest {
 
     private Sh2 sh2;
     private Sh2Context ctx;
-    private static Sh2Config config = new Sh2Config(false, false, false, false);
+    private static Sh2Config config = new Sh2Config(false, false, false, false, false);
 
     @BeforeAll
     public static void beforeAll() {

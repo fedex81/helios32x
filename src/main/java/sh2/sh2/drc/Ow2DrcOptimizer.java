@@ -9,7 +9,7 @@ import sh2.dict.S32xDict;
 import sh2.dict.S32xDict.S32xRegType;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Debug;
-import sh2.sh2.Sh2Instructions;
+import sh2.sh2.Sh2Helper;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -213,13 +213,13 @@ public class Ow2DrcOptimizer {
         boolean busyLoop = isBusyLoop(block.prefetchWords);
         if (busyLoop) {
             LOG.info("{} BusyLoop detected: {}\n{}", block.drcContext.cpu, th(block.prefetchPc),
-                    Sh2Instructions.toListOfInst(block));
+                    Sh2Helper.toListOfInst(block));
             //TODO check
             if (block.prefetchLenWords == 2 && block.prefetchWords[0] == 0xaffe) {
                 int w1 = block.prefetchWords[1];
                 if (w1 != NOP) {
                     LOG.warn("{} BusyLoop check: {}\n{}", block.drcContext.cpu, th(block.prefetchPc),
-                            Sh2Instructions.toListOfInst(block));
+                            Sh2Helper.toListOfInst(block));
                 }
             }
             PollerCtx ctx = new PollerCtx();
@@ -308,7 +308,7 @@ public class Ow2DrcOptimizer {
             LOG.info("{} Poll {} at PC {}: {} {}\n{}", block.drcContext.cpu,
                     block.pollType == UNKNOWN ? "ignored" : "detected", th(block.prefetchPc),
                     th(ctx.memoryTarget), block.pollType,
-                    Sh2Instructions.toListOfInst(block));
+                    Sh2Helper.toListOfInst(block));
         }
     }
     public static boolean isBusyLoop(int[] prefetchWords) {

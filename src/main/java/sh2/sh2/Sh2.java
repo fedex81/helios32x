@@ -51,19 +51,20 @@ public interface Sh2 extends Device {
     class Sh2Config {
         public final static Sh2Config DEFAULT_CONFIG = new Sh2Config();
         public static final AtomicReference<Sh2Config> instance = new AtomicReference<>(DEFAULT_CONFIG);
-        public final boolean prefetchEn, cacheEn, drcEn, pollDetectEn;
+        public final boolean prefetchEn, cacheEn, drcEn, pollDetectEn, ignoreDelays;
 
         private Sh2Config() {
             cacheEn = true;
-            prefetchEn = drcEn = pollDetectEn = false;
+            prefetchEn = drcEn = pollDetectEn = ignoreDelays = false;
             LOG.info("Default config: {}", toString());
         }
 
-        public Sh2Config(boolean prefetchEn, boolean cacheEn, boolean drcEn, boolean pollDetectEn) {
+        public Sh2Config(boolean prefetchEn, boolean cacheEn, boolean drcEn, boolean pollDetectEn, boolean ignoreDelays) {
             this.prefetchEn = prefetchEn;
             this.cacheEn = cacheEn;
             this.drcEn = drcEn;
             this.pollDetectEn = pollDetectEn;
+            this.ignoreDelays = ignoreDelays;
             if (instance.compareAndSet(DEFAULT_CONFIG, this)) {
                 LOG.info("Using config: {}", toString());
             } else {
@@ -84,6 +85,7 @@ public interface Sh2 extends Device {
                     .add("cacheEn=" + cacheEn)
                     .add("drcEn=" + drcEn)
                     .add("pollDetectEn=" + pollDetectEn)
+                    .add("ignoreDelays=" + ignoreDelays)
                     .toString();
         }
     }
