@@ -1,5 +1,6 @@
 package sh2.event;
 
+import omegadrive.Device;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.sh2.drc.Ow2DrcOptimizer;
 
@@ -15,7 +16,7 @@ import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
  * <p>
  * Copyright 2022
  */
-public interface SysEventManager {
+public interface SysEventManager extends Device {
 
     SysEventManager instance = new SysEventManagerImpl();
 
@@ -83,6 +84,13 @@ public interface SysEventManager {
             for (var e : map.entrySet()) {
                 e.getValue().onSysEvent(cpu, event);
             }
+        }
+
+        @Override
+        public void reset() {
+            listenerMapMaster.clear();
+            listenerMapSlave.clear();
+            currentPollers[0] = currentPollers[1] = NO_POLLER;
         }
     }
 }

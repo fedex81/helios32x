@@ -38,6 +38,9 @@ public class Sh2Block {
     public static final Sh2Block INVALID_BLOCK = new Sh2Block(-1);
     public static final int MAX_INST_LEN = (Sh2Prefetch.SH2_DRC_MAX_BLOCK_LEN >> 1);
 
+    public static final int CACHE_FETCH_FLAG = 1 << 0;
+    public static final int NO_JUMP_FLAG = 1 << 1;
+
     public Sh2Prefetcher.Sh2BlockUnit[] inst;
     public Sh2Prefetcher.Sh2BlockUnit curr;
     public int[] prefetchWords;
@@ -46,7 +49,8 @@ public class Sh2Block {
     public Sh2Block nextBlock = INVALID_BLOCK;
     public Sh2Prefetch.Sh2DrcContext drcContext;
     private final Sh2.Sh2Config sh2Config;
-    public boolean isCacheFetch;
+
+    public int blockFlags;
     public Ow2DrcOptimizer.PollType pollType = Ow2DrcOptimizer.PollType.UNKNOWN;
     public Runnable stage2Drc;
 
@@ -161,8 +165,30 @@ public class Sh2Block {
             stage2Drc = Ow2Sh2BlockRecompiler.getInstance().createDrcClass(this, drcContext);
         }
     }
+
     public boolean isPollingBlock() {
         return pollType.ordinal() > NONE.ordinal();
+    }
+
+    public void setCacheFetch(boolean val) {
+        setFlag(CACHE_FETCH_FLAG, val);
+    }
+
+    public void setNoJump(boolean val) {
+        setFlag(NO_JUMP_FLAG, val);
+    }
+
+    private void setFlag(int flag, boolean val) {
+        blockFlags &= ~flag;
+        blockFlags |= val ? flag : 0;
+    }
+
+    public boolean isNoJump() {
+        return (blockFlags & NO_JUMP_FLAG) > 0;
+    }
+
+    public boolean isCacheFetch() {
+        return (blockFlags & CACHE_FETCH_FLAG) > 0;
     }
 
     public void invalidate() {
@@ -194,7 +220,7 @@ public class Sh2Block {
                 .add("cyclesConsumed=" + cyclesConsumed)
                 .add("fetchBuffer=" + fetchBuffer)
                 .add("drcContext=" + drcContext)
-                .add("isCacheFetch=" + isCacheFetch)
+                .add("blockFlags=" + blockFlags)
                 .add("pollType=" + pollType)
                 .add("stage2Drc=" + stage2Drc)
                 .toString();

@@ -84,6 +84,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     public Md32x(DisplayWindow emuFrame) {
         super(emuFrame);
         systemType = SystemLoader.SystemType.S32X;
+        SysEventManager.instance.reset();
         SysEventManager.instance.addSysEventListener(getClass().getSimpleName(), this);
     }
 

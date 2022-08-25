@@ -3,11 +3,11 @@ package sh2.sh2.drc;
 import omegadrive.util.FileUtil;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Util;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Type;
+import org.objectweb.asm.*;
 import org.objectweb.asm.commons.LocalVariablesSorter;
 import org.objectweb.asm.util.ASMifier;
+import org.objectweb.asm.util.Textifier;
+import org.objectweb.asm.util.TraceClassVisitor;
 import org.slf4j.Logger;
 import sh2.Sh2MMREG;
 import sh2.Sh2Memory;
@@ -17,6 +17,8 @@ import sh2.sh2.prefetch.Sh2Prefetch.BytecodeContext;
 import sh2.sh2.prefetch.Sh2Prefetch.Sh2DrcContext;
 import sh2.sh2.prefetch.Sh2Prefetcher.Sh2BlockUnit;
 
+import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -90,7 +92,6 @@ public class Ow2Sh2BlockRecompiler {
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException("Fatal!");
-//            return null;
         }
         return r;
     }
@@ -180,8 +181,7 @@ public class Ow2Sh2BlockRecompiler {
                     break;
                 }
             }
-            //TODO reached the block len limit, needs to set the PC, this should be a flag in Sh2Block
-            if (limit == Sh2Block.MAX_INST_LEN) {
+            if (block.isNoJump()) {
                 Ow2Sh2Bytecode.setPcExt(ctx, block.inst[limit - 1].pc + 2);
             }
             Ow2Sh2Bytecode.subCyclesExt(ctx, totCycles);
@@ -214,10 +214,28 @@ public class Ow2Sh2BlockRecompiler {
         }
         drcFolder.toFile().mkdirs();
         Path p = Paths.get(drcFolder.toAbsolutePath().toString(), (blockClass + ".class"));
+        Path bc = Paths.get(drcFolder.toAbsolutePath().toString(), (blockClass + ".bytecode"));
         Util.executorService.submit(() -> {
+            printSource(bc, binc);
+            LOG.info("Bytecode Class written: " + bc.toAbsolutePath());
             FileUtil.writeFileSafe(p, binc);
             LOG.info("Drc Class written: " + p.toAbsolutePath());
         });
+        LOG.info("{} job submitted", blockClass);
+    }
+
+    private static void printSource(Path file, byte[] code) {
+        ClassReader reader = null;
+        try {
+            FileWriter fileWriter = new FileWriter(file.toFile());
+            PrintWriter pw = new PrintWriter(fileWriter);
+            reader = new ClassReader(code);
+            ClassVisitor visitor = new TraceClassVisitor(null, new Textifier(), pw);
+            reader.accept(visitor, ClassReader.EXPAND_FRAMES);
+        } catch (Exception e) {
+            LOG.error(file.toString(), e);
+            e.printStackTrace();
+        }
     }
 
     public static void main(String[] args) throws Exception {

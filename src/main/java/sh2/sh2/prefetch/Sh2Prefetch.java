@@ -125,7 +125,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         final Sh2Block block = new Sh2Block(pc);
         final Sh2Cache sh2Cache = cache[cpu.ordinal()];
         final boolean isCache = (pc >>> PC_CACHE_AREA_SHIFT) == 0 && sh2Cache.getCacheContext().cacheEn > 0;
-        block.isCacheFetch = (pc >>> PC_CACHE_AREA_SHIFT) == 0;
+        block.setCacheFetch((pc >>> PC_CACHE_AREA_SHIFT) == 0);
         block.drcContext = this.sh2Context[cpu.ordinal()];
         setupPrefetch(block, cpu);
         final PcInfoWrapper piw = getOrCreate(pc, cpu);
@@ -139,6 +139,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             sh2Cache.cacheMemoryRead(pc, Size.WORD);
         }
         final int pcLimit = pc + SH2_DRC_MAX_BLOCK_LEN;
+        boolean breakOnJump = false;
         do {
             int val = isCache ? sh2Cache.readDirect(currentPc, Size.WORD) : block.fetchBuffer.getShort(bytePos) & 0xFFFF;
             final Sh2Instructions.Sh2BaseInstruction inst = op[val].inst;
@@ -159,11 +160,14 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                             block.fetchBuffer.getShort(bytePos + 2) & 0xFFFF;
                     opcodes.add(Util.getFromIntegerCache(nextVal));
                 }
+                breakOnJump = true;
                 break;
             }
             bytePos += 2;
             currentPc += 2;
         } while (currentPc < pcLimit);
+        assert currentPc == pcLimit ? !breakOnJump : true; //TODO test
+        block.setNoJump(currentPc == pcLimit && !breakOnJump);
         block.prefetchWords = Ints.toArray(opcodes);
         block.prefetchLenWords = block.prefetchWords.length;
         block.end = block.start + ((block.prefetchLenWords - 1) << 1);
@@ -461,7 +465,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         int lineEnd = lineStart + 16;
         for (var entry : prefetchMap[ctx.cpu.ordinal()].entrySet()) {
             Sh2Block b = entry.getValue();
-            if (b != null && b != Sh2Block.INVALID_BLOCK && b.isCacheFetch) {
+            if (b != null && b != Sh2Block.INVALID_BLOCK && b.isCacheFetch()) {
                 int start = b.prefetchPc;
                 int end = b.prefetchPc + (b.prefetchLenWords << 1);
                 if (lineEnd >= start && lineStart < end) {
