@@ -7,7 +7,6 @@ import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.objectweb.asm.commons.LocalVariablesSorter;
 import org.slf4j.Logger;
-import org.slf4j.helpers.MessageFormatter;
 import sh2.BiosHolder;
 import sh2.IMemory;
 import sh2.S32xUtil.CpuDeviceAccess;
@@ -53,10 +52,9 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     private static final Logger LOG = LogHelper.getLogger(Sh2Prefetch.class.getSimpleName());
 
-    //TODO fix, see VF, ECCO
     public static final int SH2_DRC_MAX_BLOCK_LEN = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.maxBlockLen", "32"));
 
-    private static final boolean SH2_REUSE_FETCH_DATA = true; //TODO vr requires false
+    private static final boolean SH2_REUSE_FETCH_DATA = true;
     //NOTE vf is rewriting code so much that setting this to false slows it down
     private static final boolean SH2_LIMIT_BLOCK_MAP_LOAD = true;
 
@@ -357,6 +355,11 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         checkPoller(cpuWrite, SysEvent.valueOf(type.name()), addr, val, size);
     }
 
+    public static void checkPollers(S32xDict.S32xRegType type, int addr, int val, Size size) {
+        checkPoller(MASTER, SysEvent.valueOf(type.name()), addr, val, size);
+        checkPoller(SLAVE, SysEvent.valueOf(type.name()), addr, val, size);
+    }
+
     public static void checkPoller(CpuDeviceAccess cpuWrite, SysEvent type, int addr, int val, Size size) {
         if (SysEventManager.currentPollers[0].isPollingActive()) {
             checkPollerInternal(SysEventManager.currentPollers[0], cpuWrite, type, addr, val, size);
@@ -368,7 +371,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     public static void checkPollerInternal(PollerCtx c, CpuDeviceAccess cpuWrite, SysEvent type,
                                            int addr, int val, Size size) {
-        if (c.block.pollType == PollType.BUSY_LOOP) {
+        if (c.block.pollType == PollType.BUSY_LOOP || type != c.event) {
             return;
         }
         addr = addr & 0xFFF_FFFF;
@@ -380,10 +383,10 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                 LOG.info("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
                         th(addr), size, c.cpu, th(c.memoryTarget), c.memTargetSize, th(val));
             //TODO stellar assault, interrupt ??
-            if (c.block.pollType == PollType.COMM && c.cpu == cpuWrite) {
-                LOG.warn("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
-                        th(addr), size, c.cpu, th(c.memoryTarget), c.memTargetSize, th(val));
-            }
+//            if (c.block.pollType == PollType.COMM && c.cpu == cpuWrite) {
+//                LOG.warn("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
+//                        th(addr), size, c.cpu, th(c.memoryTarget), c.memTargetSize, th(val));
+//            }
             SysEventManager.instance.fireSysEvent(c.cpu, type);
         }
     }
@@ -425,7 +428,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                         }
                     }
                     if (verbose) {
-                        String s = formatMessage("{} write at addr: {} val: {} {}, invalidate {} block with start: {} blockLen: {}",
+                        String s = LogHelper.formatMessage("{} write at addr: {} val: {} {}, invalidate {} block with start: {} blockLen: {}",
                                 writer, th(addr), th(val), Size.WORD, blockOwner, th(b.prefetchPc), b.prefetchLenWords);
                         LOG.info(s);
                     }
@@ -435,11 +438,6 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             }
         }
     }
-
-    public static String formatMessage(String s, Object... o) {
-        return MessageFormatter.arrayFormat(s, o).getMessage();
-    }
-
     private void cacheOnFetch(int pc, int expOpcode, CpuDeviceAccess cpu) {
         if (!sh2Config.cacheEn) {
             return;
@@ -455,8 +453,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     //TODO this should check cache contents vs SDRAM to detect inconsistencies
     public void invalidateAllPrefetch(CpuDeviceAccess cpu) {
         if (sh2Config.cacheEn) {
-            prefetchMap[cpu.ordinal()].clear();
-            if (verbose) LOG.info("{} invalidate all prefetch data", cpu);
+//            prefetchMap[cpu.ordinal()].clear();
+//            if (verbose) LOG.info("{} invalidate all prefetch data", cpu);
         }
     }
 

@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xDict.S32xRegType;
+import sh2.event.SysEventManager.SysEvent;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Debug;
 import sh2.sh2.Sh2Helper;
@@ -18,6 +19,7 @@ import java.util.function.Predicate;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
+import static sh2.dict.S32xDict.SH2_CACHE_THROUGH_OFFSET;
 import static sh2.sh2.Sh2Debug.isBranchOpcode;
 import static sh2.sh2.Sh2Debug.isMovOpcode;
 import static sh2.sh2.Sh2Disassembler.NOP;
@@ -59,10 +61,8 @@ public class Ow2DrcOptimizer {
     public static final Predicate<int[]> isBusyLoopLen2 = w -> w[0] == 0xaffe;
 
     public static final Map<S32xRegType, PollType> ptMap = ImmutableMap.of(
-            //TODO needs to notify when a reg changes and it is NOT triggered by a memory write
-            //TODO check VDP
-//            S32xRegType.DMA, DMAC,
-//            S32xRegType.PWM, PWM,
+            S32xRegType.DMA, DMA,
+            S32xRegType.PWM, PWM,
             S32xRegType.VDP, VDP,
             S32xRegType.NONE, NONE,
             S32xRegType.COMM, COMM
@@ -141,6 +141,7 @@ public class Ow2DrcOptimizer {
         public int pc, memoryTarget, branchDest;
         public Size memTargetSize;
         public Sh2Block block = Sh2Block.INVALID_BLOCK;
+        public SysEvent event;
         public PollState pollState = PollState.NO_POLL;
 
         public static PollerCtx create(Sh2Block block) {
@@ -148,11 +149,11 @@ public class Ow2DrcOptimizer {
             ctx.pc = block.prefetchPc;
             ctx.block = block;
             ctx.cpu = block.drcContext.cpu;
+            ctx.event = SysEvent.NONE;
             return ctx;
         }
 
         public boolean isPollingActive() {
-//            assert isPollingBlock();
             return pollState != PollState.NO_POLL;
         }
 
@@ -180,6 +181,11 @@ public class Ow2DrcOptimizer {
                     .add("pollState=" + pollState)
                     .toString();
         }
+
+        public void invalidate() {
+            block = Sh2Block.INVALID_BLOCK;
+            event = SysEvent.NONE;
+        }
     }
 
     public static final PollerCtx NO_POLLER = new PollerCtx();
@@ -190,7 +196,8 @@ public class Ow2DrcOptimizer {
         final var pollerMap = map[block.drcContext.cpu.ordinal()];
         if (pollerMap.containsKey(block.prefetchPc)) {
             PollerCtx ctx = pollerMap.getOrDefault(block.prefetchPc, NO_POLLER);
-            assert ctx != NO_POLLER && ctx.block == block && ctx.cpu == block.drcContext.cpu : "\nPrev: " + ctx.block + "\nNew : " + block;
+            assert ctx != NO_POLLER && ctx.block == block && ctx.cpu == block.drcContext.cpu :
+                    "Poller: " + ctx + "\nPrev: " + ctx.block + "\nNew : " + block;
             return;
         }
         if (block.pollType == UNKNOWN) {
@@ -227,6 +234,7 @@ public class Ow2DrcOptimizer {
             ctx.block = block;
             ctx.cpu = block.drcContext.cpu;
             block.pollType = BUSY_LOOP;
+            ctx.event = SysEvent.INT;
             PollerCtx prevCtx = map[ctx.cpu.ordinal()].put(ctx.pc, ctx);
             assert prevCtx == null : ctx + "\n" + prevCtx;
         }
@@ -295,12 +303,14 @@ public class Ow2DrcOptimizer {
         boolean log = false;
         if (ctx.memTargetSize != null && ctx.branchDest == ctx.pc) {
             block.pollType = getAccessType(ctx, ctx.memoryTarget);
-            log |= block.pollType == null;
-            block.pollType = block.pollType == null ? UNKNOWN : block.pollType;
+            assert (block.pollType != SDRAM ? (ctx.memoryTarget | SH2_CACHE_THROUGH_OFFSET) == ctx.memoryTarget : true) : ctx;
             if (block.pollType != UNKNOWN) {
                 log = true;
-                PollerCtx prevCtx = map[ctx.cpu.ordinal()].put(ctx.pc, ctx);
-                assert prevCtx == null : ctx + "\n" + prevCtx;
+                ctx.event = SysEvent.valueOf(block.pollType.name());
+                if (block.pollType != DMA && block.pollType != PWM) { //TODO not supported
+                    PollerCtx prevCtx = map[ctx.cpu.ordinal()].put(ctx.pc, ctx);
+                    assert prevCtx == null : ctx + "\n" + prevCtx;
+                }
             }
         }
         log |= ctx.memTargetSize == null && block.pollType != UNKNOWN;

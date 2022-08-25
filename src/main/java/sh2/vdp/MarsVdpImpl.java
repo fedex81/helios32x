@@ -21,8 +21,6 @@ import java.util.Optional;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32XMMREG.RegContext;
-import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
-import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.S32xUtil.*;
 import static sh2.dict.S32xDict.*;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
@@ -317,9 +315,10 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     private void vdpRegChange(RegSpecS32x regSpec) {
-        //TODO vdp address
-        Sh2Prefetch.checkPoller(MASTER, regSpec.deviceType, SH2_CACHE_THROUGH_OFFSET | 0x4000 | regSpec.fullAddress, 0xBEEF, Size.WORD);
-        Sh2Prefetch.checkPoller(SLAVE, regSpec.deviceType, SH2_CACHE_THROUGH_OFFSET | 0x4000 | regSpec.fullAddress, 0xBEEF, Size.WORD);
+        assert regSpec.size == Size.WORD;
+        int val = readWordFromBuffer(FBCR); //TODO avoid the read?
+        int addr = SH2_CACHE_THROUGH_OFFSET | START_32X_SYSREG_CACHE | regSpec.fullAddress;
+        Sh2Prefetch.checkPollers(regSpec.deviceType, addr, val, Size.WORD);
     }
 
     private void writeBufferWord(RegSpecS32x reg, int value) {

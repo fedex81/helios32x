@@ -67,6 +67,8 @@ public class S32XMMREG implements Device {
     private MarsVdpContext vdpContext;
     private int deviceAccessType;
 
+    public static boolean resetSh2 = false;
+
     public S32XMMREG() {
         init();
     }
@@ -306,7 +308,7 @@ public class S32XMMREG implements Device {
         return res;
     }
 
-    public static boolean resetSh2 = false;
+
 
     private boolean handleAdapterControlRegWrite68k(int reg, int value, Size size) {
         assert size != Size.LONG;
@@ -318,25 +320,28 @@ public class S32XMMREG implements Device {
             System.out.println("#### Disabling ADEN not allowed");
             newVal |= 1;
         }
-        //TODO this breaks test2
+        handleReset(val, newVal);
+        writeBufferWord(M68K_ADAPTER_CTRL, newVal);
+        setAdenSh2Reg(newVal & 1); //sh2 side read-only
+        updateFmShared(newVal); //sh2 side r/w too
+        return val != newVal;
+    }
+
+    //TODO this breaks test2
+    private void handleReset(int val, int newVal) {
         //reset cancel
         if ((val & P32XS_nRES) == 0 && (newVal & P32XS_nRES) > 0) {
             LOG.info("{} unset reset Sh2s (nRes = 0)", Md32xRuntimeData.getAccessTypeExt());
-//            resetSh2 = false;
+            resetSh2 = false;
 //            aden = 0;
 //            bus.resetSh2();
         }
-        //TODO this breaks test2
         //reset
         if ((val & P32XS_nRES) > 0 && (newVal & P32XS_nRES) == 0) {
             LOG.info("{} set reset SH2s (nRes = 1)", Md32xRuntimeData.getAccessTypeExt());
 //            resetSh2 = true;
 //            aden = 1;
         }
-        writeBufferWord(M68K_ADAPTER_CTRL, newVal);
-        setAdenSh2Reg(newVal & 1); //sh2 side read-only
-        updateFmShared(newVal); //sh2 side r/w too
-        return val != newVal;
     }
 
     private void updateFmShared(int wordVal) {

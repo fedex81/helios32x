@@ -14,6 +14,7 @@ import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.StringJoiner;
 
 import static omegadrive.util.Util.th;
@@ -192,9 +193,12 @@ public class Sh2Block {
     }
 
     public void invalidate() {
+        if (verbose) LOG.info("{} invalidate: {} {}", drcContext.cpu, th(prefetchPc),
+                Optional.ofNullable(stage2Drc).map(c -> c.getClass().getSimpleName()).orElse(""));
         Ow2DrcOptimizer.PollerCtx pctx = map[drcContext.cpu.ordinal()].remove(prefetchPc);
         if (pctx != null) {
-            LOG.warn("{} invalidating a polling block: {}", drcContext.cpu, pctx);
+            if (verbose) LOG.warn("{} invalidating a polling block: {}", drcContext.cpu, pctx);
+            pctx.invalidate();
         }
         nextBlock = INVALID_BLOCK;
         inst = null;
