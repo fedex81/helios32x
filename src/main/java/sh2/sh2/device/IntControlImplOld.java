@@ -129,7 +129,7 @@ public class IntControlImplOld implements IntControl {
     @Override
     public void setOnChipDeviceIntPending(Sh2DeviceType deviceType, OnChipSubType subType) {
         int data = subType == OnChipSubType.DMA_C1 ? 1 : 0;
-        data = subType == OnChipSubType.RIE ? 1 : 0;
+        data = subType == OnChipSubType.RIE ? 1 : data;
         setExternalIntPending(deviceType, data, true);
     }
 
