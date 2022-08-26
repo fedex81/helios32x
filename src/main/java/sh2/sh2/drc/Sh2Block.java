@@ -108,6 +108,13 @@ public class Sh2Block {
         if (pollerCtx == NO_POLLER) {
             Ow2DrcOptimizer.PollerCtx pctx = Ow2DrcOptimizer.map[drcContext.cpu.ordinal()].getOrDefault(prefetchPc, NO_POLLER);
             if (pctx != NO_POLLER) {
+                pctx.spinCount++;
+                if (pctx.spinCount == 1) {
+                    if (verbose)
+                        LOG.info("{} avoid re-entering {} poll at PC {}, on address: {}", this.drcContext.cpu, pctx.block.pollType,
+                                th(this.prefetchPc), th(pctx.memoryTarget));
+                    return;
+                }
                 SysEventManager.currentPollers[drcContext.cpu.ordinal()] = pctx;
                 if (verbose)
                     LOG.info("{} entering {} poll at PC {}, on address: {}", this.drcContext.cpu, pctx.block.pollType,

@@ -32,6 +32,8 @@ import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.*;
 public class Ow2DrcOptimizer {
 
     private final static Logger LOG = LogHelper.getLogger(Ow2DrcOptimizer.class.getSimpleName());
+
+    private final static boolean ENABLE_BUGGY_POLL_DETECT = false;
     private static final Predicate<Integer> isCmpTstOpcode = Sh2Debug.isTstOpcode.or(Sh2Debug.isCmpOpcode);
 
     public static final Predicate<int[]> isPollSequenceLen3 = w ->
@@ -142,6 +144,7 @@ public class Ow2DrcOptimizer {
         public Sh2Block block = Sh2Block.INVALID_BLOCK;
         public SysEvent event;
         public PollState pollState = PollState.NO_POLL;
+        public int spinCount = 0;
 
         public static PollerCtx create(Sh2Block block) {
             PollerCtx ctx = new PollerCtx();
@@ -166,6 +169,7 @@ public class Ow2DrcOptimizer {
 
         public void stopPolling() {
             pollState = PollState.NO_POLL;
+            spinCount = 0;
         }
 
         @Override
@@ -306,7 +310,7 @@ public class Ow2DrcOptimizer {
             if (block.pollType != UNKNOWN) {
                 log = true;
                 ctx.event = SysEvent.valueOf(block.pollType.name());
-                if (block.pollType != DMA && block.pollType != PWM) { //TODO not supported
+                if (ENABLE_BUGGY_POLL_DETECT && block.pollType != DMA && block.pollType != PWM) { //TODO not supported
                     PollerCtx prevCtx = map[ctx.cpu.ordinal()].put(ctx.pc, ctx);
                     assert prevCtx == null : ctx + "\n" + prevCtx;
                 }

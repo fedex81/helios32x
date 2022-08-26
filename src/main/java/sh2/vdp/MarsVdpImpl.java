@@ -310,6 +310,7 @@ public class MarsVdpImpl implements MarsVdp {
             }
         }
         setPen(hBlankOn || vdpContext.vBlankOn ? 1 : 0);
+        //TODO check if any poller is testing the HBlank byte
         vdpRegChange(FBCR);
 //        System.out.println("HBlank: " + hBlankOn);
     }

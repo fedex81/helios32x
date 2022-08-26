@@ -137,6 +137,10 @@ public class Sh2Impl implements Sh2 {
 				}
 				boolean nextBlockOk = fr.block.nextBlock.prefetchPc == ctx.PC;
 				if (!nextBlockOk) {
+					//TODO fix
+//					SysEventManager.currentPollers[0].stopPolling();
+//					SysEventManager.currentPollers[1].stopPolling();
+//					SysEventManager.currentPollers[0] = SysEventManager.currentPollers[1] = NO_POLLER;
 					fetchNextBlock(fr);
 				} else {
 					nextBlockTaken++;
