@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
+import sh2.event.SysEventManager;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.device.IntControl;
 import sh2.sh2.drc.Ow2Sh2BlockRecompiler;
@@ -137,10 +138,7 @@ public class Sh2Impl implements Sh2 {
 				}
 				boolean nextBlockOk = fr.block.nextBlock.prefetchPc == ctx.PC;
 				if (!nextBlockOk) {
-					//TODO fix
-//					SysEventManager.currentPollers[0].stopPolling();
-//					SysEventManager.currentPollers[1].stopPolling();
-//					SysEventManager.currentPollers[0] = SysEventManager.currentPollers[1] = NO_POLLER;
+					SysEventManager.instance.resetPoller(ctx.cpuAccess);
 					fetchNextBlock(fr);
 				} else {
 					nextBlockTaken++;

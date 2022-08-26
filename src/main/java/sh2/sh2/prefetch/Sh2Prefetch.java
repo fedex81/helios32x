@@ -361,11 +361,15 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     public static void checkPoller(CpuDeviceAccess cpuWrite, SysEvent type, int addr, int val, Size size) {
-        if (SysEventManager.currentPollers[0].isPollingActive()) {
-            checkPollerInternal(SysEventManager.currentPollers[0], cpuWrite, type, addr, val, size);
+        int res = SysEventManager.instance.anyPollerActive();
+        if (res == 0) {
+            return;
         }
-        if (SysEventManager.currentPollers[1].isPollingActive()) {
-            checkPollerInternal(SysEventManager.currentPollers[1], cpuWrite, type, addr, val, size);
+        if ((res & 1) > 0) {
+            checkPollerInternal(SysEventManager.instance.getPoller(MASTER), cpuWrite, type, addr, val, size);
+        }
+        if ((res & 2) > 0) {
+            checkPollerInternal(SysEventManager.instance.getPoller(SLAVE), cpuWrite, type, addr, val, size);
         }
     }
 

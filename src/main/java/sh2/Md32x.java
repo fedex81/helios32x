@@ -25,7 +25,6 @@ import java.util.Optional;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
-import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 
 /**
  * Federico Berti
@@ -53,7 +52,6 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
         boolean drcEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
         boolean cacheEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "false"));
-        //TODO stellar assault, chaotix, fifa96 audio ko
         boolean pollEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "true"));
         boolean ignoreDelays = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.ignore.delays", "false"));
         sh2Config = new Sh2Config(prefEn, cacheEn, drcEn, pollEn, ignoreDelays);
@@ -204,7 +202,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
 
     @Override
     public void onSysEvent(S32xUtil.CpuDeviceAccess cpu, SysEventManager.SysEvent event) {
-        final Ow2DrcOptimizer.PollerCtx pc = SysEventManager.currentPollers[cpu.ordinal()];
+        final Ow2DrcOptimizer.PollerCtx pc = SysEventManager.instance.getPoller(cpu);
         final Sh2Context sh2Context = cpu == MASTER ? masterCtx : slaveCtx;
         switch (event) {
             case START_POLLING -> {
@@ -233,14 +231,13 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         assert event == SysEventManager.SysEvent.INT ? pc.isPollingBusyLoop() : true;
         boolean stopOk = event == pc.event || event == SysEventManager.SysEvent.INT;
         if (stopOk) {
-            pc.stopPolling();
             if (cpu == SLAVE) {
                 nextSSh2Cycle = counter + 1;
             } else {
                 nextMSh2Cycle = counter + 1;
             }
             if (verbose) LOG.info("{} {} {}: {}", cpu, event, counter, pc);
-            SysEventManager.currentPollers[cpu.ordinal()] = NO_POLLER;
+            SysEventManager.instance.resetPoller(cpu);
         } else {
             LOG.warn("{} {} ignore stop polling: {}", cpu, event, pc);
         }

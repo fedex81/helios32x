@@ -97,25 +97,24 @@ public class Sh2Block {
 
     private void handlePoll() {
         if (!isPollingBlock()) {
-            final Ow2DrcOptimizer.PollerCtx current = SysEventManager.currentPollers[drcContext.cpu.ordinal()];
-            if (current != NO_POLLER && pollType == BUSY_LOOP) {
-                current.stopPolling();
-                SysEventManager.currentPollers[drcContext.cpu.ordinal()] = NO_POLLER;
+            final Ow2DrcOptimizer.PollerCtx current = SysEventManager.instance.getPoller(drcContext.cpu);
+            if (current != NO_POLLER && pollType == BUSY_LOOP) { //TODO check
+                SysEventManager.instance.resetPoller(current.cpu);
             }
             return;
         }
-        final Ow2DrcOptimizer.PollerCtx pollerCtx = SysEventManager.currentPollers[drcContext.cpu.ordinal()];
+        final Ow2DrcOptimizer.PollerCtx pollerCtx = SysEventManager.instance.getPoller(drcContext.cpu);
         if (pollerCtx == NO_POLLER) {
             Ow2DrcOptimizer.PollerCtx pctx = Ow2DrcOptimizer.map[drcContext.cpu.ordinal()].getOrDefault(prefetchPc, NO_POLLER);
             if (pctx != NO_POLLER) {
                 pctx.spinCount++;
-                if (pctx.spinCount == 1) {
+                if (pctx.spinCount < 3) {
                     if (verbose)
                         LOG.info("{} avoid re-entering {} poll at PC {}, on address: {}", this.drcContext.cpu, pctx.block.pollType,
                                 th(this.prefetchPc), th(pctx.memoryTarget));
                     return;
                 }
-                SysEventManager.currentPollers[drcContext.cpu.ordinal()] = pctx;
+                SysEventManager.instance.setPoller(drcContext.cpu, pctx);
                 if (verbose)
                     LOG.info("{} entering {} poll at PC {}, on address: {}", this.drcContext.cpu, pctx.block.pollType,
                             th(this.prefetchPc), th(pctx.memoryTarget));
@@ -126,11 +125,8 @@ public class Sh2Block {
                             th(this.prefetchPc), th(pctx.memoryTarget));
                 pollType = Ow2DrcOptimizer.PollType.NONE;
             }
-            //TODO remove else-if ??
-        } else if (pollerCtx.isPollingActive()) {
-//            SysEventManager.instance.fireSysEvent(pollerCtx.cpu, START_POLLING);
-        } else {
-            throw new RuntimeException("unexpected");
+        } else if (!pollerCtx.isPollingActive()) {
+            throw new RuntimeException("Unexpected, inactive poller: " + pollerCtx);
         }
     }
 

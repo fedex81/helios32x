@@ -2,10 +2,11 @@ package sh2.event;
 
 import omegadrive.Device;
 import sh2.S32xUtil.CpuDeviceAccess;
-import sh2.sh2.drc.Ow2DrcOptimizer;
+import sh2.sh2.drc.Ow2DrcOptimizer.PollerCtx;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
@@ -20,7 +21,8 @@ public interface SysEventManager extends Device {
 
     SysEventManager instance = new SysEventManagerImpl();
 
-    Ow2DrcOptimizer.PollerCtx[] currentPollers = {NO_POLLER, NO_POLLER};
+    PollerCtx[] currentPollers = {NO_POLLER, NO_POLLER};
+    AtomicInteger pollerActiveMask = new AtomicInteger();
 
     enum SysEvent {
         NONE,
@@ -52,6 +54,29 @@ public interface SysEventManager extends Device {
         boolean s2 = removeSysEventListener(SLAVE, name, l);
         num += (s1 ? 1 : 0) + (s2 ? 1 : 0);
         return num;
+    }
+
+    default void resetPoller(CpuDeviceAccess cpu) {
+        PollerCtx pctx = SysEventManager.currentPollers[cpu.ordinal()];
+        if (pctx != NO_POLLER) {
+            pctx.stopPolling();
+            SysEventManager.currentPollers[cpu.ordinal()] = NO_POLLER;
+            pollerActiveMask.set(pollerActiveMask.get() & ~(cpu.ordinal() + 1));
+        }
+    }
+
+    default void setPoller(CpuDeviceAccess cpu, PollerCtx ctx) {
+        assert SysEventManager.currentPollers[cpu.ordinal()] == NO_POLLER;
+        SysEventManager.currentPollers[cpu.ordinal()] = ctx;
+        pollerActiveMask.set(pollerActiveMask.get() | (cpu.ordinal() + 1));
+    }
+
+    default PollerCtx getPoller(CpuDeviceAccess cpu) {
+        return SysEventManager.currentPollers[cpu.ordinal()];
+    }
+
+    default int anyPollerActive() {
+        return pollerActiveMask.get();
     }
 
     interface SysEventListener {

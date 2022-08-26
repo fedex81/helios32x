@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
+import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xDict.S32xRegType;
@@ -33,7 +34,7 @@ public class Ow2DrcOptimizer {
 
     private final static Logger LOG = LogHelper.getLogger(Ow2DrcOptimizer.class.getSimpleName());
 
-    private final static boolean ENABLE_BUGGY_POLL_DETECT = false;
+    private final static boolean ENABLE_POLL_DETECT = true;
     private static final Predicate<Integer> isCmpTstOpcode = Sh2Debug.isTstOpcode.or(Sh2Debug.isCmpOpcode);
 
     public static final Predicate<int[]> isPollSequenceLen3 = w ->
@@ -144,6 +145,8 @@ public class Ow2DrcOptimizer {
         public Sh2Block block = Sh2Block.INVALID_BLOCK;
         public SysEvent event;
         public PollState pollState = PollState.NO_POLL;
+        @Deprecated
+        public long initialValue = Long.MAX_VALUE;
         public int spinCount = 0;
 
         public static PollerCtx create(Sh2Block block) {
@@ -169,6 +172,7 @@ public class Ow2DrcOptimizer {
 
         public void stopPolling() {
             pollState = PollState.NO_POLL;
+            initialValue = Long.MAX_VALUE;
             spinCount = 0;
         }
 
@@ -246,6 +250,7 @@ public class Ow2DrcOptimizer {
     private static void setTargetInfo(PollerCtx ctx, PollSeqType pollSeqType, Sh2Context sh2Context, int[] words) {
         final int[] r = sh2Context.registers;
         int memReadOpcode = 0, jmp = 0, jmpPc = 0, start = 0;
+        assert ctx.initialValue == Long.MAX_VALUE;
         switch (pollSeqType) {
             case mov_mov_cmp_jmp:
                 start = 1;
@@ -310,7 +315,7 @@ public class Ow2DrcOptimizer {
             if (block.pollType != UNKNOWN) {
                 log = true;
                 ctx.event = SysEvent.valueOf(block.pollType.name());
-                if (ENABLE_BUGGY_POLL_DETECT && block.pollType != DMA && block.pollType != PWM) { //TODO not supported
+                if (ENABLE_POLL_DETECT && block.pollType != DMA && block.pollType != PWM) { //TODO not supported
                     PollerCtx prevCtx = map[ctx.cpu.ordinal()].put(ctx.pc, ctx);
                     assert prevCtx == null : ctx + "\n" + prevCtx;
                 }
@@ -324,6 +329,15 @@ public class Ow2DrcOptimizer {
                     Sh2Helper.toListOfInst(block));
         }
     }
+
+    //TODO not needed ??
+    @Deprecated
+    public static void readSetValue(PollerCtx ctx) {
+        int r = Md32xRuntimeData.getCpuDelayExt();
+        ctx.initialValue = ctx.block.drcContext.memory.read(ctx.memoryTarget, ctx.memTargetSize);
+        Md32xRuntimeData.resetCpuDelayExt(r);
+    }
+
     public static boolean isBusyLoop(int[] prefetchWords) {
         return switch (prefetchWords.length) {
             case 3 -> isBusyLoopLen3.test(prefetchWords);

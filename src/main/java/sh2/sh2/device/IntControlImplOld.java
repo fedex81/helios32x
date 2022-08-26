@@ -180,7 +180,7 @@ public class IntControlImplOld implements IntControl {
         }
         interruptLevel = newLevel;
         if (interruptLevel != prev && interruptLevel > 0) {
-            Ow2DrcOptimizer.PollerCtx ctx = SysEventManager.currentPollers[cpu.ordinal()];
+            Ow2DrcOptimizer.PollerCtx ctx = SysEventManager.instance.getPoller(cpu);
             if (ctx.isPollingActive() && ctx.isPollingBusyLoop()) {
                 SysEventManager.instance.fireSysEvent(cpu, INT);
             }
