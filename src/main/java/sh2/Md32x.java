@@ -53,8 +53,8 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
         boolean drcEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
         boolean cacheEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "false"));
-        //TODO stellar assault, chaotix
-        boolean pollEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "true"));
+        //TODO stellar assault, chaotix, tempo audio ko
+        boolean pollEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "false"));
         boolean ignoreDelays = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.ignore.delays", "false"));
         sh2Config = new Sh2Config(prefEn, cacheEn, drcEn, pollEn, ignoreDelays);
 
@@ -147,13 +147,13 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     }
 
     private void runDevices() {
+        assert Md32xRuntimeData.getCpuDelayExt() == 0;
+        //NOTE if Pwm triggers dreq, the cpuDelay should be assigned to the DMA engine, not to the CPU itself
         ctx.pwm.step(SH2_CYCLE_RATIO);
-        //TODO if Pwm triggers dreq, who owns the cpuDelay?
-        //TODO obv. the CPU that has dreq triggered
-//        assert Md32xRuntimeData.resetCpuDelayExt() == 0;
         Md32xRuntimeData.resetCpuDelayExt();
         ctx.mDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
         ctx.sDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
+        assert Md32xRuntimeData.getCpuDelayExt() == 0;
     }
 
     @Override
