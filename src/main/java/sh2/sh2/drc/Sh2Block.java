@@ -3,6 +3,7 @@ package sh2.sh2.drc;
 import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
 import sh2.Md32xRuntimeData;
+import sh2.S32xUtil;
 import sh2.Sh2MMREG;
 import sh2.event.SysEventManager;
 import sh2.event.SysEventManager.SysEvent;
@@ -59,6 +60,8 @@ public class Sh2Block {
 
     static {
         assert !INVALID_BLOCK.shouldKeep();
+        S32xUtil.assertPowerOf2Minus1("OPT_THRESHOLD", OPT_THRESHOLD + 1);
+        S32xUtil.assertPowerOf2Minus1("OPT_THRESHOLD2", OPT_THRESHOLD2 + 1);
     }
 
     public Sh2Block(int pc) {

@@ -1,5 +1,6 @@
 package sh2;
 
+import com.google.common.math.IntMath;
 import omegadrive.Device;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
@@ -210,6 +211,14 @@ public class S32xUtil {
 
     public static String toHexString(ByteBuffer b, int pos, Size size) {
         return Integer.toHexString(readBuffer(b, pos, size));
+    }
+
+    public static void assertPowerOf2Minus1(String name, int value) {
+        if (!IntMath.isPowerOfTwo(value)) {
+            LOG.error(name + " should be a (powerOf2 - 1), ie. 0xFF, actual: " + th(value - 1));
+        }
+        assert IntMath.isPowerOfTwo(value) :
+                name + " should be a (powerOf2 - 1), ie. 0xFF, actual: " + th(value - 1);
     }
 
     public enum CpuDeviceAccess {

@@ -70,7 +70,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         for (int i = 0; i < sh2CycleTable.length; i++) {
             sh2CycleTable[i] = Math.max(1, (int) Math.round(i * SH2_CYCLE_DIV));
         }
-
+        S32xUtil.assertPowerOf2Minus1("CYCLE_TABLE_LEN_MASK", CYCLE_TABLE_LEN_MASK + 1);
     }
 
     public int nextMSh2Cycle = 0, nextSSh2Cycle = 0;

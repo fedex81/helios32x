@@ -19,7 +19,6 @@ import java.util.function.Predicate;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
-import static sh2.dict.S32xDict.SH2_CACHE_THROUGH_OFFSET;
 import static sh2.sh2.Sh2Debug.isBranchOpcode;
 import static sh2.sh2.Sh2Debug.isMovOpcode;
 import static sh2.sh2.Sh2Disassembler.NOP;
@@ -303,7 +302,7 @@ public class Ow2DrcOptimizer {
         boolean log = false;
         if (ctx.memTargetSize != null && ctx.branchDest == ctx.pc) {
             block.pollType = getAccessType(ctx, ctx.memoryTarget);
-            assert (block.pollType != SDRAM ? (ctx.memoryTarget | SH2_CACHE_THROUGH_OFFSET) == ctx.memoryTarget : true) : ctx;
+//            assert (block.pollType != SDRAM ? (ctx.memoryTarget | SH2_CACHE_THROUGH_OFFSET) == ctx.memoryTarget : true) : ctx;
             if (block.pollType != UNKNOWN) {
                 log = true;
                 ctx.event = SysEvent.valueOf(block.pollType.name());
@@ -339,10 +338,10 @@ public class Ow2DrcOptimizer {
             case 0x20:
                 PollType pt = ptMap.get(S32xDict.getRegSpec(MASTER, address).deviceType);
 //                assert pt != null : th(address);
-                return pt == null ? UNKNOWN : pt;
+                return pt == null ? NONE : pt;
             default:
                 LOG.error("Unexpected access type for polling: {}", th(address));
-                return null;
+                return NONE;
         }
     }
     public static void clear() {
