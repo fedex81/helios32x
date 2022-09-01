@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
 import sh2.Sh2MMREG;
+import sh2.dict.S32xDict;
 import sh2.sh2.device.IntControl;
 
 import static omegadrive.util.Util.th;
@@ -1089,16 +1090,14 @@ public class Sh2Impl implements Sh2 {
 	protected final void TAS(int code) {
 		int n = RN(code);
 
-		byte value = (byte) memory.read8(ctx.registers[n]);
+		byte value = (byte) memory.read8(S32xDict.SH2_CACHE_THROUGH_OFFSET | ctx.registers[n]);
 		if (value == 0)
 			ctx.SR |= 0x1;
 		else ctx.SR &= ~0x1;
 		memory.write8(ctx.registers[n], ((byte) (value | 0x80)));
 
 		ctx.cycles -= 4;
-
 		ctx.PC += 2;
-		if (true) new RuntimeException();
 	}
 
 	protected final void TST(int code) {
