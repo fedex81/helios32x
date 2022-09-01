@@ -1,5 +1,6 @@
 package sh2.sh2;
 
+import com.google.common.base.Objects;
 import sh2.S32xUtil;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceContext;
 import sh2.sh2.drc.Sh2Block;
@@ -40,6 +41,10 @@ public class Sh2Context {
     public Sh2.FetchResult fetchResult;
 
     public Sh2DeviceContext devices;
+
+    public Sh2Context(S32xUtil.CpuDeviceAccess cpuAccess) {
+        this(cpuAccess, false);
+    }
 
     public Sh2Context(S32xUtil.CpuDeviceAccess cpuAccess, boolean debug) {
         this.registers = new int[NUM_REG];
