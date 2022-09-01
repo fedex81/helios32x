@@ -1167,6 +1167,13 @@ public class Ow2Sh2Bytecode {
                 LOG.warn("DRC unimplemented: {},{}", ctx.sh2Inst, ctx.opcode);
             }
         }
+        //TODO if the delaySlot inst is a fallback the PC gets corrupted
+        int pcPrev = 0;
+        if (ctx.delaySlot) {
+            pcPrev = ctx.mv.newLocal(Type.INT_TYPE);
+            pushSh2ContextAndField(ctx, PC.name(), int.class);
+            ctx.mv.visitVarInsn(ISTORE, pcPrev);
+        }
         setContextPc(ctx);
         ctx.mv.visitFieldInsn(GETSTATIC, Type.getInternalName(Sh2Instructions.class), "instOpcodeMap",
                 Type.getDescriptor(Sh2Instructions.Sh2InstructionWrapper[].class));
@@ -1175,6 +1182,13 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2Instructions.Sh2InstructionWrapper.class), "runnable",
                 Type.getDescriptor(Runnable.class));
         ctx.mv.visitMethodInsn(INVOKEINTERFACE, Type.getInternalName(Runnable.class), "run", noArgsNoRetDesc);
+        //TODO if the delaySlot inst is a fallback the PC gets corrupted
+        if (ctx.delaySlot) {
+            assert pcPrev != 0;
+            pushSh2Context(ctx);
+            ctx.mv.visitVarInsn(ILOAD, pcPrev);
+            popSh2ContextIntField(ctx, PC.name());
+        }
     }
 
     public static void shiftConst(BytecodeContext ctx, int shiftBytecode, int shift) {
