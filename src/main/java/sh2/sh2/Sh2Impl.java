@@ -13,6 +13,7 @@ import sh2.sh2.drc.Ow2Sh2BlockRecompiler;
 import sh2.sh2.drc.Sh2Block;
 
 import static omegadrive.util.Util.th;
+import static sh2.dict.S32xDict.SH2_CACHE_THROUGH_OFFSET;
 import static sh2.sh2.drc.Sh2Block.INVALID_BLOCK;
 
 /*
@@ -43,6 +44,7 @@ import static sh2.sh2.drc.Sh2Block.INVALID_BLOCK;
 public class Sh2Impl implements Sh2 {
 
 	private final static Logger LOG = LogHelper.getLogger(Sh2Impl.class.getSimpleName());
+	private final int tasReadOffset;
 
 	protected Sh2Context ctx;
 	protected IMemory memory;
@@ -53,6 +55,7 @@ public class Sh2Impl implements Sh2 {
 		this.memory = memory;
 		this.opcodeMap = Sh2Instructions.createOpcodeMap(this);
 		this.sh2Config = Sh2Config.instance.get();
+		this.tasReadOffset = sh2Config.tasQuirk ? SH2_CACHE_THROUGH_OFFSET : 0;
 		if (sh2Config.drcEn) {
 			Ow2Sh2BlockRecompiler.newInstance("" + System.currentTimeMillis());
 		}
@@ -109,6 +112,7 @@ public class Sh2Impl implements Sh2 {
 	}
 
 	protected final void decodeDelaySlot(int opcode) {
+		printDebugMaybe(opcode);
 		opcodeMap[opcode].runnable.run();
 	}
 
@@ -1224,11 +1228,9 @@ public class Sh2Impl implements Sh2 {
 		ctx.PC += 2;
 	}
 
-	//TODO test
 	protected final void TAS(int code) {
 		int n = RN(code);
-		int value = memory.read8(ctx.registers[n]);
-//		int value = memory.read8(SH2_CACHE_THROUGH_OFFSET | ctx.registers[n]);
+		int value = memory.read8(tasReadOffset | ctx.registers[n]);
 		if (value == 0)
 			ctx.SR |= 0x1;
 		else ctx.SR &= ~0x1;

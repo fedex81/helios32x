@@ -36,17 +36,18 @@ public class Sh2Context {
     public final S32xUtil.CpuDeviceAccess cpuAccess;
     public final String sh2TypeCode;
     public boolean delaySlot;
-    public boolean debug;
+    public final boolean debug;
     public Sh2.FetchResult fetchResult;
 
     public Sh2DeviceContext devices;
 
-    public Sh2Context(S32xUtil.CpuDeviceAccess cpuAccess) {
+    public Sh2Context(S32xUtil.CpuDeviceAccess cpuAccess, boolean debug) {
         this.registers = new int[NUM_REG];
         this.cpuAccess = cpuAccess;
         this.sh2TypeCode = cpuAccess.name().substring(0, 1);
         this.fetchResult = new Sh2.FetchResult();
         this.fetchResult.block = Sh2Block.INVALID_BLOCK;
+        this.debug = debug;
     }
 
     @Override

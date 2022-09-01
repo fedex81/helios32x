@@ -49,7 +49,8 @@ public class J2CoreTest {
 
     private Sh2 sh2;
     private Sh2Context ctx;
-    private static Sh2Config config = new Sh2Config(false, false, false, false, false);
+    private static Sh2Config config = new Sh2Config(false, false, false, false,
+            false, false);
 
     @BeforeAll
     public static void beforeAll() {
@@ -88,8 +89,7 @@ public class J2CoreTest {
         Sh2Cache cache = new Sh2CacheImpl(cpu, memory);
         Sh2MMREG sh2MMREG = new Sh2MMREG(cpu, cache);
         S32XMMREG s32XMMREG = new S32XMMREG();
-        Sh2Context context = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
-        context.debug = sh2Debug;
+        Sh2Context context = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER, sh2Debug);
         context.devices = Sh2DeviceHelper.createDevices(cpu, memory, new DmaFifo68k(s32XMMREG.regContext), sh2MMREG);
         sh2MMREG.init(context.devices);
         Md32xRuntimeData.newInstance();

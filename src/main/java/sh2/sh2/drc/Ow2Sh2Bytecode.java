@@ -16,6 +16,7 @@ import java.util.Set;
 
 import static omegadrive.util.Util.th;
 import static org.objectweb.asm.Opcodes.*;
+import static sh2.dict.S32xDict.SH2_CACHE_THROUGH_OFFSET;
 import static sh2.sh2.Sh2.*;
 import static sh2.sh2.Sh2Impl.RM;
 import static sh2.sh2.Sh2Impl.RN;
@@ -1028,9 +1029,8 @@ public class Ow2Sh2Bytecode {
         pushMemory(ctx);
         pushRegStack(ctx, n);
         ctx.mv.visitInsn(IALOAD);
-        //TODO check
-//        emitPushConstToStack(ctx, SH2_CACHE_THROUGH_OFFSET);
-//        ctx.mv.visitInsn(IOR);
+        emitPushConstToStack(ctx, SH2_CACHE_THROUGH_OFFSET);
+        ctx.mv.visitInsn(IOR);
         readMem(ctx, Size.BYTE);
         ctx.mv.visitInsn(DUP);
         ctx.mv.visitVarInsn(ISTORE, valIdx);

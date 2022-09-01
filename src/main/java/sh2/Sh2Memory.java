@@ -106,6 +106,7 @@ public final class Sh2Memory implements IMemory {
 					res = sh2MMREGS[cpuAccess.ordinal()].readDramMode(address & 0xFFFF, size);
 				} else {
 					LOG.error("{} read from addr: {}, {}", cpuAccess, th(address), size);
+					throw new RuntimeException();
 				}
 				break;
 			default:
