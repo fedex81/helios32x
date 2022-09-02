@@ -51,7 +51,7 @@ public class Sh2CacheTest {
         rom = new byte[0x1000];
         lc = MarsRegTestUtil.createTestInstance(rom);
         lc.s32XMMREG.aden = 1;
-        memory = lc.memory;
+        memory = (Sh2Memory) lc.memory;
         Md32xRuntimeData.releaseInstance();
         Md32xRuntimeData.newInstance();
         initRam(0x100);

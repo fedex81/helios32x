@@ -42,21 +42,24 @@ public final class Sh2Memory implements IMemory {
 
 	private final Sh2MMREG[] sh2MMREGS = new Sh2MMREG[2];
 	private final S32XMMREG s32XMMREG;
+	private final MemoryDataCtx memoryDataCtx;
 
 	public Sh2Memory(S32XMMREG s32XMMREG, ByteBuffer rom, BiosHolder biosHolder, Sh2Prefetch.Sh2DrcContext... drcCtx) {
+		memoryDataCtx = new MemoryDataCtx();
 		this.s32XMMREG = s32XMMREG;
-		this.rom = rom;
+		memoryDataCtx.rom = this.rom = rom;
 		bios[MASTER.ordinal()] = biosHolder.getBiosData(MASTER);
 		bios[SLAVE.ordinal()] = biosHolder.getBiosData(SLAVE);
-		sdram = ByteBuffer.allocateDirect(SH2_SDRAM_SIZE);
+		memoryDataCtx.bios = bios;
+		memoryDataCtx.sdram = sdram = ByteBuffer.allocateDirect(SH2_SDRAM_SIZE);
 		Sh2.Sh2Config sh2Config = Sh2.Sh2Config.instance.get();
 		cache[MASTER.ordinal()] = sh2Config.cacheEn ? new Sh2CacheImpl(MASTER, this) : Sh2Cache.createNoCacheInstance(MASTER, this);
 		cache[SLAVE.ordinal()] = sh2Config.cacheEn ? new Sh2CacheImpl(SLAVE, this) : Sh2Cache.createNoCacheInstance(SLAVE, this);
 		sh2MMREGS[MASTER.ordinal()] = new Sh2MMREG(MASTER, cache[MASTER.ordinal()]);
 		sh2MMREGS[SLAVE.ordinal()] = new Sh2MMREG(SLAVE, cache[SLAVE.ordinal()]);
 
-		romSize = rom.capacity();
-		romMask = Util.getRomMask(romSize);
+		memoryDataCtx.romSize = romSize = rom.capacity();
+		memoryDataCtx.romMask = romMask = Util.getRomMask(romSize);
 		prefetch = sh2Config.drcEn ? new Sh2Prefetch(this, cache, drcCtx) : new Sh2PrefetchSimple(this, cache);
 		LOG.info("Rom size: {}, mask: {}", th(romSize), th(romMask));
 	}
@@ -195,6 +198,7 @@ public final class Sh2Memory implements IMemory {
 		return prefetch.fetchDelaySlot(pc, ft, cpu);
 	}
 
+	@Override
 	public Sh2MMREG getSh2MMREGS(CpuDeviceAccess cpu) {
 		return sh2MMREGS[cpu.ordinal()];
 	}
@@ -202,6 +206,11 @@ public final class Sh2Memory implements IMemory {
 	@Override
 	public List<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int address) {
 		return prefetch.getPrefetchBlocksAt(cpu, address);
+	}
+
+	@Override
+	public MemoryDataCtx getMemoryDataCtx() {
+		return memoryDataCtx;
 	}
 
 	@Override

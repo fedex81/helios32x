@@ -4,7 +4,7 @@ import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.objectweb.asm.Type;
 import org.slf4j.Logger;
-import sh2.Sh2Memory;
+import sh2.IMemory;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.prefetch.Sh2Prefetch;
 
@@ -534,7 +534,7 @@ public class Ow2Sh2Helper {
 
     public static void pushMemory(Sh2Prefetch.BytecodeContext ctx) {
         ctx.mv.visitVarInsn(ALOAD, 0); //this
-        ctx.mv.visitFieldInsn(GETFIELD, ctx.classDesc, DRC_CLASS_FIELD.memory.name(), Type.getDescriptor(Sh2Memory.class));
+        ctx.mv.visitFieldInsn(GETFIELD, ctx.classDesc, DRC_CLASS_FIELD.memory.name(), Type.getDescriptor(IMemory.class));
     }
 
     public static void pushSh2ContextAndField(Sh2Prefetch.BytecodeContext ctx, String name, Class<?> clazz) {

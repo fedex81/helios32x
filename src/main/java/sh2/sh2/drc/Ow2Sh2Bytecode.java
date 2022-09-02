@@ -6,8 +6,8 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.LocalVariablesSorter;
 import org.slf4j.Logger;
+import sh2.IMemory;
 import sh2.Sh2MMREG;
-import sh2.Sh2Memory;
 import sh2.sh2.*;
 import sh2.sh2.prefetch.Sh2Prefetch.BytecodeContext;
 
@@ -1699,15 +1699,19 @@ public class Ow2Sh2Bytecode {
     }
 
 
+    //TODO detect that memory is Sh2Memory when creating the class and use a Sh2Memory field, than use invokeVirtual
+    //TODO why? -> faster
     public static void writeMem(BytecodeContext ctx, Size size) {
         ctx.mv.visitFieldInsn(GETSTATIC, Type.getInternalName(Size.class), size.name(), Type.getDescriptor(Size.class));
-        ctx.mv.visitMethodInsn(INVOKEVIRTUAL, Type.getInternalName(Sh2Memory.class), SH2MEMORY_METHOD.write.name(),
+        assert IMemory.class.isInterface();
+        ctx.mv.visitMethodInsn(INVOKEINTERFACE, Type.getInternalName(IMemory.class), SH2MEMORY_METHOD.write.name(),
                 Type.getMethodDescriptor(Type.VOID_TYPE, Type.INT_TYPE, Type.INT_TYPE, Type.getType(Size.class)));
     }
 
     public static void readMem(BytecodeContext ctx, Size size) {
         ctx.mv.visitFieldInsn(GETSTATIC, Type.getInternalName(Size.class), size.name(), Type.getDescriptor(Size.class));
-        ctx.mv.visitMethodInsn(INVOKEVIRTUAL, Type.getInternalName(Sh2Memory.class), SH2MEMORY_METHOD.read.name(),
+        assert IMemory.class.isInterface();
+        ctx.mv.visitMethodInsn(INVOKEINTERFACE, Type.getInternalName(IMemory.class), SH2MEMORY_METHOD.read.name(),
                 Type.getMethodDescriptor(Type.INT_TYPE, Type.INT_TYPE, Type.getType(Size.class)));
     }
 

@@ -3,11 +3,13 @@ package sh2;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
+import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.sh2.Sh2;
 import sh2.sh2.cache.Sh2Cache.CacheInvalidateContext;
 import sh2.sh2.drc.Sh2Block;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
+import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -24,17 +26,27 @@ public interface IMemory extends Sh2Prefetcher {
 
     boolean SH2_MEM_ACCESS_STATS = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.memAccess.stats", "false"));
 
+    MemoryDataCtx EMPTY = new MemoryDataCtx();
+
     void write(int register, int value, Size size);
 
     int read(int register, Size size);
 
     void resetSh2();
 
-    default void fetch(Sh2.FetchResult ft, S32xUtil.CpuDeviceAccess cpu) {
+    default Sh2MMREG getSh2MMREGS(CpuDeviceAccess master) {
+        return null;
+    }
+
+    default MemoryDataCtx getMemoryDataCtx() {
+        return EMPTY;
+    }
+
+    default void fetch(Sh2.FetchResult ft, CpuDeviceAccess cpu) {
         ft.opcode = read16(ft.pc);
     }
 
-    default int fetchDelaySlot(int pc, Sh2.FetchResult ft, S32xUtil.CpuDeviceAccess cpu) {
+    default int fetchDelaySlot(int pc, Sh2.FetchResult ft, CpuDeviceAccess cpu) {
         return read16(pc);
     }
 
@@ -66,15 +78,21 @@ public interface IMemory extends Sh2Prefetcher {
         //do nothing
     }
 
-    default void invalidateAllPrefetch(S32xUtil.CpuDeviceAccess cpuDeviceAccess) {
+    default void invalidateAllPrefetch(CpuDeviceAccess cpuDeviceAccess) {
         //do nothing
     }
 
-    default List<Sh2Block> getPrefetchBlocksAt(S32xUtil.CpuDeviceAccess cpu, int address) {
+    default List<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int address) {
         return Collections.emptyList();
     }
 
     default void newFrame() {
+    }
+
+    class MemoryDataCtx {
+        public int romSize, romMask;
+        public ByteBuffer rom, sdram;
+        public BiosHolder.BiosData[] bios;
     }
 
     class MemAccessStats {

@@ -2,8 +2,8 @@ package sh2.sh2.drc;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import sh2.IMemory;
 import sh2.Sh2MMREG;
-import sh2.Sh2Memory;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.device.Sh2DeviceHelper;
 import sh2.sh2.prefetch.Sh2Prefetch;
@@ -50,7 +50,7 @@ public class Ow2Sh2MappingTest {
             Assertions.assertTrue(declMethods.contains(m.name()));
         }
 
-        declMethods = getDeclMethods(Sh2Memory.class);
+        declMethods = getDeclMethods(IMemory.class);
         for (SH2MEMORY_METHOD m : SH2MEMORY_METHOD.values()) {
             Assertions.assertTrue(declMethods.contains(m.name()));
         }

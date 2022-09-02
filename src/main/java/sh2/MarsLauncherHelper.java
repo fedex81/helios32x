@@ -77,7 +77,8 @@ public class MarsLauncherHelper {
         mDrcCtx.cpu = ctx.masterCtx.cpuAccess;
         sDrcCtx.cpu = ctx.slaveCtx.cpuAccess;
 
-        ctx.memory = new Sh2Memory(ctx.s32XMMREG, ctx.rom, biosHolder, mDrcCtx, sDrcCtx);
+        IMemory memory = new Sh2Memory(ctx.s32XMMREG, ctx.rom, biosHolder, mDrcCtx, sDrcCtx);
+        ctx.memory = Md32x.SH2_DEBUG_DRC ? new Sh2MemoryParallel(memory) : memory;
         ctx.mDevCtx = Sh2DeviceHelper.createDevices(MASTER, ctx);
         ctx.sDevCtx = Sh2DeviceHelper.createDevices(SLAVE, ctx);
         ctx.sh2 = (ctx.masterCtx.debug || ctx.slaveCtx.debug) ?
@@ -96,7 +97,7 @@ public class MarsLauncherHelper {
         public Sh2DeviceContext mDevCtx, sDevCtx;
         public S32xBus bus;
         public BiosHolder biosHolder;
-        public Sh2Memory memory;
+        public IMemory memory;
         public Sh2 sh2;
         public DmaFifo68k dmaFifo68k;
         public S32XMMREG s32XMMREG;

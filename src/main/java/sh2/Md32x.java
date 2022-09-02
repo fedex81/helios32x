@@ -36,6 +36,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     private static final Logger LOG = LogHelper.getLogger(Md32x.class.getSimpleName());
 
     private static final boolean ENABLE_FM, ENABLE_PWM;
+    public static final boolean SH2_DEBUG_DRC;
 
     //23.01Mhz NTSC
     protected final static int SH2_CYCLES_PER_STEP;
@@ -56,6 +57,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         boolean ignoreDelays = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.ignore.delays", "false"));
         sh2Config = new Sh2Config(prefEn, cacheEn, drcEn, pollEn, ignoreDelays);
 
+        SH2_DEBUG_DRC = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc.debug", "false"));
         ENABLE_FM = Boolean.parseBoolean(System.getProperty("helios.32x.fm.enable", "true"));
         ENABLE_PWM = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.enable", "true"));
         SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "32")); //32

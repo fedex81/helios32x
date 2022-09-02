@@ -3,10 +3,7 @@ package sh2.sh2.device;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
-import sh2.DmaFifo68k;
-import sh2.IMemory;
-import sh2.Md32xRuntimeData;
-import sh2.Sh2MMREG;
+import sh2.*;
 import sh2.sh2.device.DmaHelper.DmaChannelSetup;
 
 import java.nio.ByteBuffer;
@@ -172,6 +169,10 @@ public class DmaC implements Sh2Device {
 
         //TODO DMA shouldn't slow down the CPU
         int delay = Md32xRuntimeData.getCpuDelayExt();
+        //TODO fix
+        if (memory instanceof Sh2MemoryParallel smp) {
+            smp.dmaRunning(true);
+        }
         do {
             int val = memory.read(srcAddress, c.trnSize);
             memory.write(destAddress, val, c.trnSize);
@@ -194,6 +195,9 @@ public class DmaC implements Sh2Device {
             len = 0;
         }
         writeBufferForChannel(c.channel, DMA_TCR0.addr, Math.max(len, 0), Size.LONG);
+        if (memory instanceof Sh2MemoryParallel smp) {
+            smp.dmaRunning(false);
+        }
     }
 
     private void dmaEnd(DmaChannelSetup c, boolean normal) {

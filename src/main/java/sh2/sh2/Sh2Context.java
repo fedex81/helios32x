@@ -56,6 +56,19 @@ public class Sh2Context {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Sh2Context that = (Sh2Context) o;
+        return GBR == that.GBR && VBR == that.VBR && SR == that.SR && MACH == that.MACH && MACL == that.MACL && PR == that.PR && PC == that.PC && opcode == that.opcode && /*delayPC == that.delayPC && cycles == that.cycles && cycles_ran == that.cycles_ran &&*/ delaySlot == that.delaySlot && debug == that.debug && cpuAccess == that.cpuAccess && Objects.equal(sh2TypeCode, that.sh2TypeCode);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(GBR, VBR, SR, MACH, MACL, PR, PC, opcode, /*delayPC, cycles, cycles_ran,*/ cpuAccess, sh2TypeCode, delaySlot, debug);
+    }
+
+    @Override
     public String toString() {
         return "Sh2Context{" +
                 "registers=" + Arrays.toString(registers) +

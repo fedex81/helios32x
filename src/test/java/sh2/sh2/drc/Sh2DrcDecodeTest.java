@@ -5,6 +5,7 @@ import com.google.common.collect.Table;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import sh2.IMemory;
 import sh2.MarsLauncherHelper;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.sh2.Sh2;
@@ -62,11 +63,12 @@ public class Sh2DrcDecodeTest {
     @BeforeEach
     public void before() {
         lc = createTestInstance();
-        int sp = lc.memory.rom.capacity() - 4;
-        ByteBuffer bios = lc.memory.bios[CpuDeviceAccess.MASTER.ordinal()].buffer;
+        IMemory.MemoryDataCtx mdc = lc.memory.getMemoryDataCtx();
+        int sp = mdc.rom.capacity() - 4;
+        ByteBuffer bios = mdc.bios[CpuDeviceAccess.MASTER.ordinal()].buffer;
         bios.putInt(0, SH2_START_ROM | pc);
         bios.putInt(4, SH2_START_ROM | sp);
-        rom = lc.memory.rom;
+        rom = mdc.rom;
         sh2 = lc.sh2;
         masterCtx = lc.masterCtx;
     }

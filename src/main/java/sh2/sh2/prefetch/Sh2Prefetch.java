@@ -10,7 +10,6 @@ import org.slf4j.Logger;
 import sh2.BiosHolder;
 import sh2.IMemory;
 import sh2.S32xUtil.CpuDeviceAccess;
-import sh2.Sh2Memory;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.event.SysEventManager;
@@ -87,9 +86,9 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     public static class Sh2DrcContext {
         public CpuDeviceAccess cpu;
-        public Sh2Impl sh2;
+        public Sh2 sh2;
         public Sh2Context sh2Ctx;
-        public Sh2Memory memory;
+        public IMemory memory;
     }
 
     public static class BytecodeContext {
@@ -102,15 +101,16 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         public boolean delaySlot;
     }
 
-    public Sh2Prefetch(Sh2Memory memory, Sh2Cache[] cache, Sh2DrcContext[] sh2Ctx) {
+    public Sh2Prefetch(IMemory memory, Sh2Cache[] cache, Sh2DrcContext[] sh2Ctx) {
         this.cache = cache;
         this.memory = memory;
         this.sh2Context = sh2Ctx;
-        romMask = memory.romMask;
-        romSize = memory.romSize;
-        sdram = memory.sdram;
-        rom = memory.rom;
-        bios = memory.bios;
+        IMemory.MemoryDataCtx mdc = memory.getMemoryDataCtx();
+        romMask = mdc.romMask;
+        romSize = mdc.romSize;
+        sdram = mdc.sdram;
+        rom = mdc.rom;
+        bios = mdc.bios;
 
         pcInfoWrapperMS[0] = Sh2Debug.getPcInfoWrapper(MASTER);
         pcInfoWrapperMS[1] = Sh2Debug.getPcInfoWrapper(SLAVE);

@@ -9,8 +9,8 @@ import org.objectweb.asm.util.ASMifier;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceClassVisitor;
 import org.slf4j.Logger;
+import sh2.IMemory;
 import sh2.Sh2MMREG;
-import sh2.Sh2Memory;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.device.Sh2DeviceHelper;
 import sh2.sh2.prefetch.Sh2Prefetch.BytecodeContext;
@@ -108,7 +108,7 @@ public class Ow2Sh2BlockRecompiler {
             cw.visitField(ACC_PRIVATE | ACC_FINAL, sh2DrcContext.name(), Type.getDescriptor(Sh2DrcContext.class), null, null).visitEnd();
             cw.visitField(ACC_PRIVATE | ACC_FINAL, sh2Context.name(), Type.getDescriptor(Sh2Context.class), null, null).visitEnd();
             cw.visitField(ACC_PRIVATE | ACC_FINAL, sh2MMREG.name(), Type.getDescriptor(Sh2MMREG.class), null, null).visitEnd();
-            cw.visitField(ACC_PRIVATE | ACC_FINAL, memory.name(), Type.getDescriptor(Sh2Memory.class), null, null).visitEnd();
+            cw.visitField(ACC_PRIVATE | ACC_FINAL, memory.name(), Type.getDescriptor(IMemory.class), null, null).visitEnd();
         }
         {
 
@@ -147,8 +147,8 @@ public class Ow2Sh2BlockRecompiler {
                 mv.visitVarInsn(ALOAD, 3); // push `sh2DrcContext`
                 mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2DrcContext.class),
                         Ow2Sh2Helper.SH2_DRC_CTX_CLASS_FIELD.memory.name(),
-                        Type.getDescriptor(Sh2Memory.class));
-                mv.visitFieldInsn(PUTFIELD, blockClassDesc, memory.name(), Type.getDescriptor(Sh2Memory.class));
+                        Type.getDescriptor(IMemory.class));
+                mv.visitFieldInsn(PUTFIELD, blockClassDesc, memory.name(), Type.getDescriptor(IMemory.class));
             }
             mv.visitInsn(RETURN);
             mv.visitMaxs(0, 0);
