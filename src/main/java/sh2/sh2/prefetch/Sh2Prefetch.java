@@ -382,15 +382,10 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         int tgtStart = (c.memoryTarget & 0xFFF_FFFF);
         int tgtEnd = tgtStart + Math.max(1, c.memTargetSize.ordinal() << 1);
         int addrEnd = addr + Math.max(1, size.ordinal() << 1);
-        if ((addrEnd > tgtStart) && (addr < tgtEnd)) { //TODO check <= tgtEnd
+        if ((addrEnd > tgtStart) && (addr < tgtEnd)) {
             if (verbose)
                 LOG.info("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
                         th(addr), size, c.cpu, th(c.memoryTarget), c.memTargetSize, th(val));
-            //TODO stellar assault, interrupt ??
-//            if (c.block.pollType == PollType.COMM && c.cpu == cpuWrite) {
-//                LOG.warn("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
-//                        th(addr), size, c.cpu, th(c.memoryTarget), c.memTargetSize, th(val));
-//            }
             SysEventManager.instance.fireSysEvent(c.cpu, type);
         }
     }

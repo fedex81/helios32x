@@ -4,7 +4,6 @@ import com.google.common.collect.ImmutableMap;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
-import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xDict.S32xRegType;
@@ -101,6 +100,12 @@ public class Ow2DrcOptimizer {
             (w[0] & 0xF000) == 0xE000 &&
                     isMovOpcode.test(w[1]) && isCmpTstOpcode.test(w[2]) && isBranchOpcode.test(w[3]);
 
+    //Doom res
+    private static final Predicate<int[]> tas_movt_cmp_jmp_Pred = w ->
+            (w[0] & 0xF0FF) == 0x401b &&
+                    (w[1] & 0xF0FF) == 0x0029 &&
+                    isCmpTstOpcode.test(w[2]) && isBranchOpcode.test(w[3]);
+
     private static final Predicate<int[]> mov_cmp_jmp_Pred = w ->
             isMovOpcode.test(w[0]) && isCmpTstOpcode.test(w[1]) && isBranchOpcode.test(w[2]);
     private static final Predicate<int[]> cmp_jmpds_mov_Pred = w ->
@@ -109,6 +114,7 @@ public class Ow2DrcOptimizer {
     public enum PollSeqType {
         none(0, a -> true),
 
+        tas_movt_cmp_jmp(4, tas_movt_cmp_jmp_Pred),
         mov_mov_cmp_jmp(4, mov_mov_cmp_jmp_Pred),
         mov_cmp_jmp(3, mov_cmp_jmp_Pred),
         cmp_jmpds_mov(3, cmp_jmpds_mov_Pred),
@@ -252,6 +258,11 @@ public class Ow2DrcOptimizer {
         int memReadOpcode = 0, jmp = 0, jmpPc = 0, start = 0;
         assert ctx.initialValue == Long.MAX_VALUE;
         switch (pollSeqType) {
+            case tas_movt_cmp_jmp:
+                memReadOpcode = words[0];
+                jmp = words[3];
+                jmpPc = ctx.pc + ((words.length - 1) << 1);
+                break;
             case mov_mov_cmp_jmp:
                 start = 1;
                 //fall-through
@@ -297,6 +308,9 @@ public class Ow2DrcOptimizer {
             //TSTM TST.B #imm,@(R0,GBR) 11001100iiiiiiii     (R0 + GBR) & imm;if the result is 0, 1→T
             ctx.memoryTarget = r[0] + sh2Context.GBR;
             ctx.memTargetSize = Size.BYTE;
+        } else if ((memReadOpcode & 0xF0FF) == 0x401b) { //TAS.B @Rn
+            ctx.memoryTarget = r[(memReadOpcode >> 8) & 0xF];
+            ctx.memTargetSize = Size.BYTE;
         }
         if ((jmp & 0xF000) == 0x8000) { //BT, BF, BTS, BFS
             int d = (byte) (jmp & 0xFF) << 1;
@@ -308,14 +322,15 @@ public class Ow2DrcOptimizer {
         assert ctx.memTargetSize != null ? ctx.branchDest != 0 : true;
     }
     private static void addPollMaybe(PollerCtx ctx, Sh2Block block) {
-        boolean log = false;
+        boolean supported = false, log = false;
         if (ctx.memTargetSize != null && ctx.branchDest == ctx.pc) {
             block.pollType = getAccessType(ctx, ctx.memoryTarget);
 //            assert (block.pollType != SDRAM ? (ctx.memoryTarget | SH2_CACHE_THROUGH_OFFSET) == ctx.memoryTarget : true) : ctx;
             if (block.pollType != UNKNOWN) {
-                log = true;
                 ctx.event = SysEvent.valueOf(block.pollType.name());
+                log = true;
                 if (ENABLE_POLL_DETECT && block.pollType != DMA && block.pollType != PWM) { //TODO not supported
+                    supported = true;
                     PollerCtx prevCtx = map[ctx.cpu.ordinal()].put(ctx.pc, ctx);
                     assert prevCtx == null : ctx + "\n" + prevCtx;
                 }
@@ -324,18 +339,10 @@ public class Ow2DrcOptimizer {
         log |= ctx.memTargetSize == null && block.pollType != UNKNOWN;
         if (log) {
             LOG.info("{} Poll {} at PC {}: {} {}\n{}", block.drcContext.cpu,
-                    block.pollType == UNKNOWN ? "ignored" : "detected", th(block.prefetchPc),
+                    supported ? "detected" : "ignored", th(block.prefetchPc),
                     th(ctx.memoryTarget), block.pollType,
                     Sh2Helper.toListOfInst(block));
         }
-    }
-
-    //TODO not needed ??
-    @Deprecated
-    public static void readSetValue(PollerCtx ctx) {
-        int r = Md32xRuntimeData.getCpuDelayExt();
-        ctx.initialValue = ctx.block.drcContext.memory.read(ctx.memoryTarget, ctx.memTargetSize);
-        Md32xRuntimeData.resetCpuDelayExt(r);
     }
 
     public static boolean isBusyLoop(int[] prefetchWords) {
