@@ -23,9 +23,9 @@ public class Sh2BusyLoopTest {
 
     private Sh2Context sh2Context = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
 
+    private int[] opcodes;
     @Test
     public void testDetectBusyLoop() {
-        int[] opcodes;
         clearSh2Context();
 
         /**
@@ -67,10 +67,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         setReg(sh2Context, 0, S32xDict.SH2_START_SDRAM);
         opcodes = new int[]{0x6202, 0x3120, 0x89fc};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /**
          *          * M 06000296	c608	mov.l @(8, GBR), R0
@@ -80,10 +77,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         sh2Context.GBR = S32xDict.SH2_START_SDRAM;
         opcodes = new int[]{0xc608, 0x8800, 0x8bfc};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /**
          *          * M 0204b1f0	841a	mov.b @(10, R1), R0
@@ -93,10 +87,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         setReg(sh2Context, 1, S32xDict.SH2_START_SDRAM);
         opcodes = new int[]{0x841a, 0x2028, 0x89fc};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /**
          *          * S 06008f4a	3142	cmp/hs R4, R1
@@ -106,10 +97,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         setReg(sh2Context, 0, S32xDict.SH2_START_SDRAM);
         opcodes = new int[]{0x3142, 0x8ffd, 0x6102};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /**
          *          * S 06009122	c510	mov.w @(16, GBR), R0
@@ -119,10 +107,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         sh2Context.GBR = S32xDict.SH2_START_SDRAM;
         opcodes = new int[]{0xc510, 0x3010, 0x8bfc};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /**
          *          * M 06008ce8	6011	mov.w @R1, R0
@@ -132,10 +117,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         setReg(sh2Context, 1, S32xDict.SH2_START_SDRAM);
         opcodes = new int[]{0x6011, 0x8802, 0x8bfc};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /**
          *          M 0601102e	85e5	mov.w @(5, R14), R0
@@ -145,10 +127,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         setReg(sh2Context, 14, S32xDict.SH2_START_SDRAM);
         opcodes = new int[]{0x85e5, 0x2018, 0x8bfc};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /**
          *          M 06004930	c420	mov.b @(32, GBR), R0
@@ -158,10 +137,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         sh2Context.GBR = S32xDict.SH2_START_SDRAM;
         opcodes = new int[]{0xc420, 0x2008, 0x89fc};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /**
          *          S 06003ba6	c608	mov.l @(8, GBR), R0
@@ -171,10 +147,8 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         sh2Context.GBR = S32xDict.SH2_START_SDRAM;
         opcodes = new int[]{0xc608, 0x4015, 0x8bfc};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
+        assertPollBusyLoop(opcodes);
+
         /**
          * M 060008c6	50e8	mov.l @(8, R14), R0
          * M 060008c8	2008	tst R0, R0
@@ -183,10 +157,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         setReg(sh2Context, 14, S32xDict.SH2_START_SDRAM);
         opcodes = new int[]{0x50e8, 0x2008, 0x8bfc};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /** M 06000a24	6011	mov.w @R1, R0
          * M 06000a26	4011	cmp/pz R0
@@ -195,10 +166,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         setReg(sh2Context, 1, S32xDict.SH2_START_SDRAM);
         opcodes = new int[]{0x6011, 0x4011, 0x89fc};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /**
          * S 06003686	3210	cmp/eq R1, R2
@@ -208,10 +176,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         setReg(sh2Context, 0, S32xDict.SH2_START_SDRAM);
         opcodes = new int[]{0x3210, 0x8dfd, 0x6202};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
+        assertPollBusyLoop(opcodes);
         
          /*
            M 06000742	c802	tst H'02, R0
@@ -221,10 +186,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         setReg(sh2Context, 1, S32xDict.SH2_START_SDRAM);
         opcodes = new int[]{0xc802, 0x8dfd, 0x5013};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /* M 06000c4a	84ea	mov.b @(10, R14), R0
          * M 06000c4c	c880	tst H'80, R0
@@ -233,10 +195,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         setReg(sh2Context, 14, S32xDict.SH2_START_SDRAM);
         opcodes = new int[]{0x84ea, 0xc880, 0x89fc};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /* M 06000efc	6010	mov.b @R1, R0
          * M 06000efe	2008	tst R0, R0
@@ -245,10 +204,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         setReg(sh2Context, 1, S32xDict.SH2_START_SDRAM);
         opcodes = new int[]{0x6010, 0x2008, 0x8bfc};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /**
          * M 06002b22	8ffe	bf/s H'06002b22
@@ -257,10 +213,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         sh2Context.GBR = S32xDict.SH2_START_SDRAM;
         opcodes = new int[]{0x8ffe, 0xcc01};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /**
          * M 06001d2c	5010	mov.l @(0, R1), R0
@@ -270,10 +223,7 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         setReg(sh2Context, 1, S32xDict.SH2_START_SDRAM);
         opcodes = new int[]{0x5010, 0x3406, 0x89fc};
-        Assertions.assertTrue(isPollOrBusyLoop(opcodes));
-        Assertions.assertFalse(isIgnored(opcodes));
-        Assertions.assertTrue(isPollSequence(opcodes));
-        Assertions.assertFalse(isBusyLoopSequence(opcodes));
+        assertPollBusyLoop(opcodes);
 
         /**
          *   * M 02001fb0	6232	mov.l @R3, R2
@@ -283,15 +233,273 @@ public class Sh2BusyLoopTest {
         clearSh2Context();
         setReg(sh2Context, 3, S32xDict.SH2_START_SDRAM);
         opcodes = new int[]{0x6232, 0x3126, 0x89fc};
+        assertPollBusyLoop(opcodes);
+    }
+
+    @Test
+    public void testPollDetect() {
+        /**
+         star wars
+         06000bbe	85e5	mov.w @(5, R14), R0
+         00000bc0	c901	and H'01, R0
+         00000bc2	3100	cmp/eq R0, R1
+         00000bc4	8bfb	bf H'00000bbe
+         **/
+        clearSh2Context();
+        setReg(sh2Context, 14, S32xDict.SH2_START_SDRAM);
+        opcodes = new int[]{0x85e5, 0xc901, 0x3100, 0x8bfb};
+        Assertions.assertTrue(isPollSequence(opcodes));
+        Assertions.assertFalse(isBusyLoopSequence(opcodes));
+
+        /**
+         * Doom res
+         * SLAVE Poll ignored at PC 600102a: 0 UNKNOWN
+         * 0600102a	6981	mov.w @R8, R9
+         * 0000102c	29c8	tst R12, R9
+         * 0000102e	8dfc	bt/s H'0000102a
+         * 00001030	6098	swap.b R9, R0
+         */
+        clearSh2Context();
+        setReg(sh2Context, 8, S32xDict.SH2_START_SDRAM);
+        opcodes = new int[]{0x6981, 0x29c8, 0x8dfc, 0x6098};
+        Assertions.assertTrue(isPollSequence(opcodes));
+        Assertions.assertFalse(isBusyLoopSequence(opcodes));
+
+        /**
+         * star wars
+         *      06000a1c	2211	mov.w R1, @R2
+         *      00000a1e	6020	mov.b @R2, R0
+         *      00000a20	c880	tst H'80, R0
+         *      00000a22	89fb	bt H'00000a1c
+         */
+
+        /**
+         * Doom res
+         *
+         *      02015b40	6031	mov.w @R3, R0
+         *      00015b42	6121	mov.w @R2, R1
+         *      00015b44	611d	extu.w R1, R1
+         *      00015b46	c901	and H'01, R0
+         *      00015b48	3010	cmp/eq R1, R0
+         *      00015b4a	8bf9	bf H'00015b40
+         *
+         *      Brutal
+         *      MASTER Poll ignored at PC 6002736: 0 UNKNOWN
+         *      06002736	c608	mov.l @(8, GBR), R0
+         *      00002738	d108	mov.l @(H'0000275c), R1
+         *      0000273a	3100	cmp/eq R0, R1
+         *      0000273c	8bfb	bf H'00002736
+         *
+         *      060003fc	c608	mov.l @(8, GBR), R0
+         *      000003fe	6303	mov R0, R3
+         *      00000400	2019	and R1, R0
+         *      00000402	cb20	or H'20, R0
+         *      00000404	3020	cmp/eq R2, R0
+         *      00000406	8bf9	bf H'000003fc
+         *
+         *      Darxide
+         *      SLAVE Poll ignored at PC 2099312: 0 UNKNOWN
+         *      02099312	6161	mov.w @R6, R1
+         *      00099314	2129	and R2, R1
+         *      00099316	611d	extu.w R1, R1
+         *      00099318	2118	tst R1, R1
+         *      0009931a	89fa	bt H'00099312
+         *
+         *      SLAVE Poll ignored at PC 600cd3e: 0 UNKNOWN
+         *      0600cd3e	c513	mov.w @(19, GBR), R0
+         *      0000cd40	2079	and R7, R0
+         *      0000cd42	3010	cmp/eq R1, R0
+         *      0000cd44	8ffb	bf/s H'0000cd3e
+         *      0000cd46	6103	mov R0, R1
+         *
+         *      FIFA 96
+         *      SLAVE Poll detected at PC 6000690: 44e1 NONE
+         *      06000690	e08c	mov H'ffffff8c, R0
+         *      00000692	6002	mov.l @R0, R0
+         *      00000694	c802	tst H'02, R0
+         *      00000696	89fb	bt H'00000690
+         *
+         *      MASTER Poll ignored at PC 6000b22: 0 UNKNOWN
+         *      06000b22	d02b	mov.l @(H'06000bd0), R0
+         *      00000b24	6002	mov.l @R0, R0
+         *      00000b26	d12b	mov.l @(H'00000bd4), R1
+         *      00000b28	3100	cmp/eq R0, R1
+         *      00000b2a	8ffa	bf/s H'00000b22
+         *      00000b2c	0009	nop
+         *
+         *      MASTER Poll detected at PC 6000742: ffffff8c NONE
+         *      06000742	c802	tst H'02, R0
+         *      00000744	8dfd	bt/s H'00000742
+         *      00000746	5013	mov.l @(3, R1), R0
+         *
+         *      knuckles
+         *      MASTER Poll ignored at PC 600311e: 0 UNKNOWN
+         *      0600311e	d00c	mov.l @(H'06003150), R0
+         *      00003120	6001	mov.w @R0, R0
+         *      00003122	4011	cmp/pz R0
+         *      00003124	89fb	bt H'0000311e
+         *
+         *      nba jam
+         *      SLAVE Poll ignored at PC 6001660: 0 UNKNOWN
+         *      06001660	6012	mov.l @R1, R0
+         *      00001662	0009	nop
+         *      00001664	2008	tst R0, R0
+         *      00001666	8bfb	bf H'00001660
+         *
+         *      sangokushi
+         *      SLAVE Poll ignored at PC 6000588: 0 UNKNOWN
+         *      06000588	c51c	mov.w @(28, GBR), R0
+         *      0000058a	4019	shlr8 R0
+         *      0000058c	c880	tst H'80, R0
+         *      0000058e	8bfb	bf H'00000588
+         *
+         *      MASTER Poll ignored at PC 20d2442: 0 UNKNOWN
+         *      020d2442	624d	extu.w R4, R2
+         *      000d2444	63c1	mov.w @R12, R3
+         *      000d2446	633d	extu.w R3, R3
+         *      000d2448	3230	cmp/eq R3, R2
+         *      000d244a	89fa	bt H'000d2442
+         *
+         *      star trek
+         *      MASTER Poll ignored at PC 6000274: 0 UNKNOWN
+         *      06000274	841b	mov.b @(11, R1), R0
+         *      00000276	4001	shlr R0
+         *      00000278	4001	shlr R0
+         *      0000027a	89fb	bt H'00000274
+         *
+         *      star wars
+         *      SLAVE Poll ignored at PC 6000a1c: 0 UNKNOWN
+         *      06000a1c	2211	mov.w R1, @R2
+         *      00000a1e	6020	mov.b @R2, R0
+         *      00000a20	c880	tst H'80, R0
+         *      00000a22	89fb	bt H'00000a1c
+         *
+         *      stellar assault
+         *      SLAVE Poll ignored at PC 601c6ca: 0 UNKNOWN
+         *      0601c6ca	848b	mov.b @(11, R8), R0
+         *      0001c6cc	2098	tst R9, R0
+         *      0001c6ce	8ffc	bf/s H'0001c6ca
+         *      0001c6d0	6043	mov R4, R0
+         *
+         *      tempo
+         *      MASTER Poll ignored at PC 600d0ca: 0 UNKNOWN
+         *      0600d0ca	0009	nop
+         *      0000d0cc	0009	nop
+         *      0000d0ce	6061	mov.w @R6, R0
+         *      0000d0d0	c801	tst H'01, R0
+         *      0000d0d2	8bfa	bf H'0000d0ca
+         *
+         *      vf
+         *      MASTER Poll ignored at PC 60007a6: 0 UNKNOWN
+         *      060007a6	6010	mov.b @R1, R0
+         *      000007a8	0009	nop
+         *      000007aa	0009	nop
+         *      000007ac	0009	nop
+         *      000007ae	0009	nop
+         *      000007b0	0009	nop
+         *      000007b2	8800	cmp/eq H'00, R0
+         *      000007b4	8bf7	bf H'000007a6
+         *
+         *      wwf raw
+         *      busy loop!!
+         *      SLAVE Poll ignored at PC 6007e52: 0 UNKNOWN
+         *      06007e52	0009	nop
+         *      00007e54	0009	nop
+         *      00007e56	0009	nop
+         *      00007e58	0009	nop
+         *      00007e5a	affa	bra H'00007e52
+         *      00007e5c	0009	nop
+         *
+         *      wwf wrestlemania
+         *      MASTER Poll ignored at PC 6000564: 0 UNKNOWN
+         *      06000564	6070	mov.b @R7, R0
+         *      00000566	e180	mov H'ffffff80, R1
+         *      00000568	3100	cmp/eq R0, R1
+         *      0000056a	8bfb	bf H'00000564
+         *
+         *      MASTER Poll ignored at PC 6000ab0: 0 UNKNOWN
+         *      06000ab0	84e3	mov.b @(3, R14), R0
+         *      00000ab2	0009	nop
+         *      00000ab4	0009	nop
+         *      00000ab6	0009	nop
+         *      00000ab8	0009	nop
+         *      00000aba	2008	tst R0, R0
+         *      00000abc	89f8	bt H'00000ab0
+         *
+         *      wolf3d
+         *      MASTER Poll ignored at PC 200d6e4: 0 UNKNOWN
+         *      0200d6e4	6021	mov.w @R2, R0
+         *      0000d6e6	c901	and H'01, R0
+         *      0000d6e8	3010	cmp/eq R1, R0
+         *      0000d6ea	8dfb	bt/s H'0000d6e4
+         *      0000d6ec	6013	mov R1, R0
+         *
+         *      SLAVE Poll detected at PC 60002e4: 20004024 COMM
+         *      060002e4	6202	mov.l @R0, R2
+         *      000002e6	0009	nop
+         *      000002e8	0009	nop
+         *      000002ea	3210	cmp/eq R1, R2
+         *      000002ec	89fa	bt H'000002e4
+         *
+         *      yatssd, roq32x
+         *      MASTER Poll ignored at PC 200a246: 0 UNKNOWN
+         *      0200a246	6211	mov.w @R1, R2
+         *      0000a248	2239	and R3, R2
+         *      0000a24a	3200	cmp/eq R0, R2
+         *      0000a24c	8dfb	bt/s H'0000a246
+         *      0000a24e	6683	mov R8, R6
+         *
+         *      240p test suite
+         *      MASTER Poll ignored at PC 219e1d2: 0 UNKNOWN
+         *      0219e1d2	6311	mov.w @R1, R3
+         *      0019e1d4	2338	tst R3, R3
+         *      0019e1d6	8ffc	bf/s H'0019e1d2
+         *      0019e1d8	64f3	mov R15, R4
+         *
+         *      32xcolor
+         *      MASTER Poll ignored at PC 6000024: 0 UNKNOWN
+         *      06000024	6121	mov.w @R2, R1
+         *      00000026	611f	exts.w R1, R1
+         *      00000028	4111	cmp/pz R1
+         *      0000002a	89fb	bt H'00000024
+         *
+         *      32xfire
+         *      MASTER Poll ignored at PC 6000110: 0 UNKNOWN
+         *      06000110	6011	mov.w @R1, R0
+         *      00000112	202a	xor R2, R0
+         *      00000114	c801	tst H'01, R0
+         *      00000116	89fb	bt H'00000110
+         *
+         *      Doom RR
+         *      MASTER Poll ignored at PC 204d8f4: 0 UNKNOWN
+         *      0204d8f4	3200	cmp/eq R0, R2
+         *      0004d8f6	6012	mov.l @R1, R0
+         *      0004d8f8	8dfc	bt/s H'0004d8f4
+         *      0004d8fa	2039	and R3, R0
+         *
+         *      sonic32x plus
+         *      MASTER Poll ignored at PC 6000194: 0 UNKNOWN
+         *      06000194	0009	nop
+         *      00000196	c511	mov.w @(17, GBR), R0
+         *      00000198	8800	cmp/eq H'00, R0
+         *      0000019a	89fb	bt H'00000194
+         */
+    }
+
+    /**
+     * NOTE: old style also checks Sh2Debug detection
+     */
+    private void assertPollBusyLoop(int[] opcodes) {
         Assertions.assertTrue(isPollOrBusyLoop(opcodes));
         Assertions.assertFalse(isIgnored(opcodes));
         Assertions.assertTrue(isPollSequence(opcodes));
         Assertions.assertFalse(isBusyLoopSequence(opcodes));
+    }
 
 
-        /**
-         * VR
-         * MASTER Poll ignored at PC 6004482: ffffff8c UNKNOWN /ffff8c = DMA_CHCR0
+    /**
+     * VR
+     * MASTER Poll ignored at PC 6004482: ffffff8c UNKNOWN /ffff8c = DMA_CHCR0
          *  06004482	50e3	mov.l @(3, R14), R0
          *  00004484	c802	tst H'02, R0
          *  00004486	89fc	bt H'00004482
@@ -319,7 +527,6 @@ public class Sh2BusyLoopTest {
          * S 060009dc	4410	dt R4 [NEW] //R4 = 4
          * S 060009de	8bd7	bf H'06000990 [NEW]
          */
-    }
 
 
     @Test

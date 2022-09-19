@@ -207,6 +207,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         final Ow2DrcOptimizer.PollerCtx pc = SysEventManager.instance.getPoller(cpu);
         final Sh2Context sh2Context = cpu == MASTER ? masterCtx : slaveCtx;
         switch (event) {
+            //TODO this should keep running DMA, SCI
             case START_POLLING -> {
                 assert !pc.isPollingActive() : event + "," + pc;
                 pc.pollState = Ow2DrcOptimizer.PollState.ACTIVE_POLL;
