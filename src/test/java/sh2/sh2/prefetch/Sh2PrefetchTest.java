@@ -30,14 +30,16 @@ import static sh2.sh2.cache.Sh2Cache.CACHE_BYTES_PER_LINE;
  **/
 public class Sh2PrefetchTest extends Sh2CacheTest {
 
-    private int cacheAddrDef = SH2_START_SDRAM_CACHE | 0x2;
-    private int noCacheAddrDef = cacheAddrDef | SH2_CACHE_THROUGH_OFFSET;
+    private int cacheAddrDef;
+    private int noCacheAddrDef;
 
     @BeforeEach
     public void beforeEach() {
         configCacheEn = new Sh2Config(true, true, false, false, false);
         super.before();
         Assertions.assertTrue(Sh2Config.instance.get().prefetchEn);
+        cacheAddrDef = SH2_START_SDRAM_CACHE | 0x2;
+        noCacheAddrDef = cacheAddrDef | SH2_CACHE_THROUGH_OFFSET;
     }
 
     @Test
@@ -216,6 +218,10 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         memory.invalidateAllPrefetch(MASTER);
         memory.invalidateAllPrefetch(SLAVE);
 
+        //on a word boundary but not on a long boundary
+        Assertions.assertTrue((cacheAddrDef & 1) == 0 && (cacheAddrDef & 3) != 0);
+        Assertions.assertTrue((cacheAddrDef & 1) == 0 && (cacheAddrDef & 3) != 0);
+
         checkCacheContents(MASTER, Optional.empty(), noCacheAddrDef, Size.WORD);
         checkCacheContents(SLAVE, Optional.empty(), noCacheAddrDef, Size.WORD);
 
@@ -231,8 +237,8 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         checkFetch(MASTER, cacheAddrDef, SETT);
 
         //long write crossing the prefetch window
-        int cacheAddr2 = cacheAddrDef + 0x16;
-        int noCacheAddr2 = noCacheAddrDef + 0x16;
+        int cacheAddr2 = cacheAddrDef + 0x14;
+        int noCacheAddr2 = noCacheAddrDef + 0x14;
 
         clearCache(MASTER);
         clearCache(SLAVE);
@@ -240,7 +246,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         checkCacheContents(MASTER, Optional.empty(), noCacheAddr2, Size.WORD);
         checkCacheContents(SLAVE, Optional.empty(), noCacheAddr2, Size.WORD);
 
-        checkFetch(MASTER, cacheAddr2, JMP_0);
+        checkFetch(MASTER, cacheAddr2, NOP);
 
         List<Sh2Block> l = getPrefetchBlocksAt(MASTER, cacheAddr2);
         Assertions.assertTrue(l.size() == 1);

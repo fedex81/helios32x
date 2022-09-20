@@ -4,9 +4,12 @@ import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
 import sh2.S32xUtil;
+import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
+import java.util.HashSet;
+import java.util.Set;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.*;
@@ -26,7 +29,7 @@ public class S32xDict {
     public static final int S32X_REG_MASK = S32X_REG_SIZE - 1;
     public static final int S32X_VDP_REG_MASK = 0xFF;
 
-    public enum S32xRegCpuType {REG_M68K, REG_SH2, REG_BOTH}
+    public enum S32xRegCpuType {REG_MD, REG_SH2, REG_BOTH}
 
     public enum S32xRegType {NONE, VDP, PWM, SYS, COMM, DMA}
 
@@ -34,66 +37,67 @@ public class S32xDict {
     public static RegSpecS32x[][] s32xRegMapping = new RegSpecS32x[S32xRegCpuType.values().length][S32X_REG_SIZE];
 
     private static final S32xRegCpuType[] cpuToRegTypeMapper =
-            new S32xRegCpuType[S32xRegCpuType.values().length];
+            new S32xRegCpuType[CpuDeviceAccess.values().length];
 
     static {
         cpuToRegTypeMapper[MASTER.ordinal()] = REG_SH2;
         cpuToRegTypeMapper[SLAVE.ordinal()] = REG_SH2;
-        cpuToRegTypeMapper[M68K.ordinal()] = REG_M68K;
+        cpuToRegTypeMapper[M68K.ordinal()] = REG_MD;
+        cpuToRegTypeMapper[Z80.ordinal()] = REG_MD;
     }
 
     public enum RegSpecS32x {
-        SH2_INT_MASK(SYS, 0, "SH2_INT_MASK", Size.WORD),   //Interrupt Mask
-        SH2_STBY_CHANGE(SYS, 2, "SH2_STBY_CHANGE", Size.WORD),   //StandBy Changer Register
-        SH2_HCOUNT_REG(SYS, 4, "SH2_HCOUNT_REG", Size.WORD), //H Count Register
-        SH2_DREQ_CTRL(DMA, 6, "SH2_DREQ_CTRL", Size.WORD), //DREQ Control Reg.
-        SH2_DREQ_SRC_ADDR_H(DMA, 8, "SH2_DREQ_SRC_ADDR_H", Size.WORD),
-        SH2_DREQ_SRC_ADDR_L(DMA, 0xA, "SH2_DREQ_SRC_ADDR_L", Size.WORD),
-        SH2_DREQ_DEST_ADDR_H(DMA, 0xC, "SH2_DREQ_DEST_ADDR_H", Size.WORD),
-        SH2_DREQ_DEST_ADDR_L(DMA, 0xE, "SH2_DREQ_DEST_ADDR_L", Size.WORD),
-        SH2_DREQ_LEN(DMA, 0x10, "SH2_DREQ_LEN", Size.WORD),
-        SH2_FIFO_REG(DMA, 0x12, "SH2_FIFO_REG", Size.WORD),
-        SH2_VRES_INT_CLEAR(SYS, 0x14, "SH2_VRES_INT_CLEAR", Size.WORD),//VRES Interrupt Clear Register
-        SH2_VINT_CLEAR(SYS, 0x16, "SH2_VINT_CLEAR", Size.WORD),
-        SH2_HINT_CLEAR(SYS, 0x18, "SH2_HINT_CLEAR", Size.WORD),
-        SH2_CMD_INT_CLEAR(SYS, 0x1A, "SH2_CMD_INT_CLEAR", Size.WORD),
-        SH2_PWM_INT_CLEAR(SYS, 0x1C, "SH2_PWM_INT_CLEAR", Size.WORD),
+        SH2_INT_MASK(SYS, 0),   //Interrupt Mask
+        SH2_STBY_CHANGE(SYS, 2),   //StandBy Changer Register
+        SH2_HCOUNT_REG(SYS, 4), //H Count Register
+        SH2_DREQ_CTRL(DMA, 6), //DREQ Control Reg.
+        SH2_DREQ_SRC_ADDR_H(DMA, 8),
+        SH2_DREQ_SRC_ADDR_L(DMA, 0xA),
+        SH2_DREQ_DEST_ADDR_H(DMA, 0xC),
+        SH2_DREQ_DEST_ADDR_L(DMA, 0xE),
+        SH2_DREQ_LEN(DMA, 0x10),
+        SH2_FIFO_REG(DMA, 0x12),
+        SH2_VRES_INT_CLEAR(SYS, 0x14),//VRES Interrupt Clear Register
+        SH2_VINT_CLEAR(SYS, 0x16),
+        SH2_HINT_CLEAR(SYS, 0x18),
+        SH2_CMD_INT_CLEAR(SYS, 0x1A),
+        SH2_PWM_INT_CLEAR(SYS, 0x1C),
 
-        M68K_ADAPTER_CTRL(SYS, 0, "M68K_ADAPTER_CTRL", Size.WORD),
-        M68K_INT_CTRL(SYS, 2, "M68K_INT_CTRL", Size.WORD),  //Interrupt Control Register
-        M68K_BANK_SET(SYS, 4, "M68K_BANK_SET", Size.WORD),  //Bank Set Register
-        M68K_DMAC_CTRL(DMA, 6, "M68K_DMAC_CTRL", Size.WORD), //Transfers Data to SH2 DMAC
-        M68K_DREQ_SRC_ADDR_H(DMA, 8, "M68K_DREQ_SRC_ADDR_H", Size.WORD),
-        M68K_DREQ_SRC_ADDR_L(DMA, 0xA, "M68K_DREQ_SRC_ADDR_L", Size.WORD),
-        M68K_DREQ_DEST_ADDR_H(DMA, 0xC, "M68K_DREQ_DEST_ADDR_H", Size.WORD),
-        M68K_DREQ_DEST_ADDR_L(DMA, 0xE, "M68K_DREQ_DEST_ADDR_L", Size.WORD),
-        M68K_DREQ_LEN(DMA, 0x10, "M68K_DREQ_LEN", Size.WORD),
-        M68K_FIFO_REG(DMA, 0x12, "M68K_FIFO_REG", Size.WORD),
-        M68K_SEGA_TV(SYS, 0x1A, "M68K_SEGA_TV", Size.WORD),
+        MD_ADAPTER_CTRL(SYS, 0),
+        MD_INT_CTRL(SYS, 2),  //Interrupt Control Register
+        MD_BANK_SET(SYS, 4),  //Bank Set Register
+        MD_DMAC_CTRL(DMA, 6), //Transfers Data to SH2 DMAC
+        MD_DREQ_SRC_ADDR_H(DMA, 8),
+        MD_DREQ_SRC_ADDR_L(DMA, 0xA),
+        MD_DREQ_DEST_ADDR_H(DMA, 0xC),
+        MD_DREQ_DEST_ADDR_L(DMA, 0xE),
+        MD_DREQ_LEN(DMA, 0x10),
+        MD_FIFO_REG(DMA, 0x12),
+        MD_SEGA_TV(SYS, 0x1A),
 
-        COMM0(COMM, 0x20, "COMM0", Size.WORD),
-        COMM1(COMM, 0x22, "COMM1", Size.WORD),
-        COMM2(COMM, 0x24, "COMM2", Size.WORD),
-        COMM3(COMM, 0x26, "COMM3", Size.WORD),
-        COMM4(COMM, 0x28, "COMM4", Size.WORD),
-        COMM5(COMM, 0x2A, "COMM5", Size.WORD),
-        COMM6(COMM, 0x2C, "COMM6", Size.WORD),
-        COMM7(COMM, 0x2E, "COMM7", Size.WORD),
+        COMM0(COMM, 0x20),
+        COMM1(COMM, 0x22),
+        COMM2(COMM, 0x24),
+        COMM3(COMM, 0x26),
+        COMM4(COMM, 0x28),
+        COMM5(COMM, 0x2A),
+        COMM6(COMM, 0x2C),
+        COMM7(COMM, 0x2E),
 
-        PWM_CTRL(PWM, 0x30, "PWM_CTRL", Size.WORD),
-        PWM_CYCLE(PWM, 0x32, "PWM_CYCLE", Size.WORD), //PWM Cycle Register
-        PWM_LCH_PW(PWM, 0x34, "PWM_LCH_PW", Size.WORD), //PWM Left channel Pulse Width Reg
-        PWM_RCH_PW(PWM, 0x36, "PWM_RCH_PW", Size.WORD), //PWM Right channel Pulse Width Reg
-        PWM_MONO(PWM, 0x38, "PWM_MONO", Size.WORD), //PWM Mono Pulse Width Reg
+        PWM_CTRL(PWM, 0x30),
+        PWM_CYCLE(PWM, 0x32), //PWM Cycle Register
+        PWM_LCH_PW(PWM, 0x34), //PWM Left channel Pulse Width Reg
+        PWM_RCH_PW(PWM, 0x36), //PWM Right channel Pulse Width Reg
+        PWM_MONO(PWM, 0x38), //PWM Mono Pulse Width Reg
 
-        VDP_BITMAP_MODE(VDP, 0x100, "VDP_BITMAP_MODE", Size.WORD),
-        SSCR(VDP, 0x102, "SSCR", Size.WORD), //Screen Shift Control Register
-        AFLR(VDP, 0x104, "AFLR", Size.WORD), //Auto Fill Length Register
-        AFSAR(VDP, 0x106, "AFSAR", Size.WORD), //Auto Fill Start Address Register
-        AFDR(VDP, 0x108, "AFDR", Size.WORD), //Auto Fill Data Register
-        FBCR(VDP, 0x10A, "FBCR", Size.WORD), //Frame Buffer Control Register
+        VDP_BITMAP_MODE(VDP, 0x100),
+        SSCR(VDP, 0x102), //Screen Shift Control Register
+        AFLR(VDP, 0x104), //Auto Fill Length Register
+        AFSAR(VDP, 0x106), //Auto Fill Start Address Register
+        AFDR(VDP, 0x108), //Auto Fill Data Register
+        FBCR(VDP, 0x10A), //Frame Buffer Control Register
 
-        INVALID(NONE, -1, "INVALID", Size.WORD);;
+        INVALID(NONE, -1);
 
         public final S32xRegCpuType regCpuType;
         public final S32xRegType deviceType;
@@ -102,12 +106,13 @@ public class S32xDict {
         public final Size size;
         public final int deviceAccessTypeDelay;
 
-        private RegSpecS32x(S32xRegType deviceType, int addr, String name, Size size) {
+        //defaults to 16 bit wide register
+        private RegSpecS32x(S32xRegType deviceType, int addr) {
             this.fullAddress = addr;
             this.addrMask = (deviceType != VDP ? S32X_REG_MASK : S32X_VDP_REG_MASK);
             this.addr = addr & addrMask;
-            this.name = name;
-            this.size = size;
+            this.name = name();
+            this.size = Size.WORD;
             this.deviceType = deviceType;
             this.deviceAccessTypeDelay = deviceType == VDP ? S32xMemAccessDelay.VDP_REG : S32xMemAccessDelay.SYS_REG;
             this.regCpuType = deviceType == NONE || deviceType == COMM || deviceType == PWM || deviceType == VDP ? S32xRegCpuType.REG_BOTH :
@@ -124,7 +129,7 @@ public class S32xDict {
                 s32xRegMapping[regCpuType.ordinal()][i] = this;
                 s32xRegTypeMapping[i] = deviceType;
                 if (regCpuType == S32xRegCpuType.REG_BOTH) {
-                    s32xRegMapping[REG_M68K.ordinal()][i] = this;
+                    s32xRegMapping[REG_MD.ordinal()][i] = this;
                     s32xRegMapping[REG_SH2.ordinal()][i] = this;
                 }
             }
@@ -249,14 +254,14 @@ public class S32xDict {
             SH2_VDPREG_32X_OFFSET = START_32X_VDPREG, SH2_COLPAL_32X_OFFSET = START_32X_COLPAL;
 
     public static class S32xDictLogContext {
-        public S32xUtil.CpuDeviceAccess sh2Access;
+        public CpuDeviceAccess sh2Access;
         public ByteBuffer regArea;
         public RegSpecS32x regSpec;
         public int fbD, fbW;
         public boolean read;
     }
 
-    public static void checkName(S32xUtil.CpuDeviceAccess sh2Access, RegSpecS32x regSpec, int address, Size size) {
+    public static void checkName(CpuDeviceAccess sh2Access, RegSpecS32x regSpec, int address, Size size) {
         if (regSpec == null) {
             LOG.warn("{} 32X mmreg unknown reg: {} {}", sh2Access, th(address), size);
         }
@@ -287,7 +292,7 @@ public class S32xDict {
                         s1, value & 3, value, size.name(), evenOdd);
                 break;
             case SH2_INT_MASK:
-                if (logCtx.sh2Access == S32xUtil.CpuDeviceAccess.M68K) {
+                if (logCtx.sh2Access == CpuDeviceAccess.M68K) {
                     s = String.format(sformat, logCtx.sh2Access, type, regSpec.name,
                             "[RESET: " + ((value & 3) >> 1) + ", ADEN: " + (value & 1) + "]", value & 3,
                             value, size.name(), evenOdd);
@@ -296,7 +301,7 @@ public class S32xDict {
                             value, size.name(), evenOdd);
                 }
                 break;
-            case M68K_BANK_SET:
+            case MD_BANK_SET:
                 s = String.format(sformat, logCtx.sh2Access.toString(), type, regSpec.name,
                         "", value & 3, value, size.name(), evenOdd);
                 break;
@@ -334,7 +339,9 @@ public class S32xDict {
         return r;
     }
 
-    public static RegSpecS32x getRegSpec(S32xUtil.CpuDeviceAccess cpu, int address) {
+    public static Set<Integer> z80RegAccess = new HashSet<>();
+
+    public static RegSpecS32x getRegSpec(CpuDeviceAccess cpu, int address) {
         RegSpecS32x r = s32xRegMapping[REG_BOTH.ordinal()][address & S32X_REG_MASK];
         if (r != null) {
             return r;
@@ -344,7 +351,14 @@ public class S32xDict {
             LOG.error("{} unknown register at address: {}", cpu, th(address));
             r = RegSpecS32x.INVALID;
         }
+        assert cpu == Z80 ? r != RegSpecS32x.AFSAR && r != RegSpecS32x.AFDR && r != RegSpecS32x.AFLR : true;
         return r;
+    }
+
+    public static void logZ80Access(CpuDeviceAccess cpu, RegSpecS32x r, int address, Size size, boolean read) {
+        if (cpu == Z80 && z80RegAccess.add(address)) {
+            LOG.warn("{} {} access register {} at address: {} {}", cpu, read ? "read" : "write", r, th(address), size);
+        }
     }
 
     public static String decodeComm(int valueMem) {

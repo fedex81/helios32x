@@ -76,9 +76,10 @@ public class S32XMMREG implements Device {
     @Override
     public void init() {
         vdpContext = new MarsVdpContext();
-        writeBufferWord(M68K_ADAPTER_CTRL, P32XS_REN | P32XS_nRES); //from Picodrive
+        writeBufferWord(MD_ADAPTER_CTRL, P32XS_REN | P32XS_nRES); //from Picodrive
         vdp = MarsVdpImpl.createInstance(vdpContext, this);
         logCtx = new S32xDictLogContext();
+        z80RegAccess.clear();
     }
 
     public void setBus(S32xBus bus) {
@@ -192,15 +193,15 @@ public class S32XMMREG implements Device {
         boolean regChanged = false;
         switch (regSpec) {
             case SH2_INT_MASK:
-            case M68K_ADAPTER_CTRL:
+            case MD_ADAPTER_CTRL:
                 regChanged = handleReg0Write(cpu, reg, value, size);
                 break;
             case SH2_STBY_CHANGE:
-            case M68K_INT_CTRL:
+            case MD_INT_CTRL:
                 regChanged = handleReg2Write(cpu, reg, value, size);
                 break;
             case SH2_HCOUNT_REG:
-            case M68K_BANK_SET:
+            case MD_BANK_SET:
                 regChanged = handleReg4Write(cpu, reg, value, size);
                 break;
             case SH2_VINT_CLEAR:
@@ -211,7 +212,7 @@ public class S32XMMREG implements Device {
                 handleIntClearWrite(cpu, regSpec.addr, value, size);
                 regChanged = true;
                 break;
-            case M68K_SEGA_TV:
+            case MD_SEGA_TV:
                 writeBufferReg(regContext, regSpec, reg, value, size);
                 break;
             default:
@@ -244,6 +245,7 @@ public class S32XMMREG implements Device {
         checkName(logCtx.sh2Access, regSpec, address, size);
         S32xDict.logAccess(logCtx, address, value, size);
         S32xDict.detectRegAccess(logCtx, address, value, size);
+        logZ80Access(cpu, regSpec, address, size, read);
     }
 
     private void handleIntClearWrite(CpuDeviceAccess sh2Access, int regEven, int value, Size size) {
@@ -254,8 +256,8 @@ public class S32XMMREG implements Device {
         interruptControls[sh2Access.ordinal()].clearInterrupt(intType);
         //autoclear Int_control_reg too
         if (intType == CMD_8) {
-            int newVal = readWordFromBuffer(M68K_INT_CTRL) & ~(1 << sh2Access.ordinal());
-            boolean change = handleIntControlWrite68k(M68K_INT_CTRL.addr, newVal, Size.WORD);
+            int newVal = readWordFromBuffer(MD_INT_CTRL) & ~(1 << sh2Access.ordinal());
+            boolean change = handleIntControlWrite68k(MD_INT_CTRL.addr, newVal, Size.WORD);
             if (change && verbose) {
                 LOG.info("{} auto clear {}", sh2Access, intType);
             }
@@ -285,7 +287,7 @@ public class S32XMMREG implements Device {
         assert size != Size.LONG;
         boolean changed = writeBufferHasChanged(sysRegsMd, reg, value, size);
         if (changed) {
-            int newVal = readBuffer(sysRegsMd, M68K_INT_CTRL.addr + 1, Size.BYTE);
+            int newVal = readBuffer(sysRegsMd, MD_INT_CTRL.addr + 1, Size.BYTE);
             boolean intm = (newVal & 1) > 0;
             boolean ints = ((newVal >> 1) & 1) > 0;
             interruptControls[0].setIntPending(CMD_8, intm);
@@ -312,16 +314,16 @@ public class S32XMMREG implements Device {
 
     private boolean handleAdapterControlRegWrite68k(int reg, int value, Size size) {
         assert size != Size.LONG;
-        int val = readWordFromBuffer(M68K_ADAPTER_CTRL);
-        writeBufferReg(regContext, M68K_ADAPTER_CTRL, reg, value, size);
+        int val = readWordFromBuffer(MD_ADAPTER_CTRL);
+        writeBufferReg(regContext, MD_ADAPTER_CTRL, reg, value, size);
 
-        int newVal = readWordFromBuffer(M68K_ADAPTER_CTRL) | P32XS_REN; //force REN
+        int newVal = readWordFromBuffer(MD_ADAPTER_CTRL) | P32XS_REN; //force REN
         if (aden > 0 && (newVal & 1) == 0) {
             System.out.println("#### Disabling ADEN not allowed");
             newVal |= 1;
         }
         handleReset(val, newVal);
-        writeBufferWord(M68K_ADAPTER_CTRL, newVal);
+        writeBufferWord(MD_ADAPTER_CTRL, newVal);
         setAdenSh2Reg(newVal & 1); //sh2 side read-only
         updateFmShared(newVal); //sh2 side r/w too
         return val != newVal;
@@ -390,7 +392,7 @@ public class S32XMMREG implements Device {
         this.fm = fm;
         setBit(interruptControls[0].getSh2_int_mask_regs(),
                 interruptControls[1].getSh2_int_mask_regs(), 0, 7, fm, Size.BYTE);
-        setBit(sysRegsMd, M68K_ADAPTER_CTRL.addr, 7, fm, Size.BYTE);
+        setBit(sysRegsMd, MD_ADAPTER_CTRL.addr, 7, fm, Size.BYTE);
         if (verbose) LOG.info("{} FM: {}", Md32xRuntimeData.getAccessTypeExt(), fm);
     }
 

@@ -14,7 +14,7 @@ import sh2.sh2.device.IntControl;
 import sh2.sh2.device.IntControl.Sh2Interrupt;
 
 import static sh2.S32xUtil.CpuDeviceAccess.*;
-import static sh2.dict.S32xDict.RegSpecS32x.M68K_INT_CTRL;
+import static sh2.dict.S32xDict.RegSpecS32x.MD_INT_CTRL;
 import static sh2.dict.S32xDict.RegSpecS32x.SH2_CMD_INT_CLEAR;
 import static sh2.dict.S32xDict.START_32X_SYSREG_CACHE;
 import static sh2.dict.Sh2Dict.RegSpec.INTC_IPRA;
@@ -125,28 +125,28 @@ public class IntCTest {
 
         //MASTER
         //trigger sh2 Master CMD interrupt from 68k by setting INTM
-        setM68kSysReg(M68K_INT_CTRL, 1);
+        setM68kSysReg(MD_INT_CTRL, 1);
         //clear m68k register for INTS
         setSh2SysReg(SLAVE, SH2_CMD_INT_CLEAR, 0xAA);
         //INTM still set
-        checkM68kSysReg(M68K_INT_CTRL, 1);
+        checkM68kSysReg(MD_INT_CTRL, 1);
         //clear m68k register for INTM
         setSh2SysReg(MASTER, SH2_CMD_INT_CLEAR, 0xAA);
-        checkM68kSysReg(M68K_INT_CTRL, 0);
+        checkM68kSysReg(MD_INT_CTRL, 0);
 
         //SLAVE
-        setM68kSysReg(M68K_INT_CTRL, 2);
+        setM68kSysReg(MD_INT_CTRL, 2);
         setSh2SysReg(MASTER, SH2_CMD_INT_CLEAR, 0xAA);
-        checkM68kSysReg(M68K_INT_CTRL, 2);
+        checkM68kSysReg(MD_INT_CTRL, 2);
         setSh2SysReg(SLAVE, SH2_CMD_INT_CLEAR, 0xAA);
-        checkM68kSysReg(M68K_INT_CTRL, 0);
+        checkM68kSysReg(MD_INT_CTRL, 0);
 
         //BOTH
-        setM68kSysReg(M68K_INT_CTRL, 3);
+        setM68kSysReg(MD_INT_CTRL, 3);
         setSh2SysReg(MASTER, SH2_CMD_INT_CLEAR, 0xAA);
-        checkM68kSysReg(M68K_INT_CTRL, 2);
+        checkM68kSysReg(MD_INT_CTRL, 2);
         setSh2SysReg(SLAVE, SH2_CMD_INT_CLEAR, 0xAA);
-        checkM68kSysReg(M68K_INT_CTRL, 0);
+        checkM68kSysReg(MD_INT_CTRL, 0);
     }
 
     /**

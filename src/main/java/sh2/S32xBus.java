@@ -160,7 +160,7 @@ public class S32xBus extends GenesisBus {
             write32xWord((address & DRAM_MASK) | START_OVER_IMAGE, data, size);
         } else if (address >= M68K_START_32X_SYSREG && address < M68K_END_32X_SYSREG) {
             int addr = (address & M68K_MASK_32X_SYSREG) | SH2_SYSREG_32X_OFFSET;
-            if (((addr & 0xFF) & ~1) == S32xDict.RegSpecS32x.M68K_BANK_SET.addr) {
+            if (((addr & 0xFF) & ~1) == S32xDict.RegSpecS32x.MD_BANK_SET.addr) {
                 bankSetValue = (data & 3);
                 bankSetShift = bankSetValue << 20;
             }
@@ -188,7 +188,7 @@ public class S32xBus extends GenesisBus {
     private void writeAdapterEnOff(int address, int data, Size size) {
         if (address >= M68K_START_32X_SYSREG && address < M68K_END_32X_SYSREG) {
             int addr = (address & M68K_MASK_32X_SYSREG) | SH2_SYSREG_32X_OFFSET;
-            if (((addr & 0xFF) & ~1) == S32xDict.RegSpecS32x.M68K_BANK_SET.addr) {
+            if (((addr & 0xFF) & ~1) == S32xDict.RegSpecS32x.MD_BANK_SET.addr) {
                 bankSetValue = (data & 3);
                 bankSetShift = bankSetValue << 20;
             }

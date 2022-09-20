@@ -14,8 +14,8 @@ import java.util.stream.IntStream;
 
 import static sh2.S32xUtil.CpuDeviceAccess.M68K;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
-import static sh2.dict.S32xDict.RegSpecS32x.M68K_DMAC_CTRL;
-import static sh2.dict.S32xDict.RegSpecS32x.M68K_FIFO_REG;
+import static sh2.dict.S32xDict.RegSpecS32x.MD_DMAC_CTRL;
+import static sh2.dict.S32xDict.RegSpecS32x.MD_FIFO_REG;
 import static sh2.dict.S32xDict.SH2_CACHE_THROUGH_OFFSET;
 import static sh2.dict.S32xDict.SH2_START_SDRAM;
 import static sh2.dict.Sh2Dict.RegSpec.*;
@@ -32,8 +32,8 @@ public class DmaFifoTest {
     private DmaC masterDmac;
     private int[] data = new int[0x80];
 
-    public static final int FIFO_OFFSET = 0x4000 + M68K_FIFO_REG.addr;
-    public static final int DMA_CONTROL_OFFSET = 0x4000 + M68K_DMAC_CTRL.addr;
+    public static final int FIFO_OFFSET = 0x4000 + MD_FIFO_REG.addr;
+    public static final int DMA_CONTROL_OFFSET = 0x4000 + MD_DMAC_CTRL.addr;
 
     private static Random r;
 

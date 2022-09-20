@@ -8,6 +8,8 @@ import static sh2.S32xUtil.CpuDeviceAccess.*;
  * Federico Berti
  * <p>
  * Copyright 2021
+ * <p>
+ * TODO z80 delays? Blackthorne z80 writes to s32x sysRegs
  */
 public class S32xMemAccessDelay {
 

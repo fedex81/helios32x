@@ -107,6 +107,7 @@ public class MarsVdpImpl implements MarsVdp {
     @Override
     public void write(int address, int value, Size size) {
         if (address >= START_32X_COLPAL_CACHE && address < END_32X_COLPAL_CACHE) {
+            assert Md32xRuntimeData.getAccessTypeExt() != CpuDeviceAccess.Z80;
             switch (size) {
                 case WORD:
                 case LONG:
@@ -137,6 +138,7 @@ public class MarsVdpImpl implements MarsVdp {
     public int read(int address, Size size) {
         int res = 0;
         if (address >= START_32X_COLPAL_CACHE && address < END_32X_COLPAL_CACHE) {
+            assert Md32xRuntimeData.getAccessTypeExt() != CpuDeviceAccess.Z80;
             if (size == Size.WORD) {
                 res = readBuffer(colorPalette, address & S32X_COLPAL_MASK, size);
             } else {

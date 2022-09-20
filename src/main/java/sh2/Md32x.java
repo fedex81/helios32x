@@ -63,6 +63,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "32")); //32
         Sh2Context.burstCycles = SH2_CYCLES_PER_STEP;
 //        System.setProperty("68k.debug", "true");
+//        System.setProperty("helios.68k.debug.mode", "2");
 //        System.setProperty("z80.debug", "true");
 //        System.setProperty("sh2.master.debug", "true");
 //        System.setProperty("sh2.slave.debug", "true");

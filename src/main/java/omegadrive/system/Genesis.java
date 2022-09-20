@@ -46,6 +46,7 @@ import org.slf4j.Logger;
 import sh2.Md32xRuntimeData;
 
 import static sh2.S32xUtil.CpuDeviceAccess.M68K;
+import static sh2.S32xUtil.CpuDeviceAccess.Z80;
 
 /**
  * Genesis emulator main class
@@ -158,11 +159,14 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
             int cycleDelay = 0;
             boolean running = bus.isZ80Running();
             if (running) {
+                Md32xRuntimeData.setAccessTypeExt(Z80);
                 cycleDelay = z80.executeInstruction();
                 bus.handleVdpInterruptsZ80();
+                cycleDelay += Md32xRuntimeData.resetCpuDelayExt();
             }
             cycleDelay = Math.max(1, cycleDelay);
             nextZ80Cycle += Z80_DIVIDER * cycleDelay;
+            assert Md32xRuntimeData.resetCpuDelayExt() == 0;
         }
     }
 

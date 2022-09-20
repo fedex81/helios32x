@@ -68,6 +68,8 @@ public final class Sh2Memory implements IMemory {
 	public int read(int address, Size size) {
 		CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
 		address &= 0xFFFF_FFFF;
+		assert size == Size.LONG ? (address & 3) == 0 : true;
+		assert size == Size.WORD ? (address & 1) == 0 : true;
 		int res = 0;
 		if (SH2_MEM_ACCESS_STATS) {
 			memAccessStats.addMemHit(true, address, size);
@@ -125,6 +127,8 @@ public final class Sh2Memory implements IMemory {
 	public void write(int address, int val, Size size) {
 		CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
 		val &= size.getMask();
+		assert size == Size.LONG ? (address & 3) == 0 : true;
+		assert size == Size.WORD ? (address & 1) == 0 : true;
 		if (SH2_MEM_ACCESS_STATS) {
 			memAccessStats.addMemHit(false, address, size);
 		}
