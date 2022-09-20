@@ -159,6 +159,9 @@ public class S32xDict {
     public static final int P32XV_PRIO = (1 << 7);
     public static final int P32XV_240 = (1 << 6);
 
+    public static final int SH2_PC_AREAS = 0x100;
+    public static final int SH2_PC_AREA_SHIFT = 24;
+
     /**
      * SH2 memory map
      **/

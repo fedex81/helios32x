@@ -33,8 +33,7 @@ import static omegadrive.cpu.CpuFastDebug.NOT_VISITED;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
-import static sh2.dict.S32xDict.SH2_CACHE_THROUGH_OFFSET;
-import static sh2.dict.S32xDict.SH2_SDRAM_MASK;
+import static sh2.dict.S32xDict.*;
 import static sh2.dict.S32xMemAccessDelay.SDRAM;
 import static sh2.sh2.Sh2Debug.pcAreaMaskMap;
 import static sh2.sh2.Sh2Instructions.generateInst;
@@ -59,7 +58,6 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     private static final boolean SH2_LOG_PC_HITS = false;
     private static final int INITIAL_BLOCK_LIMIT = 50;
-    public static final int PC_AREA_SHIFT = 24;
     public static final int PC_CACHE_AREA_SHIFT = 28;
 
     private static final boolean verbose = false;
@@ -178,7 +176,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private void setupPrefetch(final Sh2Block block, CpuDeviceAccess cpu) {
         final int pc = block.prefetchPc;
         block.start = pc & 0xFF_FFFF;
-        switch (pc >> PC_AREA_SHIFT) {
+        switch (pc >> SH2_PC_AREA_SHIFT) {
             case 6:
             case 0x26:
                 block.start = Math.max(0, block.start) & SH2_SDRAM_MASK;
@@ -246,9 +244,9 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     private PcInfoWrapper get(int pc, CpuDeviceAccess cpu) {
-        PcInfoWrapper[] area = ((PcInfoWrapper[][]) pcInfoWrapperMS[cpu.ordinal()])[pc >>> PC_AREA_SHIFT];
+        PcInfoWrapper[] area = ((PcInfoWrapper[][]) pcInfoWrapperMS[cpu.ordinal()])[pc >>> SH2_PC_AREA_SHIFT];
 //        assert (pc & pcAreaMaskMap[pc >>> PC_AREA_SHIFT]) == (pc & 0xFFFFFF) : th(pc) + "," + th(pcAreaMaskMap[pc >>> PC_AREA_SHIFT]);
-        PcInfoWrapper piw = area[pc & pcAreaMaskMap[pc >>> PC_AREA_SHIFT]];
+        PcInfoWrapper piw = area[pc & pcAreaMaskMap[pc >>> SH2_PC_AREA_SHIFT]];
         piw.hits++;
         return piw;
     }
@@ -258,7 +256,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         assert piw != null;
         if (piw == NOT_VISITED) {
             piw = new PcInfoWrapper();
-            piw.area = pc >>> PC_AREA_SHIFT;
+            piw.area = pc >>> SH2_PC_AREA_SHIFT;
             piw.pcMasked = pc & pcAreaMaskMap[piw.area];
             ((PcInfoWrapper[][]) pcInfoWrapperMS[cpu.ordinal()])
                     [piw.area][piw.pcMasked] = piw;
@@ -338,7 +336,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     @Override
     public void dataWrite(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
         checkPoller(cpuWrite, SysEvent.SDRAM, addr, val, size);
-        if (pcAreaMaskMap[addr >>> PC_AREA_SHIFT] == 0) return;
+        if (pcAreaMaskMap[addr >>> SH2_PC_AREA_SHIFT] == 0) return;
         switch (size) {
             case WORD:
             case BYTE:
@@ -391,7 +389,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     public void dataWriteWord(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
-        boolean isCacheArray = addr >>> PC_AREA_SHIFT == 0xC0;
+        boolean isCacheArray = addr >>> SH2_PC_AREA_SHIFT == 0xC0;
         boolean isWriteThrough = addr >>> 28 == 2;
 
         for (int i = 0; i <= SLAVE.ordinal(); i++) {
@@ -521,7 +519,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                     if (piw.hits < top10) {
                         continue;
                     }
-                    int pc = (i << PC_AREA_SHIFT) | j;
+                    int pc = (i << SH2_PC_AREA_SHIFT) | j;
                     hitMap.put(piw, Long.valueOf(piw.hits));
                     top10 = hitMap.values().stream().sorted().limit(10).findFirst().orElse(10L);
 //                        LOG.info("{} PC: {} hits: {}, {}", cpu, th(pc), piw.hits, piw);
@@ -533,7 +531,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         StringBuilder sb = new StringBuilder();
         l.forEach(e -> {
             PcInfoWrapper piw = e.getKey();
-            int pc = (piw.area << PC_AREA_SHIFT) | piw.pcMasked;
+            int pc = (piw.area << SH2_PC_AREA_SHIFT) | piw.pcMasked;
             Sh2Block res = prefetchMap[cpu.ordinal()].getOrDefault(piw, Sh2Block.INVALID_BLOCK);
             assert res != Sh2Block.INVALID_BLOCK;
             sb.append(cpu + " " + th(pc) + "," + e.getValue() + ", block: " +

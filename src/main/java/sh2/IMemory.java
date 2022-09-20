@@ -15,7 +15,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static omegadrive.util.Util.th;
-import static sh2.sh2.Sh2Debug.PC_AREA_SHIFT;
+import static sh2.dict.S32xDict.SH2_PC_AREA_SHIFT;
 
 /**
  * Federico Berti
@@ -114,7 +114,7 @@ public interface IMemory extends Sh2Prefetcher {
         public void addMemHit(boolean read, int address, Size size) {
             long[][] ref = read ? readHits : writeHits;
             int idx = size.ordinal();
-            ref[size.ordinal()][(address >>> PC_AREA_SHIFT) & 0xFF]++;
+            ref[size.ordinal()][(address >>> SH2_PC_AREA_SHIFT) & 0xFF]++;
             readCnt += read ? 1 : 0;
             if ((++cnt & printCntMask) == 0) {
                 Map<String, Double> rm = new HashMap<>(), wm = new HashMap<>();

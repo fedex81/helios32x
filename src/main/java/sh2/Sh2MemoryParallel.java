@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.StringJoiner;
 
 import static omegadrive.util.Util.th;
+import static sh2.dict.S32xDict.SH2_PC_AREA_SHIFT;
 
 /**
  * Sh2MemoryParallel
@@ -59,7 +60,9 @@ public final class Sh2MemoryParallel implements IMemory {
         if (!active || dmaRunning) {
             return memory.read(address, size);
         }
-        address |= S32xDict.SH2_CACHE_THROUGH_OFFSET;
+        if (address >>> SH2_PC_AREA_SHIFT < 0x10) {
+            address |= S32xDict.SH2_CACHE_THROUGH_OFFSET;
+        }
         if (!replayMode) {
             RwCtx entry = addEntry(address, 0, size, true);
             int delay = Md32xRuntimeData.getCpuDelayExt();
@@ -122,7 +125,9 @@ public final class Sh2MemoryParallel implements IMemory {
             memory.write(address, val, size);
             return;
         }
-        address |= S32xDict.SH2_CACHE_THROUGH_OFFSET;
+        if (address >>> SH2_PC_AREA_SHIFT < 0x10) {
+            address |= S32xDict.SH2_CACHE_THROUGH_OFFSET;
+        }
         if (!replayMode) {
             RwCtx entry = addEntry(address, val, size, false);
             int delay = Md32xRuntimeData.getCpuDelayExt();

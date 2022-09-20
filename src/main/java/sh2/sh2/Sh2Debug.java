@@ -13,6 +13,8 @@ import java.util.function.Predicate;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess;
+import static sh2.dict.S32xDict.SH2_PC_AREAS;
+import static sh2.dict.S32xDict.SH2_PC_AREA_SHIFT;
 
 /**
  * Federico Berti
@@ -22,9 +24,6 @@ import static sh2.S32xUtil.CpuDeviceAccess;
 public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvider {
 
     private static final Logger LOG = LogHelper.getLogger(Sh2Debug.class.getSimpleName());
-
-    private static final int PC_AREAS = 0x100;
-    public static final int PC_AREA_SHIFT = 24;
 
     //00_00_0000 - 00_00_4000 BOOT ROM
     //02_00_0000 - 02_40_0000 ROM
@@ -39,7 +38,7 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
             //cache access
                     put(0xC0, 0x10000 - 1).build();
 
-    public static final int[] pcAreaMaskMap = new int[PC_AREAS];
+    public static final int[] pcAreaMaskMap = new int[SH2_PC_AREAS];
 
     static {
         for (var e : areaMaskMap.entrySet()) {
@@ -150,7 +149,7 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
 
     public static CpuFastDebug.CpuDebugContext createContext() {
         CpuFastDebug.CpuDebugContext ctx = new CpuFastDebug.CpuDebugContext(areaMaskMap);
-        ctx.pcAreaShift = PC_AREA_SHIFT;
+        ctx.pcAreaShift = SH2_PC_AREA_SHIFT;
         ctx.isLoopOpcode = isLoopOpcode;
         ctx.isIgnoreOpcode = isIgnoreOpcode;
         return ctx;

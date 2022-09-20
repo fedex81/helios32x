@@ -39,8 +39,6 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
     private static final boolean SH2_PREFETCH_DEBUG = false;
 
     public static final int DEFAULT_PREFETCH_LOOKAHEAD = 0x16;
-
-    public static final int PC_AREA_SHIFT = 24;
     public static final int PC_CACHE_AREA_SHIFT = 28;
 
     private static final boolean verbose = false;
@@ -109,7 +107,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         pctx.start = (pc & 0xFF_FFFF);
         pctx.end = (pc & 0xFF_FFFF) + (DEFAULT_PREFETCH_LOOKAHEAD << 1);
 
-        switch (pc >> PC_AREA_SHIFT) {
+        switch (pc >> SH2_PC_AREA_SHIFT) {
             case 6:
             case 0x26:
                 pctx.start = Math.max(0, pctx.start) & SH2_SDRAM_MASK;
@@ -249,8 +247,8 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         if (!sh2Config.prefetchEn) {
             return;
         }
-        boolean isCacheArray = addr >>> PC_AREA_SHIFT == 0xC0;
-        boolean isWriteThrough = addr >>> PC_AREA_SHIFT == 0x20;
+        boolean isCacheArray = addr >>> SH2_PC_AREA_SHIFT == 0xC0;
+        boolean isWriteThrough = addr >>> SH2_PC_AREA_SHIFT == 0x20;
 
         for (int i = 0; i <= SLAVE.ordinal(); i++) {
             //sh2 cacheArrays are not shared!
