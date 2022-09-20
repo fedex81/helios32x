@@ -110,8 +110,16 @@ public class Ow2DrcOptimizer {
     private static final Predicate<Integer> isMoviOpcode = w -> (w & 0xF000) == 0xE000;
 
     private static final Predicate<Integer> isSwapOpcode = w -> ((w & 0xF00F) == 0x6008 || (w & 0xF00F) == 0x6009);
+    private static final Predicate<Integer> isExtOpcode = w ->
+            (w & 0xF00F) == 0x600C || (w & 0xF00F) == 0x600D || (w & 0xF00F) == 0x600E || (w & 0xF00F) == 0x600F;
 
+    private static final Predicate<Integer> isAndOpcode = w -> ((w & 0xF00F) == 0x2009 || (w & 0xFF00) == 0xC900);
+
+    public static final Predicate<Integer> isMovR2ROpcode = w -> (w & 0xF00F) == 0x6003; //mov Rm, Rn
     private static final Predicate<Integer> isDtOpcode = op -> (op & 0xF0FF) == 0x4010;
+
+    private static final Predicate<int[]> mov_cmp_jmp_Pred = w ->
+            isMovOpcode.test(w[0]) && isCmpTstOpcode.test(w[1]) && isBranchOpcode.test(w[2]);
 
     // FIFA 96
     // MOVI + mov_cmp_jmp
@@ -121,8 +129,7 @@ public class Ow2DrcOptimizer {
     private static final Predicate<int[]> mov_nop_cmp_jmp_Pred = w ->
             w[1] == NOP && isMovOpcode.test(w[0]) && isCmpTstOpcode.test(w[2]) && isBranchOpcode.test(w[3]);
     private static final Predicate<int[]> mov_and_cmp_jmp_Pred = w ->
-            isMovOpcode.test(w[0]) &&
-                    ((w[1] & 0xF00F) == 0x2009 || (w[1] & 0xFF00) == 0xC900) &&
+            isMovOpcode.test(w[0]) && isAndOpcode.test(w[1]) &&
                     isCmpTstOpcode.test(w[2]) && isBranchOpcode.test(w[3]);
     private static final Predicate<int[]> mov_swap_cmp_jmp_Pred = w ->
             isMovOpcode.test(w[0]) && isSwapOpcode.test(w[1]) &&
@@ -132,33 +139,34 @@ public class Ow2DrcOptimizer {
             isMovOpcode.test(w[0]) && isSwapOpcode.test(w[3]) &&
                     isCmpTstOpcode.test(w[1]) && isBranchOpcode.test(w[2]);
 
-    private static final Predicate<int[]> mov_extu_cmp_jmp_Pred = w ->
-            isMovOpcode.test(w[0]) &&
-                    ((w[1] & 0xF00F) == 0x600C || (w[1] & 0xF00F) == 0x600D) &&
+    private static final Predicate<int[]> mov_ext_cmp_jmp_Pred = w ->
+            isMovOpcode.test(w[0]) && isExtOpcode.test(w[1]) &&
                     isCmpTstOpcode.test(w[2]) && isBranchOpcode.test(w[3]);
 
-    private static final Predicate<int[]> mov_extu_cmp_jmp_movi_Pred = w ->
-            mov_extu_cmp_jmp_Pred.test(w) && isMoviOpcode.test(w[4]);
+    private static final Predicate<int[]> mov_and_ext_cmp_jmp_Pred = w ->
+            isMovOpcode.test(w[0]) && isAndOpcode.test(w[1]) && isExtOpcode.test(w[2]) && isCmpTstOpcode.test(w[3]) && isBranchOpcode.test(w[4]);
+    private static final Predicate<int[]> mov_ext_cmp_jmp_movi_Pred = w ->
+            mov_ext_cmp_jmp_Pred.test(w) && isMoviOpcode.test(w[4]);
     private static final Predicate<int[]> mov_and_cmp_jmp_movi_Pred = w ->
             mov_and_cmp_jmp_Pred.test(w) && isMoviOpcode.test(w[4]);
+
+    private static final Predicate<int[]> mov_and_cmp_jmp_mov_Pred = w ->
+            mov_and_cmp_jmp_Pred.test(w) && isMovR2ROpcode.test(w[4]);
+    private static final Predicate<int[]> mov_cmp_jmp_mov_Pred = w ->
+            mov_cmp_jmp_Pred.test(w) && isMovR2ROpcode.test(w[3]);
     private static final Predicate<int[]> mov_cmp_jmp_movi_Pred = w ->
-            isMovOpcode.test(w[0]) && isCmpTstOpcode.test(w[1]) && isBranchOpcode.test(w[2]) && isMoviOpcode.test(w[3]);
+            mov_cmp_jmp_Pred.test(w) && isMoviOpcode.test(w[3]);
 
     //Doom res
     private static final Predicate<int[]> tas_movt_cmp_jmp_Pred = w ->
             (w[0] & 0xF0FF) == 0x401b &&
                     (w[1] & 0xF0FF) == 0x0029 &&
                     isCmpTstOpcode.test(w[2]) && isBranchOpcode.test(w[3]);
-
-    //mov_nop_nop_cmp_jmp_Pred
     private static final Predicate<int[]> mov_nop_nop_cmp_jmp_Pred = w ->
             w[1] == NOP && w[2] == NOP &&
                     isMovOpcode.test(w[0]) && isCmpTstOpcode.test(w[3]) && isBranchOpcode.test(w[4]);
-    private static final Predicate<int[]> mov_cmp_jmp_Pred = w ->
-            isMovOpcode.test(w[0]) && isCmpTstOpcode.test(w[1]) && isBranchOpcode.test(w[2]);
     private static final Predicate<int[]> cmp_jmpds_mov_Pred = w ->
             isCmpTstOpcode.test(w[0]) && isBranchOpcode.test(w[1]) && isMovOpcode.test(w[2]);
-
     private static final Predicate<int[]> mov_cmp_jmp_nop_Pred = w ->
             mov_cmp_jmp_Pred.test(w) && w[3] == NOP;
 
@@ -166,13 +174,17 @@ public class Ow2DrcOptimizer {
         none(0, a -> true),
 
         mov_nop_nop_cmp_jmp(5, mov_nop_nop_cmp_jmp_Pred), //Doom res
-        mov_extu_cmp_jmp_movi(5, mov_extu_cmp_jmp_movi_Pred), //Kolibri
+
+        mov_and_ext_cmp_jmp(5, mov_and_ext_cmp_jmp_Pred), //Darxide
+        mov_ext_cmp_jmp_movi(5, mov_ext_cmp_jmp_movi_Pred), //Kolibri
 
         mov_and_cmp_jmp_movi(5, mov_and_cmp_jmp_movi_Pred), //Motocross
 
+        mov_and_cmp_jmp_mov(5, mov_and_cmp_jmp_mov_Pred), //Darxide
+
         mov_and_cmp_jmp(4, mov_and_cmp_jmp_Pred), //Motocross
         mov_swap_cmp_jmp(4, mov_swap_cmp_jmp_Pred), //Mk2
-        mov_extu_cmp_jmp(4, mov_extu_cmp_jmp_Pred), //Doom res
+        mov_ext_cmp_jmp(4, mov_ext_cmp_jmp_Pred), //Doom res
         tas_movt_cmp_jmp(4, tas_movt_cmp_jmp_Pred), //Doom res
 
         mov_cmp_jmp_swap(4, mov_cmp_jmp_swap_Pred), //doom res
@@ -183,6 +195,8 @@ public class Ow2DrcOptimizer {
         mov_nop_cmp_jmp(4, mov_nop_cmp_jmp_Pred), //nba
 
         mov_cmp_jmp_movi(4, mov_cmp_jmp_movi_Pred),//Kolibri
+
+        mov_cmp_jmp_mov(4, mov_cmp_jmp_mov_Pred),//stellar assault
         mov_cmp_jmp(3, mov_cmp_jmp_Pred),
         cmp_jmpds_mov(3, cmp_jmpds_mov_Pred),
         cmp_jmp(2, w -> isCmpTstOpcode.test(w[0]) && isBranchOpcode.test(w[1])),
@@ -325,10 +339,11 @@ public class Ow2DrcOptimizer {
         int memReadOpcodePos = -1, branchOpcodePos = -1, jmpPc = 0, memReadOpcode = 0, start = 0;
         assert ctx.initialValue == Long.MAX_VALUE;
         switch (pollSeqType) {
-            case mov_extu_cmp_jmp_movi:
+            case mov_ext_cmp_jmp_movi:
             case mov_and_cmp_jmp_movi:
+            case mov_and_cmp_jmp_mov:
             case tas_movt_cmp_jmp:
-            case mov_extu_cmp_jmp:
+            case mov_ext_cmp_jmp:
             case mov_swap_cmp_jmp:
             case mov_and_cmp_jmp:
             case mov_nop_cmp_jmp:
@@ -341,6 +356,7 @@ public class Ow2DrcOptimizer {
             case mov_cmp_jmp_movi:
             case mov_cmp_jmp_swap:
             case mov_cmp_jmp_nop:
+            case mov_cmp_jmp_mov:
             case mov_cmp_jmp:
                 memReadOpcodePos = start;
                 branchOpcodePos = start + 2;
@@ -358,6 +374,7 @@ public class Ow2DrcOptimizer {
                 branchOpcodePos = 0;
                 break;
             case mov_nop_nop_cmp_jmp:
+            case mov_and_ext_cmp_jmp:
                 memReadOpcodePos = 0;
                 branchOpcodePos = 4;
                 break;
