@@ -8,6 +8,7 @@ import sh2.event.SysEventManager.SysEvent;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Helper;
+import sh2.sh2.drc.Ow2DrcOptimizer.PollType;
 import sh2.sh2.prefetch.Sh2Prefetch;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
@@ -53,7 +54,7 @@ public class Sh2Block {
     private final Sh2.Sh2Config sh2Config;
 
     public int blockFlags;
-    public Ow2DrcOptimizer.PollType pollType = Ow2DrcOptimizer.PollType.UNKNOWN;
+    public PollType pollType = PollType.UNKNOWN;
     public Runnable stage2Drc;
 
     private static boolean verbose = false;
@@ -176,19 +177,19 @@ public class Sh2Block {
                 if (pctx.spinCount < 3) {
                     if (verbose)
                         LOG.info("{} avoid re-entering {} poll at PC {}, on address: {}", this.drcContext.cpu, pctx.block.pollType,
-                                th(this.prefetchPc), th(pctx.memoryTarget));
+                                th(this.prefetchPc), th(pctx.blockPollData.memLoadTarget));
                     return;
                 }
                 SysEventManager.instance.setPoller(drcContext.cpu, pctx);
                 if (verbose)
                     LOG.info("{} entering {} poll at PC {}, on address: {}", this.drcContext.cpu, pctx.block.pollType,
-                            th(this.prefetchPc), th(pctx.memoryTarget));
+                            th(this.prefetchPc), th(pctx.blockPollData.memLoadTarget));
                 SysEventManager.instance.fireSysEvent(drcContext.cpu, SysEvent.START_POLLING);
             } else {
                 if (verbose)
                     LOG.info("{} ignoring {} poll at PC {}, on address: {}", this.drcContext.cpu, pctx.block.pollType,
-                            th(this.prefetchPc), th(pctx.memoryTarget));
-                pollType = Ow2DrcOptimizer.PollType.NONE;
+                            th(this.prefetchPc), th(pctx.blockPollData.memLoadTarget));
+                pollType = PollType.NONE;
             }
         } else if (!pollerCtx.isPollingActive()) {
             throw new RuntimeException("Unexpected, inactive poller: " + pollerCtx);

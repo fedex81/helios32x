@@ -184,7 +184,7 @@ public class Sh2MMREG {
     }
 
     private void handleWriteFRT(RegSpec r, int pos, int v, Size size) {
-        assert size == Size.BYTE;
+//        assert size == Size.BYTE; //TODO sonic32x plus
         assert pos == r.addr : th(pos) + ", " + th(r.addr);
         if (r == RegSpec.FRT_TIER) {
             v = (v & 0x8e) | 1;

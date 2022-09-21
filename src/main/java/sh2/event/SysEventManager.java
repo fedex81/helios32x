@@ -29,6 +29,7 @@ public interface SysEventManager extends Device {
         INT,
         SYS,
         SDRAM,
+        FRAMEBUFFER,
         COMM,
         DMA,
         PWM,

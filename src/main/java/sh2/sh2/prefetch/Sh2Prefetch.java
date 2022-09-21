@@ -377,13 +377,14 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             return;
         }
         addr = addr & 0xFFF_FFFF;
-        int tgtStart = (c.memoryTarget & 0xFFF_FFFF);
-        int tgtEnd = tgtStart + Math.max(1, c.memTargetSize.ordinal() << 1);
+        int tgtStart = (c.blockPollData.memLoadTarget & 0xFFF_FFFF);
+        int tgtEnd = tgtStart + Math.max(1, c.blockPollData.memLoadTargetSize.ordinal() << 1);
         int addrEnd = addr + Math.max(1, size.ordinal() << 1);
         if ((addrEnd > tgtStart) && (addr < tgtEnd)) {
             if (verbose)
                 LOG.info("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
-                        th(addr), size, c.cpu, th(c.memoryTarget), c.memTargetSize, th(val));
+                        th(addr), size, c.cpu, th(c.blockPollData.memLoadTarget),
+                        c.blockPollData.memLoadTargetSize, th(val));
             SysEventManager.instance.fireSysEvent(c.cpu, type);
         }
     }

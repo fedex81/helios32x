@@ -53,6 +53,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
         boolean drcEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
         boolean cacheEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "false"));
+        //TODO spot, star wars slowdown
         boolean pollEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "true"));
         boolean ignoreDelays = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.ignore.delays", "false"));
         sh2Config = new Sh2Config(prefEn, cacheEn, drcEn, pollEn, ignoreDelays);
