@@ -237,8 +237,8 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         checkFetch(MASTER, cacheAddrDef, SETT);
 
         //long write crossing the prefetch window
-        int cacheAddr2 = cacheAddrDef + 0x14;
-        int noCacheAddr2 = noCacheAddrDef + 0x14;
+        int cacheAddr2 = cacheAddrDef + 16;
+        int noCacheAddr2 = noCacheAddrDef + 16;
 
         clearCache(MASTER);
         clearCache(SLAVE);

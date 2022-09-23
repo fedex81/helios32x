@@ -267,7 +267,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
     @Override
     public List<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int address) {
         if (prefetchContexts[cpu.ordinal()].prefetchPc == address) {
-            Sh2Block block = new Sh2Block(address);
+            Sh2Block block = new Sh2Block(address, cpu);
             block.start = address;
             block.end = prefetchContexts[cpu.ordinal()].end;
             block.prefetchWords = prefetchContexts[cpu.ordinal()].prefetchWords;

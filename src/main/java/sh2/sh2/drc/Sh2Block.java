@@ -1,12 +1,15 @@
 package sh2.sh2.drc;
 
+import omegadrive.cpu.CpuFastDebug.PcInfoWrapper;
 import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
 import sh2.*;
+import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.event.SysEventManager;
 import sh2.event.SysEventManager.SysEvent;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
+import sh2.sh2.Sh2Debug;
 import sh2.sh2.Sh2Helper;
 import sh2.sh2.drc.Ow2DrcOptimizer.PollType;
 import sh2.sh2.prefetch.Sh2Prefetch;
@@ -22,7 +25,6 @@ import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.*;
-import static sh2.sh2.drc.Ow2DrcOptimizer.map;
 
 /**
  * Federico Berti
@@ -38,11 +40,13 @@ public class Sh2Block {
     private static final int OPT_THRESHOLD2 = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.stage2.hits", "511"));
 
 
-    public static final Sh2Block INVALID_BLOCK = new Sh2Block(-1);
+    public static final Sh2Block INVALID_BLOCK = new Sh2Block(-1, MASTER);
     public static final int MAX_INST_LEN = (Sh2Prefetch.SH2_DRC_MAX_BLOCK_LEN >> 1);
 
-    public static final int CACHE_FETCH_FLAG = 1 << 0;
-    public static final int NO_JUMP_FLAG = 1 << 1;
+    //0 - Master, 1 - Slave
+    public static final int CPU_FLAG = 1 << 0;
+    public static final int CACHE_FETCH_FLAG = 1 << 1;
+    public static final int NO_JUMP_FLAG = 1 << 2;
 
     public Sh2Prefetcher.Sh2BlockUnit[] inst;
     public Sh2Prefetcher.Sh2BlockUnit curr;
@@ -56,7 +60,7 @@ public class Sh2Block {
     public int blockFlags;
     public PollType pollType = PollType.UNKNOWN;
     public Runnable stage2Drc;
-
+    public int hashCodeWords;
     private static boolean verbose = false;
 
     static {
@@ -65,9 +69,10 @@ public class Sh2Block {
         S32xUtil.assertPowerOf2Minus1("OPT_THRESHOLD2", OPT_THRESHOLD2 + 1);
     }
 
-    public Sh2Block(int pc) {
+    public Sh2Block(int pc, CpuDeviceAccess cpu) {
         sh2Config = Sh2.Sh2Config.instance.get();
         prefetchPc = pc;
+        blockFlags |= cpu.ordinal();
     }
 
     public final void runBlock(Sh2 sh2, Sh2MMREG sm) {
@@ -171,7 +176,8 @@ public class Sh2Block {
         }
         final Ow2DrcOptimizer.PollerCtx pollerCtx = SysEventManager.instance.getPoller(drcContext.cpu);
         if (pollerCtx == NO_POLLER) {
-            Ow2DrcOptimizer.PollerCtx pctx = Ow2DrcOptimizer.map[drcContext.cpu.ordinal()].getOrDefault(prefetchPc, NO_POLLER);
+            PcInfoWrapper piw = Sh2Debug.get(prefetchPc, drcContext.cpu);
+            Ow2DrcOptimizer.PollerCtx pctx = piw.poller;
             if (pctx != NO_POLLER) {
                 pctx.spinCount++;
                 if (pctx.spinCount < 3) {
@@ -265,11 +271,12 @@ public class Sh2Block {
     }
 
     public void invalidate() {
-        if (verbose) LOG.info("{} invalidate: {} {}", drcContext.cpu, th(prefetchPc),
+        if (verbose) LOG.info("{} invalidate: {} {}", CpuDeviceAccess.cdaValues[blockFlags & CPU_FLAG], th(prefetchPc),
                 Optional.ofNullable(stage2Drc).map(c -> c.getClass().getSimpleName()).orElse(""));
-        Ow2DrcOptimizer.PollerCtx pctx = map[drcContext.cpu.ordinal()].remove(prefetchPc);
+        PcInfoWrapper piw = Sh2Debug.get(prefetchPc, CpuDeviceAccess.cdaValues[blockFlags & CPU_FLAG]);
+        Ow2DrcOptimizer.PollerCtx pctx = piw.poller;
         if (pctx != null) {
-            if (verbose) LOG.warn("{} invalidating a polling block: {}", drcContext.cpu, pctx);
+            if (verbose) LOG.warn("{} invalidating a polling block: {}", blockFlags & CPU_FLAG, pctx);
             pctx.invalidate();
         }
         nextBlock = INVALID_BLOCK;

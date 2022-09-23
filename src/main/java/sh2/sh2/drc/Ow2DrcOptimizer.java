@@ -1,6 +1,7 @@
 package sh2.sh2.drc;
 
 import com.google.common.collect.ImmutableMap;
+import omegadrive.cpu.CpuFastDebug.PcInfoWrapper;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
@@ -13,7 +14,6 @@ import sh2.sh2.Sh2Debug;
 import sh2.sh2.Sh2Helper;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.StringJoiner;
 import java.util.function.Predicate;
@@ -281,21 +281,26 @@ public class Ow2DrcOptimizer {
     }
 
     public static final PollerCtx NO_POLLER = new PollerCtx();
+    public static final PollerCtx UNKNOWN_POLLER = new PollerCtx();
 
-    public static final Map<Integer, PollerCtx>[] map = new HashMap[]{new HashMap<>(), new HashMap<>()};
 
     public static void pollDetector(Sh2Block block) {
-        final var pollerMap = map[block.drcContext.cpu.ordinal()];
-        if (pollerMap.containsKey(block.prefetchPc)) {
-            PollerCtx ctx = pollerMap.getOrDefault(block.prefetchPc, NO_POLLER);
-            assert ctx != NO_POLLER && ctx.block == block && ctx.cpu == block.drcContext.cpu :
-                    "Poller: " + ctx + "\nPrev: " + ctx.block + "\nNew : " + block;
+        PcInfoWrapper piw = Sh2Debug.get(block.prefetchPc, block.drcContext.cpu);
+        if (piw.poller != UNKNOWN_POLLER) {
+            PollerCtx ctx = piw.poller;
+            Sh2Block prevBlock = piw.poller.block;
+            //TODO check this, VF fails
+            assert ctx != UNKNOWN_POLLER &&
+                    (ctx.block == piw.block) &&
+                    (prevBlock != Sh2Block.INVALID_BLOCK ? ctx.block == block : true)
+                    && ctx.cpu == block.drcContext.cpu :
+                    "Poller: " + ctx + "\nPiwBlock: " + piw.block + "\nPrevPoll: " + prevBlock + "\nNewPoll : " + block;
             return;
         }
         if (block.pollType == UNKNOWN) {
             PollerCtx ctx = PollerCtx.create(block);
             ctx.blockPollData.init();
-            addPollMaybe(ctx, block);
+            piw.poller = addPollMaybe(ctx, block);
         }
         //mark this block as processed
         if (block.pollType == UNKNOWN) {
@@ -378,10 +383,6 @@ public class Ow2DrcOptimizer {
             pctx.block.pollType = NONE;
         }
         assert toSet != null;
-        if (toSet != NO_POLLER) {
-            PollerCtx prevCtx = map[pctx.cpu.ordinal()].put(toSet.pc, toSet);
-            assert prevCtx == null : bpd + "\n" + prevCtx;
-        }
         return toSet;
     }
 
@@ -409,9 +410,5 @@ public class Ow2DrcOptimizer {
                 LOG.error("Unexpected access type for polling: {}", th(address));
                 return NONE;
         }
-    }
-    public static void clear() {
-        map[0].clear();
-        map[1].clear();
     }
 }

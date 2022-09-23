@@ -11,6 +11,7 @@ import sh2.IMemory;
 import java.util.Map;
 import java.util.function.Predicate;
 
+import static omegadrive.cpu.CpuFastDebug.NOT_VISITED;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess;
 import static sh2.dict.S32xDict.SH2_PC_AREAS;
@@ -97,7 +98,7 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
 
     private CpuFastDebug[] fastDebug = new CpuFastDebug[2];
 
-    private static PcInfoWrapper[][] piwM, piwS;
+    private static PcInfoWrapper[][] piw;
 
     public Sh2Debug(IMemory memory) {
         super(memory);
@@ -111,8 +112,7 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
         fastDebug[1] = new CpuFastDebug(this, createContext());
         fastDebug[0].debugMode = DebugMode.NEW_INST_ONLY;
         fastDebug[1].debugMode = DebugMode.NEW_INST_ONLY;
-        piwM = fastDebug[0].pcInfoWrapper;
-        piwS = fastDebug[1].pcInfoWrapper;
+        piw = fastDebug[0].pcInfoWrapper;
     }
 
 //    @Override
@@ -137,19 +137,45 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
         }
     }
 
-    public static PcInfoWrapper[][] getPcInfoWrapper(CpuDeviceAccess cpu) {
-        PcInfoWrapper[][] piw = cpu == CpuDeviceAccess.MASTER ? piwM : piwS;
+    /**
+     * Even indexes -> MASTER pc
+     * Odd indexes  -> SLAVE pc, actual PC is pc & ~1
+     */
+    public static PcInfoWrapper[][] getPcInfoWrapper() {
         if (piw == null) {
             piw = CpuFastDebug.createWrapper(createContext());
-            if (cpu == CpuDeviceAccess.MASTER) {
-                piwM = piw;
-            } else {
-                piwS = piw;
-            }
         }
         return piw;
     }
 
+    /**
+     * area = pc >>> SH2_PC_AREA_SHIFT;
+     * pcMasked = pc & pcAreaMaskMap[area]
+     */
+    public static PcInfoWrapper get(int pc, CpuDeviceAccess cpu) {
+        getPcInfoWrapper();
+        final int piwPc = pc | cpu.ordinal();
+        PcInfoWrapper piw = Sh2Debug.piw[piwPc >>> SH2_PC_AREA_SHIFT][piwPc & pcAreaMaskMap[piwPc >>> SH2_PC_AREA_SHIFT]];
+        assert (piw != NOT_VISITED
+                ? piw.pcMasked == (pc & pcAreaMaskMap[pc >>> SH2_PC_AREA_SHIFT]) : true) : th(piwPc) + "," + th(piw.pcMasked);
+        return piw;
+    }
+
+    /**
+     * area = pc >>> SH2_PC_AREA_SHIFT;
+     * pcMasked = pc & pcAreaMaskMap[area]
+     */
+    public static PcInfoWrapper getOrCreate(int pc, CpuDeviceAccess cpu) {
+        PcInfoWrapper piw = get(pc, cpu);
+        assert piw != null;
+        if (piw == NOT_VISITED) {
+            final int piwPc = pc | cpu.ordinal();
+            piw = new PcInfoWrapper(pc >>> SH2_PC_AREA_SHIFT, pc & pcAreaMaskMap[pc >>> SH2_PC_AREA_SHIFT]);
+            Sh2Debug.piw[piw.area][piw.pcMasked | cpu.ordinal()] = piw;
+        }
+        assert piw.pcMasked == (pc & pcAreaMaskMap[pc >>> SH2_PC_AREA_SHIFT]);
+        return piw;
+    }
     public static CpuFastDebug.CpuDebugContext createContext() {
         CpuFastDebug.CpuDebugContext ctx = new CpuFastDebug.CpuDebugContext(areaMaskMap);
         ctx.pcAreaShift = SH2_PC_AREA_SHIFT;
