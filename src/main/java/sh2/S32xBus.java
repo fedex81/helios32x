@@ -6,11 +6,10 @@ import omegadrive.bus.model.GenesisBusProvider;
 import omegadrive.sound.PwmProvider;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
-import omegadrive.util.Util;
 import omegadrive.util.VideoMode;
 import omegadrive.vdp.model.BaseVdpAdapterEventSupport;
 import org.slf4j.Logger;
-import sh2.S32xUtil.CpuDeviceAccess;
+import sh2.S32xUtil.*;
 import sh2.dict.S32xDict;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
@@ -19,8 +18,7 @@ import sh2.vdp.MarsVdp;
 import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.th;
-import static sh2.S32xUtil.readBuffer;
-import static sh2.S32xUtil.writeBuffer;
+import static sh2.S32xUtil.*;
 import static sh2.dict.S32xDict.*;
 
 /**
@@ -32,17 +30,12 @@ public class S32xBus extends GenesisBus {
 
     private static final Logger LOG = LogHelper.getLogger(S32xBus.class.getSimpleName());
     static final boolean verboseMd = false;
-
-    private ByteBuffer rom;
     private BiosHolder.BiosData bios68k;
     private final ByteBuffer writeableHintRom = ByteBuffer.allocate(4).putInt(-1);
 
     private S32XMMREG s32XMMREG;
     public Sh2Context masterCtx, slaveCtx;
     private Sh2 sh2;
-
-    private int romMask, romSize;
-
     private int bankSetValue = 0;
     private int bankSetShift = bankSetValue << 20;
 
@@ -57,10 +50,11 @@ public class S32xBus extends GenesisBus {
     }
 
     public void setRom(ByteBuffer b) {
-        rom = b;
-        romSize = rom.capacity();
-        romMask = Util.getRomMask(romSize);
-        s32XMMREG.setCart(romSize);
+        s32XMMREG.setCart(b.capacity());
+    }
+
+    public int getBankSetValue() {
+        return bankSetValue;
     }
 
     @Override
@@ -99,14 +93,13 @@ public class S32xBus extends GenesisBus {
         } else if (address >= M68K_START_ROM_MIRROR && address < M68K_END_ROM_MIRROR) {
             if (!DmaFifo68k.rv) {
                 address &= M68K_ROM_WINDOW_MASK;
-                res = readBuffer(rom, address & romMask, size);
+                res = super.read(address & M68K_ROM_WINDOW_MASK, size);
             } else {
                 LOG.warn("Ignoring access to ROM mirror when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
             }
         } else if (address >= M68K_START_ROM_MIRROR_BANK && address < M68K_END_ROM_MIRROR_BANK) {
             if (!DmaFifo68k.rv) {
-                int val = bankSetShift | (address & M68K_ROM_MIRROR_MASK);
-                res = readBuffer(rom, val, size);
+                res = super.read(bankSetShift | (address & M68K_ROM_MIRROR_MASK), size);
             } else {
                 LOG.warn("Ignoring access to ROM mirror bank when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
             }
@@ -160,11 +153,8 @@ public class S32xBus extends GenesisBus {
             write32xWord((address & DRAM_MASK) | START_OVER_IMAGE, data, size);
         } else if (address >= M68K_START_32X_SYSREG && address < M68K_END_32X_SYSREG) {
             int addr = (address & M68K_MASK_32X_SYSREG) | SH2_SYSREG_32X_OFFSET;
-            if (((addr & 0xFF) & ~1) == S32xDict.RegSpecS32x.MD_BANK_SET.addr) {
-                bankSetValue = (data & 3);
-                bankSetShift = bankSetValue << 20;
-            }
             write32xWordDirect(addr, data, size);
+            checkBankSetRegister(addr, size);
         } else if (address >= M68K_START_32X_VDPREG && address < M68K_END_32X_VDPREG) {
             write32xWord((address & M68K_MASK_32X_VDPREG) | SH2_VDPREG_32X_OFFSET, data, size);
         } else if (address >= M68K_START_32X_COLPAL && address < M68K_END_32X_COLPAL) {
@@ -175,7 +165,6 @@ public class S32xBus extends GenesisBus {
         } else if (address >= M68K_START_ROM_MIRROR && address < M68K_END_ROM_MIRROR) {
             //TODO should not happen, SoulStar
             super.write(address & M68K_ROM_WINDOW_MASK, data, size);
-//            if (true) throw new RuntimeException();
         } else if (address >= M68K_START_HINT_VECTOR_WRITEABLE && address < M68K_END_HINT_VECTOR_WRITEABLE) {
             if (verboseMd) LOG.info("HINT vector write, address: {}, data: {}, size: {}", Long.toHexString(address),
                     Integer.toHexString(data), size);
@@ -188,14 +177,22 @@ public class S32xBus extends GenesisBus {
     private void writeAdapterEnOff(int address, int data, Size size) {
         if (address >= M68K_START_32X_SYSREG && address < M68K_END_32X_SYSREG) {
             int addr = (address & M68K_MASK_32X_SYSREG) | SH2_SYSREG_32X_OFFSET;
-            if (((addr & 0xFF) & ~1) == S32xDict.RegSpecS32x.MD_BANK_SET.addr) {
-                bankSetValue = (data & 3);
-                bankSetShift = bankSetValue << 20;
-            }
             write32xWordDirect(addr, data, size);
+            checkBankSetRegister(addr, size);
         } else {
             super.write(address, data, size);
         }
+    }
+
+    private void checkBankSetRegister(int address, Size size) {
+        RegSpecS32x r = S32xDict.getRegSpec(CpuDeviceAccess.M68K, address);
+        if (r == RegSpecS32x.MD_BANK_SET) {
+            int val = readWordFromBuffer(s32XMMREG.regContext, r);
+            bankSetValue = (val & 3);
+            bankSetShift = bankSetValue << 20;
+            if (verboseMd) LOG.info("BankSet now: {}", bankSetValue);
+        }
+        assert r == RegSpecS32x.MD_INT_CTRL ? size != Size.LONG : true;
     }
 
     private void write32xWord(int address, int data, Size size) {
@@ -243,15 +240,9 @@ public class S32xBus extends GenesisBus {
     public void onVdpEvent(BaseVdpAdapterEventSupport.VdpEvent event, Object value) {
         super.onVdpEvent(event, value);
         switch (event) {
-            case V_BLANK_CHANGE:
-                s32XMMREG.setVBlank((boolean) value);
-                break;
-            case H_BLANK_CHANGE:
-                s32XMMREG.setHBlank((boolean) value);
-                break;
-            case VIDEO_MODE:
-                s32XMMREG.updateVideoMode((VideoMode) value);
-                break;
+            case V_BLANK_CHANGE -> s32XMMREG.setVBlank((boolean) value);
+            case H_BLANK_CHANGE -> s32XMMREG.setHBlank((boolean) value);
+            case VIDEO_MODE -> s32XMMREG.updateVideoMode((VideoMode) value);
         }
     }
 
