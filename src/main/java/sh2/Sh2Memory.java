@@ -40,34 +40,37 @@ public final class Sh2Memory implements IMemory {
 
 	public Sh2Memory(S32XMMREG s32XMMREG, ByteBuffer rom, BiosHolder biosHolder) {
 		this.s32XMMREG = s32XMMREG;
-		init(rom, biosHolder);
+		init(rom, biosHolder, SH2_ENABLE_CACHE);
 	}
 
-	private void init(ByteBuffer rom, BiosHolder biosHolder) {
+	private void init(ByteBuffer rom, BiosHolder biosHolder, boolean enableCache) {
 		this.rom = rom;
 		bios[MASTER.ordinal()] = biosHolder.getBiosData(MASTER);
 		bios[SLAVE.ordinal()] = biosHolder.getBiosData(SLAVE);
 		sdram = ByteBuffer.allocateDirect(SH2_SDRAM_SIZE);
-		cache[MASTER.ordinal()] = SH2_ENABLE_CACHE ? new Sh2CacheImpl(MASTER, this) : Sh2Cache.createNoCacheInstance(MASTER, this);
-		cache[SLAVE.ordinal()] = SH2_ENABLE_CACHE ? new Sh2CacheImpl(SLAVE, this) : Sh2Cache.createNoCacheInstance(SLAVE, this);
-		sh2MMREGS[MASTER.ordinal()] = new Sh2MMREG(MASTER, cache[MASTER.ordinal()]);
-		sh2MMREGS[SLAVE.ordinal()] = new Sh2MMREG(SLAVE, cache[SLAVE.ordinal()]);
-
+		reInitCache(enableCache);
 		romSize = rom.capacity();
 		romMask = Util.getRomMask(romSize);
-		prefetch = new Sh2Prefetch(this, cache);
 		LOG.info("Rom size: {}, mask: {}", th(romSize), th(romMask));
+	}
+
+	public void reInitCache(boolean enableCache) {
+		cache[MASTER.ordinal()] = enableCache ? new Sh2CacheImpl(MASTER, this) : Sh2Cache.createNoCacheInstance(MASTER, this);
+		cache[SLAVE.ordinal()] = enableCache ? new Sh2CacheImpl(SLAVE, this) : Sh2Cache.createNoCacheInstance(SLAVE, this);
+		sh2MMREGS[MASTER.ordinal()] = new Sh2MMREG(MASTER, cache[MASTER.ordinal()]);
+		sh2MMREGS[SLAVE.ordinal()] = new Sh2MMREG(SLAVE, cache[SLAVE.ordinal()]);
+		prefetch = new Sh2Prefetch(this, cache);
 	}
 
 	@Override
 	public int read(int address, Size size) {
-        CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
-        address &= 0xFFFF_FFFF;
-        assert size == Size.LONG ? (address & 3) == 0 : true;
-        assert size == Size.WORD ? (address & 1) == 0 : true;
-        int res = 0;
-        switch ((address >>> CACHE_ADDRESS_BITS) & 0xFF) {
-            case CACHE_USE_H3:
+		CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
+		address &= 0xFFFF_FFFF;
+		assert size == Size.LONG ? (address & 3) == 0 : true;
+		assert size == Size.WORD ? (address & 1) == 0 : true;
+		int res = 0;
+		switch ((address >>> CACHE_ADDRESS_BITS) & 0xFF) {
+			case CACHE_USE_H3:
             case CACHE_PURGE_H3: //chaotix, bit 27,28 are ignored -> 4
             case CACHE_ADDRESS_ARRAY_H3: //chaotix
             case CACHE_DATA_ARRAY_H3: //vr

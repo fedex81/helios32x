@@ -55,12 +55,13 @@ public class J2CoreTest {
         Path binPath = Paths.get(baseDataFolder.toAbsolutePath().toString(), "j2tests.bin");
         System.out.println("Bin file: " + binPath.toAbsolutePath());
         rom = ByteBuffer.wrap(FileUtil.loadBiosFile(binPath));
+        Sh2Impl.tasReadNoCache = false;
     }
 
     @BeforeEach
     public void before() {
         IMemory memory = getMemory(rom);
-        sh2 = sh2Debug ? new Sh2Debug(memory) : new Sh2Impl(memory);
+        sh2 = getSh2Interpreter(memory, sh2Debug);
         ctx = createContext(S32xUtil.CpuDeviceAccess.MASTER, memory);
         sh2.reset(ctx);
         System.out.println("Reset, PC: " + ctx.PC + ", SP: " + ctx.registers[15]);
@@ -68,10 +69,15 @@ public class J2CoreTest {
 
     @Test
     public void testJ2() {
+        int limit = 3_000;
+        int cnt = 0;
         do {
             sh2.run(ctx);
             checkFail(ctx);
-        } while (!done);
+            cnt++;
+        } while (!done && cnt < limit);
+        Assertions.assertTrue(cnt < limit);
+        System.out.println(cnt);
         System.out.println("All tests done: success");
         System.out.println(ctx.toString());
     }
@@ -100,6 +106,10 @@ public class J2CoreTest {
         if (ctx.registers[0] == FAIL_VALUE && ctx.registers[0] == ctx.registers[1]) {
             Assertions.fail(ctx.toString());
         }
+    }
+
+    public static Sh2 getSh2Interpreter(IMemory memory, boolean debug) {
+        return sh2Debug ? new Sh2Debug(memory) : new Sh2Impl(memory);
     }
 
 

@@ -184,26 +184,8 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         checkFetch(MASTER, cacheAddr - 2, CLRMAC);
         checkFetch(MASTER, cacheAddr, SETT);
 
-        //long write crossing the prefetch window
-        int cacheAddr2 = cacheAddr + 0x16;
-        int noCacheAddr2 = noCacheAddr + 0x16;
-
-        clearCache(MASTER);
-        clearCache(SLAVE);
-
-        checkCacheContents(MASTER, Optional.empty(), noCacheAddr2, Size.WORD);
-        checkCacheContents(SLAVE, Optional.empty(), noCacheAddr2, Size.WORD);
-
-        checkFetch(MASTER, cacheAddr2, NOP);
-
-        int pstart = getPrefetch(MASTER).start;
-        Assertions.assertTrue(pstart > 0);
-
-        Md32xRuntimeData.setAccessTypeExt(MASTER);
-        memory.write32(cacheAddr2 - 2, (CLRMAC << 16) | SETT);
-
-        checkFetch(MASTER, cacheAddr - 2, CLRMAC);
-        checkFetch(MASTER, cacheAddr, SETT);
+        //long write crossing the prefetch window <- cannot happen
+        //as a long write needs to be aligned on a 4byte boundary, and the cache size is 16 bytes
     }
 
     @Test

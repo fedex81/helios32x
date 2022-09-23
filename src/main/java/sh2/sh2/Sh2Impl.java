@@ -56,6 +56,8 @@ public class Sh2Impl implements Sh2 {
 		return ((x >> 4) & 0xf);
 	}
 
+	public static boolean tasReadNoCache = true;
+
 	public void reset(Sh2Context ctx) {
 		Md32xRuntimeData.setAccessTypeExt(ctx.cpuAccess);
 		ctx.VBR = 0;
@@ -1090,7 +1092,7 @@ public class Sh2Impl implements Sh2 {
 	protected final void TAS(int code) {
 		int n = RN(code);
 
-		byte value = (byte) memory.read8(S32xDict.SH2_CACHE_THROUGH_OFFSET | ctx.registers[n]);
+		byte value = (byte) memory.read8((tasReadNoCache ? S32xDict.SH2_CACHE_THROUGH_OFFSET : 0) | ctx.registers[n]);
 		if (value == 0)
 			ctx.SR |= 0x1;
 		else ctx.SR &= ~0x1;
