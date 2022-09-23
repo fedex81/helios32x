@@ -168,6 +168,8 @@ public class DmaC implements Sh2Device {
         destAddress |= SH2_CACHE_THROUGH_OFFSET;
         srcAddress |= SH2_CACHE_THROUGH_OFFSET;
 
+        //TODO DMA shouldn't slow down the CPU
+        int delay = Md32xRuntimeData.getCpuDelayExt();
         do {
             int val = memory.read(srcAddress, c.trnSize);
             memory.write(destAddress, val, c.trnSize);
@@ -178,6 +180,8 @@ public class DmaC implements Sh2Device {
             destAddress += c.destDelta;
             len = (len - 1) & 0xFF_FFFF;
         } while (--steps > 0 && len >= 0);
+        //TODO DMA shouldn't slow down the CPU
+        Md32xRuntimeData.resetCpuDelayExt(delay);
         writeBufferForChannel(c.channel, DMA_DAR0.addr, destAddress, Size.LONG);
         writeBufferForChannel(c.channel, DMA_SAR0.addr, srcAddress, Size.LONG);
 

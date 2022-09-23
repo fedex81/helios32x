@@ -47,22 +47,26 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
         }
     }
 
+    //TODO check, ignoring BRAF (branch far), BSR, BSRF, JMP, JSR
     public static final Predicate<Integer> isBranchOpcode = op ->
             (op & 0xFF00) == 0x8900 //bt
                     || (op & 0xFF00) == 0x8B00 //bf
                     || (op & 0xFF00) == 0x8F00 //bf/s
                     || (op & 0xFF00) == 0x8D00 //bt/s
-                    || (op & 0xF000) == 0xA000 //bsr
+                    || (op & 0xF000) == 0xA000 //bra
             ;
 
     public static final Predicate<Integer> isCmpOpcode = op ->
             (op & 0xF00F) == 0x3000 //cmp/eq
+                    || (op & 0xF00F) == 0x3000 //CMP/EQ Rm,Rn
                     || (op & 0xF00F) == 0x3002 //CMP/HS Rm,Rn
+                    || (op & 0xF00F) == 0x3003 //CMP/GE Rm,Rn
                     || (op & 0xF00F) == 0x3006 //CMP/HI Rm,Rn
+                    || (op & 0xF00F) == 0x3007 //CMP/GT Rm,Rn
                     || (op & 0xFF00) == 0x8800 //cmp/eq #imm
                     || (op & 0xF0FF) == 0x4015 //CMP/PL Rn
                     || (op & 0xF0FF) == 0x4011 //CMP/PZ Rn
-
+                    || (op & 0xF00F) == 0x200C //CMP/STR Rm,Rn
             ;
 
     public static final Predicate<Integer> isTstOpcode = op ->
@@ -81,6 +85,8 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
                     || (op & 0xFF00) == 0x8400 //MOV.B@(disp,Rm),R0
                     || (op & 0xFF00) == 0x8500 //MOV.W@(disp,Rm),R0
                     || (op & 0xF000) == 0x5000 //MOV.L@(disp,Rm),R0
+                    || (op & 0xF000) == 0x9000 //MOV.W@(disp,PC),R0
+                    || (op & 0xF000) == 0xD000 //MOV.L@(disp,PC),R0
             ;
 
     private static final Predicate<Integer> isNopOpcode = op -> op == 9;

@@ -282,7 +282,7 @@ public class Sh2Prefetch {
         if (p.dirty) {
             return;
         }
-        boolean isCacheAddress = ctx.cacheReadAddr >>> PC_CACHE_AREA_SHIFT == 0;
+        boolean isCacheAddress = ctx.force || ctx.cacheReadAddr >>> PC_CACHE_AREA_SHIFT == 0;
         assert isCacheAddress : ctx.cpu + "," + th(ctx.cacheReadAddr);
         int start = p.prefetchPc;
         int end = start + (p.pfMaxIndex << 1);

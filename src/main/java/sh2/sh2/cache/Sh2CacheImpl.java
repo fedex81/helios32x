@@ -64,6 +64,7 @@ public class Sh2CacheImpl implements Sh2Cache {
         this.ctx = new CacheContext();
         this.invalidCtx = new CacheInvalidateContext();
         invalidCtx.cpu = cpu;
+        invalidCtx.cacheReadAddr = -1;
         for (int i = 0; i < ca.way.length; i++) {
             for (int j = 0; j < ca.way[i].length; j++) {
                 ca.way[i][j] = new Sh2CacheLine();
@@ -76,6 +77,7 @@ public class Sh2CacheImpl implements Sh2Cache {
         for (int entry = 0; entry < CACHE_LINES; entry++) {
             ca.lru[entry] = 0;
             for (int way = 0; way < CACHE_WAYS; way++) {
+                invalidatePrefetcher(ca.way[way][entry], entry, -1);
                 ca.way[way][entry].v = 0;
             }
         }
@@ -158,7 +160,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                 LOG.warn("{} CACHE_PURGE read: {}, {}", cpu, th(addr), size);
                 break;
             case CACHE_ADDRESS_ARRAY:
-                assert size == Size.LONG;
+//                assert size == Size.LONG; //TODO pwm sound demo != LONG
                 LOG.warn("{} CACHE_ADDRESS_ARRAY read: {}, {}", cpu, th(addr), size);
                 return readAddressArray(addr);
             default:
@@ -351,7 +353,7 @@ public class Sh2CacheImpl implements Sh2Cache {
     private void invalidatePrefetcher(Sh2CacheLine line, int entry, int addr) {
         if (line.v > 0) {
             invalidCtx.line = line;
-            invalidCtx.force = false;
+            invalidCtx.force = addr == -1;
             invalidCtx.cacheReadAddr = addr;
             invalidCtx.prevCacheAddr = line.tag | (entry << ENTRY_SHIFT);
             if (verbose)

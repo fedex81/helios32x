@@ -148,8 +148,10 @@ public class Md32x extends Genesis {
             int cycleDelay = 0;
             boolean running = bus.isZ80Running();
             if (running) {
+                Md32xRuntimeData.setAccessTypeExt(Z80);
                 cycleDelay = z80.executeInstruction();
                 bus.handleVdpInterruptsZ80();
+                cycleDelay += Md32xRuntimeData.resetCpuDelayExt();
             }
             cycleDelay = Math.max(1, cycleDelay);
             nextZ80Cycle += Z80_DIVIDER * cycleDelay;
