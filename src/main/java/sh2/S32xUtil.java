@@ -1,5 +1,6 @@
 package sh2;
 
+import com.google.common.math.IntMath;
 import omegadrive.Device;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
@@ -158,7 +159,7 @@ public class S32xUtil {
         }
         switch (reg.regCpuType) {
             case REG_BOTH:
-            case REG_M68K:
+            case REG_MD:
                 return readBuffer(ctx.sysRegsMd, address, size);
             case REG_SH2:
                 return readBuffer(ctx.sysRegsSh2, address, size);
@@ -177,7 +178,7 @@ public class S32xUtil {
             case REG_BOTH:
                 S32xUtil.setBit(rc.sysRegsMd, rc.sysRegsSh2, address, pos, value, size);
                 return;
-            case REG_M68K:
+            case REG_MD:
                 S32xUtil.setBit(rc.sysRegsMd, address, pos, value, size);
                 return;
             case REG_SH2:
@@ -198,7 +199,7 @@ public class S32xUtil {
                 writeBuffer(rc.sysRegsMd, address, value, size);
                 writeBuffer(rc.sysRegsSh2, address, value, size);
                 return;
-            case REG_M68K:
+            case REG_MD:
                 writeBuffer(rc.sysRegsMd, address, value, size);
                 return;
             case REG_SH2:
@@ -212,8 +213,16 @@ public class S32xUtil {
         return Integer.toHexString(readBuffer(b, pos, size));
     }
 
+    public static void assertPowerOf2Minus1(String name, int value) {
+        if (!IntMath.isPowerOfTwo(value)) {
+            LOG.error(name + " should be a (powerOf2 - 1), ie. 0xFF, actual: " + th(value - 1));
+        }
+        assert IntMath.isPowerOfTwo(value) :
+                name + " should be a (powerOf2 - 1), ie. 0xFF, actual: " + th(value - 1);
+    }
+
     public enum CpuDeviceAccess {
-        MASTER, SLAVE, M68K;
+        MASTER, SLAVE, M68K, Z80;
 
         public static final CpuDeviceAccess[] cdaValues = CpuDeviceAccess.values();
     }

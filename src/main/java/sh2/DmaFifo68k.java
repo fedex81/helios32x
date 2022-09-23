@@ -25,7 +25,7 @@ public class DmaFifo68k {
 
     private static final Logger LOG = LogHelper.getLogger(DmaFifo68k.class.getSimpleName());
 
-    private static final int FIFO_REG_M68K = 0xA15100 + M68K_FIFO_REG.addr;
+    private static final int FIFO_REG_M68K = 0xA15100 + MD_FIFO_REG.addr;
     public static final int M68K_FIFO_FULL_BIT = 7;
     public static final int M68K_68S_BIT_POS = 2;
     public static final int SH2_FIFO_FULL_BIT = 15;
@@ -82,19 +82,19 @@ public class DmaFifo68k {
 
     private void write68k(RegSpecS32x regSpec, int address, int value, Size size) {
         switch (regSpec) {
-            case M68K_DMAC_CTRL:
+            case MD_DMAC_CTRL:
                 handleDreqCtlWrite68k(address, value, size);
                 break;
-            case M68K_FIFO_REG:
+            case MD_FIFO_REG:
                 handleFifoRegWrite68k(value, size);
                 break;
-            case M68K_DREQ_LEN:
+            case MD_DREQ_LEN:
                 value &= M68K_DMA_FIFO_LEN_MASK;
                 //fall-through
-            case M68K_DREQ_DEST_ADDR_H:
-            case M68K_DREQ_DEST_ADDR_L:
-            case M68K_DREQ_SRC_ADDR_H:
-            case M68K_DREQ_SRC_ADDR_L:
+            case MD_DREQ_DEST_ADDR_H:
+            case MD_DREQ_DEST_ADDR_L:
+            case MD_DREQ_SRC_ADDR_H:
+            case MD_DREQ_SRC_ADDR_L:
                 writeBuffer(sysRegsMd, address, value, size);
                 writeBuffer(sysRegsSh2, address, value, size);
                 break;
@@ -109,7 +109,7 @@ public class DmaFifo68k {
         assert size != Size.LONG;
         boolean changed = writeBufferHasChanged(sysRegsMd, reg, value, size);
         if (changed) {
-            int res = readBuffer(sysRegsMd, M68K_DMAC_CTRL.addr, Size.WORD);
+            int res = readBuffer(sysRegsMd, MD_DMAC_CTRL.addr, Size.WORD);
             boolean wasDmaOn = m68S;
             m68S = (res & 4) > 0;
             rv = (res & 1) > 0;
@@ -148,11 +148,11 @@ public class DmaFifo68k {
     }
 
     public void updateFifoState() {
-        boolean changed = setBit(sysRegsMd, M68K_DMAC_CTRL.addr, M68K_FIFO_FULL_BIT, fifo.isFullBit(), Size.WORD);
+        boolean changed = setBit(sysRegsMd, MD_DMAC_CTRL.addr, M68K_FIFO_FULL_BIT, fifo.isFullBit(), Size.WORD);
         if (changed) {
             setBit(sysRegsSh2, SH2_DREQ_CTRL.addr, SH2_FIFO_FULL_BIT, fifo.isFull() ? 1 : 0, Size.WORD);
             if (verbose) {
-                LOG.info("68k DMA Fifo FULL state changed: {}", toHexString(sysRegsMd, M68K_DMAC_CTRL.addr, Size.WORD));
+                LOG.info("68k DMA Fifo FULL state changed: {}", toHexString(sysRegsMd, MD_DMAC_CTRL.addr, Size.WORD));
                 LOG.info("Sh2 DMA Fifo FULL state changed: {}", toHexString(sysRegsSh2, SH2_DREQ_CTRL.addr, Size.WORD));
             }
         }

@@ -61,18 +61,20 @@ public final class Sh2Memory implements IMemory {
 
 	@Override
 	public int read(int address, Size size) {
-		CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
-		address &= 0xFFFF_FFFF;
-		int res = 0;
-		switch ((address >>> CACHE_ADDRESS_BITS) & 0xFF) {
-			case CACHE_USE_H3:
-			case CACHE_PURGE_H3: //chaotix, bit 27,28 are ignored -> 4
-			case CACHE_ADDRESS_ARRAY_H3: //chaotix
-			case CACHE_DATA_ARRAY_H3: //vr
-				return cache[cpuAccess.ordinal()].cacheMemoryRead(address, size);
-			case CACHE_THROUGH_H3:
-				if (address >= SH2_START_ROM && address < SH2_END_ROM) {
-					//TODO RV bit, sh2 should stall
+        CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
+        address &= 0xFFFF_FFFF;
+        assert size == Size.LONG ? (address & 3) == 0 : true;
+        assert size == Size.WORD ? (address & 1) == 0 : true;
+        int res = 0;
+        switch ((address >>> CACHE_ADDRESS_BITS) & 0xFF) {
+            case CACHE_USE_H3:
+            case CACHE_PURGE_H3: //chaotix, bit 27,28 are ignored -> 4
+            case CACHE_ADDRESS_ARRAY_H3: //chaotix
+            case CACHE_DATA_ARRAY_H3: //vr
+                return cache[cpuAccess.ordinal()].cacheMemoryRead(address, size);
+            case CACHE_THROUGH_H3:
+                if (address >= SH2_START_ROM && address < SH2_END_ROM) {
+                    //TODO RV bit, sh2 should stall
 					if (DmaFifo68k.rv) {
 						LOG.warn("{} sh2 access to ROM when RV={}, addr: {} {}", cpuAccess, DmaFifo68k.rv, th(address), size);
 					}
@@ -115,17 +117,20 @@ public final class Sh2Memory implements IMemory {
 
 	@Override
 	public void write(int address, int val, Size size) {
-		CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
-		val &= size.getMask();
-		switch ((address >>> CACHE_ADDRESS_BITS) & 0xFF) {
-			case CACHE_USE_H3:
-			case CACHE_PURGE_H3:
-			case CACHE_ADDRESS_ARRAY_H3:
-			case CACHE_DATA_ARRAY_H3: //vr
-				//NOTE: vf slave writes to sysReg 0x401c, 0x4038 via cache
-				cache[cpuAccess.ordinal()].cacheMemoryWrite(address, val, size);
-				break;
-			case CACHE_THROUGH_H3:
+        CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
+        val &= size.getMask();
+        assert size == Size.LONG ? (address & 3) == 0 : true;
+        assert size == Size.WORD ? (address & 1) == 0 : true;
+
+        switch ((address >>> CACHE_ADDRESS_BITS) & 0xFF) {
+            case CACHE_USE_H3:
+            case CACHE_PURGE_H3:
+            case CACHE_ADDRESS_ARRAY_H3:
+            case CACHE_DATA_ARRAY_H3: //vr
+                //NOTE: vf slave writes to sysReg 0x401c, 0x4038 via cache
+                cache[cpuAccess.ordinal()].cacheMemoryWrite(address, val, size);
+                break;
+            case CACHE_THROUGH_H3:
 				if (address >= START_DRAM && address < END_DRAM) {
 					if (s32XMMREG.fm > 0) {
 						s32XMMREG.write(address, val, size);

@@ -25,7 +25,7 @@ public class FrameBufferAccessTest {
     private static final int SH2_ACCESS = 1;
 
     private static final int sh2HCount = S32xDict.START_32X_SYSREG + S32xDict.RegSpecS32x.SH2_HCOUNT_REG.fullAddress;
-    private static final int mdTv = M68K_START_32X_SYSREG + S32xDict.RegSpecS32x.M68K_SEGA_TV.fullAddress;
+    private static final int mdTv = M68K_START_32X_SYSREG + S32xDict.RegSpecS32x.MD_SEGA_TV.fullAddress;
     private static final int sh2sscr = S32xDict.START_32X_VDPREG + S32xDict.RegSpecS32x.SSCR.fullAddress;
     private static final int mdSscr = M68K_START_32X_VDPREG + S32xDict.RegSpecS32x.SSCR.fullAddress;
 
