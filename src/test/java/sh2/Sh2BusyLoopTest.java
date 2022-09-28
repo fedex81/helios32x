@@ -764,13 +764,13 @@ public class Sh2BusyLoopTest {
     private Ow2DrcOptimizer.PollType getPollType(int[] opcodes) {
         CpuFastDebug.PcInfoWrapper piw = Sh2Debug.get(sh2Context.PC, sh2Context.cpuAccess);
         piw.poller = UNKNOWN_POLLER;
-        piw.block = Sh2Block.INVALID_BLOCK;
         Sh2Block block = new Sh2Block(sh2Context.PC, sh2Context.cpuAccess);
         block.prefetchWords = opcodes;
         block.prefetchLenWords = opcodes.length;
         block.drcContext = new Sh2Prefetch.Sh2DrcContext();
         block.drcContext.sh2Ctx = sh2Context;
         block.drcContext.cpu = sh2Context.cpuAccess;
+        piw.block = block;
         Ow2DrcOptimizer.pollDetector(block);
         return block.pollType;
     }

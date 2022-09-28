@@ -61,6 +61,7 @@ public class CpuFastDebug {
         public int opcode, pcLooops, hits;
         public Sh2Block block = Sh2Block.INVALID_BLOCK;
         public Ow2DrcOptimizer.PollerCtx poller = UNKNOWN_POLLER;
+        private static final boolean verbose = false;
 
         public PcInfoWrapper(int area, int pcMasked) {
             this.area = area;
@@ -68,14 +69,37 @@ public class CpuFastDebug {
             this.hc = Objects.hashCode(area, pcMasked);
         }
 
+        public void setBlock(Sh2Block block) {
+            this.block = block;
+            if (verbose && block == Sh2Block.INVALID_BLOCK) {
+                LOG.info("set invalid block: {} {}", th(area), th(pcMasked));
+            }
+        }
+
+        public void invalidateBlock() {
+            if (verbose) LOG.info("Invalidate pc: {} {}", th(area), th(pcMasked));
+            if (poller != UNKNOWN_POLLER) {
+                if (verbose) LOG.info("Poller: {}", poller);
+                poller.invalidate();
+                poller = UNKNOWN_POLLER;
+            }
+            if (block != Sh2Block.INVALID_BLOCK) {
+                if (verbose) LOG.info("{} Block: {}", block.drcContext.cpu, block);
+                block.invalidate();
+                block = Sh2Block.INVALID_BLOCK;
+            }
+        }
+
         @Override
         public String toString() {
             return new StringJoiner(", ", PcInfoWrapper.class.getSimpleName() + "[", "]")
-                    .add("area=" + area)
-                    .add("pcMasked=" + pcMasked)
-                    .add("opcode=" + opcode)
+                    .add("area=" + th(area))
+                    .add("pcMasked=" + th(pcMasked))
+                    .add("opcode=" + th(opcode))
                     .add("pcLooops=" + pcLooops)
                     .add("hits=" + hits)
+                    .add("block=" + block)
+                    .add("poller=" + poller)
                     .toString();
         }
 

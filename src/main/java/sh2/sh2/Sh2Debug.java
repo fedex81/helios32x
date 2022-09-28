@@ -154,6 +154,7 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
      */
     public static PcInfoWrapper get(int pc, CpuDeviceAccess cpu) {
         getPcInfoWrapper();
+        assert (pc & 1) == 0 : th(pc);
         final int piwPc = pc | cpu.ordinal();
         PcInfoWrapper piw = Sh2Debug.piw[piwPc >>> SH2_PC_AREA_SHIFT][piwPc & pcAreaMaskMap[piwPc >>> SH2_PC_AREA_SHIFT]];
         assert (piw != NOT_VISITED

@@ -215,16 +215,18 @@ public class Ow2DrcOptimizer {
     public static class PollerCtx {
         public CpuDeviceAccess cpu;
         public int pc;
-        public Sh2Block block = Sh2Block.INVALID_BLOCK;
         public SysEvent event;
         public PollState pollState = PollState.NO_POLL;
         public int spinCount = 0;
         public BlockPollData blockPollData;
+        private PcInfoWrapper piw;
 
-        public static PollerCtx create(Sh2Block block) {
+        public static PollerCtx create(PcInfoWrapper piw) {
             PollerCtx ctx = new PollerCtx();
+            Sh2Block block = piw.block;
+            ctx.piw = piw;
             ctx.pc = block.prefetchPc;
-            ctx.block = block;
+            assert block.drcContext != null : piw;
             ctx.cpu = block.drcContext.cpu;
             ctx.event = SysEvent.NONE;
             ctx.blockPollData = new BlockPollData(block, block.drcContext.sh2Ctx, ctx.pc, block.prefetchWords);
@@ -235,12 +237,8 @@ public class Ow2DrcOptimizer {
             return pollState != PollState.NO_POLL;
         }
 
-        public boolean isPollingBlock() {
-            return block.pollType.ordinal() > NONE.ordinal();
-        }
-
         public boolean isPollingBusyLoop() {
-            return block.pollType == BUSY_LOOP;
+            return piw.block.pollType == BUSY_LOOP;
         }
 
         public void stopPolling() {
@@ -253,7 +251,6 @@ public class Ow2DrcOptimizer {
             return new StringJoiner(", ", PollerCtx.class.getSimpleName() + "[", "]")
                     .add("cpu=" + cpu)
                     .add("pc=" + pc)
-                    .add("block=" + block)
                     .add("event=" + event)
                     .add("pollState=" + pollState)
                     .add("spinCount=" + spinCount)
@@ -266,16 +263,16 @@ public class Ow2DrcOptimizer {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             PollerCtx pollerCtx = (PollerCtx) o;
-            return pc == pollerCtx.pc && spinCount == pollerCtx.spinCount && cpu == pollerCtx.cpu && com.google.common.base.Objects.equal(block, pollerCtx.block) && event == pollerCtx.event && pollState == pollerCtx.pollState && com.google.common.base.Objects.equal(blockPollData, pollerCtx.blockPollData);
+            return pc == pollerCtx.pc && spinCount == pollerCtx.spinCount && cpu == pollerCtx.cpu
+                    && event == pollerCtx.event && pollState == pollerCtx.pollState && com.google.common.base.Objects.equal(blockPollData, pollerCtx.blockPollData);
         }
 
         @Override
         public int hashCode() {
-            return com.google.common.base.Objects.hashCode(cpu, pc, block, event, pollState, spinCount, blockPollData);
+            return com.google.common.base.Objects.hashCode(cpu, pc, event, pollState, spinCount, blockPollData);
         }
 
         public void invalidate() {
-            block = Sh2Block.INVALID_BLOCK;
             event = SysEvent.NONE;
         }
     }
@@ -288,17 +285,17 @@ public class Ow2DrcOptimizer {
         PcInfoWrapper piw = Sh2Debug.get(block.prefetchPc, block.drcContext.cpu);
         if (piw.poller != UNKNOWN_POLLER) {
             PollerCtx ctx = piw.poller;
-            Sh2Block prevBlock = piw.poller.block;
-            //TODO check this, VF fails
-            assert ctx != UNKNOWN_POLLER &&
-                    (ctx.block == piw.block) &&
-                    (prevBlock != Sh2Block.INVALID_BLOCK ? ctx.block == block : true)
+            Sh2Block prevBlock = piw.block;
+            assert block.isValid() && ctx != UNKNOWN_POLLER &&
+                    (prevBlock != Sh2Block.INVALID_BLOCK ? prevBlock == block : true)
                     && ctx.cpu == block.drcContext.cpu :
                     "Poller: " + ctx + "\nPiwBlock: " + piw.block + "\nPrevPoll: " + prevBlock + "\nNewPoll : " + block;
             return;
         }
+        assert piw.block == block : "PiwBlock: " + piw.block + "\nBlock: " + block + "\n" +
+                block.drcContext.cpu + "," + th(block.prefetchPc) + "," + block.hashCode();
         if (block.pollType == UNKNOWN) {
-            PollerCtx ctx = PollerCtx.create(block);
+            PollerCtx ctx = PollerCtx.create(piw);
             ctx.blockPollData.init();
             piw.poller = addPollMaybe(ctx, block);
         }
@@ -379,8 +376,8 @@ public class Ow2DrcOptimizer {
             supported = true;
             toSet = pctx;
         }
-        if (pctx.block.pollType == UNKNOWN) {
-            pctx.block.pollType = NONE;
+        if (block.pollType == UNKNOWN) {
+            block.pollType = NONE;
         }
         assert toSet != null;
         return toSet;

@@ -17,7 +17,6 @@ import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.Optional;
 import java.util.StringJoiner;
 
 import static omegadrive.util.Util.th;
@@ -48,6 +47,8 @@ public class Sh2Block {
     public static final int CACHE_FETCH_FLAG = 1 << 1;
     public static final int NO_JUMP_FLAG = 1 << 2;
 
+    public static final int VALID_FLAG = 1 << 3;
+
     public Sh2Prefetcher.Sh2BlockUnit[] inst;
     public Sh2Prefetcher.Sh2BlockUnit curr;
     public int[] prefetchWords;
@@ -72,11 +73,12 @@ public class Sh2Block {
     public Sh2Block(int pc, CpuDeviceAccess cpu) {
         sh2Config = Sh2.Sh2Config.instance.get();
         prefetchPc = pc;
-        blockFlags |= cpu.ordinal();
+        blockFlags = (cpu.ordinal() | VALID_FLAG);
     }
 
     public final void runBlock(Sh2 sh2, Sh2MMREG sm) {
         assert prefetchPc != -1;
+        assert (blockFlags & VALID_FLAG) > 0;
         if (stage2Drc != null) {
             if (sh2Config.pollDetectEn) {
                 handlePoll();
@@ -182,18 +184,18 @@ public class Sh2Block {
                 pctx.spinCount++;
                 if (pctx.spinCount < 3) {
                     if (verbose)
-                        LOG.info("{} avoid re-entering {} poll at PC {}, on address: {}", this.drcContext.cpu, pctx.block.pollType,
+                        LOG.info("{} avoid re-entering {} poll at PC {}, on address: {}", this.drcContext.cpu, piw.block.pollType,
                                 th(this.prefetchPc), th(pctx.blockPollData.memLoadTarget));
                     return;
                 }
                 SysEventManager.instance.setPoller(drcContext.cpu, pctx);
                 if (verbose)
-                    LOG.info("{} entering {} poll at PC {}, on address: {}", this.drcContext.cpu, pctx.block.pollType,
+                    LOG.info("{} entering {} poll at PC {}, on address: {}", this.drcContext.cpu, piw.block.pollType,
                             th(this.prefetchPc), th(pctx.blockPollData.memLoadTarget));
                 SysEventManager.instance.fireSysEvent(drcContext.cpu, SysEvent.START_POLLING);
             } else {
                 if (verbose)
-                    LOG.info("{} ignoring {} poll at PC {}, on address: {}", this.drcContext.cpu, pctx.block.pollType,
+                    LOG.info("{} ignoring {} poll at PC {}, on address: {}", this.drcContext.cpu, piw.block.pollType,
                             th(this.prefetchPc), th(pctx.blockPollData.memLoadTarget));
                 pollType = PollType.NONE;
             }
@@ -257,6 +259,10 @@ public class Sh2Block {
         setFlag(NO_JUMP_FLAG, val);
     }
 
+    public boolean isValid() {
+        return (blockFlags & VALID_FLAG) > 0;
+    }
+
     private void setFlag(int flag, boolean val) {
         blockFlags &= ~flag;
         blockFlags |= val ? flag : 0;
@@ -271,20 +277,8 @@ public class Sh2Block {
     }
 
     public void invalidate() {
-        if (verbose) LOG.info("{} invalidate: {} {}", CpuDeviceAccess.cdaValues[blockFlags & CPU_FLAG], th(prefetchPc),
-                Optional.ofNullable(stage2Drc).map(c -> c.getClass().getSimpleName()).orElse(""));
-        PcInfoWrapper piw = Sh2Debug.get(prefetchPc, CpuDeviceAccess.cdaValues[blockFlags & CPU_FLAG]);
-        Ow2DrcOptimizer.PollerCtx pctx = piw.poller;
-        if (pctx != null) {
-            if (verbose) LOG.warn("{} invalidating a polling block: {}", blockFlags & CPU_FLAG, pctx);
-            pctx.invalidate();
-        }
-        nextBlock = INVALID_BLOCK;
-        inst = null;
-        prefetchWords = null;
-        prefetchPc = prefetchLenWords = -1;
-        stage2Drc = null;
-        hits = 0;
+        blockFlags &= ~VALID_FLAG;
+        prefetchPc |= 1;
     }
 
     @Override
