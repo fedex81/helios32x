@@ -26,6 +26,7 @@ import java.util.Optional;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
+import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 
 /**
  * Federico Berti
@@ -49,6 +50,8 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     private static final int CYCLE_TABLE_LEN_MASK = 0xFF;
     private final static int[] sh2CycleTable = new int[CYCLE_TABLE_LEN_MASK + 1];
     private final static Sh2Config sh2Config;
+
+    public static final int SH2_SLEEP_VALUE = -10000;
 
     static {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
@@ -129,6 +132,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
     protected final void runSh2() {
         if (nextMSh2Cycle == counter) {
+            assert SysEventManager.currentPollers[0] == NO_POLLER : SysEventManager.currentPollers[0];
             rt.setAccessType(MASTER);
             sh2.run(masterCtx);
             assert (masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == masterCtx.cycles_ran : masterCtx.cycles_ran;
@@ -136,6 +140,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
             nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran];
         }
         if (nextSSh2Cycle == counter) {
+            assert SysEventManager.currentPollers[1] == NO_POLLER : SysEventManager.currentPollers[1];
             rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
             assert (slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == slaveCtx.cycles_ran : slaveCtx.cycles_ran;
@@ -176,9 +181,14 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     @Override
     protected void resetCycleCounters(int counter) {
         super.resetCycleCounters(counter);
-        //NOTE Sh2s will only start at the next vblank, not immediately when aden switches
-        nextMSh2Cycle = Math.max(ctx.s32XMMREG.aden & 1, nextMSh2Cycle - counter);
-        nextSSh2Cycle = Math.max(ctx.s32XMMREG.aden & 1, nextMSh2Cycle - counter);
+        assert counter >= 0;
+        if (nextMSh2Cycle >= 0) {
+            //NOTE Sh2s will only start at the next vblank, not immediately when aden switches
+            nextMSh2Cycle = Math.max(ctx.s32XMMREG.aden & 1, nextMSh2Cycle - counter);
+        }
+        if (nextSSh2Cycle >= 0) {
+            nextSSh2Cycle = Math.max(ctx.s32XMMREG.aden & 1, nextMSh2Cycle - counter);
+        }
         ctx.pwm.newFrame();
         ctx.mDevCtx.sh2MMREG.newFrame();
         ctx.sDevCtx.sh2MMREG.newFrame();
@@ -216,22 +226,17 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
 
                 assert !pc.isPollingActive() : event + "," + pc;
                 pc.pollState = Ow2DrcOptimizer.PollState.ACTIVE_POLL;
-                if (verbose) LOG.info("{} {} {}: {}", cpu, event, counter, pc);
-                if (pc.cpu == CpuDeviceAccess.MASTER) {
-                    nextMSh2Cycle = Integer.MAX_VALUE;
-                } else {
-                    nextSSh2Cycle = Integer.MAX_VALUE;
-                }
-                sh2Context.cycles = -1;
+                setNextCycle(cpu, SH2_SLEEP_VALUE);
                 Md32xRuntimeData.resetCpuDelayExt(cpu, 0);
+                if (verbose) LOG.info("{} {} {}: {}", cpu, event, counter, pc);
             }
             case SH2_RESET_ON -> {
-                nextMSh2Cycle = nextSSh2Cycle = Integer.MAX_VALUE;
-                sh2Context.cycles = -1;
+                setNextCycle(MASTER, SH2_SLEEP_VALUE);
+                setNextCycle(SLAVE, SH2_SLEEP_VALUE);
             }
             case SH2_RESET_OFF -> {
-                nextMSh2Cycle = counter + 1;
-                nextSSh2Cycle = counter + 2;
+                setNextCycle(MASTER, counter + 1);
+                setNextCycle(SLAVE, counter + 2);
                 Md32xRuntimeData.resetCpuDelayExt(MASTER, 0);
                 Md32xRuntimeData.resetCpuDelayExt(SLAVE, 0);
             }
@@ -250,15 +255,20 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         assert event == SysEventManager.SysEvent.INT ? pc.isPollingBusyLoop() : true;
         boolean stopOk = event == pc.event || event == SysEventManager.SysEvent.INT;
         if (stopOk) {
-            if (cpu == SLAVE) {
-                nextSSh2Cycle = counter + 1;
-            } else {
-                nextMSh2Cycle = counter + 1;
-            }
-            if (verbose) LOG.info("{} {} {}: {}", cpu, event, counter, pc);
+            setNextCycle(cpu, counter + 1);
             SysEventManager.instance.resetPoller(cpu);
+            if (verbose) LOG.info("{} {} {}: {}", cpu, event, counter, pc);
         } else {
             LOG.warn("{} {} ignore stop polling: {}", cpu, event, pc);
+        }
+    }
+
+    private void setNextCycle(CpuDeviceAccess cpu, int value) {
+        if (verbose) LOG.info("{} {} sleeping, nextCycle: {}", cpu, value < 0 ? "START" : "STOP", value);
+        if (cpu == CpuDeviceAccess.MASTER) {
+            nextMSh2Cycle = value;
+        } else {
+            nextSSh2Cycle = value;
         }
     }
 }

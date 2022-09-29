@@ -35,7 +35,8 @@ public class Ow2DrcOptimizer {
 
     private final static Logger LOG = LogHelper.getLogger(Ow2DrcOptimizer.class.getSimpleName());
 
-    private final static boolean ENABLE_POLL_DETECT = true;
+    //toggle poll detection but keep busyLoop detection enabled
+    private final static boolean ENABLE_POLL_DETECT = false;
     public static final Map<S32xRegType, PollType> ptMap = ImmutableMap.of(
             S32xRegType.DMA, DMA,
             S32xRegType.PWM, PWM,
@@ -196,16 +197,16 @@ public class Ow2DrcOptimizer {
         @Override
         public String toString() {
             return new StringJoiner(", ", BlockPollData.class.getSimpleName() + "[", "]")
-                    .add("memLoadPos=" + memLoadPos)
-                    .add("memLoadOpcode=" + memLoadOpcode)
-                    .add("cmpPos=" + cmpPos)
-                    .add("cmpOpcode=" + cmpOpcode)
-                    .add("branchPos=" + branchPos)
-                    .add("branchOpcode=" + branchOpcode)
-                    .add("branchPc=" + branchPc)
-                    .add("branchDestPc=" + branchDestPc)
-                    .add("pc=" + pc)
-                    .add("memLoadTarget=" + memLoadTarget)
+                    .add("memLoadPos=" + th(memLoadPos))
+                    .add("memLoadOpcode=" + th(memLoadOpcode))
+                    .add("cmpPos=" + th(cmpPos))
+                    .add("cmpOpcode=" + th(cmpOpcode))
+                    .add("branchPos=" + th(branchPos))
+                    .add("branchOpcode=" + th(branchOpcode))
+                    .add("branchPc=" + th(branchPc))
+                    .add("branchDestPc=" + th(branchDestPc))
+                    .add("pc=" + th(pc))
+                    .add("memLoadTarget=" + th(memLoadTarget))
                     .add("memLoadTargetSize=" + memLoadTargetSize)
                     .add("isPoller=" + isPoller)
                     .toString();
@@ -250,7 +251,7 @@ public class Ow2DrcOptimizer {
         public String toString() {
             return new StringJoiner(", ", PollerCtx.class.getSimpleName() + "[", "]")
                     .add("cpu=" + cpu)
-                    .add("pc=" + pc)
+                    .add("pc=" + th(pc))
                     .add("event=" + event)
                     .add("pollState=" + pollState)
                     .add("spinCount=" + spinCount)
@@ -355,7 +356,9 @@ public class Ow2DrcOptimizer {
             if (block.pollType != UNKNOWN) {
                 pctx.event = SysEvent.valueOf(block.pollType.name());
                 log = true;
-                if (ENABLE_POLL_DETECT && block.pollType != DMA && block.pollType != PWM) { //TODO not supported
+                //TODO not supported
+                boolean isSupported = ENABLE_POLL_DETECT && block.pollType != DMA && block.pollType != PWM;
+                if (isSupported) {
                     supported = true;
                     toSet = pctx;
                 }
