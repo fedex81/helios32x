@@ -124,7 +124,7 @@ public class S32xDict {
             if (deviceType == NONE) {
                 return;
             }
-            int addrLen = Math.max(1, size.ordinal() << 1);
+            int addrLen = size.getByteSize();
             for (int i = fullAddress; i < fullAddress + addrLen; i++) {
                 s32xRegMapping[regCpuType.ordinal()][i] = this;
                 s32xRegTypeMapping[i] = deviceType;

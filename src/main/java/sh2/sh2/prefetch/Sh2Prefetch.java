@@ -12,8 +12,12 @@ import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.event.SysEventManager;
 import sh2.event.SysEventManager.SysEvent;
-import sh2.sh2.*;
+import sh2.sh2.Sh2;
 import sh2.sh2.Sh2.FetchResult;
+import sh2.sh2.Sh2Context;
+import sh2.sh2.Sh2Helper;
+import sh2.sh2.Sh2Helper.Sh2PcInfoWrapper;
+import sh2.sh2.Sh2Instructions;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.drc.Sh2Block;
@@ -22,13 +26,13 @@ import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static omegadrive.cpu.CpuFastDebug.NOT_VISITED;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.*;
 import static sh2.dict.S32xMemAccessDelay.SDRAM;
 import static sh2.sh2.Sh2Debug.pcAreaMaskMap;
+import static sh2.sh2.Sh2Helper.SH2_NOT_VISITED;
 import static sh2.sh2.Sh2Instructions.generateInst;
 import static sh2.sh2.drc.Ow2DrcOptimizer.PollerCtx;
 import static sh2.sh2.drc.Ow2DrcOptimizer.UNKNOWN_POLLER;
@@ -100,7 +104,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private Sh2Block doPrefetch(int pc, CpuDeviceAccess cpu) {
         if (collectStats) stats[cpu.ordinal()].addMiss();
         boolean isCacheArray = pc >>> SH2_PC_AREA_SHIFT == 0xC0;
-        final PcInfoWrapper piw = Sh2Debug.getOrCreate(pc, cpu);
+        final Sh2PcInfoWrapper piw = Sh2Helper.getOrCreate(pc, cpu);
         boolean validBlock = piw.block != Sh2Block.INVALID_BLOCK && piw.block.isValid();
         if (validBlock) {
             return piw.block;
@@ -226,10 +230,10 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     private void checkBlock(FetchResult fetchResult, CpuDeviceAccess cpu) {
         final int pc = fetchResult.pc;
-        PcInfoWrapper piw = Sh2Debug.get(pc, cpu);
+        Sh2PcInfoWrapper piw = Sh2Helper.get(pc, cpu);
         assert piw != null;
-        if (piw == NOT_VISITED) {
-            piw = Sh2Debug.getOrCreate(pc, cpu);
+        if (piw == SH2_NOT_VISITED) {
+            piw = Sh2Helper.getOrCreate(pc, cpu);
         }
         if (piw.block != Sh2Block.INVALID_BLOCK) {
             assert fetchResult.pc == piw.block.prefetchPc : th(fetchResult.pc);
@@ -247,7 +251,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             }
         }
         assert block != null;
-        assert NOT_VISITED.block == Sh2Block.INVALID_BLOCK : cpu + "," + th(pc);
+        assert SH2_NOT_VISITED.block == Sh2Block.INVALID_BLOCK : cpu + "," + th(pc);
         fetchResult.block = block;
     }
     public void fetch(FetchResult fetchResult, CpuDeviceAccess cpu) {
@@ -337,8 +341,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
         addr = addr & 0xFFF_FFFF;
         int tgtStart = (c.blockPollData.memLoadTarget & 0xFFF_FFFF);
-        int tgtEnd = tgtStart + Math.max(1, c.blockPollData.memLoadTargetSize.ordinal() << 1);
-        int addrEnd = addr + Math.max(1, size.ordinal() << 1);
+        int tgtEnd = tgtStart + c.blockPollData.memLoadTargetSize.getByteSize();
+        int addrEnd = addr + size.getByteSize();
         if ((addrEnd > tgtStart) && (addr < tgtEnd)) {
             if (verbose)
                 LOG.info("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
@@ -369,7 +373,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private final Map<PcInfoWrapper, Sh2Block>[] prefetchMapCacheArray = new Map[]{new HashMap<PcInfoWrapper, Sh2Block>(), new HashMap<PcInfoWrapper, Sh2Block>()};
 
     private void checkAddress(CpuDeviceAccess writer, CpuDeviceAccess blockOwner, int addr, int val, Size size) {
-        int end = addr + Math.max(1, size.ordinal() << 1);
+        int end = addr + size.getByteSize();
         invalidateMemoryRegion(writer, blockOwner, addr, end, val, false, size);
     }
 
@@ -380,18 +384,18 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             return;
         }
         //TODO test
-        PcInfoWrapper pcInfoWrapper = NOT_VISITED;
+        Sh2PcInfoWrapper pcInfoWrapper = SH2_NOT_VISITED;
         final int addrEven = addr & ~1;
         //find closest block
         for (int i = addrEven; i > addrEven - 32; i -= 2) {
-            PcInfoWrapper piw = Sh2Debug.get(addrEven, blockOwner);
-            if (piw == null || piw == NOT_VISITED || piw.block == Sh2Block.INVALID_BLOCK) {
+            Sh2PcInfoWrapper piw = Sh2Helper.get(addrEven, blockOwner);
+            if (piw == null || piw == SH2_NOT_VISITED || piw.block == Sh2Block.INVALID_BLOCK) {
                 continue;
             }
             pcInfoWrapper = piw;
             break;
         }
-        if (pcInfoWrapper != NOT_VISITED) {
+        if (pcInfoWrapper != SH2_NOT_VISITED) {
             if (cacheOnly && !pcInfoWrapper.block.isCacheFetch()) {
                 return;
             }
@@ -413,12 +417,12 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
     }
 
-    private void invalidateBlock(CpuDeviceAccess cpu, PcInfoWrapper piw, int addr) {
+    private void invalidateBlock(CpuDeviceAccess cpu, Sh2PcInfoWrapper piw, int addr) {
 //        blockRecycling(piw); //TODO
         piw.invalidateBlock();
     }
 
-    private void blockRecycling(PcInfoWrapper piw) {
+    private void blockRecycling(Sh2PcInfoWrapper piw) {
         Sh2Block b = piw.block;
         boolean isCacheArray = b.prefetchPc >>> SH2_PC_AREA_SHIFT == 0xC0;
         if (ENABLE_BLOCK_RECYCLING && isCacheArray) {
@@ -497,15 +501,15 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private void logPcHits(CpuDeviceAccess cpu) {
         Map<PcInfoWrapper, Long> hitMap = new HashMap<>();
         long top10 = 10;
-        PcInfoWrapper[][] pcInfoWrapper = Sh2Debug.getPcInfoWrapper();
+        Sh2PcInfoWrapper[][] pcInfoWrapper = Sh2Helper.getPcInfoWrapper();
         for (int i = 0; i < pcInfoWrapper.length; i++) {
             for (int j = 0; j < pcInfoWrapper[i].length; j++) {
-                PcInfoWrapper piw = pcInfoWrapper[i][j | cpu.ordinal()];
-                if (piw != NOT_VISITED) {
-                    if (piw.hits < top10) {
+                Sh2PcInfoWrapper piw = pcInfoWrapper[i][j | cpu.ordinal()];
+                if (piw != SH2_NOT_VISITED) {
+                    if (piw.block.hits < top10) {
                         continue;
                     }
-                    hitMap.put(piw, Long.valueOf(piw.hits));
+                    hitMap.put(piw, Long.valueOf(piw.block.hits));
                     top10 = hitMap.values().stream().sorted().limit(10).findFirst().orElse(10L);
 //                        LOG.info("{} PC: {} hits: {}, {}", cpu, th(pc), piw.hits, piw);
                 }

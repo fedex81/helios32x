@@ -136,7 +136,7 @@ public class Sh2Dict {
         }
 
         private void init() {
-            int addrLen = Math.max(1, size.ordinal() << 1);
+            int addrLen = size.getByteSize();
             String device = name.split("_")[0];
             for (int i = addr; i < addr + addrLen; i++) {
                 sh2RegMapping[i] = this;

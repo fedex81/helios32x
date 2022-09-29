@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import sh2.dict.S32xDict;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Debug;
+import sh2.sh2.Sh2Helper;
 import sh2.sh2.drc.Ow2DrcOptimizer;
 import sh2.sh2.drc.Ow2Sh2Bytecode;
 import sh2.sh2.drc.Sh2Block;
@@ -752,17 +753,15 @@ public class Sh2BusyLoopTest {
     }
 
     private boolean isPollSequence(int[] opcodes) {
-//        Ow2DrcOptimizer.clear();
         return getPollType(opcodes).ordinal() > Ow2DrcOptimizer.PollType.BUSY_LOOP.ordinal();
     }
 
     private boolean isBusyLoopSequence(int[] opcodes) {
-//        Ow2DrcOptimizer.clear();
         return getPollType(opcodes) == Ow2DrcOptimizer.PollType.BUSY_LOOP;
     }
 
     private Ow2DrcOptimizer.PollType getPollType(int[] opcodes) {
-        CpuFastDebug.PcInfoWrapper piw = Sh2Debug.get(sh2Context.PC, sh2Context.cpuAccess);
+        Sh2Helper.Sh2PcInfoWrapper piw = Sh2Helper.get(sh2Context.PC, sh2Context.cpuAccess);
         piw.poller = UNKNOWN_POLLER;
         Sh2Block block = new Sh2Block(sh2Context.PC, sh2Context.cpuAccess);
         block.prefetchWords = opcodes;
@@ -780,7 +779,6 @@ public class Sh2BusyLoopTest {
     }
 
     private Sh2Context clearSh2Context() {
-//        Ow2DrcOptimizer.clear();
         sh2Context = new Sh2Context(S32xUtil.CpuDeviceAccess.MASTER);
         sh2Context.PC = 0x100;
         return sh2Context;

@@ -1,15 +1,15 @@
 package sh2.sh2;
 
 import omegadrive.Device;
-import omegadrive.cpu.CpuFastDebug;
 import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
+import sh2.sh2.Sh2Helper.Sh2PcInfoWrapper;
 import sh2.sh2.drc.Sh2Block;
 
 import java.util.StringJoiner;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static omegadrive.cpu.CpuFastDebug.NOT_VISITED;
+import static sh2.sh2.Sh2Helper.SH2_NOT_VISITED;
 
 /**
  * Federico Berti
@@ -49,7 +49,7 @@ public interface Sh2 extends Device {
         public int pc, opcode;
         public Sh2Block block;
         //TODO
-        public CpuFastDebug.PcInfoWrapper piw = NOT_VISITED;
+        public Sh2PcInfoWrapper piw = SH2_NOT_VISITED;
     }
 
     class Sh2Config {

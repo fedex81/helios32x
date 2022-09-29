@@ -1,6 +1,5 @@
 package sh2.sh2.drc;
 
-import omegadrive.cpu.CpuFastDebug.PcInfoWrapper;
 import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
 import sh2.*;
@@ -9,8 +8,8 @@ import sh2.event.SysEventManager;
 import sh2.event.SysEventManager.SysEvent;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
-import sh2.sh2.Sh2Debug;
 import sh2.sh2.Sh2Helper;
+import sh2.sh2.Sh2Helper.Sh2PcInfoWrapper;
 import sh2.sh2.drc.Ow2DrcOptimizer.PollType;
 import sh2.sh2.prefetch.Sh2Prefetch;
 import sh2.sh2.prefetch.Sh2Prefetcher;
@@ -62,7 +61,7 @@ public class Sh2Block {
     public PollType pollType = PollType.UNKNOWN;
     public Runnable stage2Drc;
     public int hashCodeWords;
-    private static boolean verbose = false;
+    private static final boolean verbose = false;
 
     static {
         assert !INVALID_BLOCK.shouldKeep();
@@ -77,29 +76,48 @@ public class Sh2Block {
     }
 
     public final void runBlock(Sh2 sh2, Sh2MMREG sm) {
+        if (!Md32x.SH2_DEBUG_DRC) {
+            runBlockInternal(sh2, sm);
+        } else {
+            runBlockParallel(sh2, sm);
+        }
+    }
+
+    private void runBlockInternal(Sh2 sh2, Sh2MMREG sm) {
         assert prefetchPc != -1;
         assert (blockFlags & VALID_FLAG) > 0;
         if (stage2Drc != null) {
             if (sh2Config.pollDetectEn) {
                 handlePoll();
             }
-            if (!Md32x.SH2_DEBUG_DRC) {
-                stage2Drc.run();
-            } else {
-                prepareInterpreterParallel();
-                stage2Drc.run();
-                runInterpreterParallel(sh2, sm);
-            }
+            stage2Drc.run();
             return;
         }
-        if (Md32x.SH2_DEBUG_DRC) ((Sh2MemoryParallel) drcContext.memory).setActive(false);
         runInterpreter(sh2, sm, drcContext.sh2Ctx);
     }
 
+    private void runBlockParallel(Sh2 sh2, Sh2MMREG sm) {
+        assert prefetchPc != -1;
+        assert (blockFlags & VALID_FLAG) > 0;
+        if (stage2Drc != null) {
+            if (sh2Config.pollDetectEn) {
+                handlePoll();
+            }
+            prepareInterpreterParallel();
+            stage2Drc.run();
+            runInterpreterParallel(sh2, sm);
+            return;
+        }
+        ((Sh2MemoryParallel) drcContext.memory).setActive(false);
+        runInterpreter(sh2, sm, drcContext.sh2Ctx);
+    }
 
-    private final Sh2Context[] cloneCtxs = {new Sh2Context(MASTER, false), new Sh2Context(SLAVE, false)};
+    private Sh2Context[] cloneCtxs;
 
     private void prepareInterpreterParallel() {
+        if (cloneCtxs == null) {
+            cloneCtxs = new Sh2Context[]{new Sh2Context(MASTER, false), new Sh2Context(SLAVE, false)};
+        }
         Sh2Context ctx = this.drcContext.sh2Ctx;
         Sh2Context cloneCtx = cloneCtxs[ctx.cpuAccess.ordinal()];
         cloneCtx.PC = ctx.PC;
@@ -178,7 +196,7 @@ public class Sh2Block {
         }
         final Ow2DrcOptimizer.PollerCtx pollerCtx = SysEventManager.instance.getPoller(drcContext.cpu);
         if (pollerCtx == NO_POLLER) {
-            PcInfoWrapper piw = Sh2Debug.get(prefetchPc, drcContext.cpu);
+            Sh2PcInfoWrapper piw = Sh2Helper.get(prefetchPc, drcContext.cpu);
             Ow2DrcOptimizer.PollerCtx pctx = piw.poller;
             if (pctx != NO_POLLER) {
                 pctx.spinCount++;

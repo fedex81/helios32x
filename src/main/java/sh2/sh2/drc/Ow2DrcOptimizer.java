@@ -1,7 +1,6 @@
 package sh2.sh2.drc;
 
 import com.google.common.collect.ImmutableMap;
-import omegadrive.cpu.CpuFastDebug.PcInfoWrapper;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
@@ -12,6 +11,7 @@ import sh2.event.SysEventManager.SysEvent;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Debug;
 import sh2.sh2.Sh2Helper;
+import sh2.sh2.Sh2Helper.Sh2PcInfoWrapper;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -219,9 +219,9 @@ public class Ow2DrcOptimizer {
         public PollState pollState = PollState.NO_POLL;
         public int spinCount = 0;
         public BlockPollData blockPollData;
-        private PcInfoWrapper piw;
+        private Sh2PcInfoWrapper piw;
 
-        public static PollerCtx create(PcInfoWrapper piw) {
+        public static PollerCtx create(Sh2PcInfoWrapper piw) {
             PollerCtx ctx = new PollerCtx();
             Sh2Block block = piw.block;
             ctx.piw = piw;
@@ -282,7 +282,7 @@ public class Ow2DrcOptimizer {
 
 
     public static void pollDetector(Sh2Block block) {
-        PcInfoWrapper piw = Sh2Debug.get(block.prefetchPc, block.drcContext.cpu);
+        Sh2PcInfoWrapper piw = Sh2Helper.get(block.prefetchPc, block.drcContext.cpu);
         if (piw.poller != UNKNOWN_POLLER) {
             PollerCtx ctx = piw.poller;
             Sh2Block prevBlock = piw.block;

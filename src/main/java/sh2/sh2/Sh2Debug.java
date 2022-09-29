@@ -11,9 +11,7 @@ import sh2.IMemory;
 import java.util.Map;
 import java.util.function.Predicate;
 
-import static omegadrive.cpu.CpuFastDebug.NOT_VISITED;
 import static omegadrive.util.Util.th;
-import static sh2.S32xUtil.CpuDeviceAccess;
 import static sh2.dict.S32xDict.SH2_PC_AREAS;
 import static sh2.dict.S32xDict.SH2_PC_AREA_SHIFT;
 
@@ -137,46 +135,6 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
         }
     }
 
-    /**
-     * Even indexes -> MASTER pc
-     * Odd indexes  -> SLAVE pc, actual PC is pc & ~1
-     */
-    public static PcInfoWrapper[][] getPcInfoWrapper() {
-        if (piw == null) {
-            piw = CpuFastDebug.createWrapper(createContext());
-        }
-        return piw;
-    }
-
-    /**
-     * area = pc >>> SH2_PC_AREA_SHIFT;
-     * pcMasked = pc & pcAreaMaskMap[area]
-     */
-    public static PcInfoWrapper get(int pc, CpuDeviceAccess cpu) {
-        getPcInfoWrapper();
-        assert (pc & 1) == 0 : th(pc);
-        final int piwPc = pc | cpu.ordinal();
-        PcInfoWrapper piw = Sh2Debug.piw[piwPc >>> SH2_PC_AREA_SHIFT][piwPc & pcAreaMaskMap[piwPc >>> SH2_PC_AREA_SHIFT]];
-        assert (piw != NOT_VISITED
-                ? piw.pcMasked == (pc & pcAreaMaskMap[pc >>> SH2_PC_AREA_SHIFT]) : true) : th(piwPc) + "," + th(piw.pcMasked);
-        return piw;
-    }
-
-    /**
-     * area = pc >>> SH2_PC_AREA_SHIFT;
-     * pcMasked = pc & pcAreaMaskMap[area]
-     */
-    public static PcInfoWrapper getOrCreate(int pc, CpuDeviceAccess cpu) {
-        PcInfoWrapper piw = get(pc, cpu);
-        assert piw != null;
-        if (piw == NOT_VISITED) {
-            final int piwPc = pc | cpu.ordinal();
-            piw = new PcInfoWrapper(pc >>> SH2_PC_AREA_SHIFT, pc & pcAreaMaskMap[pc >>> SH2_PC_AREA_SHIFT]);
-            Sh2Debug.piw[piw.area][piw.pcMasked | cpu.ordinal()] = piw;
-        }
-        assert piw.pcMasked == (pc & pcAreaMaskMap[pc >>> SH2_PC_AREA_SHIFT]);
-        return piw;
-    }
     public static CpuFastDebug.CpuDebugContext createContext() {
         CpuFastDebug.CpuDebugContext ctx = new CpuFastDebug.CpuDebugContext(areaMaskMap);
         ctx.pcAreaShift = SH2_PC_AREA_SHIFT;
