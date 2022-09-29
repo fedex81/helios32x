@@ -91,9 +91,14 @@ task copyRes {
         into "$buildDir/packageDir/lib"
     }
     copy {
-        from ("res")
+        from("res")
         include "*.properties"
         into "$buildDir/packageDir"
+    }
+    copy {
+        from("res")
+        exclude "misc/**"
+        into "$buildDir/packageDir/res"
     }
 }
 

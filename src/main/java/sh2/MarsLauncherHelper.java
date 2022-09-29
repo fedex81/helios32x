@@ -31,7 +31,7 @@ public class MarsLauncherHelper {
 
     static final boolean masterDebug = Boolean.parseBoolean(System.getProperty("sh2.master.debug", "false"));
     static final boolean slaveDebug = Boolean.parseBoolean(System.getProperty("sh2.slave.debug", "false"));
-    static final boolean homebrewBios = Boolean.parseBoolean(System.getProperty("32x.use.homebrew.bios", "false"));
+    static final boolean homebrewBios = Boolean.parseBoolean(System.getProperty("32x.use.homebrew.bios", "true"));
 
     static String biosBasePath = "res/bios/";
 
@@ -44,16 +44,37 @@ public class MarsLauncherHelper {
 
 
     public static BiosHolder initBios() {
-        if (homebrewBios) {
-            LOG.warn("Using homebrew bioses: {}, {}, {}", hb_masterBiosName, hb_slaveBiosName, hb_mdBiosName);
+        BiosHolder bh = doInit(homebrewBios);
+        if (bh == BiosHolder.NO_BIOS && !homebrewBios) {
+            System.out.println("Unable to find official bios files, attempting to use homebrew bios");
+            bh = doInit(true);
+        }
+        if (bh == BiosHolder.NO_BIOS) {
+            LOG.error("Unable to find bios files");
+            System.err.println("Unable to find bios files");
+        }
+        return bh;
+    }
+
+    private static BiosHolder doInit(boolean isHb) {
+        if (isHb) {
+            LOG.info("Using homebrew bios: {}, {}, {}", hb_masterBiosName, hb_slaveBiosName, hb_mdBiosName);
             masterBiosName = hb_masterBiosName;
             slaveBiosName = hb_slaveBiosName;
             mdBiosName = hb_mdBiosName;
         }
-        Path biosMasterPath = Paths.get(biosBasePath, masterBiosName);
-        Path biosSlavePath = Paths.get(biosBasePath, slaveBiosName);
-        Path biosM68kPath = Paths.get(biosBasePath, mdBiosName);
-        BiosHolder biosHolder = new BiosHolder(biosMasterPath, biosSlavePath, biosM68kPath);
+        BiosHolder biosHolder = BiosHolder.NO_BIOS;
+        try {
+            Path biosMasterPath = Paths.get(biosBasePath, masterBiosName);
+            Path biosSlavePath = Paths.get(biosBasePath, slaveBiosName);
+            Path biosM68kPath = Paths.get(biosBasePath, mdBiosName);
+            biosHolder = new BiosHolder(biosMasterPath, biosSlavePath, biosM68kPath);
+        } catch (Exception | Error e) {
+            biosHolder = BiosHolder.NO_BIOS;
+            if (isHb) {
+                e.printStackTrace();
+            }
+        }
         return biosHolder;
     }
 

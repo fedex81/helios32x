@@ -1,4 +1,4 @@
-res
+res/misc
 docs
 out
 .gradle
@@ -6,6 +6,7 @@ out
 sh4_code
 helios.prefs
 test_output.log
+notes.txt
 
 # Project exclude paths
 /build/
