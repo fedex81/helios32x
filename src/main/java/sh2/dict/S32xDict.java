@@ -295,6 +295,7 @@ public class S32xDict {
                         s1, value & 3, value, size.name(), evenOdd);
                 break;
             case SH2_INT_MASK:
+                assert logCtx.sh2Access != Z80;
                 if (logCtx.sh2Access == CpuDeviceAccess.M68K) {
                     s = String.format(sformat, logCtx.sh2Access, type, regSpec.name,
                             "[RESET: " + ((value & 3) >> 1) + ", ADEN: " + (value & 1) + "]", value & 3,

@@ -15,8 +15,7 @@ import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
-import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
-import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
+import static sh2.S32xUtil.CpuDeviceAccess.*;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
 import static sh2.pwm.Pwm.PwmChannelSetup.OFF;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.PWM_6;
@@ -141,6 +140,7 @@ public class Pwm implements StepDevice {
     }
 
     private void handlePwmControl(CpuDeviceAccess cpu, int reg, int value, Size size) {
+        assert cpu != Z80;
         switch (cpu) {
             case M68K:
                 writeBuffers(sysRegsMd, sysRegsSh2, PWM_CTRL.addr, value & 0xF, size);

@@ -61,6 +61,10 @@ public class Sh2Helper {
         }
     }
 
+    public static void clear() {
+        piwArr = createWrapper(createContext());
+    }
+
     /**
      * Even indexes -> MASTER pc
      * Odd indexes  -> SLAVE pc, actual PC is pc & ~1

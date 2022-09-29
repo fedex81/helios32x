@@ -50,6 +50,7 @@ public class DmaFifo68k {
 
     public int read(RegSpecS32x regSpec, CpuDeviceAccess cpu, int address, Size size) {
         int res = (int) size.getMask();
+        assert cpu != Z80;
         switch (cpu) {
             case M68K:
                 res = read68k(address, size);

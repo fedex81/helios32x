@@ -16,6 +16,7 @@ import sh2.event.SysEventManager;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2.Sh2Config;
 import sh2.sh2.Sh2Context;
+import sh2.sh2.Sh2Helper;
 import sh2.sh2.drc.Ow2DrcOptimizer;
 import sh2.vdp.MarsVdp;
 import sh2.vdp.MarsVdp.MarsVdpRenderContext;
@@ -187,7 +188,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
             nextMSh2Cycle = Math.max(ctx.s32XMMREG.aden & 1, nextMSh2Cycle - counter);
         }
         if (nextSSh2Cycle >= 0) {
-            nextSSh2Cycle = Math.max(ctx.s32XMMREG.aden & 1, nextMSh2Cycle - counter);
+            nextSSh2Cycle = Math.max(ctx.s32XMMREG.aden & 1, nextSSh2Cycle - counter);
         }
         ctx.pwm.newFrame();
         ctx.mDevCtx.sh2MMREG.newFrame();
@@ -208,6 +209,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     public void handleNewRom(Path file) {
         super.handleNewRom(file);
         rt = Md32xRuntimeData.newInstance();
+        Sh2Helper.clear();
     }
 
     @Override
