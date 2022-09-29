@@ -7,6 +7,7 @@ import omegadrive.util.VideoMode;
 import org.slf4j.Logger;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
+import sh2.event.SysEventManager;
 import sh2.pwm.Pwm;
 import sh2.sh2.device.IntControl;
 import sh2.sh2.prefetch.Sh2Prefetch;
@@ -66,8 +67,6 @@ public class S32XMMREG implements Device {
     private S32xDictLogContext logCtx;
     private MarsVdpContext vdpContext;
     private int deviceAccessType;
-
-    public static boolean resetSh2 = false;
 
     public S32XMMREG() {
         init();
@@ -327,20 +326,17 @@ public class S32XMMREG implements Device {
         return val != newVal;
     }
 
-    //TODO this breaks test2
     private void handleReset(int val, int newVal) {
         //reset cancel
         if ((val & P32XS_nRES) == 0 && (newVal & P32XS_nRES) > 0) {
             LOG.info("{} unset reset Sh2s (nRes = 0)", Md32xRuntimeData.getAccessTypeExt());
-            resetSh2 = false;
-//            aden = 0;
-//            bus.resetSh2();
+            SysEventManager.instance.fireSysEvent(M68K, SysEventManager.SysEvent.SH2_RESET_OFF);
+//            bus.resetSh2(); //TODO check
         }
         //reset
         if ((val & P32XS_nRES) > 0 && (newVal & P32XS_nRES) == 0) {
             LOG.info("{} set reset SH2s (nRes = 1)", Md32xRuntimeData.getAccessTypeExt());
-//            resetSh2 = true;
-//            aden = 1;
+            SysEventManager.instance.fireSysEvent(M68K, SysEventManager.SysEvent.SH2_RESET_ON);
         }
     }
 

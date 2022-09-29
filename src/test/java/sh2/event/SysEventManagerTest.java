@@ -18,7 +18,7 @@ public class SysEventManagerTest {
     @Test
     public void testSysEventVsPollTypeVsS32xRegType() {
         for (SysEvent e : SysEvent.values()) {
-            if (e == START_POLLING || e == INT) {
+            if (e == START_POLLING || e == INT || e.name().startsWith("SH2")) {
                 continue;
             }
             System.out.println(PollType.valueOf(e.name()));

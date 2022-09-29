@@ -2,6 +2,7 @@ package sh2;
 
 import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
+import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.sh2.Sh2;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
@@ -16,7 +17,7 @@ public class Md32xRuntimeData {
 
     private static final Logger LOG = LogHelper.getLogger(Md32x.class.getSimpleName());
 
-    private S32xUtil.CpuDeviceAccess accessType = MASTER;
+    private CpuDeviceAccess accessType = MASTER;
     private int accType = accessType.ordinal();
     private final int[] cpuDelay = new int[cdaValues.length];
     private final boolean ignoreDelays;
@@ -52,12 +53,12 @@ public class Md32xRuntimeData {
         return res;
     }
 
-    public void setAccessType(S32xUtil.CpuDeviceAccess accessType) {
+    public void setAccessType(CpuDeviceAccess accessType) {
         this.accessType = accessType;
         accType = accessType.ordinal();
     }
 
-    protected S32xUtil.CpuDeviceAccess getAccessType() {
+    protected CpuDeviceAccess getAccessType() {
         return accessType;
     }
 
@@ -69,7 +70,7 @@ public class Md32xRuntimeData {
         rt.addCpuDelay(delays[rt.accType][deviceType]);
     }
 
-    public static void setAccessTypeExt(S32xUtil.CpuDeviceAccess accessType) {
+    public static void setAccessTypeExt(CpuDeviceAccess accessType) {
         rt.accessType = accessType;
         rt.accType = accessType.ordinal();
     }
@@ -78,6 +79,10 @@ public class Md32xRuntimeData {
         int res = rt.cpuDelay[rt.accType];
         rt.cpuDelay[rt.accType] = value;
         return rt.ignoreDelays ? 0 : res;
+    }
+
+    public static void resetCpuDelayExt(CpuDeviceAccess cpu, int value) {
+        rt.cpuDelay[cpu.ordinal()] = value;
     }
 
     public static int resetCpuDelayExt() {
@@ -89,7 +94,7 @@ public class Md32xRuntimeData {
     }
 
 
-    public static S32xUtil.CpuDeviceAccess getAccessTypeExt() {
+    public static CpuDeviceAccess getAccessTypeExt() {
         return rt.accessType;
     }
 }

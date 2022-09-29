@@ -6,8 +6,7 @@ import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceContext;
 import sh2.sh2.drc.Sh2Block;
 
 import java.util.Arrays;
-
-import static omegadrive.util.Util.th;
+import java.util.StringJoiner;
 
 /**
  * Federico Berti
@@ -54,38 +53,43 @@ public class Sh2Context {
         this.fetchResult.block = Sh2Block.INVALID_BLOCK;
         this.debug = debug;
     }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Sh2Context that = (Sh2Context) o;
-        return GBR == that.GBR && VBR == that.VBR && SR == that.SR && MACH == that.MACH && MACL == that.MACL && PR == that.PR && PC == that.PC && opcode == that.opcode && /*delayPC == that.delayPC && cycles == that.cycles && cycles_ran == that.cycles_ran &&*/ delaySlot == that.delaySlot && debug == that.debug && cpuAccess == that.cpuAccess && Objects.equal(sh2TypeCode, that.sh2TypeCode);
+        return GBR == that.GBR && VBR == that.VBR && SR == that.SR && MACH == that.MACH && MACL == that.MACL &&
+                PR == that.PR && PC == that.PC &&
+                delaySlot == that.delaySlot && cpuAccess == that.cpuAccess &&
+                Objects.equal(sh2TypeCode, that.sh2TypeCode);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(GBR, VBR, SR, MACH, MACL, PR, PC, opcode, /*delayPC, cycles, cycles_ran,*/ cpuAccess, sh2TypeCode, delaySlot, debug);
+        return Objects.hashCode(GBR, VBR, SR, MACH, MACL, PR, PC, cpuAccess, sh2TypeCode, delaySlot);
     }
+
 
     @Override
     public String toString() {
-        return "Sh2Context{" +
-                "registers=" + Arrays.toString(registers) +
-                ", GBR=" + th(GBR) +
-                ", VBR=" + th(VBR) +
-                ", SR=" + th(SR) +
-                ", MACH=" + th(MACH) +
-                ", MACL=" + th(MACL) +
-                ", PR=" + th(PR) +
-                ", PC=" + th(PC) +
-                ", delayPC=" + delayPC +
-                ", cycles=" + cycles +
-                ", cycles_ran=" + cycles_ran +
-                ", cpuAccess=" + cpuAccess +
-                ", sh2TypeCode='" + sh2TypeCode + '\'' +
-                ", delaySlot=" + delaySlot +
-                ", debug=" + debug +
-                '}';
+        return new StringJoiner(", ", Sh2Context.class.getSimpleName() + "[", "]")
+                .add("registers=" + Arrays.toString(registers))
+                .add("GBR=" + GBR)
+                .add("VBR=" + VBR)
+                .add("SR=" + SR)
+                .add("MACH=" + MACH)
+                .add("MACL=" + MACL)
+                .add("PR=" + PR)
+                .add("PC=" + PC)
+                .add("opcode=" + opcode)
+                .add("delayPC=" + delayPC)
+                .add("cycles=" + cycles)
+                .add("cycles_ran=" + cycles_ran)
+                .add("cpuAccess=" + cpuAccess)
+                .add("sh2TypeCode='" + sh2TypeCode + "'")
+                .add("delaySlot=" + delaySlot)
+                .add("debug=" + debug)
+                .add("fetchResult=" + fetchResult)
+                .toString();
     }
 }

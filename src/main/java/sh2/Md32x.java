@@ -11,6 +11,7 @@ import omegadrive.util.LogHelper;
 import omegadrive.vdp.md.GenesisVdp;
 import org.slf4j.Logger;
 import sh2.MarsLauncherHelper.Sh2LaunchContext;
+import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.event.SysEventManager;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2.Sh2Config;
@@ -53,7 +54,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
         boolean drcEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
         boolean cacheEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "false"));
-        //TODO spot, star wars slowdown
+        //TODO broken see stellar assault, spot, star wars slowdown
         boolean pollEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "true"));
         boolean ignoreDelays = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.ignore.delays", "false"));
         sh2Config = new Sh2Config(prefEn, cacheEn, drcEn, pollEn, ignoreDelays);
@@ -141,11 +142,6 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
             nextSSh2Cycle += sh2CycleTable[slaveCtx.cycles_ran];
         }
-        //TODO check
-//        if (S32XMMREG.resetSh2) {
-//            nextMSh2Cycle = nextSSh2Cycle = Integer.MAX_VALUE;
-//            return;
-//        }
     }
 
     private void runDevices() {
@@ -205,8 +201,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     }
 
     @Override
-    public void onSysEvent(S32xUtil.CpuDeviceAccess cpu, SysEventManager.SysEvent event) {
-        final Ow2DrcOptimizer.PollerCtx pc = SysEventManager.instance.getPoller(cpu);
+    public void onSysEvent(CpuDeviceAccess cpu, SysEventManager.SysEvent event) {
         final Sh2Context sh2Context = cpu == MASTER ? masterCtx : slaveCtx;
         switch (event) {
             case START_POLLING -> {
@@ -217,18 +212,31 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
 //                    sh2Context.devices.dmaC.step(0);
 //                }
 //                assert !ch0.dmaInProgress && !ch1.dmaInProgress;
+                final Ow2DrcOptimizer.PollerCtx pc = SysEventManager.instance.getPoller(cpu);
+
                 assert !pc.isPollingActive() : event + "," + pc;
                 pc.pollState = Ow2DrcOptimizer.PollState.ACTIVE_POLL;
                 if (verbose) LOG.info("{} {} {}: {}", cpu, event, counter, pc);
-                if (pc.cpu == S32xUtil.CpuDeviceAccess.MASTER) {
-                    nextMSh2Cycle = 1;
+                if (pc.cpu == CpuDeviceAccess.MASTER) {
+                    nextMSh2Cycle = Integer.MAX_VALUE;
                 } else {
-                    nextSSh2Cycle = 1;
+                    nextSSh2Cycle = Integer.MAX_VALUE;
                 }
                 sh2Context.cycles = -1;
-                Md32xRuntimeData.resetCpuDelayExt();
+                Md32xRuntimeData.resetCpuDelayExt(cpu, 0);
+            }
+            case SH2_RESET_ON -> {
+                nextMSh2Cycle = nextSSh2Cycle = Integer.MAX_VALUE;
+                sh2Context.cycles = -1;
+            }
+            case SH2_RESET_OFF -> {
+                nextMSh2Cycle = counter + 1;
+                nextSSh2Cycle = counter + 2;
+                Md32xRuntimeData.resetCpuDelayExt(MASTER, 0);
+                Md32xRuntimeData.resetCpuDelayExt(SLAVE, 0);
             }
             default -> { //stop polling
+                final Ow2DrcOptimizer.PollerCtx pc = SysEventManager.instance.getPoller(cpu);
                 if (pc.isPollingActive()) {
                     stopPolling(cpu, event, pc);
                 } else {
@@ -238,7 +246,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         }
     }
 
-    private void stopPolling(S32xUtil.CpuDeviceAccess cpu, SysEventManager.SysEvent event, Ow2DrcOptimizer.PollerCtx pc) {
+    private void stopPolling(CpuDeviceAccess cpu, SysEventManager.SysEvent event, Ow2DrcOptimizer.PollerCtx pc) {
         assert event == SysEventManager.SysEvent.INT ? pc.isPollingBusyLoop() : true;
         boolean stopOk = event == pc.event || event == SysEventManager.SysEvent.INT;
         if (stopOk) {

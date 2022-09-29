@@ -34,7 +34,9 @@ public interface SysEventManager extends Device {
         DMA,
         PWM,
         VDP,
-        START_POLLING;
+        START_POLLING,
+        SH2_RESET_ON,
+        SH2_RESET_OFF;
     }
 
     void fireSysEvent(CpuDeviceAccess cpu, SysEvent event);
