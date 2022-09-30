@@ -32,7 +32,7 @@ public class MarsLauncherHelper {
     static final boolean slaveDebug = Boolean.parseBoolean(System.getProperty("sh2.slave.debug", "false"));
     static final boolean homebrewBios = Boolean.parseBoolean(System.getProperty("32x.use.homebrew.bios", "false"));
 
-    static String biosBasePath = "res/bios/";
+    static String biosBasePath = "res/misc/bios/";
 
     static String masterBiosName = "32x_bios_m.bin";
     static String slaveBiosName = "32x_bios_s.bin";

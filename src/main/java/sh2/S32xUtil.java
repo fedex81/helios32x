@@ -159,6 +159,7 @@ public class S32xUtil {
         }
         switch (reg.regCpuType) {
             case REG_BOTH:
+                assert readBuffer(ctx.sysRegsMd, address, size) == readBuffer(ctx.sysRegsSh2, address, size);
             case REG_MD:
                 return readBuffer(ctx.sysRegsMd, address, size);
             case REG_SH2:

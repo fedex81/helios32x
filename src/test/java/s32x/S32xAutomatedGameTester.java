@@ -45,7 +45,7 @@ public class S32xAutomatedGameTester {
     public static Path resFolder = Paths.get(new File(".").getAbsolutePath(),
             "src", "test", "resources");
 
-    private static String romFolder = "./res/roms/32x";
+    private static String romFolder = "./res/misc/roms/32x";
 
     private static boolean noIntro = true;
     private static String header = "rom;boot;sound";

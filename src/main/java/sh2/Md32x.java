@@ -62,6 +62,7 @@ public class Md32x extends Genesis {
 //            System.setProperty("helios.68k.debug.mode", "0"); //0-NONE, 1-INST_ONLY, 2-NEW_INST_ONLY, 3-STATE
 //        }
 //        System.setProperty("z80.debug", "true");
+//        System.setProperty("helios.z80.debug.mode", "2");
 //        System.setProperty("sh2.master.debug", "true");
 //        System.setProperty("sh2.slave.debug", "true");
         LOG.info("Enable FM: {}, Enable PWM: {}, Sh2Cycles: {}", ENABLE_FM, ENABLE_PWM, SH2_CYCLES_PER_STEP);

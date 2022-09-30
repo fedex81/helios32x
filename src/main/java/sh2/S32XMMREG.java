@@ -18,6 +18,7 @@ import java.nio.ByteBuffer;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.M68K;
+import static sh2.S32xUtil.CpuDeviceAccess.Z80;
 import static sh2.dict.S32xDict.*;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
 import static sh2.dict.S32xDict.S32xRegType.*;
@@ -131,12 +132,17 @@ public class S32XMMREG implements Device {
         int res = 0;
         switch (regSpec.deviceType) {
             case DMA:
+                assert (regSpec != MD_DMAC_CTRL ? cpu != Z80 : true) : regSpec;
                 res = dmaFifoControl.read(regSpec, cpu, address & S32X_REG_MASK, size);
                 break;
             case PWM:
                 res = pwm.read(cpu, regSpec, address & S32X_MMREG_MASK, size);
                 break;
+            case COMM:
+                res = readBufferReg(regContext, regSpec, address, size);
+                break;
             default:
+                assert (regSpec.addr >= MD_DREQ_SRC_ADDR_H.addr ? cpu != Z80 : true) : regSpec;
                 res = readBufferReg(regContext, regSpec, address, size);
                 if (regSpec == SH2_INT_MASK) {
                     res = interruptControls[cpu.ordinal()].readSh2IntMaskReg(address & S32X_REG_MASK, size);
@@ -157,6 +163,7 @@ public class S32XMMREG implements Device {
 
         switch (regSpec.deviceType) {
             case VDP:
+                assert cpu != Z80 : regSpec;
                 regChanged = vdp.vdpRegWrite(regSpec, reg, value, size);
                 break;
             case PWM:
@@ -166,9 +173,11 @@ public class S32XMMREG implements Device {
                 regChanged = handleCommRegWrite(regSpec, reg, value, size);
                 break;
             case SYS:
+                assert (regSpec.addr >= MD_DREQ_SRC_ADDR_H.addr ? cpu != Z80 : true) : regSpec;
                 regChanged = handleSysRegWrite(cpu, regSpec, reg, value, size);
                 break;
             case DMA:
+                assert (regSpec != MD_DMAC_CTRL ? cpu != Z80 : true) : regSpec;
                 dmaFifoControl.write(regSpec, cpu, reg, value, size);
                 break;
             default:
@@ -251,15 +260,15 @@ public class S32XMMREG implements Device {
         //autoclear Int_control_reg too
         if (intType == CMD_8) {
             int newVal = readWordFromBuffer(MD_INT_CTRL) & ~(1 << sh2Access.ordinal());
-            boolean change = handleIntControlWrite68k(MD_INT_CTRL.addr, newVal, Size.WORD);
+            boolean change = handleIntControlWriteMd(MD_INT_CTRL.addr, newVal, Size.WORD);
             if (change && verbose) {
                 LOG.info("{} auto clear {}", sh2Access, intType);
             }
         }
     }
 
-    private boolean handleReg4Write(CpuDeviceAccess sh2Access, int reg, int value, Size size) {
-        ByteBuffer b = sh2Access == M68K ? sysRegsMd : sysRegsSh2;
+    private boolean handleReg4Write(CpuDeviceAccess cpu, int reg, int value, Size size) {
+        ByteBuffer b = cpu == M68K || cpu == Z80 ? sysRegsMd : sysRegsSh2;
         return writeBufferHasChanged(b, reg, value, size);
     }
 
@@ -267,7 +276,8 @@ public class S32XMMREG implements Device {
         boolean res = false;
         switch (sh2Access) {
             case M68K:
-                res = handleIntControlWrite68k(reg, value, size);
+            case Z80:
+                res = handleIntControlWriteMd(reg, value, size);
                 break;
             case SLAVE:
             case MASTER:
@@ -277,15 +287,16 @@ public class S32XMMREG implements Device {
         return res;
     }
 
-    private boolean handleIntControlWrite68k(int reg, int value, Size size) {
+    private boolean handleIntControlWriteMd(int reg, int value, Size size) {
         assert size != Size.LONG;
         boolean changed = writeBufferHasChanged(sysRegsMd, reg, value, size);
         if (changed) {
             int newVal = readBuffer(sysRegsMd, MD_INT_CTRL.addr + 1, Size.BYTE);
             boolean intm = (newVal & 1) > 0;
-            boolean ints = ((newVal >> 1) & 1) > 0;
+            boolean ints = (newVal & 2) > 0;
             interruptControls[0].setIntPending(CMD_8, intm);
             interruptControls[1].setIntPending(CMD_8, ints);
+            writeBuffer(sysRegsMd, MD_INT_CTRL.addr, newVal & 3, Size.WORD);
         }
         return changed;
     }
