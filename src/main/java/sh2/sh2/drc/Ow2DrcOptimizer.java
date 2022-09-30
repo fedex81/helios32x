@@ -168,7 +168,17 @@ public class Ow2DrcOptimizer {
             if (memLoads == 1) {
                 isPollerRecalc();
             }
-            assert isPoller ? memLoadTarget != 0 : true;
+            /**
+             *  06002406	0009	nop
+             *  00002408	0009	nop
+             *  0000240a	88ff	cmp/eq H'ffffffff, R0
+             *  0000240c	8bfb	bf H'00002406
+             */
+            if (isPoller && memLoadTarget == 0) {
+                LOG.warn("Busy Loop?\n{}\n{}\n{}", Sh2Helper.toListOfInst(block), block, this);
+                isPoller = false;
+                isBusyLoop = true;
+            }
         }
 
         private boolean isPollerRecalc() {

@@ -400,18 +400,21 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                 return;
             }
             Sh2Block block = pcInfoWrapper.block;
-            assert block.prefetchPc == addr; //true for VF
-            int wordsCount = fillOpcodes(blockOwner, block.prefetchPc, block.start,
-                    block.fetchBuffer, null, opcodeWords, true);
-            boolean invalidate = wordsCount != block.prefetchLenWords ||
-                    !Arrays.equals(block.prefetchWords, 0, block.prefetchLenWords, opcodeWords, 0, wordsCount);
-            if (invalidate) {
-                if (verbose) {
-                    String s = LogHelper.formatMessage("{} write at addr: {} val: {} {}, invalidate {} block with start: {} blockLen: {}",
-                            writer, th(addr), th(val), size, blockOwner, th(pcInfoWrapper.block.prefetchPc),
-                            pcInfoWrapper.block.prefetchLenWords);
-                    LOG.info(s);
+            if (block.prefetchPc == addr) {
+                int wordsCount = fillOpcodes(blockOwner, block.prefetchPc, block.start,
+                        block.fetchBuffer, null, opcodeWords, true);
+                boolean invalidate = wordsCount != block.prefetchLenWords ||
+                        !Arrays.equals(block.prefetchWords, 0, block.prefetchLenWords, opcodeWords, 0, wordsCount);
+                if (invalidate) {
+                    if (verbose) {
+                        String s = LogHelper.formatMessage("{} write at addr: {} val: {} {}, invalidate {} block with start: {} blockLen: {}",
+                                writer, th(addr), th(val), size, blockOwner, th(pcInfoWrapper.block.prefetchPc),
+                                pcInfoWrapper.block.prefetchLenWords);
+                        LOG.info(s);
+                    }
+                    invalidateBlock(blockOwner, pcInfoWrapper, addr);
                 }
+            } else { //Motocross
                 invalidateBlock(blockOwner, pcInfoWrapper, addr);
             }
         }

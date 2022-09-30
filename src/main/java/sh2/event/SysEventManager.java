@@ -119,6 +119,7 @@ public interface SysEventManager extends Device {
             listenerMapMaster.clear();
             listenerMapSlave.clear();
             currentPollers[0] = currentPollers[1] = NO_POLLER;
+            pollerActiveMask.set(0);
         }
     }
 }
