@@ -200,11 +200,10 @@ public class IntControl implements Sh2Device {
 
     public void clearCurrentInterrupt() {
         Sh2Interrupt intType = intVals[interruptLevel];
-        //TODO check internal vs external
-        //only autoclear external (ie.DMA,SCI, etc) interrupts
-        if (intType.internal == 0) {
-            clearInterrupt(interruptLevel);
-        }
+        //only autoclear external (ie.DMA,SCI, etc) interrupts? NO
+        //36 Great Holes Starring Fred Couples (Prototype - Nov 05, 1994) (32X).32x
+        //doesn't clear VINT=12
+        clearInterrupt(interruptLevel);
     }
 
     public int getInterruptLevel() {
