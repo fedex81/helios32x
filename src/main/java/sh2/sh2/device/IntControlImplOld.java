@@ -18,6 +18,7 @@ import static sh2.S32xUtil.*;
 import static sh2.dict.Sh2Dict.RegSpec.*;
 import static sh2.event.SysEventManager.SysEvent.INT;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
+import static sh2.sh2.device.IntControl.Sh2Interrupt.VRES_14;
 
 /**
  * Federico Berti
@@ -179,6 +180,7 @@ public class IntControlImplOld implements IntControl {
             }
         }
         interruptLevel = newLevel;
+        assert interruptLevel != VRES_14.ordinal();
         if (interruptLevel != prev && interruptLevel > 0) {
             Ow2DrcOptimizer.PollerCtx ctx = SysEventManager.instance.getPoller(cpu);
             if (ctx.isPollingActive() && ctx.isPollingBusyLoop()) {
@@ -199,12 +201,10 @@ public class IntControlImplOld implements IntControl {
     }
 
     public void clearCurrentInterrupt() {
-        Sh2Interrupt intType = intVals[interruptLevel];
-        //TODO check internal vs external
-        //only autoclear external (ie.DMA,SCI, etc) interrupts
-        if (intType.internal == 0) {
-            clearInterrupt(interruptLevel);
-        }
+        //only autoclear external (ie.DMA,SCI, etc) interrupts? NO
+        //36 Great Holes Starring Fred Couples (Prototype - Nov 05, 1994) (32X).32x
+        //doesn't clear VINT=12
+        clearInterrupt(interruptLevel);
     }
 
     public int getInterruptLevel() {

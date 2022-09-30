@@ -17,6 +17,7 @@ import static sh2.dict.Sh2Dict.RegSpec.*;
 import static sh2.sh2.device.IntControl.OnChipSubType.DMA_C0;
 import static sh2.sh2.device.IntControl.OnChipSubType.RXI;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
+import static sh2.sh2.device.IntControl.Sh2Interrupt.VRES_14;
 import static sh2.sh2.device.IntControl.Sh2InterruptSource.getSh2InterruptSource;
 import static sh2.sh2.device.IntControl.Sh2InterruptSource.vals;
 import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.*;
@@ -221,6 +222,7 @@ public class IntControlImplNew implements IntControl {
         } else {
             currentInterrupt = LEV_0;
         }
+        assert currentInterrupt.level != VRES_14.ordinal();
     }
 
     public void clearInterrupt(Sh2Interrupt intType) {
@@ -235,11 +237,11 @@ public class IntControlImplNew implements IntControl {
     }
 
     public void clearCurrentInterrupt() {
-        //only autoclear onChip (ie.DMA,SCI, etc) interrupts
-        if (currentInterrupt.source.externalInterrupt.internal == 0) {
-            clearInterrupt(currentInterrupt);
-            currentInterrupt = LEV_0;
-        }
+        //only autoclear external (ie.DMA,SCI, etc) interrupts? NO
+        //36 Great Holes Starring Fred Couples (Prototype - Nov 05, 1994) (32X).32x
+        //doesn't clear VINT=12
+        clearInterrupt(currentInterrupt);
+        currentInterrupt = LEV_0;  //TODO really??
     }
 
     public InterruptContext getInterruptContext() {

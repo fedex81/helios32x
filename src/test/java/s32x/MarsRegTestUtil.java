@@ -81,18 +81,18 @@ public class MarsRegTestUtil {
         return new BiosHolder(bd);
     }
 
-    public static int readBus(Sh2LaunchContext lc, CpuDeviceAccess sh2Access, int reg, Size size) {
-        Md32xRuntimeData.setAccessTypeExt(sh2Access);
-        if (sh2Access == M68K) {
+    public static int readBus(Sh2LaunchContext lc, CpuDeviceAccess cpu, int reg, Size size) {
+        Md32xRuntimeData.setAccessTypeExt(cpu);
+        if (cpu == M68K || cpu == Z80) {
             return (int) lc.bus.read(reg, size);
         } else {
             return lc.memory.read(reg, size);
         }
     }
 
-    public static void writeBus(Sh2LaunchContext lc, CpuDeviceAccess sh2Access, int reg, int data, Size size) {
-        Md32xRuntimeData.setAccessTypeExt(sh2Access);
-        if (sh2Access == M68K) {
+    public static void writeBus(Sh2LaunchContext lc, CpuDeviceAccess cpu, int reg, int data, Size size) {
+        Md32xRuntimeData.setAccessTypeExt(cpu);
+        if (cpu == M68K || cpu == Z80) {
             lc.bus.write(reg, data, size);
         } else {
             lc.memory.write(reg, data, size);
