@@ -362,10 +362,13 @@ public class S32xDict {
 
     public static String decodeComm(int valueMem) {
         String s1 = "";
-        if (valueMem > 0x10_00_00_00) { //might be ASCII
+        if (valueMem > 0x10_00_00_00) { //LONG might be ASCII
             s1 = "'" + (char) ((valueMem & 0xFF000000) >> 24) +
                     (char) ((valueMem & 0x00FF0000) >> 16) +
                     (char) ((valueMem & 0x0000FF00) >> 8) +
+                    (char) ((valueMem & 0x000000FF) >> 0) + "'";
+        } else if ((valueMem & 0xFFFF) > 0x10_00) { //WORD might be ASCII
+            s1 = "'" + (char) ((valueMem & 0x0000FF00) >> 8) +
                     (char) ((valueMem & 0x000000FF) >> 0) + "'";
         }
         return s1;

@@ -15,6 +15,7 @@ import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.dict.Sh2Dict.RegSpec.*;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
+import static sh2.sh2.device.IntControl.Sh2Interrupt.VRES_14;
 
 /**
  * Federico Berti
@@ -185,6 +186,7 @@ public class IntControl implements Sh2Device {
             }
         }
         interruptLevel = newLevel;
+        assert interruptLevel != VRES_14.internal;
     }
 
     public void clearInterrupt(Sh2Interrupt intType) {

@@ -57,6 +57,7 @@ public class Sh2Impl implements Sh2 {
 	}
 
 	public static boolean tasReadNoCache = true;
+	private int stackCheck = 0;
 
 	public void reset(Sh2Context ctx) {
 		Md32xRuntimeData.setAccessTypeExt(ctx.cpuAccess);
@@ -70,6 +71,7 @@ public class Sh2Impl implements Sh2 {
 
 	//push to stack
 	private void push(int data) {
+		assert --stackCheck > -STACK_LIMIT_SIZE : toStackErrorStr();
 		ctx.registers[15] -= 4;
 		memory.write32(ctx.registers[15], data);
 //		System.out.println(ctx.sh2TypeCode + " PUSH SP: " + th(ctx.registers[15])
@@ -78,6 +80,7 @@ public class Sh2Impl implements Sh2 {
 
 	//pop from stack
 	private int pop() {
+		assert ++stackCheck < STACK_LIMIT_SIZE : toStackErrorStr();
 		int res = memory.read32(ctx.registers[15]);
 //		System.out.println(ctx.cpuAccess + " POP SP: " + Integer.toHexString(ctx.registers[15])
 //				+ "," + Integer.toHexString(res));
@@ -2419,5 +2422,9 @@ public class Sh2Impl implements Sh2 {
 
 	public void setCtx(Sh2Context ctx) {
 		this.ctx = ctx;
+	}
+
+	private String toStackErrorStr() {
+		return "Stack too deep: " + stackCheck + "\n" + ctx + "\n" + Sh2Helper.toDebuggingString(ctx);
 	}
 }

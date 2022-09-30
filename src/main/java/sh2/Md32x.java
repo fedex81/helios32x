@@ -44,7 +44,9 @@ public class Md32x extends Genesis {
     protected final static int SH2_CYCLE_RATIO = 3;
     private Md32xRuntimeData rt;
     private static final double SH2_CYCLE_DIV = 1 / Double.parseDouble(System.getProperty("helios.32x.sh2.cycle.div", "3.0"));
+    private static final int SH2_SLEEP_CYCLE = -10000;
     private static final int CYCLE_TABLE_LEN_MASK = 0xFF;
+
     private final static int[] sh2CycleTable = new int[CYCLE_TABLE_LEN_MASK + 1];
 
     static {
@@ -56,11 +58,9 @@ public class Md32x extends Genesis {
         //NOTE: for max compat use 1
         SH2_CYCLES_PER_STEP = Integer.parseInt(System.getProperty("helios.32x.sh2.cycles", "32")); //32;
         Sh2Context.burstCycles = SH2_CYCLES_PER_STEP;
-//        System.setProperty("68k.debug", "false");
+//        System.setProperty("68k.debug", "true");
+//        System.setProperty("helios.68k.debug.mode", "2");
 //        System.setProperty("helios.68k.busy.loop", "false");
-//        if(System.getProperty("68k.debug").startsWith("t")) {
-//            System.setProperty("helios.68k.debug.mode", "0"); //0-NONE, 1-INST_ONLY, 2-NEW_INST_ONLY, 3-STATE
-//        }
 //        System.setProperty("z80.debug", "true");
 //        System.setProperty("helios.z80.debug.mode", "2");
 //        System.setProperty("sh2.master.debug", "true");
@@ -182,10 +182,7 @@ public class Md32x extends Genesis {
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
             nextSSh2Cycle += sh2CycleTable[slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK];
         }
-        if (S32XMMREG.resetSh2) {
-            nextMSh2Cycle = nextSSh2Cycle = Integer.MAX_VALUE;
-            return;
-        }
+        handleReset();
     }
 
     private void runDevices() {
@@ -196,6 +193,18 @@ public class Md32x extends Genesis {
         Md32xRuntimeData.resetCpuDelayExt();
         ctx.mDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
         ctx.sDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
+    }
+
+    private void handleReset() {
+        if (S32XMMREG.resetSh2 && nextMSh2Cycle >= 0) {
+            nextMSh2Cycle = nextSSh2Cycle = SH2_SLEEP_CYCLE;
+            LOG.info("Sh2s reset on");
+        } else if (!S32XMMREG.resetSh2 && nextMSh2Cycle < 0) {
+            assert nextSSh2Cycle < 0;
+            nextMSh2Cycle = 0; //SH2 starts on next vblank
+            nextSSh2Cycle = 0;
+            LOG.info("Sh2s reset off");
+        }
     }
 
     @Override
@@ -220,13 +229,17 @@ public class Md32x extends Genesis {
     @Override
     protected void resetCycleCounters(int counter) {
         super.resetCycleCounters(counter);
-        nextMSh2Cycle = Math.max(1, nextMSh2Cycle - counter);
-        nextSSh2Cycle = Math.max(1, nextMSh2Cycle - counter);
         //NOTE Sh2s will only start at the next vblank, not immediately when aden switches
-        nextSSh2Cycle = nextMSh2Cycle = ctx.s32XMMREG.aden & 1;
+        if (nextMSh2Cycle >= 0) {
+            nextMSh2Cycle = Math.max(ctx.s32XMMREG.aden & 1, nextMSh2Cycle - counter);
+        }
+        if (nextSSh2Cycle >= 0) {
+            nextSSh2Cycle = Math.max(ctx.s32XMMREG.aden & 1, nextSSh2Cycle - counter);
+        }
         ctx.pwm.newFrame();
         ctx.mDevCtx.sh2MMREG.newFrame();
         ctx.sDevCtx.sh2MMREG.newFrame();
+        if (verbose) LOG.info("New frame");
     }
 
     @Override

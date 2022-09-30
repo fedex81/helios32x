@@ -9,20 +9,22 @@ import omegadrive.Device;
  */
 public interface Sh2 extends Device {
 
-    public static final int posT = 0;
-    public static final int posS = 1;
-    public static final int posQ = 8;
-    public static final int posM = 9;
+    int posT = 0;
+    int posS = 1;
+    int posQ = 8;
+    int posM = 9;
 
-    public static final int flagT = 1 << posT;
-    public static final int flagS = 1 << posS;
-    public static final int flagIMASK = 0x000000f0;
-    public static final int flagQ = 1 << posQ;
-    public static final int flagM = 1 << posM;
+    int flagT = 1 << posT;
+    int flagS = 1 << posS;
+    int flagIMASK = 0x000000f0;
+    int flagQ = 1 << posQ;
+    int flagM = 1 << posM;
 
-    public static final int SR_MASK = 0x3F3;
+    int SR_MASK = 0x3F3;
 
-    public static final int ILLEGAL_INST_VN = 4; //vector number
+    int ILLEGAL_INST_VN = 4; //vector number
+
+    int STACK_LIMIT_SIZE = 0x1000;
 
     void reset(Sh2Context context);
 
