@@ -48,6 +48,7 @@ public class Sh2Impl implements Sh2 {
 
 	protected Sh2Context ctx;
 	protected IMemory memory;
+	private int stackCheck = 0;
 	protected final Sh2Config sh2Config;
 	protected final Sh2InstructionWrapper[] opcodeMap;
 
@@ -207,6 +208,7 @@ public class Sh2Impl implements Sh2 {
 
 	//push to stack
 	private void push(int data) {
+//		assert --stackCheck > -STACK_LIMIT_SIZE : toStackErrorStr();
 		ctx.registers[15] -= 4;
 		memory.write32(ctx.registers[15], data);
 //		System.out.println(ctx.sh2Access + " PUSH SP: " + Integer.toHexString(ctx.registers[15])
@@ -215,6 +217,7 @@ public class Sh2Impl implements Sh2 {
 
 	//pop from stack
 	private int pop() {
+//		assert ++stackCheck < STACK_LIMIT_SIZE : toStackErrorStr();
 		int res = memory.read32(ctx.registers[15]);
 //		System.out.println(ctx.cpuAccess + " POP SP: " + Integer.toHexString(ctx.registers[15])
 //				+ "," + Integer.toHexString(res));
@@ -1881,5 +1884,9 @@ public class Sh2Impl implements Sh2 {
 		//TODO check +4??, T-Mek indicates nope
 		ctx.PC = memory.read32(ctx.VBR + (imm << 2));
 		ctx.cycles -= 8;
+	}
+
+	private String toStackErrorStr() {
+		return "Stack too deep: " + stackCheck + "\n" + ctx + "\n" + Sh2Helper.toDebuggingString(ctx);
 	}
 }

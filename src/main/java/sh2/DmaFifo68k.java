@@ -50,9 +50,9 @@ public class DmaFifo68k {
 
     public int read(RegSpecS32x regSpec, CpuDeviceAccess cpu, int address, Size size) {
         int res = (int) size.getMask();
-        assert cpu != Z80;
         switch (cpu) {
             case M68K:
+            case Z80:
                 res = read68k(address, size);
                 break;
             case MASTER:
@@ -73,6 +73,7 @@ public class DmaFifo68k {
         }
         switch (cpu) {
             case M68K:
+            case Z80:
                 write68k(regSpec, address, value, size);
                 break;
             default:

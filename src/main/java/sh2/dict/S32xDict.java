@@ -295,8 +295,7 @@ public class S32xDict {
                         s1, value & 3, value, size.name(), evenOdd);
                 break;
             case SH2_INT_MASK:
-                assert logCtx.sh2Access != Z80;
-                if (logCtx.sh2Access == CpuDeviceAccess.M68K) {
+                if (logCtx.sh2Access == S32xUtil.CpuDeviceAccess.M68K) {
                     s = String.format(sformat, logCtx.sh2Access, type, regSpec.name,
                             "[RESET: " + ((value & 3) >> 1) + ", ADEN: " + (value & 1) + "]", value & 3,
                             value, size.name(), evenOdd);
@@ -367,10 +366,13 @@ public class S32xDict {
 
     public static String decodeComm(int valueMem) {
         String s1 = "";
-        if (valueMem > 0x10_00_00_00) { //might be ASCII
+        if (valueMem > 0x10_00_00_00) { //LONG might be ASCII
             s1 = "'" + (char) ((valueMem & 0xFF000000) >> 24) +
                     (char) ((valueMem & 0x00FF0000) >> 16) +
                     (char) ((valueMem & 0x0000FF00) >> 8) +
+                    (char) ((valueMem & 0x000000FF) >> 0) + "'";
+        } else if ((valueMem & 0xFFFF) > 0x10_00) { //WORD might be ASCII
+            s1 = "'" + (char) ((valueMem & 0x0000FF00) >> 8) +
                     (char) ((valueMem & 0x000000FF) >> 0) + "'";
         }
         return s1;
