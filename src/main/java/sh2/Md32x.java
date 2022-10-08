@@ -27,7 +27,6 @@ import java.util.Optional;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
-import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 
 /**
  * Federico Berti
@@ -133,7 +132,8 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
     protected final void runSh2() {
         if (nextMSh2Cycle == counter) {
-            assert SysEventManager.currentPollers[0] == NO_POLLER : SysEventManager.currentPollers[0];
+            //TODO
+//            assert SysEventManager.currentPollers[0] == NO_POLLER : SysEventManager.currentPollers[0];
             rt.setAccessType(MASTER);
             sh2.run(masterCtx);
             assert (masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == masterCtx.cycles_ran : masterCtx.cycles_ran;
@@ -141,7 +141,8 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
             nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran];
         }
         if (nextSSh2Cycle == counter) {
-            assert SysEventManager.currentPollers[1] == NO_POLLER : SysEventManager.currentPollers[1];
+            //TODO
+//            assert SysEventManager.currentPollers[1] == NO_POLLER : SysEventManager.currentPollers[1];
             rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
             assert (slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == slaveCtx.cycles_ran : slaveCtx.cycles_ran;
@@ -247,7 +248,9 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
                 if (pc.isPollingActive()) {
                     stopPolling(cpu, event, pc);
                 } else {
-                    LOG.warn("{} {} but polling inactive: {}", cpu, event, pc);
+                    //TODO
+//                    LOG.warn("{} {} but polling inactive: {}", cpu, event, pc);
+                    stopPolling(cpu, event, pc);
                 }
             }
         }

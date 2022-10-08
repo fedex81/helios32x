@@ -54,8 +54,8 @@ public class DmaC implements Sh2Device {
         if (verbose) LOG.info("{} DMA write {}: {} {}", cpu, regSpec.name,
                 Integer.toHexString(value), size);
         writeBuffer(regs, pos, value, size);
-        switch (cpu) {
-            case MASTER, SLAVE -> {
+        switch (cpu.regSide) {
+            case SH2 -> {
                 assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
                 writeSh2(cpu, regSpec, value, size);
             }

@@ -6,9 +6,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.MarsLauncherHelper;
 import sh2.Md32xRuntimeData;
+import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict.RegSpecS32x;
 
-import static s32x.MarsRegTestUtil.MD_ADAPTER_CTRL;
 import static s32x.MarsRegTestUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.M68K;
 import static sh2.S32xUtil.CpuDeviceAccess.Z80;
@@ -61,6 +61,56 @@ public class MdRegsTest {
     public void testZ80CommRegs() {
         RegSpecS32x[] regSpecs = {COMM0, COMM1, COMM2, COMM3, COMM4, COMM5, COMM6, COMM7};
         testZ80RegsInternal(regSpecs);
+    }
+
+    @Test
+    public void testMasking() {
+        testMasking(M68K);
+        testMasking(Z80);
+    }
+
+    private void testMasking(CpuDeviceAccess cpu) {
+        setAdenMdSide(true);
+
+        RegSpecS32x[] regSpecs = {MD_ADAPTER_CTRL, MD_INT_CTRL, MD_BANK_SET, MD_DMAC_CTRL};
+        //ignore aden
+        int[] ignoreBitmask = {0xFFFE, 0xFFFF, 0xFFFF, 0xFFFF};
+
+        for (int k = 0; k < regSpecs.length; k++) {
+            int andMask = regSpecs[k].writeAndMask;
+            int orMask = regSpecs[k].writeOrMask;
+            int ignoreMask = ignoreBitmask[k];
+            int regAddr = M68K_START_32X_SYSREG | regSpecs[k].addr;
+            System.out.println(regSpecs[k]);
+            writeBus(lc, cpu, regAddr, 0, Size.WORD);
+            for (int i = 0; i <= 0xFFFF; i++) {
+//                System.out.println(i);
+                int res = 0, exp = 0;
+                //word
+                if (cpu == M68K) {
+                    exp = ((i & andMask) | orMask) & ignoreMask;
+                    writeBus(lc, cpu, regAddr, i, Size.WORD);
+                    res = readBus(lc, cpu, regAddr, Size.WORD) & ignoreMask;
+                    Assertions.assertEquals(exp & ignoreMask, res & ignoreMask);
+                }
+                writeBus(lc, cpu, regAddr, 0, Size.WORD);
+                if (i < 0x100) {
+                    exp = (((i >> 8) & andMask) | orMask) & ignoreMask;
+                    //byte #0
+                    writeBus(lc, cpu, regAddr, 0, Size.BYTE);
+                    writeBus(lc, cpu, regAddr, i >> 8, Size.BYTE);
+                    res = readBus(lc, M68K, regAddr, Size.WORD) & ignoreMask;
+                    Assertions.assertEquals(exp, res);
+
+                    //byte #1
+                    exp = (((i & 0xFF) & andMask) | orMask) & ignoreMask;
+                    writeBus(lc, cpu, regAddr + 1, 0, Size.BYTE);
+                    writeBus(lc, cpu, regAddr + 1, i & 0xFF, Size.BYTE);
+                    res = readBus(lc, M68K, regAddr, Size.WORD) & ignoreMask;
+                    Assertions.assertEquals(exp, res);
+                }
+            }
+        }
     }
 
     private void testZ80RegsInternal(RegSpecS32x[] regSpecs) {
@@ -170,8 +220,8 @@ public class MdRegsTest {
 
     private void setAdenMdSide(boolean enable) {
         int val = enable ? 1 : 0;
-        int md0 = readBus(lc, M68K, MD_ADAPTER_CTRL, Size.WORD);
-        writeBus(lc, M68K, MD_ADAPTER_CTRL, md0 | val, Size.WORD);
+        int md0 = readBus(lc, M68K, MD_ADAPTER_CTRL_REG, Size.WORD);
+        writeBus(lc, M68K, MD_ADAPTER_CTRL_REG, md0 | val, Size.WORD);
         checkAden(lc, val);
     }
 }

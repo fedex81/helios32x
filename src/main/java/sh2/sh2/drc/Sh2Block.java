@@ -185,7 +185,24 @@ public class Sh2Block {
         curr = prev;
     }
 
+    //TODO rewrite, corner case:
 
+    /**
+     * 6007656 = 1, spinCount < 3
+     * <p>
+     * SLAVE Poll detected at PC 6000ba0: 6007656 SDRAM
+     * 06000ba0	c539	mov.w @(57, GBR), R0  //spinCount = 1
+     * 00000ba2	8800	cmp/eq H'00, R0
+     * 00000ba4	8bfc	bf H'00000ba0 //no branch
+     * [...]
+     * 06000ba0	c539	mov.w @(57, GBR), R0 //spinCount = 2
+     * 00000ba2	8800	cmp/eq H'00, R0
+     * 00000ba4	8bfc	bf H'00000ba0 //no branch
+     * [...]
+     * 06000ba0	c539	mov.w @(57, GBR), R0 //spinCount = 3, this is detected as POLLING!!!
+     * 00000ba2	8800	cmp/eq H'00, R0
+     * 00000ba4	8bfc	bf H'00000ba0
+     */
     private void handlePoll() {
         if (!isPollingBlock()) {
             final Ow2DrcOptimizer.PollerCtx current = SysEventManager.instance.getPoller(drcContext.cpu);
@@ -200,13 +217,13 @@ public class Sh2Block {
             Ow2DrcOptimizer.PollerCtx pctx = piw.poller;
             if (pctx != NO_POLLER) {
                 pctx.spinCount++;
+                SysEventManager.instance.setPoller(drcContext.cpu, pctx);
                 if (pctx.spinCount < 3) {
                     if (verbose)
                         LOG.info("{} avoid re-entering {} poll at PC {}, on address: {}", this.drcContext.cpu, piw.block.pollType,
                                 th(this.prefetchPc), th(pctx.blockPollData.memLoadTarget));
                     return;
                 }
-                SysEventManager.instance.setPoller(drcContext.cpu, pctx);
                 if (verbose)
                     LOG.info("{} entering {} poll at PC {}, on address: {}", this.drcContext.cpu, piw.block.pollType,
                             th(this.prefetchPc), th(pctx.blockPollData.memLoadTarget));
@@ -218,7 +235,11 @@ public class Sh2Block {
                 pollType = PollType.NONE;
             }
         } else if (!pollerCtx.isPollingActive()) {
-            throw new RuntimeException("Unexpected, inactive poller: " + pollerCtx);
+            if (pollerCtx.spinCount > 0) {
+                SysEventManager.instance.resetPoller(drcContext.cpu);
+            } else {
+                throw new RuntimeException("Unexpected, inactive poller: " + pollerCtx);
+            }
         }
     }
 

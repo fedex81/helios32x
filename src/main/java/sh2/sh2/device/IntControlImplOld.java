@@ -204,7 +204,9 @@ public class IntControlImplOld implements IntControl {
         //only autoclear external (ie.DMA,SCI, etc) interrupts? NO
         //36 Great Holes Starring Fred Couples (Prototype - Nov 05, 1994) (32X).32x
         //doesn't clear VINT=12
+//        if(intVals[interruptLevel].internal == 0) {
         clearInterrupt(interruptLevel);
+//        }
     }
 
     public int getInterruptLevel() {

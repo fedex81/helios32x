@@ -21,6 +21,7 @@ import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Objects;
 
 import static omegadrive.util.Util.th;
 import static org.objectweb.asm.Opcodes.*;
@@ -57,7 +58,7 @@ public class Ow2Sh2BlockRecompiler {
      */
     public static Ow2Sh2BlockRecompiler newInstance(String token) {
         boolean firstOne = current == null;
-        boolean newOne = firstOne || current.token != token;
+        boolean newOne = firstOne || Objects.equals(current.token, token);
         if (newOne) {
             Ow2Sh2BlockRecompiler recompiler = new Ow2Sh2BlockRecompiler();
             recompiler.token = token;
@@ -83,11 +84,11 @@ public class Ow2Sh2BlockRecompiler {
         byte[] binc = createClassBinary(block, drcCtx, blockClass);
         writeClassMaybe(blockClass, binc);
         Class<?> clazz = cl.defineClass(blockClass, binc);
-        Runnable r = null;
+        Runnable r;
         try {
             Object b = clazz.getDeclaredConstructor(int[].class, int[].class, Sh2DrcContext.class).
                     newInstance(drcCtx.sh2Ctx.registers, block.prefetchWords, drcCtx);
-            assert Runnable.class.isInstance(b);
+            assert b instanceof Runnable;
             r = (Runnable) b;
         } catch (Exception e) {
             e.printStackTrace();
@@ -117,7 +118,7 @@ public class Ow2Sh2BlockRecompiler {
                     Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(int[].class), Type.getType(int[].class),
                             Type.getType(Sh2DrcContext.class)), null, null);
             mv.visitVarInsn(ALOAD, 0); // push `this` to the operand stack
-            mv.visitMethodInsn(INVOKESPECIAL, Type.getInternalName(Object.class), classConstructor, noArgsNoRetDesc);// call the constructor of super class
+            mv.visitMethodInsn(INVOKESPECIAL, Type.getInternalName(Object.class), classConstructor, noArgsNoRetDesc, false);// call the constructor of super class
             {
                 //set fields
                 setClassField(mv, blockClassDesc, 1, regs, intArrayDesc);
@@ -212,7 +213,11 @@ public class Ow2Sh2BlockRecompiler {
         if (!writeClass) {
             return;
         }
-        drcFolder.toFile().mkdirs();
+        boolean res = drcFolder.toFile().mkdirs();
+        if (!res) {
+            LOG.error("Unable to log files to: {}", drcFolder.toFile());
+            return;
+        }
         Path p = Paths.get(drcFolder.toAbsolutePath().toString(), (blockClass + ".class"));
         Path bc = Paths.get(drcFolder.toAbsolutePath().toString(), (blockClass + ".bytecode"));
         Util.executorService.submit(() -> {
@@ -225,7 +230,7 @@ public class Ow2Sh2BlockRecompiler {
     }
 
     private static void printSource(Path file, byte[] code) {
-        ClassReader reader = null;
+        ClassReader reader;
         try {
             FileWriter fileWriter = new FileWriter(file.toFile());
             PrintWriter pw = new PrintWriter(fileWriter);

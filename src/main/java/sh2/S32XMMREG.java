@@ -272,19 +272,19 @@ public class S32XMMREG implements Device {
     }
 
     private boolean handleReg4Write(CpuDeviceAccess cpu, int reg, int value, Size size) {
-        ByteBuffer b = cpu == M68K || cpu == Z80 ? sysRegsMd : sysRegsSh2;
-        return writeBufferHasChanged(b, reg, value, size);
+        return switch (cpu.regSide) {
+            case MD -> writeBufferHasChangedWithMask(MD_BANK_SET, sysRegsMd, reg, value, size);
+            case SH2 -> writeBufferHasChangedWithMask(SH2_HCOUNT_REG, sysRegsSh2, reg, value, size);
+        };
     }
 
     private boolean handleReg2Write(CpuDeviceAccess cpu, int reg, int value, Size size) {
         boolean res = false;
-        switch (cpu) {
-            case M68K:
-            case Z80:
+        switch (cpu.regSide) {
+            case MD:
                 res = handleIntControlWriteMd(reg, value, size);
                 break;
-            case SLAVE:
-            case MASTER:
+            case SH2:
                 res = writeBufferHasChanged(sysRegsSh2, reg, value, size);
                 break;
         }
@@ -292,28 +292,25 @@ public class S32XMMREG implements Device {
     }
 
     private boolean handleIntControlWriteMd(int reg, int value, Size size) {
-        boolean changed = writeBufferHasChanged(sysRegsMd, reg, value, size);
+        boolean changed = writeBufferHasChangedWithMask(MD_INT_CTRL, sysRegsMd, reg, value, size);
         if (changed) {
-            int newVal = readBuffer(sysRegsMd, MD_INT_CTRL.addr + 1, Size.BYTE);
+            int newVal = readBuffer(sysRegsMd, MD_INT_CTRL.addr, Size.WORD);
             boolean intm = (newVal & 1) > 0;
             boolean ints = (newVal & 2) > 0;
             interruptControls[0].setIntPending(CMD_8, intm);
             interruptControls[1].setIntPending(CMD_8, ints);
 //            writeBufferWord(MD_INT_CTRL, 0); //TODO autoclear?? Blackthorne sound works better
-            //TODO mask unused bits?
         }
         return changed;
     }
 
     private boolean handleReg0Write(CpuDeviceAccess cpu, int reg, int value, Size size) {
         boolean res = false;
-        switch (cpu) {
-            case M68K:
-            case Z80:
+        switch (cpu.regSide) {
+            case MD:
                 res = handleAdapterControlRegWriteMd(reg, value, size);
                 break;
-            case SLAVE:
-            case MASTER:
+            case SH2:
                 res = handleIntMaskRegWriteSh2(cpu, reg, value, size);
                 break;
         }
@@ -326,7 +323,8 @@ public class S32XMMREG implements Device {
         int val = readWordFromBuffer(MD_ADAPTER_CTRL);
         writeBufferReg(regContext, MD_ADAPTER_CTRL, reg, value, size);
 
-        int newVal = readWordFromBuffer(MD_ADAPTER_CTRL) | P32XS_REN; //force REN
+        int newVal = (readWordFromBuffer(MD_ADAPTER_CTRL) & MD_ADAPTER_CTRL.writeAndMask) |
+                MD_ADAPTER_CTRL.writeOrMask; //force REN
         if (aden > 0 && (newVal & 1) == 0) {
             System.out.println("#### Disabling ADEN not allowed");
             newVal |= 1;
@@ -373,7 +371,7 @@ public class S32XMMREG implements Device {
         int baseReg = reg & ~1;
         final IntControl ic = interruptControls[sh2Access.ordinal()];
         int prevW = ic.readSh2IntMaskReg(baseReg, Size.WORD);
-        ic.writeSh2IntMaskReg(reg, value, size);
+        ic.writeSh2IntMaskReg(reg, value & SH2_INT_MASK.writeAndMask, size);
         int newVal = ic.readSh2IntMaskReg(baseReg, Size.WORD) | (cart << 8);
         ic.writeSh2IntMaskReg(baseReg, newVal, Size.WORD);
         updateFmShared(newVal); //68k side r/w too

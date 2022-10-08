@@ -47,10 +47,10 @@ public class S32xDict {
     }
 
     public enum RegSpecS32x {
-        SH2_INT_MASK(SYS, 0),   //Interrupt Mask
+        SH2_INT_MASK(SYS, 0, 0x808F, 0),   //Interrupt Mask
         SH2_STBY_CHANGE(SYS, 2),   //StandBy Changer Register
-        SH2_HCOUNT_REG(SYS, 4), //H Count Register
-        SH2_DREQ_CTRL(DMA, 6), //DREQ Control Reg.
+        SH2_HCOUNT_REG(SYS, 4, 0xFF, 0), //H Count Register
+        SH2_DREQ_CTRL(DMA, 6, 0, 0), //DREQ Control Reg.
         SH2_DREQ_SRC_ADDR_H(DMA, 8),
         SH2_DREQ_SRC_ADDR_L(DMA, 0xA),
         SH2_DREQ_DEST_ADDR_H(DMA, 0xC),
@@ -63,10 +63,10 @@ public class S32xDict {
         SH2_CMD_INT_CLEAR(SYS, 0x1A),
         SH2_PWM_INT_CLEAR(SYS, 0x1C),
 
-        MD_ADAPTER_CTRL(SYS, 0),
-        MD_INT_CTRL(SYS, 2),  //Interrupt Control Register
-        MD_BANK_SET(SYS, 4),  //Bank Set Register
-        MD_DMAC_CTRL(DMA, 6), //Transfers Data to SH2 DMAC
+        MD_ADAPTER_CTRL(SYS, 0, 0x8003, 0x80),
+        MD_INT_CTRL(SYS, 2, 0x3, 0),  //Interrupt Control Register
+        MD_BANK_SET(SYS, 4, 0x3, 0),  //Bank Set Register
+        MD_DMAC_CTRL(DMA, 6, 0x7, 0), //Transfers Data to SH2 DMAC
         MD_DREQ_SRC_ADDR_H(DMA, 8),
         MD_DREQ_SRC_ADDR_L(DMA, 0xA),
         MD_DREQ_DEST_ADDR_H(DMA, 0xC),
@@ -104,11 +104,14 @@ public class S32xDict {
         public final int fullAddress, addr, addrMask;
         public final String name;
         public final Size size;
+        public final int writeAndMask, writeOrMask;
         public final int deviceAccessTypeDelay;
 
         //defaults to 16 bit wide register
-        private RegSpecS32x(S32xRegType deviceType, int addr) {
+        RegSpecS32x(S32xRegType deviceType, int addr, int writeAndMask, int writeOrMask) {
             this.fullAddress = addr;
+            this.writeAndMask = writeAndMask;
+            this.writeOrMask = writeOrMask;
             this.addrMask = (deviceType != VDP ? S32X_REG_MASK : S32X_VDP_REG_MASK);
             this.addr = addr & addrMask;
             this.name = name();
@@ -118,6 +121,10 @@ public class S32xDict {
             this.regCpuType = deviceType == NONE || deviceType == COMM || deviceType == PWM || deviceType == VDP ? S32xRegCpuType.REG_BOTH :
                     S32xRegCpuType.valueOf("REG_" + name.split("_")[0]);
             init();
+        }
+
+        RegSpecS32x(S32xRegType deviceType, int addr) {
+            this(deviceType, addr, 0xFFFF, 0);
         }
 
         private void init() {

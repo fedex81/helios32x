@@ -24,8 +24,6 @@ import static sh2.dict.S32xDict.RegSpecS32x.*;
 public class DmaFifo68k {
 
     private static final Logger LOG = LogHelper.getLogger(DmaFifo68k.class.getSimpleName());
-
-    private static final int FIFO_REG_M68K = 0xA15100 + MD_FIFO_REG.addr;
     public static final int M68K_FIFO_FULL_BIT = 7;
     public static final int M68K_68S_BIT_POS = 2;
     public static final int SH2_FIFO_FULL_BIT = 15;
@@ -49,17 +47,10 @@ public class DmaFifo68k {
     }
 
     public int read(RegSpecS32x regSpec, CpuDeviceAccess cpu, int address, Size size) {
-        int res = (int) size.getMask();
-        switch (cpu) {
-            case M68K:
-            case Z80:
-                res = read68k(address, size);
-                break;
-            case MASTER:
-            case SLAVE:
-                res = readSh2(regSpec, address, size);
-                break;
-        }
+        int res = switch (cpu.regSide) {
+            case MD -> readMd(address, size);
+            case SH2 -> readSh2(regSpec, address, size);
+        };
         if (verbose) LOG.info("{} DMA read {}: {} {}", cpu, regSpec.name, th(res), size);
         return res;
     }
@@ -71,10 +62,9 @@ public class DmaFifo68k {
             LOG.error("{} DMA write {}: {} {}", cpu, regSpec.name, th(value), size);
             throw new RuntimeException();
         }
-        switch (cpu) {
-            case M68K:
-            case Z80:
-                write68k(regSpec, address, value, size);
+        switch (cpu.regSide) {
+            case MD:
+                writeMd(regSpec, address, value, size);
                 break;
             default:
                 LOG.error("Invalid {} DMA write {}: {} {}", cpu, regSpec.name, th(value), size);
@@ -82,13 +72,14 @@ public class DmaFifo68k {
         }
     }
 
-    private void write68k(RegSpecS32x regSpec, int address, int value, Size size) {
+    private void writeMd(RegSpecS32x regSpec, int address, int value, Size size) {
         switch (regSpec) {
             case MD_DMAC_CTRL:
-                handleDreqCtlWrite68k(address, value, size);
+                handleDreqCtlWriteMd(address, value, size);
                 break;
             case MD_FIFO_REG:
-                handleFifoRegWrite68k(value, size);
+                handleFifoRegWriteMd(value, size);
+                writeBuffer(sysRegsMd, address, value, size);
                 break;
             case MD_DREQ_LEN:
                 value &= M68K_DMA_FIFO_LEN_MASK;
@@ -97,6 +88,8 @@ public class DmaFifo68k {
             case MD_DREQ_DEST_ADDR_L:
             case MD_DREQ_SRC_ADDR_H:
             case MD_DREQ_SRC_ADDR_L:
+                assert size != Size.BYTE;
+                //TODO mask for word and long writes
                 writeBuffer(sysRegsMd, address, value, size);
                 writeBuffer(sysRegsSh2, address, value, size);
                 break;
@@ -104,12 +97,11 @@ public class DmaFifo68k {
                 LOG.error("{} check DMA write {}: {} {}", M68K, regSpec.name, th(value), size);
                 break;
         }
-        writeBuffer(sysRegsMd, address, value, size);
     }
 
-    private void handleDreqCtlWrite68k(int reg, int value, Size size) {
+    private void handleDreqCtlWriteMd(int reg, int value, Size size) {
         assert size != Size.LONG;
-        boolean changed = writeBufferHasChanged(sysRegsMd, reg, value, size);
+        boolean changed = writeBufferHasChangedWithMask(MD_DMAC_CTRL, sysRegsMd, reg, value, size);
         if (changed) {
             int res = readBuffer(sysRegsMd, MD_DMAC_CTRL.addr, Size.WORD);
             boolean wasDmaOn = m68S;
@@ -117,6 +109,7 @@ public class DmaFifo68k {
             rv = (res & 1) > 0;
             //sync sh2 reg
             writeBuffer(sysRegsSh2, SH2_DREQ_CTRL.addr + 1, res & 7, Size.BYTE);
+            //TODO bit 1 is unused? picodrive calls it DMA
             if (verbose) LOG.info("{} write DREQ_CTL, dmaOn: {} , RV: {}", M68K, m68S, rv);
             if (wasDmaOn && !m68S) {
                 LOG.info("{} Setting 68S = 0, stops DMA while running", M68K);
@@ -126,7 +119,7 @@ public class DmaFifo68k {
         }
     }
 
-    private void handleFifoRegWrite68k(int value, Size size) {
+    private void handleFifoRegWriteMd(int value, Size size) {
         assert size == Size.WORD;
         if (m68S) {
             if (!fifo.isFull()) {
@@ -177,7 +170,7 @@ public class DmaFifo68k {
         }
     }
 
-    private int read68k(int reg, Size size) {
+    private int readMd(int reg, Size size) {
         return readBuffer(sysRegsMd, reg, size);
     }
 

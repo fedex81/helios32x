@@ -149,9 +149,8 @@ public class Pwm implements StepDevice {
     }
 
     private void handlePwmControl(CpuDeviceAccess cpu, int reg, int value, Size size) {
-        switch (cpu) {
-            case Z80:
-            case M68K:
+        switch (cpu.regSide) {
+            case MD:
                 handlePwmControlMd(cpu, reg, value, size);
                 break;
             default:

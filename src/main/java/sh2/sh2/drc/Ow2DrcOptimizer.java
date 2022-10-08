@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
+import org.slf4j.event.Level;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xDict.S32xRegType;
@@ -36,7 +37,8 @@ public class Ow2DrcOptimizer {
     private final static Logger LOG = LogHelper.getLogger(Ow2DrcOptimizer.class.getSimpleName());
 
     //toggle poll detection but keep busyLoop detection enabled
-    private final static boolean ENABLE_POLL_DETECT = false;
+    private final static boolean ENABLE_POLL_DETECT = true;
+    private final static boolean LOG_POLL_DETECT = false;
     public static final Map<S32xRegType, PollType> ptMap = ImmutableMap.of(
             S32xRegType.DMA, DMA,
             S32xRegType.PWM, PWM,
@@ -375,8 +377,9 @@ public class Ow2DrcOptimizer {
             }
             log |= bpd.branchDestPc == bpd.pc;
             log |= bpd.memLoadTargetSize == null && block.pollType != UNKNOWN;
-            if (log) {
-                LOG.info("{} Poll {} at PC {}: {} {}\n{}", block.drcContext.cpu,
+            if (LOG_POLL_DETECT && log) {
+                LOG.makeLoggingEventBuilder(supported ? Level.INFO : Level.ERROR).log(
+                        "{} Poll {} at PC {}: {} {}\n{}", block.drcContext.cpu,
                         supported ? "detected" : "ignored", th(block.prefetchPc),
                         th(bpd.memLoadTarget), block.pollType,
                         Sh2Helper.toListOfInst(block));
@@ -386,7 +389,6 @@ public class Ow2DrcOptimizer {
                     Sh2Helper.toListOfInst(block));
             block.pollType = BUSY_LOOP;
             pctx.event = SysEvent.INT;
-            supported = true;
             toSet = pctx;
         }
         if (block.pollType == UNKNOWN) {

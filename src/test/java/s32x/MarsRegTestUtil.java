@@ -33,7 +33,7 @@ public class MarsRegTestUtil {
     public static final int SH2_FBCR_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + FBCR.addr;
     public static final int SH2_BITMAP_MODE_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + VDP_BITMAP_MODE.addr;
     public static final int SH2_INT_MASK = START_32X_SYSREG_CACHE + S32xDict.RegSpecS32x.SH2_INT_MASK.addr;
-    public static final int MD_ADAPTER_CTRL = M68K_START_32X_SYSREG + S32xDict.RegSpecS32x.MD_ADAPTER_CTRL.fullAddress;
+    public static final int MD_ADAPTER_CTRL_REG = M68K_START_32X_SYSREG + S32xDict.RegSpecS32x.MD_ADAPTER_CTRL.fullAddress;
     public static int SH2_AFLEN_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + AFLR.addr;
     public static int SH2_AFSAR_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + AFSAR.addr;
     private static final int MD_DMAC_CTRL = M68K_START_32X_SYSREG + S32xDict.RegSpecS32x.MD_DMAC_CTRL.fullAddress;
@@ -142,8 +142,8 @@ public class MarsRegTestUtil {
     }
 
     public static void checkFm(Sh2LaunchContext lc, int exp) {
-        Assertions.assertEquals(exp, (readBus(lc, M68K, MD_ADAPTER_CTRL, Size.WORD) >> 15) & 1);
-        Assertions.assertEquals(exp, (readBus(lc, M68K, MD_ADAPTER_CTRL, Size.BYTE) >> 7) & 1);
+        Assertions.assertEquals(exp, (readBus(lc, M68K, MD_ADAPTER_CTRL_REG, Size.WORD) >> 15) & 1);
+        Assertions.assertEquals(exp, (readBus(lc, M68K, MD_ADAPTER_CTRL_REG, Size.BYTE) >> 7) & 1);
         Assertions.assertEquals(exp, (readBus(lc, MASTER, SH2_INT_MASK, Size.WORD) >> 15) & 1);
         Assertions.assertEquals(exp, (readBus(lc, MASTER, SH2_INT_MASK, Size.BYTE) >> 7) & 1);
         Assertions.assertEquals(exp, (readBus(lc, SLAVE, SH2_INT_MASK, Size.WORD) >> 15) & 1);
@@ -160,8 +160,8 @@ public class MarsRegTestUtil {
     }
 
     public static void checkAden(Sh2LaunchContext lc, int expAden) {
-        Assertions.assertEquals(expAden, readBus(lc, M68K, MD_ADAPTER_CTRL, Size.WORD) & 1);
-        Assertions.assertEquals(expAden, readBus(lc, M68K, MD_ADAPTER_CTRL + 1, Size.BYTE) & 1);
+        Assertions.assertEquals(expAden, readBus(lc, M68K, MD_ADAPTER_CTRL_REG, Size.WORD) & 1);
+        Assertions.assertEquals(expAden, readBus(lc, M68K, MD_ADAPTER_CTRL_REG + 1, Size.BYTE) & 1);
         Assertions.assertEquals(expAden, (readBus(lc, MASTER, SH2_INT_MASK, Size.WORD) >> 9) & 1);
         Assertions.assertEquals(expAden, (readBus(lc, MASTER, SH2_INT_MASK, Size.BYTE) >> 1) & 1);
         Assertions.assertEquals(expAden, (readBus(lc, SLAVE, SH2_INT_MASK, Size.WORD) >> 9) & 1);

@@ -24,6 +24,14 @@ public class S32xUtil {
 
     public static final int[] EMPTY_INT_ARRAY = {};
 
+    public static final boolean assertionsEnabled;
+
+    static {
+        boolean res = false;
+        assert res = true;
+        assertionsEnabled = res;
+    }
+
     public static interface StepDevice extends Device {
         public default void step(int cycles) {
         } //DO NOTHING
@@ -78,6 +86,19 @@ public class S32xUtil {
         writeBuffer(b, pos, value, size);
         int newVal = readBuffer(b, baseReg, Size.WORD);
         return newVal != val;
+    }
+
+    public static boolean writeBufferHasChangedWithMask(S32xDict.RegSpecS32x regSpec, ByteBuffer b, int reg, int value, Size size) {
+        //TODO slower, esp. Metal Head
+        if (assertionsEnabled) {
+            assert regSpec.size == Size.WORD;
+            assert size != Size.LONG;
+            int andMask = size == Size.WORD ? regSpec.writeAndMask : ((reg & 1) == 0) ? regSpec.writeAndMask >> 8 : regSpec.writeAndMask & 0xFF;
+            int orMask = size == Size.WORD ? regSpec.writeOrMask : ((reg & 1) == 0) ? regSpec.writeOrMask >> 8 : regSpec.writeOrMask & 0xFF;
+            return writeBufferHasChanged(b, reg, (value & andMask) | orMask, size);
+        } else {
+            return writeBufferHasChanged(b, reg, value, size);
+        }
     }
 
     public static void writeRegBuffer(RegSpec r, ByteBuffer b, int value, Size size) {
@@ -222,8 +243,16 @@ public class S32xUtil {
                 name + " should be a (powerOf2 - 1), ie. 0xFF, actual: " + th(value - 1);
     }
 
+    public enum S32xRegSide {MD, SH2}
+
     public enum CpuDeviceAccess {
         MASTER, SLAVE, M68K, Z80;
+
+        public final S32xRegSide regSide;
+
+        CpuDeviceAccess() {
+            this.regSide = this.ordinal() < 2 ? S32xRegSide.SH2 : S32xRegSide.MD;
+        }
 
         public static final CpuDeviceAccess[] cdaValues = CpuDeviceAccess.values();
     }

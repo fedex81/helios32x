@@ -32,7 +32,7 @@ public class S32xSharedRegsTest {
         int expFm, fm;
         checkFm(lc, 0);
 
-        testFm(M68K, MD_ADAPTER_CTRL);
+        testFm(M68K, MD_ADAPTER_CTRL_REG);
         testFm(MASTER, SH2_INT_MASK);
         testFm(SLAVE, SH2_INT_MASK);
     }
@@ -83,14 +83,14 @@ public class S32xSharedRegsTest {
 
         //m68k sets Aden -> OK
         expAden = aden = 1;
-        writeBus(lc, M68K, MD_ADAPTER_CTRL + 1, aden, Size.BYTE);
+        writeBus(lc, M68K, MD_ADAPTER_CTRL_REG + 1, aden, Size.BYTE);
         checkAden(lc, expAden);
 
         //m68k clears Aden, not supported
         aden = 0;
         expAden = 1;
-        writeBus(lc, M68K, MD_ADAPTER_CTRL + 1, aden, Size.BYTE);
-        writeBus(lc, M68K, MD_ADAPTER_CTRL, aden, Size.WORD);
+        writeBus(lc, M68K, MD_ADAPTER_CTRL_REG + 1, aden, Size.BYTE);
+        writeBus(lc, M68K, MD_ADAPTER_CTRL_REG, aden, Size.WORD);
         checkAden(lc, expAden);
     }
 
@@ -102,7 +102,7 @@ public class S32xSharedRegsTest {
 
         //m68k sets Aden -> OK
         expAden = aden = 1;
-        writeBus(lc, M68K, MD_ADAPTER_CTRL, aden, Size.WORD);
+        writeBus(lc, M68K, MD_ADAPTER_CTRL_REG, aden, Size.WORD);
         checkAden(lc, expAden);
     }
 
