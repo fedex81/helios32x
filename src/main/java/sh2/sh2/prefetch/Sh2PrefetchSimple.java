@@ -93,13 +93,6 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         bios = memory.bios;
         sh2Config = Sh2.Sh2Config.instance.get();
     }
-
-    public PrefetchContext prefetchCreate(int pc, CpuDeviceAccess cpu) {
-        PrefetchContext p = new PrefetchContext();
-        doPrefetch(p, pc, cpu);
-        return p;
-    }
-
     public void doPrefetch(final PrefetchContext pctx, int pc, CpuDeviceAccess cpu) {
         if (!sh2Config.prefetchEn) return;
         final Sh2Cache sh2Cache = cache[cpu.ordinal()];

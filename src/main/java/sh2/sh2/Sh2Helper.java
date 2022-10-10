@@ -4,15 +4,16 @@ import omegadrive.cpu.CpuFastDebug;
 import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
 import sh2.S32xUtil.CpuDeviceAccess;
-import sh2.sh2.drc.Ow2DrcOptimizer;
 import sh2.sh2.drc.Sh2Block;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import static omegadrive.util.Util.th;
 import static sh2.dict.S32xDict.SH2_PC_AREA_SHIFT;
 import static sh2.sh2.Sh2Debug.createContext;
-import static sh2.sh2.drc.Ow2DrcOptimizer.UNKNOWN_POLLER;
 
 /**
  * Federico Berti
@@ -32,7 +33,7 @@ public class Sh2Helper {
     public final static class Sh2PcInfoWrapper extends CpuFastDebug.PcInfoWrapper {
 
         public Sh2Block block = Sh2Block.INVALID_BLOCK;
-        public Ow2DrcOptimizer.PollerCtx poller = UNKNOWN_POLLER;
+        public Map<Integer, Sh2Block> knownBlocks = Collections.emptyMap();
         private static final boolean verbose = false;
 
         public Sh2PcInfoWrapper(int area, int pcMasked) {
@@ -48,18 +49,21 @@ public class Sh2Helper {
 
         public void invalidateBlock() {
             if (verbose) LOG.info("Invalidate pc: {} {}", th(area), th(pcMasked));
-            if (poller != UNKNOWN_POLLER) {
-                if (verbose) LOG.info("Poller: {}", poller);
-                poller.invalidate();
-                poller = UNKNOWN_POLLER;
-            }
             if (block != Sh2Block.INVALID_BLOCK) {
                 if (verbose) LOG.info("{} Block: {}", block.drcContext.cpu, block);
                 block.invalidate();
                 block = Sh2Block.INVALID_BLOCK;
             }
         }
+
+        public Sh2Block addToKnownBlocks(Sh2Block b) {
+            if (knownBlocks == Collections.EMPTY_MAP) {
+                knownBlocks = new HashMap<>(2);
+            }
+            return knownBlocks.put(b.hashCodeWords, b);
+        }
     }
+
 
     public static void clear() {
         piwArr = createWrapper(createContext());

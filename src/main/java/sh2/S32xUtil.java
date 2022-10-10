@@ -243,6 +243,18 @@ public class S32xUtil {
                 name + " should be a (powerOf2 - 1), ie. 0xFF, actual: " + th(value - 1);
     }
 
+    public static int hashCode(int a[], int len) {
+        if (a == null)
+            return 0;
+
+        int result = 1;
+        for (int i = 0; i < len; i++) {
+            result = 31 * result + a[i];
+        }
+
+        return result;
+    }
+
     public enum S32xRegSide {MD, SH2}
 
     public enum CpuDeviceAccess {

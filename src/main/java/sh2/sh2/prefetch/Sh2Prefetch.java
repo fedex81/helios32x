@@ -7,6 +7,7 @@ import org.objectweb.asm.commons.LocalVariablesSorter;
 import org.slf4j.Logger;
 import sh2.BiosHolder;
 import sh2.IMemory;
+import sh2.S32xUtil;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
@@ -35,7 +36,6 @@ import static sh2.sh2.Sh2Debug.pcAreaMaskMap;
 import static sh2.sh2.Sh2Helper.SH2_NOT_VISITED;
 import static sh2.sh2.Sh2Instructions.generateInst;
 import static sh2.sh2.drc.Ow2DrcOptimizer.PollerCtx;
-import static sh2.sh2.drc.Ow2DrcOptimizer.UNKNOWN_POLLER;
 
 /**
  * Federico Berti
@@ -121,19 +121,10 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             sh2Cache.cacheMemoryRead(pc, Size.WORD);
         }
         int wordsCount = fillOpcodes(cpu, pc, block);
+        assert wordsCount > 0;
+        block.prefetchLenWords = wordsCount;
         block.prefetchWords = Arrays.copyOf(opcodeWords, wordsCount);
-        if (ENABLE_BLOCK_RECYCLING && isCacheArray) {
-            Sh2Block b = prefetchMapCacheArray[cpu.ordinal()].getOrDefault(piw, Sh2Block.INVALID_BLOCK);
-            if (b != Sh2Block.INVALID_BLOCK) {
-                block.hashCodeWords = Arrays.hashCode(block.prefetchWords);
-                if (b.hashCodeWords == block.hashCodeWords) {
-                    prefetchMapCacheArray[cpu.ordinal()].remove(piw);
-                    piw.invalidateBlock();
-                    return b;
-                }
-            }
-        }
-        block.prefetchLenWords = block.prefetchWords.length;
+        block.hashCodeWords = Arrays.hashCode(block.prefetchWords);
         block.end = block.start + ((block.prefetchLenWords - 1) << 1);
         block.stage1(generateInst(block.prefetchWords));
         if (verbose) LOG.info("{} prefetch at pc: {}, len: {}\n{}", cpu, th(pc), block.prefetchLenWords,
@@ -158,9 +149,12 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         do {
             int val = isCache ? sh2Cache.readDirect(currentPc, Size.WORD) : fetchBuffer.getShort(bytePos) & 0xFFFF;
             final Sh2Instructions.Sh2BaseInstruction inst = op[val].inst;
-            if (inst.isIllegal && !dummy) {
-//                    LOG.error("{} Invalid fetch, start PC: {}, current: {} opcode: {}", cpu, th(pc), th(bytePos), th(val));
-                throw new RuntimeException("Fatal! " + inst + "," + th(val));
+            if (inst.isIllegal) {
+                if (!dummy) {
+                    LOG.error("{} Invalid fetch, start PC: {}, current: {} opcode: {}", cpu, th(pc), th(bytePos), th(val));
+                    throw new RuntimeException("Fatal! " + inst + "," + th(val));
+                }
+                return -1;
             }
             opcodeWords[wordsCount++] = val;
             if (inst.isBranch) {
@@ -370,8 +364,6 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
     }
 
-    private final Map<PcInfoWrapper, Sh2Block>[] prefetchMapCacheArray = new Map[]{new HashMap<PcInfoWrapper, Sh2Block>(), new HashMap<PcInfoWrapper, Sh2Block>()};
-
     private void checkAddress(CpuDeviceAccess writer, CpuDeviceAccess blockOwner, int addr, int val, Size size) {
         int end = addr + size.getByteSize();
         invalidateMemoryRegion(writer, blockOwner, addr, end, val, false, size);
@@ -412,42 +404,56 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                                 pcInfoWrapper.block.prefetchLenWords);
                         LOG.info(s);
                     }
-                    invalidateBlock(blockOwner, pcInfoWrapper, addr);
+                    int hashcode = wordsCount > 0 ? S32xUtil.hashCode(opcodeWords, wordsCount) : INVALID_HASHCODE;
+                    assert wordsCount > 0 ? hashcode != INVALID_HASHCODE : true;
+                    invalidateBlock(blockOwner, pcInfoWrapper, addr, hashcode);
                 }
             } else { //Motocross
-                invalidateBlock(blockOwner, pcInfoWrapper, addr);
+                invalidateBlock(blockOwner, pcInfoWrapper, addr, INVALID_HASHCODE);
             }
         }
     }
 
-    private void invalidateBlock(CpuDeviceAccess cpu, Sh2PcInfoWrapper piw, int addr) {
-//        blockRecycling(piw); //TODO
+    private static final int INVALID_HASHCODE = -1;
+
+    private void invalidateBlock(CpuDeviceAccess cpu, Sh2PcInfoWrapper piw, int addr, int hashcode) {
+        blockRecycling(piw, hashcode);
         piw.invalidateBlock();
     }
 
-    private void blockRecycling(Sh2PcInfoWrapper piw) {
+    private void blockRecycling(Sh2PcInfoWrapper piw, int hashcode) {
         Sh2Block b = piw.block;
         boolean isCacheArray = b.prefetchPc >>> SH2_PC_AREA_SHIFT == 0xC0;
         if (ENABLE_BLOCK_RECYCLING && isCacheArray) {
-            boolean verb = false;
-            b.hashCodeWords = Arrays.hashCode(b.prefetchWords);
-            Sh2Block prev = prefetchMapCacheArray[b.drcContext.cpu.ordinal()].put(piw, b);
-            //TODO should call b.invalidate() instead
-            piw.poller = UNKNOWN_POLLER;
-            if (verb) {
-                String s = LogHelper.formatMessage("{} invalidate cache array block with start: {} blockLen: {}, hash: {}",
-                        b.drcContext.cpu, th(b.prefetchPc), b.prefetchLenWords, th(b.hashCodeWords));
-                LOG.info(s);
-                if (prev != null && prev.hashCodeWords != b.hashCodeWords) {
-                    String s1 = LogHelper.formatMessage("{} discarding previous block with start: {} blockLen: {}, hash: {}",
-                            prev.drcContext.cpu, th(prev.prefetchPc), prev.prefetchLenWords, th(prev.hashCodeWords));
-                    LOG.warn(s1);
-                } else if (prev != null && prev.hashCodeWords == b.hashCodeWords) {
-                    String s1 = LogHelper.formatMessage("{} previous block matches current block with start: {} blockLen: {}, hash: {}",
-                            prev.drcContext.cpu, th(prev.prefetchPc), prev.prefetchLenWords, th(prev.hashCodeWords));
-                    LOG.warn(s1);
-                }
+            final CpuDeviceAccess cpu = b.drcContext.cpu;
+            final int pc = b.prefetchPc;
+            assert cpu != null;
+            b.invalidate();
+            //opcodes are invalid, memory is being rewritten
+            if (hashcode == INVALID_HASHCODE) {
+                piw.addToKnownBlocks(b);
+                piw.block = Sh2Block.INVALID_BLOCK;
+                if (verbose) LOG.info("{} invalidate block: {}, {}", cpu, th(pc), th(b.hashCodeWords));
+                return;
             }
+            //different block but known
+            Sh2Block hcBlock = piw.knownBlocks.getOrDefault(hashcode, Sh2Block.INVALID_BLOCK);
+            if (hcBlock != Sh2Block.INVALID_BLOCK) {
+                assert !hcBlock.isValid();
+                hcBlock.setValid();
+                piw.addToKnownBlocks(b);
+                piw.setBlock(hcBlock);
+                if (verbose)
+                    LOG.info("{} switching block: {}, {} -> {}", cpu, th(pc), th(b.hashCodeWords), th(hcBlock.hashCodeWords));
+                return;
+            }
+            //different block but unknown
+            Sh2Block newBlock = doPrefetch(pc, cpu);
+            assert newBlock != b && newBlock.isValid() && newBlock != Sh2Block.INVALID_BLOCK;
+            piw.addToKnownBlocks(b);
+            piw.addToKnownBlocks(newBlock);
+            if (verbose) LOG.info("{} new block: {}, {}", cpu, th(pc), th(newBlock.hashCodeWords));
+            piw.setBlock(newBlock);
         }
     }
 

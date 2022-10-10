@@ -15,8 +15,6 @@ import sh2.sh2.prefetch.Sh2Prefetch;
 
 import java.util.Arrays;
 
-import static sh2.sh2.drc.Ow2DrcOptimizer.UNKNOWN_POLLER;
-
 /**
  * Federico Berti
  * <p>
@@ -762,7 +760,6 @@ public class Sh2BusyLoopTest {
 
     private Ow2DrcOptimizer.PollType getPollType(int[] opcodes) {
         Sh2Helper.Sh2PcInfoWrapper piw = Sh2Helper.get(sh2Context.PC, sh2Context.cpuAccess);
-        piw.poller = UNKNOWN_POLLER;
         Sh2Block block = new Sh2Block(sh2Context.PC, sh2Context.cpuAccess);
         block.prefetchWords = opcodes;
         block.prefetchLenWords = opcodes.length;

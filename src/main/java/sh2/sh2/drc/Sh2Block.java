@@ -23,6 +23,7 @@ import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.*;
+import static sh2.sh2.drc.Ow2DrcOptimizer.UNKNOWN_POLLER;
 
 /**
  * Federico Berti
@@ -55,6 +56,7 @@ public class Sh2Block {
     public ByteBuffer fetchBuffer;
     public Sh2Block nextBlock = INVALID_BLOCK;
     public Sh2Prefetch.Sh2DrcContext drcContext;
+    public Ow2DrcOptimizer.PollerCtx poller = UNKNOWN_POLLER;
     private final Sh2.Sh2Config sh2Config;
 
     public int blockFlags;
@@ -214,7 +216,7 @@ public class Sh2Block {
         final Ow2DrcOptimizer.PollerCtx pollerCtx = SysEventManager.instance.getPoller(drcContext.cpu);
         if (pollerCtx == NO_POLLER) {
             Sh2PcInfoWrapper piw = Sh2Helper.get(prefetchPc, drcContext.cpu);
-            Ow2DrcOptimizer.PollerCtx pctx = piw.poller;
+            Ow2DrcOptimizer.PollerCtx pctx = piw.block.poller;
             if (pctx != NO_POLLER) {
                 pctx.spinCount++;
                 SysEventManager.instance.setPoller(drcContext.cpu, pctx);
@@ -318,6 +320,11 @@ public class Sh2Block {
     public void invalidate() {
         blockFlags &= ~VALID_FLAG;
         prefetchPc |= 1;
+    }
+
+    public void setValid() {
+        blockFlags |= VALID_FLAG;
+        prefetchPc &= ~1;
     }
 
     @Override

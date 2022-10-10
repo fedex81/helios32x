@@ -296,8 +296,8 @@ public class Ow2DrcOptimizer {
 
     public static void pollDetector(Sh2Block block) {
         Sh2PcInfoWrapper piw = Sh2Helper.get(block.prefetchPc, block.drcContext.cpu);
-        if (piw.poller != UNKNOWN_POLLER) {
-            PollerCtx ctx = piw.poller;
+        if (piw.block.poller != UNKNOWN_POLLER) {
+            PollerCtx ctx = piw.block.poller;
             Sh2Block prevBlock = piw.block;
             assert block.isValid() && ctx != UNKNOWN_POLLER &&
                     (prevBlock != Sh2Block.INVALID_BLOCK ? prevBlock == block : true)
@@ -306,11 +306,11 @@ public class Ow2DrcOptimizer {
             return;
         }
         assert piw.block == block : "PiwBlock: " + piw.block + "\nBlock: " + block + "\n" +
-                block.drcContext.cpu + "," + th(block.prefetchPc) + "," + block.hashCode();
+                block.drcContext.cpu + "," + th(block.prefetchPc) + "," + th(block.hashCodeWords);
         if (block.pollType == UNKNOWN) {
             PollerCtx ctx = PollerCtx.create(piw);
             ctx.blockPollData.init();
-            piw.poller = addPollMaybe(ctx, block);
+            piw.block.poller = addPollMaybe(ctx, block);
         }
         //mark this block as processed
         if (block.pollType == UNKNOWN) {
