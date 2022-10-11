@@ -36,7 +36,7 @@ public class MovDelayBranchTest {
         Sh2Context.burstCycles = 1;
         sh2.reset(ctx);
         System.out.println("Reset, PC: " + ctx.PC + ", SP: " + ctx.registers[15]);
-        Assertions.assertFalse(Sh2.Sh2Config.instance.get().drcEn);
+        Assertions.assertFalse(Sh2.Sh2Config.get().drcEn);
     }
 
     /**

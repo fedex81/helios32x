@@ -25,7 +25,7 @@ public class Md32xRuntimeData {
     private static Md32xRuntimeData rt;
 
     private Md32xRuntimeData() {
-        ignoreDelays = Sh2.Sh2Config.instance.get().ignoreDelays;
+        ignoreDelays = Sh2.Sh2Config.get().ignoreDelays;
     }
 
     public static Md32xRuntimeData newInstance() {

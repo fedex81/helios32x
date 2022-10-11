@@ -226,9 +226,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
 //                }
 //                assert !ch0.dmaInProgress && !ch1.dmaInProgress;
                 final Ow2DrcOptimizer.PollerCtx pc = SysEventManager.instance.getPoller(cpu);
-
-                assert !pc.isPollingActive() : event + "," + pc;
-                pc.pollState = Ow2DrcOptimizer.PollState.ACTIVE_POLL;
+                assert pc.isPollingActive() : event + "," + pc;
                 setNextCycle(cpu, SH2_SLEEP_VALUE);
                 Md32xRuntimeData.resetCpuDelayExt(cpu, 0);
                 if (verbose) LOG.info("{} {} {}: {}", cpu, event, counter, pc);

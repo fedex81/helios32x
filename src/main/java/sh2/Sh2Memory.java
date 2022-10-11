@@ -52,7 +52,7 @@ public final class Sh2Memory implements IMemory {
 		bios[SLAVE.ordinal()] = biosHolder.getBiosData(SLAVE);
 		memoryDataCtx.bios = bios;
 		memoryDataCtx.sdram = sdram = ByteBuffer.allocateDirect(SH2_SDRAM_SIZE);
-		Sh2.Sh2Config sh2Config = Sh2.Sh2Config.instance.get();
+		Sh2.Sh2Config sh2Config = Sh2.Sh2Config.get();
 		cache[MASTER.ordinal()] = sh2Config.cacheEn ? new Sh2CacheImpl(MASTER, this) : Sh2Cache.createNoCacheInstance(MASTER, this);
 		cache[SLAVE.ordinal()] = sh2Config.cacheEn ? new Sh2CacheImpl(SLAVE, this) : Sh2Cache.createNoCacheInstance(SLAVE, this);
 		sh2MMREGS[MASTER.ordinal()] = new Sh2MMREG(MASTER, cache[MASTER.ordinal()]);

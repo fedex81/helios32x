@@ -55,7 +55,7 @@ public class Sh2Impl implements Sh2 {
 	public Sh2Impl(IMemory memory) {
 		this.memory = memory;
 		this.opcodeMap = Sh2Instructions.createOpcodeMap(this);
-		this.sh2Config = Sh2Config.instance.get();
+		this.sh2Config = Sh2Config.get();
 		this.tasReadOffset = sh2Config.tasQuirk ? SH2_CACHE_THROUGH_OFFSET : 0;
 		if (sh2Config.drcEn) {
 			Ow2Sh2BlockRecompiler.newInstance("" + System.currentTimeMillis());
@@ -141,7 +141,7 @@ public class Sh2Impl implements Sh2 {
 				if (ctx.PC == fr.block.prefetchPc) {
 					fr.block.nextBlock = fr.block;
 				}
-				boolean nextBlockOk = fr.block.nextBlock.prefetchPc == ctx.PC;
+				boolean nextBlockOk = fr.block.nextBlock.prefetchPc == ctx.PC && fr.block.nextBlock.isValid();
 				if (!nextBlockOk) {
 					SysEventManager.instance.resetPoller(ctx.cpuAccess);
 					fetchNextBlock(fr);

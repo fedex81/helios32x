@@ -91,7 +91,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         sdram = memory.sdram;
         rom = memory.rom;
         bios = memory.bios;
-        sh2Config = Sh2.Sh2Config.instance.get();
+        sh2Config = Sh2.Sh2Config.get();
     }
     public void doPrefetch(final PrefetchContext pctx, int pc, CpuDeviceAccess cpu) {
         if (!sh2Config.prefetchEn) return;

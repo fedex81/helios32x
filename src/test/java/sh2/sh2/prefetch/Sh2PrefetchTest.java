@@ -37,7 +37,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
     public void beforeEach() {
         configCacheEn = new Sh2Config(true, true, false, false, false);
         super.before();
-        Assertions.assertTrue(Sh2Config.instance.get().prefetchEn);
+        Assertions.assertTrue(Sh2Config.get().prefetchEn);
         cacheAddrDef = SH2_START_SDRAM_CACHE | 0x2;
         noCacheAddrDef = cacheAddrDef | SH2_CACHE_THROUGH_OFFSET;
     }
@@ -363,7 +363,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
     }
 
     protected void testCacheEffectsOnPrefetchInternal(boolean drcEn) {
-        Assertions.assertEquals(drcEn, Sh2Config.instance.get().drcEn);
+        Assertions.assertEquals(drcEn, Sh2Config.get().drcEn);
         testRamCacheOff();
         enableCache(MASTER, true);
         enableCache(SLAVE, true);

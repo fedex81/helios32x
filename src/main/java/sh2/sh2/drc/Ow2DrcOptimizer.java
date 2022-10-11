@@ -330,32 +330,36 @@ public class Ow2DrcOptimizer {
         return branchDest;
     }
 
-    private static void parseMemLoad(BlockPollData ctx, Sh2Context sh2Context, int memReadOpcode) {
+    public static void parseMemLoad(BlockPollData bpd) {
+        parseMemLoad(bpd, bpd.ctx, bpd.memLoadOpcode);
+    }
+
+    private static void parseMemLoad(BlockPollData bpd, Sh2Context sh2Context, int memReadOpcode) {
         final int[] r = sh2Context.registers;
         if ((memReadOpcode & 0xF000) == 0x5000) {
             //MOVLL4 MOV.L@(disp,Rm),  Rn(disp × 4 + Rm) → Rn    0101nnnnmmmmdddd
-            ctx.memLoadTarget = ((memReadOpcode & 0xF) << 2) + r[(memReadOpcode & 0xF0) >> 4];
-            ctx.memLoadTargetSize = Size.LONG;
+            bpd.memLoadTarget = ((memReadOpcode & 0xF) << 2) + r[(memReadOpcode & 0xF0) >> 4];
+            bpd.memLoadTargetSize = Size.LONG;
         } else if (((memReadOpcode & 0xF000) == 0xC000) && ((((memReadOpcode >> 8) & 0xF) == 4) || (((memReadOpcode >> 8) & 0xF) == 5) || (((memReadOpcode >> 8) & 0xF) == 6))) {
             //MOVBLG MOV.B@(disp,GBR),     R0(disp + GBR) → sign extension → R0    11000100dddddddd
-            ctx.memLoadTargetSize = Size.vals[(memReadOpcode >> 8) & 0x3];
-            ctx.memLoadTarget = ((memReadOpcode & 0xFF) << ctx.memLoadTargetSize.ordinal()) + sh2Context.GBR;
+            bpd.memLoadTargetSize = Size.vals[(memReadOpcode >> 8) & 0x3];
+            bpd.memLoadTarget = ((memReadOpcode & 0xFF) << bpd.memLoadTargetSize.ordinal()) + sh2Context.GBR;
         } else if (((memReadOpcode & 0xF000) == 0x6000) && ((memReadOpcode & 0xF) < 3)) {
             //MOVXL, MOV.X @Rm,Rn
-            ctx.memLoadTarget = r[(memReadOpcode & 0xF0) >> 4];
-            ctx.memLoadTargetSize = Size.vals[memReadOpcode & 0xF];
+            bpd.memLoadTarget = r[(memReadOpcode & 0xF0) >> 4];
+            bpd.memLoadTargetSize = Size.vals[memReadOpcode & 0xF];
         } else if (((memReadOpcode & 0xF000) == 0x8000) && (((memReadOpcode & 0xF00) == 0x400) || ((memReadOpcode & 0xF00) == 0x500))) {
             //MOVBL4, MOV.B @(disp,Rm),R0
             //MOVWL4, MOV.W @(disp,Rm),R0
-            ctx.memLoadTargetSize = Size.vals[(memReadOpcode >> 8) & 1];
-            ctx.memLoadTarget = r[(memReadOpcode & 0xF0) >> 4] + ((memReadOpcode & 0xF) << ctx.memLoadTargetSize.ordinal());
+            bpd.memLoadTargetSize = Size.vals[(memReadOpcode >> 8) & 1];
+            bpd.memLoadTarget = r[(memReadOpcode & 0xF0) >> 4] + ((memReadOpcode & 0xF) << bpd.memLoadTargetSize.ordinal());
         } else if (((memReadOpcode & 0xFF00) == 0xCC00)) {
             //TSTM TST.B #imm,@(R0,GBR) 11001100iiiiiiii     (R0 + GBR) & imm;if the result is 0, 1→T
-            ctx.memLoadTarget = r[0] + sh2Context.GBR;
-            ctx.memLoadTargetSize = Size.BYTE;
+            bpd.memLoadTarget = r[0] + sh2Context.GBR;
+            bpd.memLoadTargetSize = Size.BYTE;
         } else if ((memReadOpcode & 0xF0FF) == 0x401b) { //TAS.B @Rn
-            ctx.memLoadTarget = r[(memReadOpcode >> 8) & 0xF];
-            ctx.memLoadTargetSize = Size.BYTE;
+            bpd.memLoadTarget = r[(memReadOpcode >> 8) & 0xF];
+            bpd.memLoadTargetSize = Size.BYTE;
         }
     }
 

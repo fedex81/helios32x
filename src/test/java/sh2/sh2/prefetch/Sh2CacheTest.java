@@ -47,7 +47,7 @@ public class Sh2CacheTest {
     @BeforeEach
     public void before() {
         Sh2Config.reset(configCacheEn);
-        Assertions.assertTrue(Sh2Config.instance.get().cacheEn);
+        Assertions.assertTrue(Sh2Config.get().cacheEn);
         rom = new byte[0x1000];
         lc = MarsRegTestUtil.createTestInstance(rom);
         lc.s32XMMREG.aden = 1;

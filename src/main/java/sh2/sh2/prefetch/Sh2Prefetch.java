@@ -98,7 +98,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         rom = mdc.rom;
         bios = mdc.bios;
         opcodeWords = new int[SH2_DRC_MAX_BLOCK_LEN];
-        sh2Config = Sh2.Sh2Config.instance.get();
+        sh2Config = Sh2.Sh2Config.get();
     }
 
     private Sh2Block doPrefetch(int pc, CpuDeviceAccess cpu) {
@@ -418,6 +418,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     private void invalidateBlock(CpuDeviceAccess cpu, Sh2PcInfoWrapper piw, int addr, int hashcode) {
         blockRecycling(piw, hashcode);
+        //TODO this should not be needed when a block is recycled
         piw.invalidateBlock();
     }
 

@@ -9,7 +9,6 @@ import sh2.event.SysEventManager.SysEvent;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Helper;
-import sh2.sh2.Sh2Helper.Sh2PcInfoWrapper;
 import sh2.sh2.drc.Ow2DrcOptimizer.PollType;
 import sh2.sh2.prefetch.Sh2Prefetch;
 import sh2.sh2.prefetch.Sh2Prefetcher;
@@ -72,7 +71,7 @@ public class Sh2Block {
     }
 
     public Sh2Block(int pc, CpuDeviceAccess cpu) {
-        sh2Config = Sh2.Sh2Config.instance.get();
+        sh2Config = Sh2.Sh2Config.get();
         prefetchPc = pc;
         blockFlags = (cpu.ordinal() | VALID_FLAG);
     }
@@ -187,24 +186,8 @@ public class Sh2Block {
         curr = prev;
     }
 
-    //TODO rewrite, corner case:
+    private static final int POLLER_ACTIVATE_LIMIT = 2;
 
-    /**
-     * 6007656 = 1, spinCount < 3
-     * <p>
-     * SLAVE Poll detected at PC 6000ba0: 6007656 SDRAM
-     * 06000ba0	c539	mov.w @(57, GBR), R0  //spinCount = 1
-     * 00000ba2	8800	cmp/eq H'00, R0
-     * 00000ba4	8bfc	bf H'00000ba0 //no branch
-     * [...]
-     * 06000ba0	c539	mov.w @(57, GBR), R0 //spinCount = 2
-     * 00000ba2	8800	cmp/eq H'00, R0
-     * 00000ba4	8bfc	bf H'00000ba0 //no branch
-     * [...]
-     * 06000ba0	c539	mov.w @(57, GBR), R0 //spinCount = 3, this is detected as POLLING!!!
-     * 00000ba2	8800	cmp/eq H'00, R0
-     * 00000ba4	8bfc	bf H'00000ba0
-     */
     private void handlePoll() {
         if (!isPollingBlock()) {
             final Ow2DrcOptimizer.PollerCtx current = SysEventManager.instance.getPoller(drcContext.cpu);
@@ -213,36 +196,47 @@ public class Sh2Block {
             }
             return;
         }
-        final Ow2DrcOptimizer.PollerCtx pollerCtx = SysEventManager.instance.getPoller(drcContext.cpu);
-        if (pollerCtx == NO_POLLER) {
-            Sh2PcInfoWrapper piw = Sh2Helper.get(prefetchPc, drcContext.cpu);
-            Ow2DrcOptimizer.PollerCtx pctx = piw.block.poller;
-            if (pctx != NO_POLLER) {
-                pctx.spinCount++;
-                SysEventManager.instance.setPoller(drcContext.cpu, pctx);
-                if (pctx.spinCount < 3) {
-                    if (verbose)
-                        LOG.info("{} avoid re-entering {} poll at PC {}, on address: {}", this.drcContext.cpu, piw.block.pollType,
-                                th(this.prefetchPc), th(pctx.blockPollData.memLoadTarget));
-                    return;
-                }
-                if (verbose)
-                    LOG.info("{} entering {} poll at PC {}, on address: {}", this.drcContext.cpu, piw.block.pollType,
-                            th(this.prefetchPc), th(pctx.blockPollData.memLoadTarget));
-                SysEventManager.instance.fireSysEvent(drcContext.cpu, SysEvent.START_POLLING);
+        final Ow2DrcOptimizer.PollerCtx currentPoller = SysEventManager.instance.getPoller(drcContext.cpu);
+        final Ow2DrcOptimizer.PollerCtx blockPoller = poller;
+        assert poller == Sh2Helper.get(prefetchPc, drcContext.cpu).block.poller;
+        if (currentPoller == NO_POLLER) {
+            if (blockPoller != NO_POLLER) {
+                blockPoller.spinCount++;
+                SysEventManager.instance.setPoller(drcContext.cpu, blockPoller);
+                startPollingMaybe(blockPoller);
             } else {
                 if (verbose)
-                    LOG.info("{} ignoring {} poll at PC {}, on address: {}", this.drcContext.cpu, piw.block.pollType,
-                            th(this.prefetchPc), th(pctx.blockPollData.memLoadTarget));
+                    LOG.info("{} ignoring {} poll at PC {}, on address: {}", this.drcContext.cpu, pollType,
+                            th(this.prefetchPc), th(blockPoller.blockPollData.memLoadTarget));
                 pollType = PollType.NONE;
             }
-        } else if (!pollerCtx.isPollingActive()) {
-            if (pollerCtx.spinCount > 0) {
+        } else if (!currentPoller.isPollingActive()) {
+            if (blockPoller != currentPoller) {
                 SysEventManager.instance.resetPoller(drcContext.cpu);
-            } else {
-                throw new RuntimeException("Unexpected, inactive poller: " + pollerCtx);
+                return;
             }
+            currentPoller.spinCount++;
+            startPollingMaybe(blockPoller);
+        } else if (currentPoller.isPollingActive()) {
+//            throw new RuntimeException("Unexpected, active poller: " + currentPoller);
+        } else {
+            throw new RuntimeException("Unexpected, poller: " + currentPoller);
         }
+    }
+
+    private void startPollingMaybe(Ow2DrcOptimizer.PollerCtx blockPoller) {
+        if (blockPoller.spinCount < POLLER_ACTIVATE_LIMIT) {
+            if (verbose)
+                LOG.info("{} avoid re-entering {} poll at PC {}, on address: {}", this.drcContext.cpu, pollType,
+                        th(this.prefetchPc), th(blockPoller.blockPollData.memLoadTarget));
+            return;
+        }
+        if (verbose)
+            LOG.info("{} entering {} poll at PC {}, on address: {}", this.drcContext.cpu, pollType,
+                    th(this.prefetchPc), th(blockPoller.blockPollData.memLoadTarget));
+        blockPoller.pollState = Ow2DrcOptimizer.PollState.ACTIVE_POLL;
+        Ow2DrcOptimizer.parseMemLoad(blockPoller.blockPollData);
+        SysEventManager.instance.fireSysEvent(drcContext.cpu, SysEvent.START_POLLING);
     }
 
     public void addHit() {
