@@ -19,6 +19,7 @@ import static sh2.dict.Sh2Dict.RegSpec.*;
 import static sh2.event.SysEventManager.SysEvent.INT;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.VRES_14;
+import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 
 /**
  * Federico Berti
@@ -183,7 +184,7 @@ public class IntControlImplOld implements IntControl {
         assert interruptLevel != VRES_14.ordinal();
         if (interruptLevel != prev && interruptLevel > 0) {
             Ow2DrcOptimizer.PollerCtx ctx = SysEventManager.instance.getPoller(cpu);
-            if (ctx.isPollingActive() && ctx.isPollingBusyLoop()) {
+            if (ctx != NO_POLLER && (ctx.isPollingActive() || ctx.isPollingBusyLoop())) {
                 SysEventManager.instance.fireSysEvent(cpu, INT);
             }
         }

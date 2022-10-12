@@ -21,7 +21,8 @@ import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
-import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.*;
+import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.BUSY_LOOP;
+import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.NONE;
 import static sh2.sh2.drc.Ow2DrcOptimizer.UNKNOWN_POLLER;
 
 /**
@@ -31,12 +32,9 @@ import static sh2.sh2.drc.Ow2DrcOptimizer.UNKNOWN_POLLER;
  */
 public class Sh2Block {
     private static final Logger LOG = LogHelper.getLogger(Sh2Block.class.getSimpleName());
-    //needs to be (powerOf2 - 1)
-    private static final int OPT_THRESHOLD = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.keep.hits", "63"));
 
     //needs to be (powerOf2 - 1)
-    private static final int OPT_THRESHOLD2 = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.stage2.hits", "511"));
-
+    private static final int OPT_THRESHOLD2 = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.stage2.hits", "31"));
 
     public static final Sh2Block INVALID_BLOCK = new Sh2Block(-1, MASTER);
     public static final int MAX_INST_LEN = (Sh2Prefetch.SH2_DRC_MAX_BLOCK_LEN >> 1);
@@ -56,8 +54,7 @@ public class Sh2Block {
     public Sh2Block nextBlock = INVALID_BLOCK;
     public Sh2Prefetch.Sh2DrcContext drcContext;
     public Ow2DrcOptimizer.PollerCtx poller = UNKNOWN_POLLER;
-    private final Sh2.Sh2Config sh2Config;
-
+    private final static Sh2.Sh2Config sh2Config;
     public int blockFlags;
     public PollType pollType = PollType.UNKNOWN;
     public Runnable stage2Drc;
@@ -65,13 +62,11 @@ public class Sh2Block {
     private static final boolean verbose = false;
 
     static {
-        assert !INVALID_BLOCK.shouldKeep();
-        S32xUtil.assertPowerOf2Minus1("OPT_THRESHOLD", OPT_THRESHOLD + 1);
         S32xUtil.assertPowerOf2Minus1("OPT_THRESHOLD2", OPT_THRESHOLD2 + 1);
+        sh2Config = Sh2.Sh2Config.get();
     }
 
     public Sh2Block(int pc, CpuDeviceAccess cpu) {
-        sh2Config = Sh2.Sh2Config.get();
         prefetchPc = pc;
         blockFlags = (cpu.ordinal() | VALID_FLAG);
     }
@@ -88,10 +83,10 @@ public class Sh2Block {
         assert prefetchPc != -1;
         assert (blockFlags & VALID_FLAG) > 0;
         if (stage2Drc != null) {
+            stage2Drc.run();
             if (sh2Config.pollDetectEn) {
                 handlePoll();
             }
-            stage2Drc.run();
             return;
         }
         runInterpreter(sh2, sm, drcContext.sh2Ctx);
@@ -201,10 +196,9 @@ public class Sh2Block {
         assert poller == Sh2Helper.get(prefetchPc, drcContext.cpu).block.poller;
         if (currentPoller == NO_POLLER) {
             if (blockPoller != NO_POLLER) {
-                blockPoller.spinCount++;
                 SysEventManager.instance.setPoller(drcContext.cpu, blockPoller);
-                startPollingMaybe(blockPoller);
             } else {
+                assert false; //TODO we shouldn't be getting here??
                 if (verbose)
                     LOG.info("{} ignoring {} poll at PC {}, on address: {}", this.drcContext.cpu, pollType,
                             th(this.prefetchPc), th(blockPoller.blockPollData.memLoadTarget));
@@ -215,10 +209,10 @@ public class Sh2Block {
                 SysEventManager.instance.resetPoller(drcContext.cpu);
                 return;
             }
-            currentPoller.spinCount++;
             startPollingMaybe(blockPoller);
         } else if (currentPoller.isPollingActive()) {
-//            throw new RuntimeException("Unexpected, active poller: " + currentPoller);
+            if (verbose) LOG.info("Polling active: {}", currentPoller);
+            assert blockPoller == currentPoller;
         } else {
             throw new RuntimeException("Unexpected, poller: " + currentPoller);
         }
@@ -250,11 +244,6 @@ public class Sh2Block {
             }
         }
     }
-
-    public boolean shouldKeep() {
-        return hits > OPT_THRESHOLD || pollType != UNKNOWN;
-    }
-
     public void stage1(Sh2Prefetcher.Sh2BlockUnit[] ic) {
         assert inst == null;
         inst = ic;

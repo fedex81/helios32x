@@ -57,7 +57,6 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
         boolean drcEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
         boolean cacheEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.cache", "false"));
-        //TODO broken see stellar assault, spot, star wars slowdown
         boolean pollEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "true"));
         boolean ignoreDelays = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.ignore.delays", "false"));
         sh2Config = new Sh2Config(prefEn, cacheEn, drcEn, pollEn, ignoreDelays);
@@ -132,8 +131,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
     protected final void runSh2() {
         if (nextMSh2Cycle == counter) {
-            //TODO
-//            assert SysEventManager.currentPollers[0] == NO_POLLER : SysEventManager.currentPollers[0];
+            assert !SysEventManager.currentPollers[0].isPollingActive() : SysEventManager.currentPollers[0];
             rt.setAccessType(MASTER);
             sh2.run(masterCtx);
             assert (masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == masterCtx.cycles_ran : masterCtx.cycles_ran;
@@ -141,8 +139,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
             nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran];
         }
         if (nextSSh2Cycle == counter) {
-            //TODO
-//            assert SysEventManager.currentPollers[1] == NO_POLLER : SysEventManager.currentPollers[1];
+            assert !SysEventManager.currentPollers[1].isPollingActive() : SysEventManager.currentPollers[1];
             rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
             assert (slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == slaveCtx.cycles_ran : slaveCtx.cycles_ran;
@@ -243,19 +240,14 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
             }
             default -> { //stop polling
                 final Ow2DrcOptimizer.PollerCtx pc = SysEventManager.instance.getPoller(cpu);
-                if (pc.isPollingActive()) {
-                    stopPolling(cpu, event, pc);
-                } else {
-                    //TODO
-//                    LOG.warn("{} {} but polling inactive: {}", cpu, event, pc);
-                    stopPolling(cpu, event, pc);
-                }
+                stopPolling(cpu, event, pc);
+                if (verbose) LOG.info("{} {} {}: {}", cpu, event, counter, pc);
             }
         }
     }
 
     private void stopPolling(CpuDeviceAccess cpu, SysEventManager.SysEvent event, Ow2DrcOptimizer.PollerCtx pc) {
-        assert event == SysEventManager.SysEvent.INT ? pc.isPollingBusyLoop() : true;
+//        assert event == SysEventManager.SysEvent.INT ? pc.isPollingBusyLoop() : true;
         boolean stopOk = event == pc.event || event == SysEventManager.SysEvent.INT;
         if (stopOk) {
             setNextCycle(cpu, counter + 1);

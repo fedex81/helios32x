@@ -117,7 +117,7 @@ public class Sh2Impl implements Sh2 {
 		opcodeMap[opcode].runnable.run();
 	}
 
-	long blockLoops, nextBlockTaken, blockPcMismatch, blockOuts, fetchNoBlock, mapRun, blockRunOne;
+//	long blockLoops, nextBlockTaken, blockPcMismatch, blockOuts, fetchNoBlock, mapRun, blockRunOne;
 
 	protected final void decodeSimple() {
 		final FetchResult fr = ctx.fetchResult;
@@ -136,28 +136,31 @@ public class Sh2Impl implements Sh2 {
 		fr.pc = ctx.PC;
 		if (fr.block != INVALID_BLOCK) {
 			if (fr.block.prefetchPc == fr.pc) {
-				blockLoops++;
+//				blockLoops++;
 				fr.block.runBlock(this, ctx.devices.sh2MMREG);
 				if (ctx.PC == fr.block.prefetchPc) {
 					fr.block.nextBlock = fr.block;
+					fr.block.poller.spinCount++;
+				} else {
+					fr.block.poller.spinCount = 0;
 				}
 				boolean nextBlockOk = fr.block.nextBlock.prefetchPc == ctx.PC && fr.block.nextBlock.isValid();
 				if (!nextBlockOk) {
 					SysEventManager.instance.resetPoller(ctx.cpuAccess);
 					fetchNextBlock(fr);
 				} else {
-					nextBlockTaken++;
+//					nextBlockTaken++;
 					fr.pc = ctx.PC;
 					fr.block = fr.block.nextBlock;
 					fr.opcode = fr.block.prefetchWords[0];
 				}
 				return;
 			}
-			blockPcMismatch++;
+//			blockPcMismatch++;
 			fr.block = INVALID_BLOCK;
 			return;
 		}
-		fetchNoBlock++;
+//		fetchNoBlock++;
 		fr.pc = ctx.PC;
 		memory.fetch(fr, ctx.cpuAccess);
 		//when prefetch disabled
@@ -166,7 +169,7 @@ public class Sh2Impl implements Sh2 {
 			if (fr.block == null) {
 				printDebugMaybe(fr.opcode);
 				opcodeMap[fr.opcode].runnable.run();
-				mapRun++;
+//				mapRun++;
 			}
 		}
 	}
