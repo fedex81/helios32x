@@ -3,6 +3,7 @@ package sh2.sh2.drc;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Table;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.IMemory;
@@ -25,13 +26,9 @@ import static sh2.dict.S32xDict.SH2_START_ROM;
  * Copyright 2022
  */
 public class Sh2DrcDecodeTest {
+    protected static Sh2.Sh2Config configDrcEn = new Sh2.Sh2Config(true, true, true, true, true);
 
-    static {
-//        System.setProperty("helios.32x.sh2.drc.stage1.hits", "1");
-//        System.setProperty("helios.32x.sh2.drc.stage2.hits", "1");
-    }
-
-    private MarsLauncherHelper.Sh2LaunchContext lc;
+    private static MarsLauncherHelper.Sh2LaunchContext lc;
     private Sh2 sh2;
     private Sh2Context masterCtx;
     private ByteBuffer rom;
@@ -60,9 +57,14 @@ public class Sh2DrcDecodeTest {
             Sh2CacheTest.NOP, //C
     };
 
+    @BeforeAll
+    public static void beforeAll() {
+        Sh2.Sh2Config.reset(configDrcEn);
+        lc = createTestInstance();
+    }
+
     @BeforeEach
     public void before() {
-        lc = createTestInstance();
         IMemory.MemoryDataCtx mdc = lc.memory.getMemoryDataCtx();
         int sp = mdc.rom.capacity() - 4;
         ByteBuffer bios = mdc.bios[CpuDeviceAccess.MASTER.ordinal()].buffer;

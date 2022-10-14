@@ -1,18 +1,17 @@
 package sh2.sh2.poll;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import omegadrive.util.Size;
+import org.junit.jupiter.api.*;
 import sh2.MarsLauncherHelper;
 import sh2.Md32xRuntimeData;
+import sh2.S32xUtil;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.event.SysEventManager;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
-import sh2.sh2.Sh2Disassembler;
 import sh2.sh2.Sh2Helper;
-import sh2.sh2.drc.Ow2DrcOptimizer;
+import sh2.sh2.device.IntControl;
+import sh2.sh2.drc.Ow2DrcOptimizer.PollType;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -21,12 +20,15 @@ import static omegadrive.util.Util.th;
 import static s32x.MarsRegTestUtil.createTestInstance;
 import static sh2.dict.S32xDict.SH2_START_ROM;
 import static sh2.dict.S32xDict.SH2_START_SDRAM;
+import static sh2.sh2.Sh2Disassembler.NOP;
+import static sh2.sh2.device.IntControl.Sh2Interrupt.PWM_6;
 
 /**
  * Federico Berti
  * <p>
  * Copyright 2022
  */
+@Disabled
 public class Sh2PollerTest implements SysEventManager.SysEventListener {
     private static MarsLauncherHelper.Sh2LaunchContext lc;
     protected static Sh2.Sh2Config configDrcEn = new Sh2.Sh2Config(true, true, true, true, true);
@@ -34,12 +36,15 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
     private CpuDeviceAccess lastCpuEvent;
     private SysEventManager.SysEvent lastEvent;
 
+    static class LocalTestCtx {
+        public int[] regs, opcodes;
+        public int cyclesPerBlock, start, memLoadAddress, matchVal, noMatchVal;
+        public boolean isPoll, matchOrNot;
+        public Size memLoadSize;
+    }
+
     /**
-     * TODO test : interrupt stopping a poller (soulstar x)
-     * <p>
-     * M 060009f4	6211	mov.w @R1, R2
-     * M 060009f6	3200	cmp/eq R0, R2
-     * M 060009f8	89fc	bt H'060009f4
+     * todo vf intro freeze after a while
      */
 
     @BeforeAll
@@ -61,7 +66,7 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
     }
 
     /**
-     * M 400	841a	mov.b @(10, R1), R0
+     * M 400	841a	mov.b @(10, R1), R0 //MOVBL4
      * M 402	2028	tst R2, R0
      * M 404	89fc	bt H'400
      * M 406	0009	nop
@@ -70,11 +75,21 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
      */
     @Test
     public void testMemLoad01() {
-        int[] regs = getEmptyRegs();
-        int memLoadAddress = 0x8a;
-        regs[1] = SH2_START_SDRAM | (memLoadAddress - 10);
-        regs[2] = 1;
-        testMemLoadInternal(regs, memLoadAddress);
+        LocalTestCtx c = new LocalTestCtx();
+        c.regs = getEmptyRegs();
+        c.memLoadAddress = 0x8a;
+        c.memLoadSize = Size.BYTE;
+        c.matchVal = 2;
+        c.noMatchVal = 4;
+        c.matchOrNot = false;
+        c.regs[2] = c.matchVal;
+        c.regs[1] = SH2_START_SDRAM | (c.memLoadAddress - 10);
+        c.cyclesPerBlock = 10 + 11; //exec + fetch
+        c.start = 0x400;
+        //BRA 0x408
+        c.opcodes = new int[]{0x841a, 0x2028, 0x89fc, NOP, 0xaffe, NOP}; //BRA 0x408
+        c.isPoll = true;
+        testMemLoadInternal(c);
     }
 
     /**
@@ -95,36 +110,171 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
      */
     @Test
     public void testMemLoad02() {
-        final int cycles = 10 + 11; //exec + fetch
+        LocalTestCtx c = new LocalTestCtx();
+        c.regs = getEmptyRegs();
+        c.memLoadAddress = 0x8c;
+        c.memLoadSize = Size.WORD;
+        c.matchVal = 0;
+        c.noMatchVal = 4;
+        c.matchOrNot = true;
+        c.regs[2] = c.matchVal;
+        c.regs[1] = SH2_START_SDRAM | (c.memLoadAddress - 10);
+        c.cyclesPerBlock = 10 + 11; //exec + fetch
+        c.start = 0x600;
+        c.opcodes = new int[]{0xc539, 0x8800, 0x8bfc, 0xaffb, NOP, 0xaffa, NOP}; //BRA 0x400,  BRA 0x400
+        c.isPoll = true;
+
         int gbrVal = 0x1a;
-        int memLoadAddress = 0x8c;
-        int start = 0x600;
-        int startRom = SH2_START_ROM | start;
-        byte noMatchVal = 4, matchVal = 0;
-        ByteBuffer rom = lc.memory.getMemoryDataCtx().rom;
-        rom.putShort(start, (short) 0xc539);
-        rom.putShort(start + 2, (short) 0x8800);
-        rom.putShort(start + 4, (short) 0x8bfc);
-        rom.putShort(start + 6, (short) 0xaffb); //BRA 0x400
-        rom.putShort(start + 8, (short) Sh2Disassembler.NOP);
-        rom.putShort(start + 0xa, (short) 0xaffa); //BRA 0x400
-        rom.putShort(start + 0xc, (short) Sh2Disassembler.NOP);
+        lc.masterCtx.GBR = SH2_START_SDRAM | gbrVal;
+        testMemLoad02Internal(c);
+    }
 
-        ByteBuffer sdram = lc.memory.getMemoryDataCtx().sdram;
-        sdram.putShort(memLoadAddress, matchVal);
+    @Test
+    public void testMemLoadChangeMemoryLocation() {
+        LocalTestCtx c = new LocalTestCtx();
+        c.memLoadSize = Size.BYTE;
+        c.matchVal = 2;
+        c.noMatchVal = 4;
+        c.matchOrNot = false;
+        c.cyclesPerBlock = 10 + 11; //exec + fetch
+        c.start = 0x400;
+        //BRA 0x408
+        c.opcodes = new int[]{0x841a, 0x2028, 0x89fc, NOP, 0xaffe, NOP}; //BRA 0x408
+        c.isPoll = true;
+        for (int i = 0; i < 0x200; i += 0x10) {
+            c.regs = getEmptyRegs();
+            c.memLoadAddress = i + 10;
+            System.out.println(th(c.memLoadAddress));
+            c.regs[2] = c.matchVal;
+            c.regs[1] = SH2_START_SDRAM | (c.memLoadAddress - 10);
+            testMemLoadInternal(c);
+            Sh2Helper.clear();
+        }
+    }
 
+    /**
+     * soulstar x
+     * <p>
+     * M 060009f4	6211	mov.w @R1, R2  //MOVWL
+     * M 060009f6	3200	cmp/eq R0, R2
+     * M 060009f8	89fc	bt H'060009f4
+     */
+    @Test
+    public void testInterruptStopPoller() {
+        LocalTestCtx c = new LocalTestCtx();
+        c.regs = getEmptyRegs();
+        c.memLoadAddress = 0x5a;
+        c.memLoadSize = Size.WORD;
+        c.matchVal = 1;
+        c.noMatchVal = 5;
+        c.matchOrNot = true;
+        c.regs[0] = c.matchVal;
+        c.regs[1] = SH2_START_SDRAM | c.memLoadAddress;
+        c.cyclesPerBlock = 4;
+        c.start = 0x600;
+        //BRA 0x408
+        c.opcodes = new int[]{0x6211, 0x3200, 0x89fc, NOP, 0xaffe, NOP};
+        c.isPoll = true;
+
+        testInterruptInternal(c);
+    }
+
+    /**
+     * M 060009f6	affe	bra here
+     * M 060009f8	0009	nop
+     */
+    @Test
+    public void testInterruptStopBusyLoop() {
+        LocalTestCtx c = new LocalTestCtx();
+        c.regs = getEmptyRegs();
+        c.cyclesPerBlock = 3;
+        c.start = 0x600;
+        c.opcodes = new int[]{0xaffe, NOP};
+        c.isPoll = false;
+        c.memLoadSize = Size.WORD;
+        testInterruptInternal(c);
+    }
+
+    private void testInterruptInternal(LocalTestCtx c) {
+        int startRom = SH2_START_ROM | c.start;
         Sh2Context sh2Context = lc.masterCtx;
-        sh2Context.PC = startRom;
-        sh2Context.GBR = SH2_START_SDRAM | gbrVal;
+        setupMemSh2(c);
+        //runs the block
+        runBlock(sh2Context, c.cyclesPerBlock);
+        loopUntilDrcAndDetect(startRom, sh2Context, c.isPoll);
+        setInterrupt(PWM_6);
+
+        //disables polling or busyLoop
+        runBlock(sh2Context, c.cyclesPerBlock);
+        Assertions.assertEquals(CpuDeviceAccess.MASTER, lastCpuEvent);
+        Assertions.assertEquals(SysEventManager.SysEvent.INT, lastEvent);
+        Assertions.assertFalse(isPollerActive());
+
+        //re-enter polling
+        loopUntilPollingActive(sh2Context);
+
+        clearInterrupt(PWM_6);
+    }
+
+    private void testMemLoadInternal(LocalTestCtx c) {
+        setupMemSh2(c);
+
+        int startRom = SH2_START_ROM | c.start;
+        Sh2Context sh2Context = lc.masterCtx;
+        //runs the block
+        runBlock(sh2Context, c.cyclesPerBlock);
+        Assertions.assertEquals(c.noMatchVal, sh2Context.registers[0]);
+        loopUntilDrcAndDetect(startRom, sh2Context, true);
+
+        Sh2Helper.Sh2PcInfoWrapper wrapper = Sh2Helper.get(startRom, CpuDeviceAccess.MASTER);
+        Assertions.assertEquals(c.memLoadAddress, wrapper.block.poller.blockPollData.memLoadTarget & 0xFFFF);
+
+        //write to sdram should NOT trigger an event
+        lc.memory.write8(SH2_START_SDRAM | c.memLoadAddress + 4, (byte) c.noMatchVal);
+        Assertions.assertEquals(SysEventManager.SysEvent.START_POLLING, lastEvent);
+        Assertions.assertTrue(isPollerActive());
+
+        //write to sdram should trigger an event
+        lc.memory.write8(SH2_START_SDRAM | c.memLoadAddress, (byte) c.noMatchVal);
+        Assertions.assertEquals(CpuDeviceAccess.MASTER, lastCpuEvent);
+        Assertions.assertEquals(SysEventManager.SysEvent.SDRAM, lastEvent);
+        Assertions.assertFalse(isPollerActive());
+
+        //check condition
+        runBlock(sh2Context, c.cyclesPerBlock);
+        Assertions.assertTrue(isPollerActive());
+        //resume polling
+        runBlock(sh2Context, c.cyclesPerBlock);
+        Assertions.assertTrue(isPollerActive());
+        Assertions.assertEquals(CpuDeviceAccess.MASTER, lastCpuEvent);
+        Assertions.assertEquals(SysEventManager.SysEvent.START_POLLING, lastEvent);
+
+        //write to sdram should trigger an event
+        lc.memory.write8(SH2_START_SDRAM | c.memLoadAddress, (byte) (c.noMatchVal | c.matchVal));
+        Assertions.assertEquals(CpuDeviceAccess.MASTER, lastCpuEvent);
+        Assertions.assertEquals(SysEventManager.SysEvent.SDRAM, lastEvent);
+        Assertions.assertFalse(isPollerActive());
+
+        //check condition, exit loop
+        runBlock(sh2Context, c.cyclesPerBlock);
+        Assertions.assertFalse(isPollerActive());
+        Assertions.assertEquals(startRom + 8, sh2Context.PC);
+    }
+
+    public void testMemLoad02Internal(LocalTestCtx c) {
+        int startRom = SH2_START_ROM | c.start;
+        Sh2Context sh2Context = lc.masterCtx;
+        int cycles = c.cyclesPerBlock;
+
+        setupMemSh2(c);
 
         runBlock(sh2Context, cycles);
-
         //activate drc
         Sh2Helper.Sh2PcInfoWrapper wrapper = Sh2Helper.get(startRom, CpuDeviceAccess.MASTER);
         Assertions.assertNotNull(wrapper);
         Assertions.assertNotEquals(Sh2Helper.SH2_NOT_VISITED, wrapper);
         loopUntilDrc(sh2Context, wrapper);
-        Assertions.assertEquals(Ow2DrcOptimizer.PollType.SDRAM, wrapper.block.pollType);
+        Assertions.assertEquals(PollType.SDRAM, wrapper.block.pollType);
         System.out.println(th(wrapper.block.poller.blockPollData.memLoadTarget));
 
         Assertions.assertFalse(isPollerActive());
@@ -136,102 +286,66 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
             cnt++;
         } while (cnt < 10);
 
+        ByteBuffer sdram = lc.memory.getMemoryDataCtx().sdram;
         //now we start looping
-        sdram.putShort(memLoadAddress, noMatchVal);
+        sdram.putShort(c.memLoadAddress, (short) c.noMatchVal);
         loopUntilPollingActive(sh2Context);
         Assertions.assertTrue(wrapper.block.poller.isPollingActive());
 
         //stop looping
-        sdram.putShort(memLoadAddress, matchVal);
+        sdram.putShort(c.memLoadAddress, (short) c.matchVal);
         runBlock(sh2Context, cycles);
         Assertions.assertFalse(isPollerActive());
     }
 
-    @Test
-    public void testMemLoadChangeMemoryLocation() {
-        for (int i = 0; i < 0x200; i += 0x10) {
-            int[] regs = getEmptyRegs();
-            int memLoadAddress = i + 10;
-            System.out.println(th(memLoadAddress));
-            regs[1] = SH2_START_SDRAM | (memLoadAddress - 10);
-            regs[2] = 1;
-            testMemLoadInternal(regs, memLoadAddress);
-            Sh2Helper.clear();
-        }
-    }
 
-    private void testMemLoadInternal(int[] regs, int memLoadAddress) {
-        int start = 0x400;
-        int startRom = SH2_START_ROM | start;
-        byte val = 2, noMatchVal = 4;
-        final int cycles = 10 + 11; //exec + fetch
-        ByteBuffer rom = lc.memory.getMemoryDataCtx().rom;
-        rom.putShort(start, (short) 0x841a);
-        rom.putShort(start + 2, (short) 0x2028);
-        rom.putShort(start + 4, (short) 0x89fc);
-        rom.putShort(start + 6, (short) Sh2Disassembler.NOP);
-        rom.putShort(start + 8, (short) 0xaffe); //BRA 0x408
-        rom.putShort(start + 0xa, (short) Sh2Disassembler.NOP);
-
+    private void setupMemSh2(LocalTestCtx c) {
+        int startRom = SH2_START_ROM | c.start;
         ByteBuffer sdram = lc.memory.getMemoryDataCtx().sdram;
-        sdram.put(memLoadAddress, val);
+        S32xUtil.writeBuffer(sdram, c.memLoadAddress, (short) (c.matchOrNot ? c.matchVal : c.noMatchVal), c.memLoadSize);
+
+        ByteBuffer rom = lc.memory.getMemoryDataCtx().rom;
+        for (int i = 0; i < c.opcodes.length; i++) {
+            rom.putShort(c.start + (i << 1), (short) c.opcodes[i]);
+        }
 
         Sh2Context sh2Context = lc.masterCtx;
-        System.arraycopy(regs, 0, sh2Context.registers, 0, regs.length);
+        System.arraycopy(c.regs, 0, sh2Context.registers, 0, c.regs.length);
         sh2Context.PC = startRom;
-        //runs the block
-        runBlock(sh2Context, cycles);
-        Assertions.assertEquals(val, sh2Context.registers[0]);
-        loopUntilDrcAndPollDetect(startRom, sh2Context);
-
-        Sh2Helper.Sh2PcInfoWrapper wrapper = Sh2Helper.get(startRom, CpuDeviceAccess.MASTER);
-        Assertions.assertEquals(memLoadAddress, wrapper.block.poller.blockPollData.memLoadTarget & 0xFFFF);
-
-        //write to sdram should NOT trigger an event
-        lc.memory.write8(SH2_START_SDRAM | memLoadAddress + 4, noMatchVal);
-        Assertions.assertEquals(SysEventManager.SysEvent.START_POLLING, lastEvent);
-        Assertions.assertTrue(isPollerActive());
-
-        //write to sdram should trigger an event
-        lc.memory.write8(SH2_START_SDRAM | memLoadAddress, noMatchVal);
-        Assertions.assertEquals(CpuDeviceAccess.MASTER, lastCpuEvent);
-        Assertions.assertEquals(SysEventManager.SysEvent.SDRAM, lastEvent);
-        Assertions.assertFalse(isPollerActive());
-
-        //check condition
-        runBlock(sh2Context, cycles);
-        Assertions.assertTrue(isPollerActive());
-        //resume polling
-        runBlock(sh2Context, cycles);
-        Assertions.assertTrue(isPollerActive());
-        Assertions.assertEquals(CpuDeviceAccess.MASTER, lastCpuEvent);
-        Assertions.assertEquals(SysEventManager.SysEvent.START_POLLING, lastEvent);
-
-        //write to sdram should trigger an event
-        lc.memory.write8(SH2_START_SDRAM | memLoadAddress, (byte) (noMatchVal | 1));
-        Assertions.assertEquals(CpuDeviceAccess.MASTER, lastCpuEvent);
-        Assertions.assertEquals(SysEventManager.SysEvent.SDRAM, lastEvent);
-        Assertions.assertFalse(isPollerActive());
-
-        //check condition, exit loop
-        runBlock(sh2Context, cycles);
-        Assertions.assertFalse(isPollerActive());
-        Assertions.assertEquals(startRom + 8, sh2Context.PC);
     }
 
-    private void loopUntilDrcAndPollDetect(int start, Sh2Context sh2Context) {
+
+    private void setInterrupt(IntControl.Sh2Interrupt interrupt) {
+        IntControl intc = lc.mDevCtx.intC;
+        intc.setIntsMasked(0xF); //unmask
+        intc.setIntPending(interrupt, true);
+    }
+
+    private void clearInterrupt(IntControl.Sh2Interrupt interrupt) {
+        IntControl intc = lc.mDevCtx.intC;
+        intc.clearInterrupt(interrupt);
+    }
+
+    private void loopUntilDrcAndBusyLoopDetect(int start, Sh2Context sh2Context) {
+        loopUntilDrcAndDetect(start, sh2Context, false);
+    }
+
+    private void loopUntilDrcAndDetect(int start, Sh2Context sh2Context, boolean isPoll) {
         Sh2Helper.Sh2PcInfoWrapper wrapper = Sh2Helper.get(start, CpuDeviceAccess.MASTER);
         Assertions.assertNotNull(wrapper);
         Assertions.assertNotEquals(Sh2Helper.SH2_NOT_VISITED, wrapper);
         loopUntilDrc(sh2Context, wrapper);
-        Assertions.assertEquals(Ow2DrcOptimizer.PollType.SDRAM, wrapper.block.pollType);
+        Assertions.assertEquals(isPoll ? PollType.SDRAM : PollType.BUSY_LOOP, wrapper.block.pollType);
         loopUntilPollingActive(sh2Context);
         Assertions.assertTrue(wrapper.block.poller.isPollingActive());
     }
 
     private void runBlock(Sh2Context sh2Context, int cycles) {
+        Sh2Context.burstCycles = cycles;
         sh2Context.cycles = cycles;
         lc.sh2.run(sh2Context);
+        //TODO initial loop does nothing, see run()
+        Assertions.assertTrue(sh2Context.cycles < 0 || sh2Context.cycles == cycles);
     }
 
     public boolean isPollerActive() {
@@ -272,7 +386,7 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
         lastCpuEvent = cpu;
         lastEvent = event;
         System.out.println(cpu + "," + event);
-        if (lastEvent == SysEventManager.SysEvent.SDRAM) {
+        if (lastEvent == SysEventManager.SysEvent.SDRAM || lastEvent == SysEventManager.SysEvent.INT) {
             SysEventManager.instance.resetPoller(cpu);
         }
     }

@@ -48,7 +48,6 @@ public class Sh2Impl implements Sh2 {
 
 	protected Sh2Context ctx;
 	protected IMemory memory;
-	private int stackCheck = 0;
 	protected final Sh2Config sh2Config;
 	protected final Sh2InstructionWrapper[] opcodeMap;
 
@@ -91,6 +90,11 @@ public class Sh2Impl implements Sh2 {
 		ctx.cycles -= 5;
 	}
 
+	protected final void decodeDelaySlot(int opcode) {
+		printDebugMaybe(opcode);
+		opcodeMap[opcode].runnable.run();
+	}
+
 	/*
 	 * Because an instruction in a delay slot cannot alter the PC we can do this.
 	 * Perf: better to keep run() close to decode()
@@ -111,22 +115,6 @@ public class Sh2Impl implements Sh2 {
 		ctx.cycles_ran = Sh2Context.burstCycles - ctx.cycles;
 		ctx.cycles = Sh2Context.burstCycles;
 	}
-
-	protected final void decodeDelaySlot(int opcode) {
-		printDebugMaybe(opcode);
-		opcodeMap[opcode].runnable.run();
-	}
-
-//	long blockLoops, nextBlockTaken, blockPcMismatch, blockOuts, fetchNoBlock, mapRun, blockRunOne;
-
-	protected final void decodeSimple() {
-		final FetchResult fr = ctx.fetchResult;
-		fr.pc = ctx.PC;
-		memory.fetch(fr, ctx.cpuAccess);
-		printDebugMaybe(fr.opcode);
-		opcodeMap[fr.opcode].runnable.run();
-	}
-
 	protected final void decode() {
 		if (!sh2Config.drcEn) {
 			decodeSimple();
@@ -134,43 +122,40 @@ public class Sh2Impl implements Sh2 {
 		}
 		final FetchResult fr = ctx.fetchResult;
 		fr.pc = ctx.PC;
-		if (fr.block != INVALID_BLOCK) {
-			if (fr.block.prefetchPc == fr.pc) {
-//				blockLoops++;
-				fr.block.runBlock(this, ctx.devices.sh2MMREG);
-				if (ctx.PC == fr.block.prefetchPc) {
-					fr.block.nextBlock = fr.block;
-					fr.block.poller.spinCount++;
-				} else {
-					fr.block.poller.spinCount = 0;
-				}
-				boolean nextBlockOk = fr.block.nextBlock.prefetchPc == ctx.PC && fr.block.nextBlock.isValid();
-				if (!nextBlockOk) {
-					SysEventManager.instance.resetPoller(ctx.cpuAccess);
-					fetchNextBlock(fr);
-				} else {
-//					nextBlockTaken++;
-					fr.pc = ctx.PC;
-					fr.block = fr.block.nextBlock;
-					fr.opcode = fr.block.prefetchWords[0];
-				}
-				return;
-			}
-//			blockPcMismatch++;
-			fr.block = INVALID_BLOCK;
+		if (fr.block.prefetchPc == fr.pc) {
+			runBlock(fr);
 			return;
 		}
-//		fetchNoBlock++;
-		fr.pc = ctx.PC;
 		memory.fetch(fr, ctx.cpuAccess);
 		//when prefetch disabled
-		if (!sh2Config.prefetchEn) {
+		if (sh2Config.prefetchEn) {
+			runBlock(fr);
+		} else {
 			assert fr.block != INVALID_BLOCK; //TODO check
 			if (fr.block == null) {
 				printDebugMaybe(fr.opcode);
 				opcodeMap[fr.opcode].runnable.run();
-//				mapRun++;
 			}
+		}
+	}
+
+	private void runBlock(final FetchResult fr) {
+		final Sh2Block block = fr.block;
+		block.runBlock(this, ctx.devices.sh2MMREG);
+		if (ctx.PC == block.prefetchPc) {
+			block.nextBlock = fr.block;
+			block.poller.spinCount++;
+		} else {
+			block.poller.spinCount = 0;
+		}
+		boolean nextBlockOk = block.nextBlock.prefetchPc == ctx.PC && block.nextBlock.isValid();
+		if (!nextBlockOk) {
+			SysEventManager.instance.resetPoller(ctx.cpuAccess);
+			fetchNextBlock(fr);
+		} else {
+			fr.pc = ctx.PC;
+			fr.block = block.nextBlock;
+			fr.opcode = block.prefetchWords[0];
 		}
 	}
 
@@ -185,6 +170,14 @@ public class Sh2Impl implements Sh2 {
 			fr.block = INVALID_BLOCK;
 		}
 		prevBlock.nextBlock = fr.block;
+	}
+
+	protected final void decodeSimple() {
+		final FetchResult fr = ctx.fetchResult;
+		fr.pc = ctx.PC;
+		memory.fetch(fr, ctx.cpuAccess);
+		printDebugMaybe(fr.opcode);
+		opcodeMap[fr.opcode].runnable.run();
 	}
 
 	public void setCtx(Sh2Context ctx) {
@@ -211,7 +204,6 @@ public class Sh2Impl implements Sh2 {
 
 	//push to stack
 	private void push(int data) {
-//		assert --stackCheck > -STACK_LIMIT_SIZE : toStackErrorStr();
 		ctx.registers[15] -= 4;
 		memory.write32(ctx.registers[15], data);
 //		System.out.println(ctx.sh2Access + " PUSH SP: " + Integer.toHexString(ctx.registers[15])
@@ -220,7 +212,6 @@ public class Sh2Impl implements Sh2 {
 
 	//pop from stack
 	private int pop() {
-//		assert ++stackCheck < STACK_LIMIT_SIZE : toStackErrorStr();
 		int res = memory.read32(ctx.registers[15]);
 //		System.out.println(ctx.cpuAccess + " POP SP: " + Integer.toHexString(ctx.registers[15])
 //				+ "," + Integer.toHexString(res));
@@ -1887,9 +1878,5 @@ public class Sh2Impl implements Sh2 {
 		//TODO check +4??, T-Mek indicates nope
 		ctx.PC = memory.read32(ctx.VBR + (imm << 2));
 		ctx.cycles -= 8;
-	}
-
-	private String toStackErrorStr() {
-		return "Stack too deep: " + stackCheck + "\n" + ctx + "\n" + Sh2Helper.toDebuggingString(ctx);
 	}
 }

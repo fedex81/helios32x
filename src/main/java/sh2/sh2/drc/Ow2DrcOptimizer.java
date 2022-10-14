@@ -135,7 +135,6 @@ public class Ow2DrcOptimizer {
                 if (isMemLoadOpcode.test(opcode)) {
                     memLoadPos = i;
                     memLoadOpcode = opcode;
-                    parseMemLoad(this, ctx, memLoadOpcode);
                     activeInstLen++;
                     memLoads++;
                 } else if (isCmpTstOpcode.test(opcode) || isFlagOpcode.test(opcode)) {
@@ -146,9 +145,14 @@ public class Ow2DrcOptimizer {
                     branchPos = i;
                     branchOpcode = opcode;
                     branchPc = pc + (branchPos << 1);
-                    branchDestPc = getBranchDestination(branchOpcode, branchPc);
                     activeInstLen++;
                 }
+            }
+            if (memLoadPos >= 0) {
+                parseMemLoad(this, ctx, memLoadOpcode);
+            }
+            if (branchPos >= 0) {
+                branchDestPc = getBranchDestination(branchOpcode, branchPc);
             }
             if (nonNopsLen == 2) {
                 if (cmpPos >= 0 && branchPos >= 0 && branchDestPc == pc) {
