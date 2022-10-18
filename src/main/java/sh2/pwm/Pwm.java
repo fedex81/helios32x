@@ -83,7 +83,7 @@ public class Pwm implements StepDevice {
         if (verbose) LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), size);
         switch (size) {
             case BYTE:
-                writeByte(cpu, regSpec, reg, value, size);
+                writeByte(cpu, regSpec, reg, value);
                 break;
             case WORD:
                 writeWord(cpu, regSpec, reg, value);
@@ -95,24 +95,25 @@ public class Pwm implements StepDevice {
         }
     }
 
-    public void writeByte(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value, Size size) {
-        if (verbose) LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), Size.WORD);
+    public void writeByte(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value) {
+        if (verbose) LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), Size.BYTE);
+        assert cpu.regSide == S32xRegSide.MD;
         switch (regSpec) {
             case PWM_CTRL:
-                handlePwmControlMd(cpu, reg, value, size);
+                handlePwmControlMd(cpu, reg, value, Size.BYTE);
                 break;
             case PWM_RCH_PW:
             case PWM_LCH_PW:
             case PWM_MONO:
             case PWM_CYCLE: {
-                //NOTE: z80 writes MSB then LSB, we trigger the write when writing to LSB
-                if ((reg & 1) == 0) {
-                    writeBuffers(sysRegsMd, sysRegsSh2, reg, value & 0xF, size);
+                //NOTE: z80 writes MSB then LSB, we trigger then write when writing to LSB
+                boolean even = (reg & 1) == 0;
+                if (even) {
+                    writeBuffers(sysRegsMd, sysRegsSh2, reg, value & 0xF, Size.BYTE);
                     return;
                 }
+                writeBuffers(sysRegsMd, sysRegsSh2, reg, value & 0xFF, Size.BYTE);
                 int val = readBuffer(sysRegsMd, regSpec.addr, Size.WORD);
-                boolean even = (reg & 1) == 0;
-                val = (val & (even ? 0xFF : 0xFF00)) | (even ? value << 8 : value);
                 writeWord(cpu, regSpec, reg, val);
             }
             break;
@@ -128,9 +129,9 @@ public class Pwm implements StepDevice {
         switch (regSpec) {
             case PWM_CTRL -> handlePwmControl(cpu, reg, value, Size.WORD);
             case PWM_CYCLE -> handlePwmCycleWord(cpu, reg, value);
-            case PWM_MONO -> writeMono(reg, value, Size.WORD);
-            case PWM_LCH_PW -> writeFifo(regSpec, reg, fifoLeft, value, Size.WORD);
-            case PWM_RCH_PW -> writeFifo(regSpec, reg, fifoRight, value, Size.WORD);
+            case PWM_MONO -> writeMono(value);
+            case PWM_LCH_PW -> writeFifo(fifoLeft, value);
+            case PWM_RCH_PW -> writeFifo(fifoRight, value);
             default -> writeBuffers(sysRegsMd, sysRegsSh2, regSpec.addr, value, Size.WORD);
         }
     }
@@ -203,9 +204,9 @@ public class Pwm implements StepDevice {
         fifoLeft.clear();
     }
 
-    private void writeFifo(RegSpecS32x regSpec, int reg, Fifo<Integer> fifo, int value, Size size) {
+    private void writeFifo(Fifo<Integer> fifo, int value) {
         if (fifo.isFull()) {
-            //TODO replace oldest
+            fifo.pop();
 //            LOG.warn("PWM FIFO push when fifo full: {} {}", th(value), size);
             return;
         }
@@ -231,29 +232,32 @@ public class Pwm implements StepDevice {
 //            LOG.warn("PWM FIFO pop when fifo empty: {}", th(latestPwmValue));
             return latestPwmValue;
         }
+        //TODO this should be per channel
         latestPwmValue = fifo.pop();
         updateFifoRegs();
         return latestPwmValue;
     }
 
+    //TODO update on read instead??
+    //TODO keep the existing value instead of replacing it
     private void updateFifoRegs() {
         int regValue = (fifoLeft.isFullBit() << PWM_FIFO_FULL_BIT_POS) | (fifoLeft.isEmptyBit() << PWM_FIFO_EMPTY_BIT_POS);
         writeBuffers(sysRegsMd, sysRegsSh2, PWM_LCH_PW.addr, regValue, Size.WORD);
         regValue = (fifoRight.isFullBit() << PWM_FIFO_FULL_BIT_POS) | (fifoRight.isEmptyBit() << PWM_FIFO_EMPTY_BIT_POS);
         writeBuffers(sysRegsMd, sysRegsSh2, PWM_RCH_PW.addr, regValue, Size.WORD);
-        updateMono(PWM_RCH_PW);
+        updateMono();
     }
 
-    private void updateMono(RegSpecS32x regSpec) {
+    private void updateMono() {
         int fifoFull = ((fifoLeft.isFullBit() | fifoRight.isFullBit()) << PWM_FIFO_FULL_BIT_POS);
         int fifoEmpty = ((fifoLeft.isEmptyBit() & fifoRight.isEmptyBit()) << PWM_FIFO_EMPTY_BIT_POS);
         int regValue = fifoFull | fifoEmpty;
         writeBuffers(sysRegsMd, sysRegsSh2, PWM_MONO.addr, regValue, Size.WORD);
     }
 
-    public void writeMono(int reg, int value, Size size) {
-        writeFifo(PWM_LCH_PW, reg, fifoLeft, value, size);
-        writeFifo(PWM_RCH_PW, reg, fifoRight, value, size);
+    public void writeMono(int value) {
+        writeFifo(fifoLeft, value);
+        writeFifo(fifoRight, value);
     }
 
     public void newFrame() {
