@@ -42,11 +42,6 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
         public boolean isPoll, matchOrNot;
         public Size memLoadSize;
     }
-
-    /**
-     * todo vf intro freeze after a while
-     */
-
     @BeforeAll
     public static void beforeAll() {
         Sh2.Sh2Config.reset(configDrcEn);

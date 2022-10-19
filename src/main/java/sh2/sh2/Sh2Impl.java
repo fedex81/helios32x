@@ -142,21 +142,29 @@ public class Sh2Impl implements Sh2 {
 	private void runBlock(final FetchResult fr) {
 		final Sh2Block block = fr.block;
 		block.runBlock(this, ctx.devices.sh2MMREG);
+		//looping on the same block
 		if (ctx.PC == block.prefetchPc) {
+			assert block.isValid();
 			block.nextBlock = fr.block;
 			block.poller.spinCount++;
-		} else {
-			block.poller.spinCount = 0;
+			return;
 		}
+		//nextBlock matches what we expect
 		boolean nextBlockOk = block.nextBlock.prefetchPc == ctx.PC && block.nextBlock.isValid();
-		if (!nextBlockOk) {
+		if (nextBlockOk) {
+			setNextBlock(fr, block);
+		} else {
 			SysEventManager.instance.resetPoller(ctx.cpuAccess);
 			fetchNextBlock(fr);
-		} else {
-			fr.pc = ctx.PC;
-			fr.block = block.nextBlock;
-			fr.opcode = block.prefetchWords[0];
 		}
+		assert block.isValid();
+		block.poller.spinCount = 0;
+	}
+
+	private void setNextBlock(final FetchResult fr, Sh2Block block) {
+		fr.pc = ctx.PC;
+		fr.block = block.nextBlock;
+		fr.opcode = block.prefetchWords[0];
 	}
 
 	private void fetchNextBlock(final FetchResult fr) {

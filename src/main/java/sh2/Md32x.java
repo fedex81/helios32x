@@ -212,7 +212,6 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
 
     @Override
     public void onSysEvent(CpuDeviceAccess cpu, SysEventManager.SysEvent event) {
-        final Sh2Context sh2Context = cpu == MASTER ? masterCtx : slaveCtx;
         switch (event) {
             case START_POLLING -> {
                 //TODO this should keep running DMA, SCI, see Chaotix

@@ -61,19 +61,6 @@ public class Ow2DrcOptimizer {
         SYS,
         VDP;
     }
-
-    public enum PollCancelType {
-        NONE,
-        INT,
-        SYS,
-        SDRAM,
-        COMM,
-        DMAC,
-        PWM,
-        VDP;
-    }
-
-
     private static final Predicate<Integer> isCmpTstOpcode = Sh2Debug.isTstOpcode.or(Sh2Debug.isCmpOpcode);
 
     public static final Predicate<Integer> isTasOpcode = op -> (op & 0xF0FF) == 0x401b;

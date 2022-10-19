@@ -2,8 +2,10 @@ package sh2.sh2.drc;
 
 import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
-import sh2.*;
+import sh2.Md32xRuntimeData;
+import sh2.S32xUtil;
 import sh2.S32xUtil.CpuDeviceAccess;
+import sh2.Sh2MMREG;
 import sh2.event.SysEventManager;
 import sh2.event.SysEventManager.SysEvent;
 import sh2.sh2.Sh2;
@@ -19,10 +21,8 @@ import java.util.StringJoiner;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
-import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
-import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.BUSY_LOOP;
-import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.NONE;
+import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.*;
 import static sh2.sh2.drc.Ow2DrcOptimizer.UNKNOWN_POLLER;
 
 /**
@@ -33,6 +33,8 @@ import static sh2.sh2.drc.Ow2DrcOptimizer.UNKNOWN_POLLER;
 public class Sh2Block {
     private static final Logger LOG = LogHelper.getLogger(Sh2Block.class.getSimpleName());
 
+    //NOTE when invalidating a lot this should be set high (1023), otherwise we keep doing DRC on the new blocks
+    //1023 fixes vf, for a while
     //needs to be (powerOf2 - 1)
     private static final int OPT_THRESHOLD2 = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.stage2.hits", "31"));
 
@@ -54,7 +56,7 @@ public class Sh2Block {
     public Sh2Block nextBlock = INVALID_BLOCK;
     public Sh2Prefetch.Sh2DrcContext drcContext;
     public Ow2DrcOptimizer.PollerCtx poller = UNKNOWN_POLLER;
-    private final static Sh2.Sh2Config sh2Config;
+    protected final static Sh2.Sh2Config sh2Config;
     public int blockFlags;
     public PollType pollType = PollType.UNKNOWN;
     public Runnable stage2Drc;
@@ -72,14 +74,6 @@ public class Sh2Block {
     }
 
     public final void runBlock(Sh2 sh2, Sh2MMREG sm) {
-        if (!Md32x.SH2_DEBUG_DRC) {
-            runBlockInternal(sh2, sm);
-        } else {
-            runBlockParallel(sh2, sm);
-        }
-    }
-
-    private void runBlockInternal(Sh2 sh2, Sh2MMREG sm) {
         assert prefetchPc != -1;
         assert (blockFlags & VALID_FLAG) > 0;
         if (stage2Drc != null) {
@@ -92,79 +86,7 @@ public class Sh2Block {
         runInterpreter(sh2, sm, drcContext.sh2Ctx);
     }
 
-    private void runBlockParallel(Sh2 sh2, Sh2MMREG sm) {
-        assert prefetchPc != -1;
-        assert (blockFlags & VALID_FLAG) > 0;
-        if (stage2Drc != null) {
-            if (sh2Config.pollDetectEn) {
-                handlePoll();
-            }
-            prepareInterpreterParallel();
-            stage2Drc.run();
-            runInterpreterParallel(sh2, sm);
-            return;
-        }
-        ((Sh2MemoryParallel) drcContext.memory).setActive(false);
-        runInterpreter(sh2, sm, drcContext.sh2Ctx);
-    }
-
-    private Sh2Context[] cloneCtxs;
-
-    private void prepareInterpreterParallel() {
-        if (cloneCtxs == null) {
-            cloneCtxs = new Sh2Context[]{new Sh2Context(MASTER, false), new Sh2Context(SLAVE, false)};
-        }
-        Sh2Context ctx = this.drcContext.sh2Ctx;
-        Sh2Context cloneCtx = cloneCtxs[ctx.cpuAccess.ordinal()];
-        cloneCtx.PC = ctx.PC;
-        cloneCtx.delayPC = ctx.delayPC;
-        cloneCtx.GBR = ctx.GBR;
-        cloneCtx.MACL = ctx.MACL;
-        cloneCtx.SR = ctx.SR;
-        cloneCtx.MACH = ctx.MACH;
-        cloneCtx.VBR = ctx.VBR;
-        cloneCtx.PR = ctx.PR;
-        cloneCtx.opcode = ctx.opcode;
-        cloneCtx.fetchResult = ctx.fetchResult;
-        cloneCtx.cycles = ctx.cycles;
-        cloneCtx.cycles_ran = ctx.cycles_ran;
-        System.arraycopy(ctx.registers, 0, cloneCtx.registers, 0, ctx.registers.length);
-        Sh2MemoryParallel sp = ((Sh2MemoryParallel) drcContext.memory);
-        sp.setActive(true);
-    }
-
-    private void runInterpreterParallel(Sh2 sh2, Sh2MMREG sm) {
-        int delay = Md32xRuntimeData.getCpuDelayExt();
-        Sh2MemoryParallel sp = ((Sh2MemoryParallel) drcContext.memory);
-        sp.setReplayMode(true);
-        Sh2Context ctx = this.drcContext.sh2Ctx;
-        Sh2Context intCtx = cloneCtxs[ctx.cpuAccess.ordinal()];
-        sh2.setCtx(intCtx);
-        boolean log = false;
-        try {
-            runInterpreter(sh2, sm, intCtx);
-        } catch (Exception | Error e) {
-            LOG.error("", e);
-            log = true;
-        }
-        sh2.setCtx(ctx);
-
-        if (ctx.equals(intCtx)) {
-            log |= !Arrays.equals(ctx.registers, intCtx.registers);
-        } else {
-            log = true;
-        }
-        if (log) {
-            LOG.info("\ndrc: {}\nint: {}\n{}", ctx, intCtx, Sh2Helper.toListOfInst(this));
-            throw new RuntimeException();
-        }
-        sp.setReplayMode(false);
-        sp.clear();
-        sp.setActive(false);
-        Md32xRuntimeData.resetCpuDelayExt(delay);
-    }
-
-    private void runInterpreter(Sh2 sh2, Sh2MMREG sm, Sh2Context ctx) {
+    protected final void runInterpreter(Sh2 sh2, Sh2MMREG sm, Sh2Context ctx) {
         Sh2Prefetcher.Sh2BlockUnit prev = curr;
         addHit();
         int startCycle = ctx.cycles;
@@ -183,30 +105,34 @@ public class Sh2Block {
 
     private static final int POLLER_ACTIVATE_LIMIT = 2;
 
-    private void handlePoll() {
+    protected final void handlePoll() {
+        final CpuDeviceAccess cpu = getCpu();
         if (!isPollingBlock()) {
-            final Ow2DrcOptimizer.PollerCtx current = SysEventManager.instance.getPoller(drcContext.cpu);
+            final Ow2DrcOptimizer.PollerCtx current = SysEventManager.instance.getPoller(cpu);
+            assert current != UNKNOWN_POLLER;
             if (current != NO_POLLER && pollType == BUSY_LOOP) { //TODO check
                 SysEventManager.instance.resetPoller(current.cpu);
             }
             return;
         }
-        final Ow2DrcOptimizer.PollerCtx currentPoller = SysEventManager.instance.getPoller(drcContext.cpu);
+        final Ow2DrcOptimizer.PollerCtx currentPoller = SysEventManager.instance.getPoller(cpu);
         final Ow2DrcOptimizer.PollerCtx blockPoller = poller;
-        assert poller == Sh2Helper.get(prefetchPc, drcContext.cpu).block.poller;
+        assert poller == Sh2Helper.get(prefetchPc, cpu).block.poller;
         if (currentPoller == NO_POLLER) {
+            assert blockPoller != UNKNOWN_POLLER;
             if (blockPoller != NO_POLLER) {
-                SysEventManager.instance.setPoller(drcContext.cpu, blockPoller);
+                SysEventManager.instance.setPoller(cpu, blockPoller);
             } else {
-                assert false; //TODO we shouldn't be getting here??
+                //DMA and PWM are not supported -> poller = NO_POLLER
+                assert pollType == DMA || pollType == PWM : this + "\n" + blockPoller;
                 if (verbose)
-                    LOG.info("{} ignoring {} poll at PC {}, on address: {}", this.drcContext.cpu, pollType,
+                    LOG.info("{} ignoring {} poll at PC {}, on address: {}", cpu, pollType,
                             th(this.prefetchPc), th(blockPoller.blockPollData.memLoadTarget));
                 pollType = PollType.NONE;
             }
         } else if (!currentPoller.isPollingActive()) {
             if (blockPoller != currentPoller) {
-                SysEventManager.instance.resetPoller(drcContext.cpu);
+                SysEventManager.instance.resetPoller(cpu);
                 return;
             }
             startPollingMaybe(blockPoller);
@@ -221,16 +147,16 @@ public class Sh2Block {
     private void startPollingMaybe(Ow2DrcOptimizer.PollerCtx blockPoller) {
         if (blockPoller.spinCount < POLLER_ACTIVATE_LIMIT) {
             if (verbose)
-                LOG.info("{} avoid re-entering {} poll at PC {}, on address: {}", this.drcContext.cpu, pollType,
+                LOG.info("{} avoid re-entering {} poll at PC {}, on address: {}", blockPoller.cpu, pollType,
                         th(this.prefetchPc), th(blockPoller.blockPollData.memLoadTarget));
             return;
         }
-        if (verbose)
-            LOG.info("{} entering {} poll at PC {}, on address: {}", this.drcContext.cpu, pollType,
-                    th(this.prefetchPc), th(blockPoller.blockPollData.memLoadTarget));
         blockPoller.pollState = Ow2DrcOptimizer.PollState.ACTIVE_POLL;
         Ow2DrcOptimizer.parseMemLoad(blockPoller.blockPollData);
-        SysEventManager.instance.fireSysEvent(drcContext.cpu, SysEvent.START_POLLING);
+        if (verbose)
+            LOG.info("{} entering {} poll at PC {}, on address: {}", blockPoller.cpu, pollType,
+                    th(this.prefetchPc), th(blockPoller.blockPollData.memLoadTarget));
+        SysEventManager.instance.fireSysEvent(blockPoller.cpu, SysEvent.START_POLLING);
     }
 
     public void addHit() {
@@ -308,6 +234,10 @@ public class Sh2Block {
     public void setValid() {
         blockFlags |= VALID_FLAG;
         prefetchPc &= ~1;
+    }
+
+    public CpuDeviceAccess getCpu() {
+        return CpuDeviceAccess.cdaValues[blockFlags & CPU_FLAG];
     }
 
     @Override
