@@ -128,6 +128,7 @@ public class Sh2Helper {
     }
 
     public static String getInstString(Sh2Context ctx) {
+        assert ctx.opcode > 0;
         return String.format(simpleFormat, ctx.sh2TypeCode, ctx.PC, ctx.opcode, disasm.disassemble(ctx.PC, ctx.opcode));
     }
 

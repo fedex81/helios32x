@@ -172,7 +172,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             if (inst.isIllegal) {
                 if (!dummy) {
                     LOG.error("{} Invalid fetch, start PC: {}, current: {} opcode: {}", cpu, th(pc), th(bytePos), th(val));
-                    throw new RuntimeException("Fatal! " + inst + "," + th(val));
+                    throw new RuntimeException("Fatal! " + inst + "," + th(val) + "\n" + block);
                 }
                 return -1;
             }
