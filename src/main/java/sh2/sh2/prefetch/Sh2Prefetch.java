@@ -272,6 +272,30 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             fetchResult.opcode = memory.read(pc, Size.WORD);
             return;
         }
+        final Sh2Block prev = fetchResult.block;
+        assert fetchResult.pc != fetchResult.block.prefetchPc;
+        checkBlock(fetchResult, cpu);
+        final int pcPosWords = 0;
+        final Sh2Block block = fetchResult.block;
+        block.poller.spinCount = 0;
+        assert prev != block : "\n" + prev + "\n" + block;
+        assert block.poller.spinCount == 0 : "\n" + prev + "\n" + block;
+        cacheOnFetch(pc, block.prefetchWords[pcPosWords], cpu);
+        if (collectStats) stats[cpu.ordinal()].pfTotal++;
+        S32xMemAccessDelay.addReadCpuDelay(block.fetchMemAccessDelay);
+        assert block != Sh2Block.INVALID_BLOCK && block.prefetchWords != null && block.prefetchWords.length > 0;
+        fetchResult.opcode = block.prefetchWords[pcPosWords];
+        assert fetchResult.block != null;
+        return;
+    }
+
+    @Deprecated
+    public void fetchOld(FetchResult fetchResult, CpuDeviceAccess cpu) {
+        final int pc = fetchResult.pc;
+        if (!sh2Config.prefetchEn) {
+            fetchResult.opcode = memory.read(pc, Size.WORD);
+            return;
+        }
         Sh2Block prev = fetchResult.block;
         Sh2Block block = fetchResult.block;
         int pcPosWords = block != null ? (pc - block.prefetchPc) >> 1 : -1; //0 based
@@ -297,7 +321,23 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         return;
     }
 
+    @Override
     public int fetchDelaySlot(int pc, Sh2.FetchResult ft, CpuDeviceAccess cpu) {
+        if (!sh2Config.prefetchEn) {
+            return memory.read(pc, Size.WORD);
+        }
+        final Sh2Block block = ft.block;
+        final int pcDeltaWords = (pc - block.prefetchPc) >> 1;
+        assert pcDeltaWords < block.prefetchLenWords && pcDeltaWords >= 0;
+        if (collectStats) stats[cpu.ordinal()].pfTotal++;
+        S32xMemAccessDelay.addReadCpuDelay(block.fetchMemAccessDelay);
+        int res = block.prefetchWords[pcDeltaWords];
+        cacheOnFetch(pc, res, cpu);
+        return res;
+    }
+
+    @Deprecated
+    public int fetchDelaySlotOld(int pc, Sh2.FetchResult ft, CpuDeviceAccess cpu) {
         if (!sh2Config.prefetchEn) {
             return memory.read(pc, Size.WORD);
         }

@@ -98,7 +98,7 @@ task copyRes {
     }
     copy {
         from("res")
-        exclude "misc/**"
+        exclude "misc/**", "roms/**"
         into "$buildDir/packageDir/res"
     }
 }

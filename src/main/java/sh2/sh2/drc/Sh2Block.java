@@ -33,8 +33,6 @@ import static sh2.sh2.drc.Ow2DrcOptimizer.UNKNOWN_POLLER;
 public class Sh2Block {
     private static final Logger LOG = LogHelper.getLogger(Sh2Block.class.getSimpleName());
 
-    //NOTE when invalidating a lot this should be set high (1023), otherwise we keep doing DRC on the new blocks
-    //1023 fixes vf, for a while
     //needs to be (powerOf2 - 1)
     private static final int OPT_THRESHOLD2 = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.stage2.hits", "31"));
 

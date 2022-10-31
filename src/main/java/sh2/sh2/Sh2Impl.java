@@ -157,7 +157,7 @@ public class Sh2Impl implements Sh2 {
 			SysEventManager.instance.resetPoller(ctx.cpuAccess);
 			fetchNextBlock(fr);
 		}
-		assert block.isValid();
+		assert fr.block.isValid();
 		block.poller.spinCount = 0;
 	}
 
