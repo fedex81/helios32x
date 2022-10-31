@@ -142,6 +142,7 @@ public class MarsRegTestUtil {
     }
 
     public static void checkFm(Sh2LaunchContext lc, int exp) {
+        Assertions.assertEquals(exp, (readBus(lc, Z80, MD_ADAPTER_CTRL_REG, Size.BYTE) >> 7) & 1);
         Assertions.assertEquals(exp, (readBus(lc, M68K, MD_ADAPTER_CTRL_REG, Size.WORD) >> 15) & 1);
         Assertions.assertEquals(exp, (readBus(lc, M68K, MD_ADAPTER_CTRL_REG, Size.BYTE) >> 7) & 1);
         Assertions.assertEquals(exp, (readBus(lc, MASTER, SH2_INT_MASK, Size.WORD) >> 15) & 1);
@@ -151,6 +152,7 @@ public class MarsRegTestUtil {
     }
 
     public static void checkRv(Sh2LaunchContext lc, int exp) {
+        Assertions.assertEquals(exp, readBus(lc, Z80, MD_DMAC_CTRL + 1, Size.BYTE) & 1);
         Assertions.assertEquals(exp, readBus(lc, M68K, MD_DMAC_CTRL, Size.WORD) & 1);
         Assertions.assertEquals(exp, readBus(lc, M68K, MD_DMAC_CTRL + 1, Size.BYTE) & 1);
         Assertions.assertEquals(exp, readBus(lc, MASTER, SH2_DREQ_CTRL, Size.WORD) & 1);
@@ -160,6 +162,7 @@ public class MarsRegTestUtil {
     }
 
     public static void checkAden(Sh2LaunchContext lc, int expAden) {
+        Assertions.assertEquals(expAden, readBus(lc, Z80, MD_ADAPTER_CTRL_REG + 1, Size.BYTE) & 1);
         Assertions.assertEquals(expAden, readBus(lc, M68K, MD_ADAPTER_CTRL_REG, Size.WORD) & 1);
         Assertions.assertEquals(expAden, readBus(lc, M68K, MD_ADAPTER_CTRL_REG + 1, Size.BYTE) & 1);
         Assertions.assertEquals(expAden, (readBus(lc, MASTER, SH2_INT_MASK, Size.WORD) >> 9) & 1);

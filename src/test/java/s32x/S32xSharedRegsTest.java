@@ -32,30 +32,33 @@ public class S32xSharedRegsTest {
         int expFm, fm;
         checkFm(lc, 0);
 
+        testFm(Z80, MD_ADAPTER_CTRL_REG);
         testFm(M68K, MD_ADAPTER_CTRL_REG);
         testFm(MASTER, SH2_INT_MASK);
         testFm(SLAVE, SH2_INT_MASK);
     }
 
 
-    private void testFm(S32xUtil.CpuDeviceAccess sh2Access, int reg) {
+    private void testFm(S32xUtil.CpuDeviceAccess cpu, int reg) {
         int expFm, fm;
 
         expFm = fm = 1;
-        writeBus(lc, sh2Access, reg, fm << 7, Size.BYTE);
+        writeBus(lc, cpu, reg, fm << 7, Size.BYTE);
         checkFm(lc, expFm);
 
         expFm = fm = 0;
-        writeBus(lc, sh2Access, reg, fm << 7, Size.BYTE);
+        writeBus(lc, cpu, reg, fm << 7, Size.BYTE);
         checkFm(lc, expFm);
 
-        expFm = fm = 1;
-        writeBus(lc, sh2Access, reg, fm << 15, Size.WORD);
-        checkFm(lc, expFm);
+        if (cpu != Z80) {
+            expFm = fm = 1;
+            writeBus(lc, cpu, reg, fm << 15, Size.WORD);
+            checkFm(lc, expFm);
 
-        expFm = fm = 0;
-        writeBus(lc, sh2Access, reg, fm << 15, Size.WORD);
-        checkFm(lc, expFm);
+            expFm = fm = 0;
+            writeBus(lc, cpu, reg, fm << 15, Size.WORD);
+            checkFm(lc, expFm);
+        }
     }
 
     @Test
@@ -76,21 +79,32 @@ public class S32xSharedRegsTest {
     }
 
     @Test
-    public void testAden01_BYTE() {
+    public void testAden01_BYTE_M68K() {
+        testAden01_BYTE_internal(M68K);
+    }
+
+    @Test
+    public void testAden01_BYTE_Z80() {
+        testAden01_BYTE_internal(Z80);
+    }
+
+    private void testAden01_BYTE_internal(S32xUtil.CpuDeviceAccess cpu) {
         int aden, expAden;
         //defaults to 0
         checkAden(lc, 0);
 
         //m68k sets Aden -> OK
         expAden = aden = 1;
-        writeBus(lc, M68K, MD_ADAPTER_CTRL_REG + 1, aden, Size.BYTE);
+        writeBus(lc, cpu, MD_ADAPTER_CTRL_REG + 1, aden, Size.BYTE);
         checkAden(lc, expAden);
 
         //m68k clears Aden, not supported
         aden = 0;
         expAden = 1;
-        writeBus(lc, M68K, MD_ADAPTER_CTRL_REG + 1, aden, Size.BYTE);
-        writeBus(lc, M68K, MD_ADAPTER_CTRL_REG, aden, Size.WORD);
+        writeBus(lc, cpu, MD_ADAPTER_CTRL_REG + 1, aden, Size.BYTE);
+        if (cpu != Z80) {
+            writeBus(lc, cpu, MD_ADAPTER_CTRL_REG, aden, Size.WORD);
+        }
         checkAden(lc, expAden);
     }
 

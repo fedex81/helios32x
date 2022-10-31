@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.MarsLauncherHelper;
+import sh2.S32xUtil;
 
 import static s32x.MarsRegTestUtil.readBus;
 import static s32x.MarsRegTestUtil.setRv;
@@ -31,26 +32,31 @@ public class RomAccessTest {
 
     @Test
     public void testMdAccess() {
+        testMdAccessInternal(M68K);
+        testMdAccessInternal(Z80);
+    }
+
+    private void testMdAccessInternal(S32xUtil.CpuDeviceAccess cpu) {
         int res;
         setRv(lc, 0);
-        res = readBus(lc, M68K, M68K_START_ROM_MIRROR + 0x200, Size.BYTE);
-        //random values are guarenteed not be 0 or 0xFF
+        res = readBus(lc, cpu, M68K_START_ROM_MIRROR + 0x200, Size.BYTE);
+        //random values are guaranteed not be 0 or 0xFF
         Assertions.assertTrue(res != 0 && res != 0xFF);
 
-        res = readBus(lc, M68K, M68K_START_ROM_MIRROR_BANK + 0x202, Size.BYTE);
+        res = readBus(lc, cpu, M68K_START_ROM_MIRROR_BANK + 0x202, Size.BYTE);
         Assertions.assertTrue(res != 0 && res != 0xFF);
 
-        res = readBus(lc, M68K, 0x208, Size.BYTE);
+        res = readBus(lc, cpu, 0x208, Size.BYTE);
         Assertions.assertTrue(res == 0 || res == 0xFF);
 
         setRv(lc, 1);
-        res = readBus(lc, M68K, M68K_START_ROM_MIRROR + 0x204, Size.BYTE);
+        res = readBus(lc, cpu, M68K_START_ROM_MIRROR + 0x204, Size.BYTE);
         Assertions.assertTrue(res == 0 || res == 0xFF);
 
-        res = readBus(lc, M68K, M68K_START_ROM_MIRROR_BANK + 0x206, Size.BYTE);
+        res = readBus(lc, cpu, M68K_START_ROM_MIRROR_BANK + 0x206, Size.BYTE);
         Assertions.assertTrue(res == 0 || res == 0xFF);
 
-        res = readBus(lc, M68K, 0x20a, Size.BYTE);
+        res = readBus(lc, cpu, 0x20a, Size.BYTE);
         Assertions.assertTrue(res != 0 && res != 0xFF);
     }
 

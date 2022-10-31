@@ -111,9 +111,11 @@ public class S32xUtil {
                 b.put(pos, (byte) value);
                 break;
             case WORD:
+                assert (pos & 1) == 0;
                 b.putShort(pos, (short) value);
                 break;
             case LONG:
+                assert (pos & 1) == 0;
                 b.putInt(pos, value);
                 break;
             default:
@@ -127,8 +129,10 @@ public class S32xUtil {
             case BYTE:
                 return b.get(pos) & 0xFF;
             case WORD:
+                assert (pos & 1) == 0;
                 return b.getShort(pos) & 0xFFFF;
             case LONG:
+                assert (pos & 1) == 0;
                 return b.getInt(pos);
             default:
                 System.err.println("Unsupported size: " + size);
