@@ -114,7 +114,6 @@ public class Pwm implements StepDevice {
             break;
             default:
                 LOG.error("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), Size.BYTE);
-                assert false;
                 break;
         }
     }

@@ -264,21 +264,21 @@ public class S32xDict {
             SH2_VDPREG_32X_OFFSET = START_32X_VDPREG, SH2_COLPAL_32X_OFFSET = START_32X_COLPAL;
 
     public static class S32xDictLogContext {
-        public CpuDeviceAccess sh2Access;
+        public CpuDeviceAccess cpu;
         public ByteBuffer regArea;
         public RegSpecS32x regSpec;
         public int fbD, fbW;
         public boolean read;
     }
 
-    public static void checkName(CpuDeviceAccess sh2Access, RegSpecS32x regSpec, int address, Size size) {
+    public static void checkName(CpuDeviceAccess cpu, RegSpecS32x regSpec, int address, Size size) {
         if (regSpec == null) {
-            LOG.warn("{} 32X mmreg unknown reg: {} {}", sh2Access, th(address), size);
+            LOG.warn("{} 32X mmreg unknown reg: {} {}", cpu, th(address), size);
         }
     }
 
     public static void logAccess(S32xDictLogContext logCtx, int address, int value, Size size) {
-        LOG.info("{} 32x reg {} {} ({}) {} {}", logCtx.sh2Access, logCtx.read ? "read" : "write",
+        LOG.info("{} 32x reg {} {} ({}) {} {}", logCtx.cpu, logCtx.read ? "read" : "write",
                 size, logCtx.regSpec.name, th(address), !logCtx.read ? ": " + th(value) : "");
     }
 
@@ -292,27 +292,27 @@ public class S32xDict {
         value = logCtx.read ? currentWord : value;
         switch (regSpec) {
             case VDP_BITMAP_MODE:
-                s = String.format(sformat, logCtx.sh2Access.toString(), type, regSpec.name,
+                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.name,
                         MarsVdp.BitmapMode.vals[value & 3].name(), value & 3, value, size.name(), evenOdd);
                 break;
             case FBCR:
                 String s1 = "D" + logCtx.fbD + "W" + logCtx.fbW +
                         "|H" + ((value >> 14) & 1) + "V" + ((value >> 15) & 1);
-                s = String.format(sformat, logCtx.sh2Access.toString(), type, regSpec.name,
+                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.name,
                         s1, value & 3, value, size.name(), evenOdd);
                 break;
             case SH2_INT_MASK:
-                if (logCtx.sh2Access == S32xUtil.CpuDeviceAccess.M68K) {
-                    s = String.format(sformat, logCtx.sh2Access, type, regSpec.name,
+                if (logCtx.cpu == S32xUtil.CpuDeviceAccess.M68K) {
+                    s = String.format(sformat, logCtx.cpu, type, regSpec.name,
                             "[RESET: " + ((value & 3) >> 1) + ", ADEN: " + (value & 1) + "]", value & 3,
                             value, size.name(), evenOdd);
                 } else {
-                    s = String.format(sformat, logCtx.sh2Access.toString(), type, regSpec.name, "", value,
+                    s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.name, "", value,
                             value, size.name(), evenOdd);
                 }
                 break;
             case MD_BANK_SET:
-                s = String.format(sformat, logCtx.sh2Access.toString(), type, regSpec.name,
+                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.name,
                         "", value & 3, value, size.name(), evenOdd);
                 break;
             case COMM0:
@@ -328,11 +328,11 @@ public class S32xDict {
                 }
                 int valueMem = S32xUtil.readBuffer(logCtx.regArea, address & S32X_REG_MASK, Size.LONG);
                 String s2 = decodeComm(valueMem);
-                s = String.format(sformat, logCtx.sh2Access.toString(), type, regSpec.name,
+                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.name,
                         s2, value, valueMem, size.name(), evenOdd);
                 break;
             default:
-                s = String.format(sformat, logCtx.sh2Access.toString(), type, regSpec.name,
+                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.name,
                         "", value, value, size.name(), evenOdd);
                 break;
         }

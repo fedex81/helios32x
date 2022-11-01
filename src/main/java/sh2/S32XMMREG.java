@@ -244,13 +244,13 @@ public class S32XMMREG implements Device {
     private void doLog(CpuDeviceAccess cpu, RegSpecS32x regSpec, int address, int value, Size size, boolean read) {
         boolean isSys = address < END_32X_SYSREG_CACHE;
         ByteBuffer regArea = isSys ? (cpu == M68K ? sysRegsMd : sysRegsSh2) : regContext.vdpRegs;
-        logCtx.sh2Access = Md32xRuntimeData.getAccessTypeExt();
+        logCtx.cpu = Md32xRuntimeData.getAccessTypeExt();
         logCtx.regSpec = regSpec;
         logCtx.regArea = regArea;
         logCtx.read = read;
         logCtx.fbD = vdpContext.frameBufferDisplay;
         logCtx.fbW = vdpContext.frameBufferWritable;
-        checkName(logCtx.sh2Access, regSpec, address, size);
+        checkName(logCtx.cpu, regSpec, address, size);
         S32xDict.logAccess(logCtx, address, value, size);
         S32xDict.detectRegAccess(logCtx, address, value, size);
         logZ80Access(cpu, regSpec, address, size, read);
@@ -366,14 +366,14 @@ public class S32XMMREG implements Device {
                 interruptControls[1].getSh2_int_mask_regs(), 1, INTMASK_HEN_BIT_POS, hen, Size.BYTE);
     }
 
-    private boolean handleIntMaskRegWriteSh2(CpuDeviceAccess sh2Access, int reg, int value, Size size) {
+    private boolean handleIntMaskRegWriteSh2(CpuDeviceAccess cpu, int reg, int value, Size size) {
         assert size != Size.LONG;
         int baseReg = reg & ~1;
-        final IntControl ic = interruptControls[sh2Access.ordinal()];
+        final IntControl ic = interruptControls[cpu.ordinal()];
         int prevW = ic.readSh2IntMaskReg(baseReg, Size.WORD);
-        ic.writeSh2IntMaskReg(reg, value & SH2_INT_MASK.writeAndMask, size);
+        ic.writeSh2IntMaskReg(reg, value, size);
         int newVal = ic.readSh2IntMaskReg(baseReg, Size.WORD) | (cart << 8);
-        ic.writeSh2IntMaskReg(baseReg, newVal, Size.WORD);
+        ic.writeSh2IntMaskReg(baseReg, newVal & SH2_INT_MASK.writeAndMask, Size.WORD);
         updateFmShared(newVal); //68k side r/w too
         updateHenShared(newVal); //M,S share the same value
         return newVal != prevW;

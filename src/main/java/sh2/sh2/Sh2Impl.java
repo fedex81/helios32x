@@ -214,14 +214,14 @@ public class Sh2Impl implements Sh2 {
 	private void push(int data) {
 		ctx.registers[15] -= 4;
 		memory.write32(ctx.registers[15], data);
-//		System.out.println(ctx.sh2Access + " PUSH SP: " + Integer.toHexString(ctx.registers[15])
+//		System.out.println(ctx.cpu + " PUSH SP: " + Integer.toHexString(ctx.registers[15])
 //				+ "," + Integer.toHexString(data));
 	}
 
 	//pop from stack
 	private int pop() {
 		int res = memory.read32(ctx.registers[15]);
-//		System.out.println(ctx.cpuAccess + " POP SP: " + Integer.toHexString(ctx.registers[15])
+//		System.out.println(ctx.cpu + " POP SP: " + Integer.toHexString(ctx.registers[15])
 //				+ "," + Integer.toHexString(res));
 		ctx.registers[15] += 4;
 		return res;

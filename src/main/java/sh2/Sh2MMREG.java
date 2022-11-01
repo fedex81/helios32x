@@ -40,8 +40,8 @@ public class Sh2MMREG {
     private int ticksPerFrame, sh2TicksPerFrame;
     private static final boolean verbose = false;
 
-    public Sh2MMREG(CpuDeviceAccess sh2Access, Sh2Cache sh2Cache) {
-        this.cpu = sh2Access;
+    public Sh2MMREG(CpuDeviceAccess cpu, Sh2Cache sh2Cache) {
+        this.cpu = cpu;
         this.cache = sh2Cache;
     }
 

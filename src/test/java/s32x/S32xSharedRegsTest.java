@@ -1,17 +1,21 @@
 package s32x;
 
 import omegadrive.util.Size;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.MarsLauncherHelper;
-import sh2.S32xUtil;
+import sh2.S32xUtil.CpuDeviceAccess;
+import sh2.sh2.device.IntControl;
+import sh2.sh2.device.IntControl.Sh2Interrupt;
 
 import static s32x.MarsRegTestUtil.*;
 import static sh2.S32XMMREG.CART_INSERTED;
 import static sh2.S32XMMREG.CART_NOT_INSERTED;
 import static sh2.S32xUtil.CpuDeviceAccess.*;
 import static sh2.dict.S32xDict.INTMASK_HEN_BIT_POS;
+import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
 
 /**
  * Federico Berti
@@ -38,8 +42,43 @@ public class S32xSharedRegsTest {
         testFm(SLAVE, SH2_INT_MASK);
     }
 
+    @Test
+    public void testSh2IntMask() {
+        testSh2IntMaskCpu(MASTER, SLAVE);
+        testSh2IntMaskCpu(SLAVE, MASTER);
+    }
 
-    private void testFm(S32xUtil.CpuDeviceAccess cpu, int reg) {
+    //not shared
+    private void testSh2IntMaskCpu(CpuDeviceAccess cpu, CpuDeviceAccess other) {
+        System.out.println(cpu);
+        IntControl intC = cpu == MASTER ? lc.masterCtx.devices.intC : lc.slaveCtx.devices.intC;
+        IntControl otherIntC = other == MASTER ? lc.masterCtx.devices.intC : lc.slaveCtx.devices.intC;
+        Sh2Interrupt[] ints = {PWM_6, CMD_8, HINT_10, VINT_12};
+
+        int reg = SH2_INT_MASK;
+        int value = 0xF; //all valid ints
+        writeBus(lc, cpu, reg, value, Size.WORD);
+        writeBus(lc, other, reg, 0, Size.WORD);
+
+        //set FM, check that intValid is not changed
+        writeBus(lc, cpu, reg, 1 << 7, Size.BYTE);
+        int res = readBus(lc, cpu, reg + 1, Size.BYTE);
+        int otherRes = readBus(lc, other, reg + 1, Size.BYTE);
+        Assertions.assertEquals(value, res);
+        Assertions.assertEquals(0, otherRes);
+
+        for (Sh2Interrupt inter : ints) {
+            intC.setIntPending(inter, true);
+            otherIntC.setIntPending(inter, true);
+            Assertions.assertEquals(intC.getInterruptLevel(), inter.ordinal());
+            Assertions.assertEquals(otherIntC.getInterruptLevel(), 0);
+            intC.clearCurrentInterrupt();
+            otherIntC.setIntPending(inter, false);
+        }
+    }
+
+
+    private void testFm(CpuDeviceAccess cpu, int reg) {
         int expFm, fm;
 
         expFm = fm = 1;
@@ -88,7 +127,7 @@ public class S32xSharedRegsTest {
         testAden01_BYTE_internal(Z80);
     }
 
-    private void testAden01_BYTE_internal(S32xUtil.CpuDeviceAccess cpu) {
+    private void testAden01_BYTE_internal(CpuDeviceAccess cpu) {
         int aden, expAden;
         //defaults to 0
         checkAden(lc, 0);

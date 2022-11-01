@@ -13,6 +13,7 @@ import java.util.Map;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
+import static sh2.dict.S32xDict.RegSpecS32x.SH2_INT_MASK;
 import static sh2.dict.Sh2Dict.RegSpec.*;
 import static sh2.sh2.device.IntControl.OnChipSubType.DMA_C0;
 import static sh2.sh2.device.IntControl.OnChipSubType.RXI;
@@ -156,10 +157,11 @@ public class IntControlImplNew implements IntControl {
         }
     }
 
+    @Override
     public void writeSh2IntMaskReg(int reg, int value, Size size) {
         writeBuffer(sh2_int_mask, reg, value, size);
-        int newVal = readBuffer(sh2_int_mask, reg, size);
-        setIntsMasked(newVal);
+        int newVal = readBuffer(sh2_int_mask, SH2_INT_MASK.addr, Size.WORD);
+        setIntsMasked(newVal & 0xF);
     }
 
     public void setIntPending(Sh2Interrupt interrupt, boolean isPending) {
