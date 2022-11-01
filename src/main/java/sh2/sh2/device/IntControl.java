@@ -13,6 +13,7 @@ import java.util.Map;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
+import static sh2.dict.S32xDict.RegSpecS32x.SH2_INT_MASK;
 import static sh2.dict.Sh2Dict.RegSpec.*;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.VRES_14;
@@ -135,7 +136,7 @@ public class IntControl implements Sh2Device {
     public void writeSh2IntMaskReg(int reg, int value, Size size) {
         assert size != Size.LONG;
         writeBuffer(sh2_int_mask, reg, value, size);
-        int newVal = readBuffer(sh2_int_mask, reg, size);
+        int newVal = readBuffer(sh2_int_mask, SH2_INT_MASK.addr, Size.WORD);
         setIntsMasked(newVal);
     }
 
