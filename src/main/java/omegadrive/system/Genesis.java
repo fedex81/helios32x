@@ -23,6 +23,7 @@ import omegadrive.SystemLoader;
 import omegadrive.bus.md.GenesisBus;
 import omegadrive.bus.md.SvpMapper;
 import omegadrive.bus.model.GenesisBusProvider;
+import omegadrive.cart.MdCartInfoProvider;
 import omegadrive.cpu.m68k.M68kProvider;
 import omegadrive.cpu.m68k.MC68000Wrapper;
 import omegadrive.cpu.ssp16.Ssp16;
@@ -34,8 +35,6 @@ import omegadrive.memory.IMemoryProvider;
 import omegadrive.memory.MemoryProvider;
 import omegadrive.savestate.BaseStateHandler;
 import omegadrive.sound.SoundProvider;
-import omegadrive.sound.javasound.AbstractSoundManager;
-import omegadrive.system.perf.GenesisPerf;
 import omegadrive.ui.DisplayWindow;
 import omegadrive.util.LogHelper;
 import omegadrive.util.RegionDetector;
@@ -44,6 +43,9 @@ import omegadrive.vdp.model.BaseVdpProvider;
 import omegadrive.vdp.model.GenesisVdpProvider;
 import org.slf4j.Logger;
 import sh2.Md32xRuntimeData;
+
+import java.nio.file.Path;
+import java.util.Optional;
 
 import static sh2.S32xUtil.CpuDeviceAccess.M68K;
 import static sh2.S32xUtil.CpuDeviceAccess.Z80;
@@ -81,17 +83,13 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
     }
 
     public static SystemProvider createNewInstance(DisplayWindow emuFrame) {
-        return createNewInstance(emuFrame, false);
-    }
-
-    public static SystemProvider createNewInstance(DisplayWindow emuFrame, boolean debugPerf) {
-        return debugPerf ? new GenesisPerf(emuFrame) : new Genesis(emuFrame);
+        return new Genesis(emuFrame);
     }
 
     @Override
     public void init() {
         stateHandler = BaseStateHandler.EMPTY_STATE;
-        joypad = new GenesisJoypad();
+        joypad = new GenesisJoypad(this);
         inputProvider = InputProvider.createInstance(joypad);
 
         memory = MemoryProvider.createGenesisInstance();
@@ -119,24 +117,24 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
             run68k();
             runZ80();
             runFM();
-            if (hasSvp && (counter & SVP_CYCLES_MASK) == 0) {
+            if (hasSvp && (cycleCounter & SVP_CYCLES_MASK) == 0) {
                 ssp16.ssp1601_run(SVP_RUN_CYCLES);
             }
             //this should be last as it could change the counter
             runVdp();
-            counter++;
+            cycleCounter++;
         } while (!futureDoneFlag);
     }
 
     protected final void runVdp() {
-        if (counter >= nextVdpCycle) {
+        if (cycleCounter >= nextVdpCycle) {
             int vdpMclk = vdp.runSlot();
             nextVdpCycle += vdpVals[vdpMclk - 4];
         }
     }
 
     protected final void run68k() {
-        if (counter == next68kCycle) {
+        if (cycleCounter == next68kCycle) {
             boolean isRunning = bus.is68kRunning();
             boolean canRun = !cpu.isStopped() && isRunning;
             int cycleDelay = 1;
@@ -155,7 +153,7 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
     }
 
     protected final void runZ80() {
-        if (counter == nextZ80Cycle) {
+        if (cycleCounter == nextZ80Cycle) {
             int cycleDelay = 0;
             boolean running = bus.isZ80Running();
             if (running) {
@@ -171,7 +169,7 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
     }
 
     protected final void runFM() {
-        if ((counter & 1) == 0 && (counter % FM_DIVIDER) == 0) { //perf, avoid some divs
+        if ((cycleCounter & 1) == 0 && (cycleCounter % FM_DIVIDER) == 0) { //perf, avoid some divs
             bus.getFm().tick();
         }
     }
@@ -186,7 +184,7 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
             videoMode = vdp.getVideoMode();
             double microsPerTick = getMicrosPerTick();
             sound.getFm().setMicrosPerTick(microsPerTick);
-            targetNs = (long) (region.getFrameIntervalMs() * Util.MILLI_IN_NS);
+            targetNs = (long) (getRegion().getFrameIntervalMs() * Util.MILLI_IN_NS);
             LOG.info("Video mode changed: {}, microsPerTick: {}", videoMode, microsPerTick);
         }
     }
@@ -205,6 +203,18 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
             romRegion = ovrRegion;
         }
         return romRegion;
+    }
+
+    @Override
+    protected RomContext createRomContext(IMemoryProvider memoryProvider, Path rom) {
+        RomContext rc = new RomContext();
+        rc.romPath = rom;
+        MdCartInfoProvider mcip = MdCartInfoProvider.createInstance(memory, rc.romPath);
+        rc.cartridgeInfoProvider = mcip;
+        String regionOverride = Optional.ofNullable(mcip.getEntry().forceRegion).
+                orElse(emuFrame.getRegionOverride());
+        rc.region = getRegionInternal(memory, regionOverride);
+        return rc;
     }
 
     @Override
@@ -230,7 +240,7 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
 
     @Override
     protected void initAfterRomLoad() {
-        sound = AbstractSoundManager.createSoundProvider(getSystemType(), region);
+        super.initAfterRomLoad();
         bus.attachDevice(sound);
         vdp.addVdpEventListener(sound);
         resetAfterRomLoad();

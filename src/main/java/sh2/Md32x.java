@@ -116,6 +116,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     @Override
     protected void loop() {
         updateVideoMode(true);
+        assert cycleCounter == 1;
         do {
             run68k();
             runZ80();
@@ -124,14 +125,14 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
             runDevices();
             //this should be last as it could change the counter
             runVdp();
-            counter++;
+            cycleCounter++;
         } while (!futureDoneFlag);
     }
 
     //PAL: 1/3.0 gives ~ 450k per frame, 22.8Mhz. but the games are too slow!!!
     //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
     protected final void runSh2() {
-        if (nextMSh2Cycle == counter) {
+        if (nextMSh2Cycle == cycleCounter) {
             assert !SysEventManager.currentPollers[0].isPollingActive() : SysEventManager.currentPollers[0];
             rt.setAccessType(MASTER);
             sh2.run(masterCtx);
@@ -139,7 +140,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
             nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran];
         }
-        if (nextSSh2Cycle == counter) {
+        if (nextSSh2Cycle == cycleCounter) {
             assert !SysEventManager.currentPollers[1].isPollingActive() : SysEventManager.currentPollers[1];
             rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
@@ -226,22 +227,22 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
                 assert pc.isPollingActive() : event + "," + pc;
                 setNextCycle(cpu, SH2_SLEEP_VALUE);
                 Md32xRuntimeData.resetCpuDelayExt(cpu, 0);
-                if (verbose) LOG.info("{} {} {}: {}", cpu, event, counter, pc);
+                if (verbose) LOG.info("{} {} {}: {}", cpu, event, cycleCounter, pc);
             }
             case SH2_RESET_ON -> {
                 setNextCycle(MASTER, SH2_SLEEP_VALUE);
                 setNextCycle(SLAVE, SH2_SLEEP_VALUE);
             }
             case SH2_RESET_OFF -> {
-                setNextCycle(MASTER, counter + 1);
-                setNextCycle(SLAVE, counter + 2);
+                setNextCycle(MASTER, cycleCounter + 1);
+                setNextCycle(SLAVE, cycleCounter + 2);
                 Md32xRuntimeData.resetCpuDelayExt(MASTER, 0);
                 Md32xRuntimeData.resetCpuDelayExt(SLAVE, 0);
             }
             default -> { //stop polling
                 final Ow2DrcOptimizer.PollerCtx pc = SysEventManager.instance.getPoller(cpu);
                 stopPolling(cpu, event, pc);
-                if (verbose) LOG.info("{} {} {}: {}", cpu, event, counter, pc);
+                if (verbose) LOG.info("{} {} {}: {}", cpu, event, cycleCounter, pc);
             }
         }
     }
@@ -250,9 +251,9 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
 //        assert event == SysEventManager.SysEvent.INT ? pc.isPollingBusyLoop() : true;
         boolean stopOk = event == pc.event || event == SysEventManager.SysEvent.INT;
         if (stopOk) {
-            setNextCycle(cpu, counter + 1);
+            setNextCycle(cpu, cycleCounter + 1);
             SysEventManager.instance.resetPoller(cpu);
-            if (verbose) LOG.info("{} {} {}: {}", cpu, event, counter, pc);
+            if (verbose) LOG.info("{} {} {}: {}", cpu, event, cycleCounter, pc);
         } else {
             LOG.warn("{} {} ignore stop polling: {}", cpu, event, pc);
         }
