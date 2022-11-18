@@ -81,18 +81,18 @@ public class Ow2Sh2BlockRecompiler {
 
     public Runnable createDrcClass(Sh2Block block, Sh2DrcContext drcCtx) {
         String blockClass = drcPackage + "." + drcCtx.sh2Ctx.sh2TypeCode + "_" + th(block.prefetchPc) + "_" + System.nanoTime();
-        byte[] binc = createClassBinary(block, drcCtx, blockClass);
-        writeClassMaybe(blockClass, binc);
-        Class<?> clazz = cl.defineClass(blockClass, binc);
         Runnable r;
         try {
+            byte[] binc = createClassBinary(block, drcCtx, blockClass);
+            writeClassMaybe(blockClass, binc);
+            Class<?> clazz = cl.defineClass(blockClass, binc);
             Object b = clazz.getDeclaredConstructor(int[].class, int[].class, Sh2DrcContext.class).
                     newInstance(drcCtx.sh2Ctx.registers, block.prefetchWords, drcCtx);
             assert b instanceof Runnable;
             r = (Runnable) b;
         } catch (Exception e) {
             e.printStackTrace();
-            throw new RuntimeException("Fatal!");
+            throw new RuntimeException("Fatal! ," + blockClass);
         }
         return r;
     }
@@ -214,7 +214,7 @@ public class Ow2Sh2BlockRecompiler {
             return;
         }
         boolean res = drcFolder.toFile().mkdirs();
-        if (!res) {
+        if (!res && !drcFolder.toFile().exists()) {
             LOG.error("Unable to log files to: {}", drcFolder.toFile());
             return;
         }

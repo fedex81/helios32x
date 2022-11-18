@@ -1033,8 +1033,6 @@ public class Sh2Impl implements Sh2 {
 	protected static final void MACW(Sh2Context ctx, short rn, short rm) {
 //		String s = "#### " + th(rn) + "," + th(rm) + "," + th(ctx.MACH) + "," + th(ctx.MACL) + ",S=" +
 //				((ctx.SR & flagS) > 0);
-		int macl = ctx.MACL;
-		int mach = ctx.MACH;
 		if ((ctx.SR & flagS) > 0) { //16 x 16 + 32
 			long res = rm * rn + (long) ctx.MACL;
 			//saturation
@@ -1111,11 +1109,11 @@ public class Sh2Impl implements Sh2 {
 		long tmp = (0 - ctx.registers[m]) & 0xFFFF_FFFFL;
 		long regN = (tmp - (ctx.SR & flagT)) & 0xFFFF_FFFFL;
 		ctx.registers[n] = (int) regN;
-		if (0 < tmp)
+
+		ctx.SR &= ~flagT;
+		if (tmp > 0 || tmp < regN) {
 			ctx.SR |= flagT;
-		else ctx.SR &= (~flagT);
-		if (tmp < regN)
-			ctx.SR |= flagT;
+		}
 
 		ctx.cycles--;
 		ctx.PC += 2;

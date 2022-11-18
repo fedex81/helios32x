@@ -532,12 +532,360 @@ public class Ow2Sh2Bytecode {
     }
 
     public static final void MACL(BytecodeContext ctx) {
-        fallback(ctx);
+        int n = RN(ctx.opcode);
+        int m = RM(ctx.opcode);
+        int regNIdx = ctx.mv.newLocal(Type.LONG_TYPE);
+        int regMIdx = ctx.mv.newLocal(Type.LONG_TYPE);
+        int resIdx = ctx.mv.newLocal(Type.LONG_TYPE);
+
+//        long regN = memory.read32(ctx.registers[n]);
+//        ctx.registers[n] += 4;
+        pushMemory(ctx);
+        pushRegStack(ctx, n);
+        ctx.mv.visitInsn(IALOAD);
+        readMem(ctx, Size.LONG);
+        ctx.mv.visitInsn(I2L);
+        ctx.mv.visitVarInsn(LSTORE, regNIdx);
+        pushRegStack(ctx, n);
+        ctx.mv.visitInsn(DUP2);
+        ctx.mv.visitInsn(IALOAD);
+        emitPushConstToStack(ctx, 4);
+        ctx.mv.visitInsn(IADD);
+        ctx.mv.visitInsn(IASTORE);
+
+//        long regM = memory.read32(ctx.registers[m]);
+//        ctx.registers[m] += 4;
+        pushMemory(ctx);
+        pushRegStack(ctx, m);
+        ctx.mv.visitInsn(IALOAD);
+        readMem(ctx, Size.LONG);
+        ctx.mv.visitInsn(I2L);
+        ctx.mv.visitVarInsn(LSTORE, regMIdx);
+        pushRegStack(ctx, m);
+        ctx.mv.visitInsn(DUP2);
+        ctx.mv.visitInsn(IALOAD);
+        emitPushConstToStack(ctx, 4);
+        ctx.mv.visitInsn(IADD);
+        ctx.mv.visitInsn(IASTORE);
+
+        //long res = regM * regN;
+        ctx.mv.visitVarInsn(LLOAD, regMIdx);
+        ctx.mv.visitVarInsn(LLOAD, regNIdx);
+        ctx.mv.visitInsn(LMUL);
+        ctx.mv.visitVarInsn(LSTORE, resIdx);
+
+        //res += ((ctx.MACH & 0xFFFF_FFFFL) << 32) + (ctx.MACL & 0xFFFF_FFFFL);
+        ctx.mv.visitVarInsn(LLOAD, resIdx);
+        pushSh2ContextAndField(ctx, MACH.name(), int.class);
+        ctx.mv.visitInsn(I2L);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFFL);
+        ctx.mv.visitInsn(LAND);
+        emitPushConstToStack(ctx, 32);
+        ctx.mv.visitInsn(LSHL);
+        pushSh2ContextAndField(ctx, MACL.name(), int.class);
+        ctx.mv.visitInsn(I2L);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFFL);
+        ctx.mv.visitInsn(LAND);
+        ctx.mv.visitInsn(LADD);
+        ctx.mv.visitInsn(LADD);
+        ctx.mv.visitVarInsn(LSTORE, resIdx);
+
+        //if ((ctx.SR & flagS) > 0) {
+        Label endLabel = new Label();
+        Label elseIfLabel = new Label();
+        pushSh2Context(ctx);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, 2);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitJumpInsn(IFLE, endLabel);
+
+//        if (res > 0x7FFF_FFFF_FFFFL) {
+        ctx.mv.visitVarInsn(LLOAD, resIdx);
+        emitPushLongConstToStack(ctx, 0x7FFF_FFFF_FFFFL);
+        ctx.mv.visitInsn(LCMP);
+        ctx.mv.visitJumpInsn(IFLE, elseIfLabel);
+
+        //res = 0x7FFF_FFFF_FFFFL;
+        emitPushLongConstToStack(ctx, 0x7FFF_FFFF_FFFFL);
+        ctx.mv.visitVarInsn(LSTORE, resIdx);
+        ctx.mv.visitJumpInsn(GOTO, endLabel);
+
+        //} else if (res < 0xFFFF_8000_0000_0000L) {
+        ctx.mv.visitLabel(elseIfLabel);
+        ctx.mv.visitVarInsn(LLOAD, resIdx);
+        emitPushLongConstToStack(ctx, 0xFFFF_8000_0000_0000L);
+        ctx.mv.visitInsn(LCMP);
+        ctx.mv.visitJumpInsn(IFGE, endLabel);
+
+        //res = 0xFFFF_8000_0000_0000L;
+        emitPushLongConstToStack(ctx, 0xFFFF_8000_0000_0000L);
+        ctx.mv.visitVarInsn(LSTORE, resIdx);
+
+        ctx.mv.visitLabel(endLabel);
+
+//        ctx.MACH = (int) (res >> 32);
+        pushSh2Context(ctx);
+        ctx.mv.visitVarInsn(LLOAD, resIdx);
+        emitPushConstToStack(ctx, 32);
+        ctx.mv.visitInsn(LSHR);
+        ctx.mv.visitInsn(L2I);
+        popSh2ContextIntField(ctx, MACH.name());
+
+        //        ctx.MACL = (int) (res & 0xFFFF_FFFF);
+        pushSh2Context(ctx);
+        ctx.mv.visitVarInsn(LLOAD, resIdx);
+        emitPushLongConstToStack(ctx, -1L);
+        ctx.mv.visitInsn(LAND);
+        ctx.mv.visitInsn(L2I);
+        popSh2ContextIntField(ctx, MACL.name());
     }
 
     public static final void MACW(BytecodeContext ctx) {
-        fallback(ctx);
+        int n = RN(ctx.opcode);
+        int m = RM(ctx.opcode);
+        int regNIdx = ctx.mv.newLocal(Type.SHORT_TYPE);
+        int regMIdx = ctx.mv.newLocal(Type.SHORT_TYPE);
+        Label returnLabel = new Label();
+
+//        final short rn = (short) memory.read16(ctx.registers[n]);
+//        ctx.registers[n] += 2;
+        pushMemory(ctx);
+        pushRegStack(ctx, n);
+        ctx.mv.visitInsn(IALOAD);
+        readMem(ctx, Size.WORD);
+        ctx.mv.visitInsn(I2S);
+        ctx.mv.visitVarInsn(ISTORE, regNIdx);
+        pushRegStack(ctx, n);
+        ctx.mv.visitInsn(DUP2);
+        ctx.mv.visitInsn(IALOAD);
+        emitPushConstToStack(ctx, 2);
+        ctx.mv.visitInsn(IADD);
+        ctx.mv.visitInsn(IASTORE);
+
+//        final short rm = (short) memory.read16(ctx.registers[m]);
+//        ctx.registers[m] += 2;
+        pushMemory(ctx);
+        pushRegStack(ctx, m);
+        ctx.mv.visitInsn(IALOAD);
+        readMem(ctx, Size.WORD);
+        ctx.mv.visitInsn(I2S);
+        ctx.mv.visitVarInsn(ISTORE, regMIdx);
+        pushRegStack(ctx, m);
+        ctx.mv.visitInsn(DUP2);
+        ctx.mv.visitInsn(IALOAD);
+        emitPushConstToStack(ctx, 2);
+        ctx.mv.visitInsn(IADD);
+        ctx.mv.visitInsn(IASTORE);
+        // if ((this.sh2Context.SR & 2) > 0) {
+        Label macw64Label = new Label();
+        pushSh2ContextAndField(ctx, SR.name(), int.class);
+        emitPushConstToStack(ctx, 2);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitJumpInsn(IFLE, macw64Label);
+        // { macw32 block}
+        macw32Block(ctx, regNIdx, regMIdx, returnLabel);
+        // else { macw64 block}
+        macw64Block(ctx, regNIdx, regMIdx, macw64Label, returnLabel);
+        ctx.mv.visitLabel(returnLabel);
     }
+
+    //part of MACW
+    private static void macw32Block(BytecodeContext ctx, int regNIdx, int regMIdx, Label returnLabel) {
+        int resIdx = ctx.mv.newLocal(Type.LONG_TYPE);
+        Label elseIfLabel = new Label();
+        Label endLabel = new Label();
+
+//        long res = rm * rn + (long) ctx.MACL;
+        ctx.mv.visitVarInsn(ILOAD, regMIdx);
+        ctx.mv.visitVarInsn(ILOAD, regNIdx);
+        ctx.mv.visitInsn(IMUL);
+        ctx.mv.visitInsn(I2L);
+        pushSh2ContextAndField(ctx, MACL.name(), int.class);
+        ctx.mv.visitInsn(I2L);
+        ctx.mv.visitInsn(LADD);
+        ctx.mv.visitVarInsn(LSTORE, resIdx);
+
+//        if (res > 0x7FFF_FFFFL) {
+        ctx.mv.visitVarInsn(LLOAD, resIdx);
+        emitPushLongConstToStack(ctx, 0x7FFF_FFFFL);
+        ctx.mv.visitInsn(LCMP);
+        ctx.mv.visitJumpInsn(IFLE, elseIfLabel);
+
+        //res = 0x7FFF_FFFFL;
+        //ctx.MACH |= 1;
+        emitPushLongConstToStack(ctx, 0x7FFF_FFFFL);
+        ctx.mv.visitVarInsn(LSTORE, resIdx);
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushField(ctx, Sh2Context.class, MACH.name(), int.class);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IOR);
+        popSh2ContextIntField(ctx, MACH.name());
+        ctx.mv.visitJumpInsn(GOTO, endLabel);
+
+        //} else if (res < 0xFFFF_FFFF_8000_0000L) {
+        ctx.mv.visitLabel(elseIfLabel);
+        ctx.mv.visitVarInsn(LLOAD, resIdx);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFF_8000_0000L);
+        ctx.mv.visitInsn(LCMP);
+        ctx.mv.visitJumpInsn(IFGE, endLabel);
+
+        //	res = 0xFFFF_FFFF_8000_0000L;
+        //	ctx.MACH |= 1;
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFF_8000_0000L);
+        ctx.mv.visitVarInsn(LSTORE, resIdx);
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushField(ctx, Sh2Context.class, MACH.name(), int.class);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IOR);
+        popSh2ContextIntField(ctx, MACH.name());
+        ctx.mv.visitJumpInsn(GOTO, endLabel);
+
+//        ctx.MACL = (int) (res & 0xFFFF_FFFF);
+        //return
+        ctx.mv.visitLabel(endLabel);
+        pushSh2Context(ctx);
+        ctx.mv.visitVarInsn(LLOAD, resIdx);
+        emitPushLongConstToStack(ctx, -1L);
+        ctx.mv.visitInsn(LAND);
+        ctx.mv.visitInsn(L2I);
+        popSh2ContextIntField(ctx, MACL.name());
+        ctx.mv.visitJumpInsn(GOTO, returnLabel);
+    }
+
+    //part of MACW
+    private static void macw64Block(BytecodeContext ctx, int regNIdx, int regMIdx, Label macw64Label, Label returnLabel) {
+        int prodIdx = ctx.mv.newLocal(Type.LONG_TYPE);
+        int macIdx = ctx.mv.newLocal(Type.LONG_TYPE);
+        int resIdx = ctx.mv.newLocal(Type.LONG_TYPE);
+        ctx.mv.visitLabel(macw64Label);
+        //long prod = rm * rn;
+        ctx.mv.visitVarInsn(ILOAD, regMIdx);
+        ctx.mv.visitVarInsn(ILOAD, regNIdx);
+        ctx.mv.visitInsn(IMUL);
+        ctx.mv.visitInsn(I2L);
+        ctx.mv.visitVarInsn(LSTORE, prodIdx);
+
+        //long mac = ((ctx.MACH & 0xFFFF_FFFFL) << 32) + (ctx.MACL & 0xFFFF_FFFFL);
+        pushSh2ContextAndField(ctx, MACH.name(), int.class);
+        ctx.mv.visitInsn(I2L);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFFL);
+        ctx.mv.visitInsn(LAND);
+        emitPushConstToStack(ctx, 32);
+        ctx.mv.visitInsn(LSHL);
+        pushSh2ContextAndField(ctx, MACL.name(), int.class);
+        ctx.mv.visitInsn(I2L);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFFL);
+        ctx.mv.visitInsn(LAND);
+        ctx.mv.visitInsn(LADD);
+        ctx.mv.visitVarInsn(LSTORE, macIdx);
+
+        //long res = prod + mac;
+        ctx.mv.visitVarInsn(LLOAD, prodIdx);
+        ctx.mv.visitVarInsn(LLOAD, macIdx);
+        ctx.mv.visitInsn(LADD);
+        ctx.mv.visitVarInsn(LSTORE, resIdx);
+
+        //ctx.MACH = (int) (res >> 32);
+        //ctx.MACL = (int) (res & 0xFFFF_FFFF);
+        pushSh2Context(ctx);
+        ctx.mv.visitVarInsn(LLOAD, resIdx);
+        emitPushConstToStack(ctx, 32);
+        ctx.mv.visitInsn(LSHR);
+        ctx.mv.visitInsn(L2I);
+        popSh2ContextIntField(ctx, MACH.name());
+        pushSh2Context(ctx);
+        ctx.mv.visitVarInsn(LLOAD, resIdx);
+        emitPushLongConstToStack(ctx, -1L);
+        ctx.mv.visitInsn(LAND);
+        ctx.mv.visitInsn(L2I);
+        popSh2ContextIntField(ctx, MACL.name());
+
+        //if ((prod > 0 && mac > 0 && res < 0) || ...
+        Label ifLabel64 = new Label();
+        Label orSecondPartLabel = new Label();
+        ctx.mv.visitVarInsn(LLOAD, prodIdx);
+        emitPushLongConstToStack(ctx, 0);
+        ctx.mv.visitInsn(LCMP);
+        ctx.mv.visitJumpInsn(IFLE, orSecondPartLabel);
+
+        ctx.mv.visitVarInsn(LLOAD, macIdx);
+        emitPushLongConstToStack(ctx, 0);
+        ctx.mv.visitInsn(LCMP);
+        ctx.mv.visitJumpInsn(IFLE, orSecondPartLabel);
+
+        ctx.mv.visitVarInsn(LLOAD, resIdx);
+        emitPushLongConstToStack(ctx, 0);
+        ctx.mv.visitInsn(LCMP);
+        ctx.mv.visitJumpInsn(IFLT, ifLabel64);
+
+        //|| (mac < 0 && prod < 0 && res > 0)) {
+        ctx.mv.visitLabel(orSecondPartLabel);
+
+        ctx.mv.visitVarInsn(LLOAD, macIdx);
+        emitPushLongConstToStack(ctx, 0);
+        ctx.mv.visitInsn(LCMP);
+        ctx.mv.visitJumpInsn(IFGE, returnLabel);
+
+        ctx.mv.visitVarInsn(LLOAD, prodIdx);
+        emitPushLongConstToStack(ctx, 0);
+        ctx.mv.visitInsn(LCMP);
+        ctx.mv.visitJumpInsn(IFGE, returnLabel);
+
+        ctx.mv.visitVarInsn(LLOAD, resIdx);
+        emitPushLongConstToStack(ctx, 0);
+        ctx.mv.visitInsn(LCMP);
+        ctx.mv.visitJumpInsn(IFLE, returnLabel);
+
+//        ctx.MACH |= 1;
+        ctx.mv.visitLabel(ifLabel64);
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushField(ctx, Sh2Context.class, MACH.name(), int.class);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IOR);
+        popSh2ContextIntField(ctx, MACH.name());
+    }
+
+    /**
+     * T:
+     * LINE T 58
+     * LLOAD 3
+     * LCONST_0
+     * LCMP
+     * IFLE U
+     * LLOAD mac
+     * LCONST_0
+     * LCMP
+     * IFLE U
+     * LLOAD res
+     * LCONST_0
+     * LCMP
+     * IFLT V
+     * U:
+     * LLOAD mac
+     * LCONST_0
+     * LCMP
+     * IFGE W
+     * LLOAD 3
+     * LCONST_0
+     * LCMP
+     * IFGE W
+     * LLOAD res
+     * LCONST_0
+     * LCMP
+     * IFLE W
+     * V:
+     * LINE V 59
+     * ALOAD this
+     * GETFIELD sh2/AsmExample.sh2Context Lsh2/sh2/Sh2Context;
+     * DUP
+     * GETFIELD sh2/sh2/Sh2Context.MACH I
+     * ICONST_1
+     * IOR
+     * PUTFIELD sh2/sh2/Sh2Context.MACH I
+     */
 
     public static void MOV(BytecodeContext ctx) {
         int n = RN(ctx.opcode);
@@ -766,7 +1114,70 @@ public class Ow2Sh2Bytecode {
     }
 
     public static void NEGC(BytecodeContext ctx) {
-        fallback(ctx);
+        int m = RM(ctx.opcode);
+        int n = RN(ctx.opcode);
+        int temp0Idx = ctx.mv.newLocal(Type.LONG_TYPE);
+        int regNIdx = ctx.mv.newLocal(Type.LONG_TYPE);
+
+        //long tmp = (0 - ctx.registers[m]) & 0xFFFF_FFFFL;
+        emitPushConstToStack(ctx, 0);
+        pushRegStack(ctx, m);
+        ctx.mv.visitInsn(IALOAD);
+        ctx.mv.visitInsn(ISUB);
+        ctx.mv.visitInsn(I2L);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFFL);
+        ctx.mv.visitInsn(LAND);
+        ctx.mv.visitVarInsn(LSTORE, temp0Idx);
+
+//        long regN = (tmp - (ctx.SR & flagT)) & 0xFFFF_FFFFL;
+        ctx.mv.visitVarInsn(LLOAD, temp0Idx);
+        pushSh2Context(ctx);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitInsn(I2L);
+        ctx.mv.visitInsn(LSUB);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFFL);
+        ctx.mv.visitInsn(LAND);
+        ctx.mv.visitVarInsn(LSTORE, regNIdx);
+
+//        ctx.registers[n] = (int) regN;
+        pushRegStack(ctx, n);
+        ctx.mv.visitVarInsn(LLOAD, regNIdx);
+        ctx.mv.visitInsn(L2I);
+        ctx.mv.visitInsn(IASTORE);
+
+//        ctx.SR &= ~flagT;
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, -2);
+        ctx.mv.visitInsn(IAND);
+        popSR(ctx);
+
+//        if(tmp > 0 || tmp < regN){
+//            ctx.SR |= flagT;
+//        }
+        Label endLabel = new Label();
+        Label ifLabel = new Label();
+        ctx.mv.visitVarInsn(LLOAD, temp0Idx);
+        ctx.mv.visitInsn(LCONST_0);
+        ctx.mv.visitInsn(LCMP);
+        ctx.mv.visitJumpInsn(IFGT, ifLabel);   //skip eval tmp < regN
+        ctx.mv.visitVarInsn(LLOAD, temp0Idx);
+        ctx.mv.visitVarInsn(LLOAD, regNIdx);
+        ctx.mv.visitInsn(LCMP);
+        ctx.mv.visitJumpInsn(IFGE, endLabel);
+
+        ctx.mv.visitLabel(ifLabel);
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IOR);
+        popSR(ctx);
+
+        ctx.mv.visitLabel(endLabel);
     }
 
     public static void NOP(BytecodeContext ctx) {
