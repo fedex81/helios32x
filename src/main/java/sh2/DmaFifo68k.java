@@ -78,6 +78,7 @@ public class DmaFifo68k {
                 handleDreqCtlWriteMd(address, value, size);
                 break;
             case MD_FIFO_REG:
+                assert Md32xRuntimeData.getAccessTypeExt() != Z80;
                 handleFifoRegWriteMd(value, size);
                 writeBuffer(sysRegsMd, address, value, size);
                 break;
@@ -88,7 +89,8 @@ public class DmaFifo68k {
             case MD_DREQ_DEST_ADDR_L:
             case MD_DREQ_SRC_ADDR_H:
             case MD_DREQ_SRC_ADDR_L:
-                assert size != Size.BYTE;
+                assert Md32xRuntimeData.getAccessTypeExt() != Z80;
+                //NOTE after burner 68k byte writes: (MD_DREQ_DEST_ADDR_H +1) 0xd,2,BYTE
                 //TODO mask for word and long writes
                 writeBuffer(sysRegsMd, address, value, size);
                 writeBuffer(sysRegsSh2, address, value, size);

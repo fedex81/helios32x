@@ -45,6 +45,7 @@ public class DivUnit implements Sh2Device {
         if (verbose) LOG.info("{} Write {} value: {} {}", cpu, reg.name, th(value), size);
         switch (reg) {
             case DIV_DVDNTL:
+                assert size == Size.LONG;
                 div64Dsp();
                 break;
             case DIV_DVDNT:
@@ -84,6 +85,7 @@ public class DivUnit implements Sh2Device {
     //32/32 -> 32
     private void div32Dsp(int value, Size size) {
         long d = value;
+        assert size == Size.LONG;
         writeBuffer(regs, DIV_DVDNTH.addr, (int) (d >> 32), size); //sign extend MSB into DVDNTH
         writeBuffer(regs, DIV_DVDNTL.addr, value, size);
         int dvd = readBufferLong(regs, DIV_DVDNT);

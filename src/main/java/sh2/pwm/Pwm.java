@@ -99,12 +99,12 @@ public class Pwm implements StepDevice {
     }
 
     public void writeByte(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value) {
-        assert cpu.regSide == S32xRegSide.MD;
         switch (regSpec) {
             case PWM_CTRL:
-                handlePwmControlMd(cpu, reg, value, Size.BYTE);
+                handlePwmControl(cpu, reg, value, Size.BYTE);
                 break;
             case PWM_CYCLE: {
+                assert cpu.regSide == S32xRegSide.MD : regSpec;
                 handlePartialByteWrite(reg, value);
                 if (regSpec == PWM_CYCLE) {
                     int val = readBuffer(sysRegsMd, regSpec.addr, Size.WORD);
@@ -158,37 +158,43 @@ public class Pwm implements StepDevice {
                 handlePwmControlMd(cpu, reg, value, size);
                 break;
             default:
-                assert size == Size.WORD;
-                writeBuffers(sysRegsMd, sysRegsSh2, PWM_CTRL.addr, value & 0xF8F, size);
-                dreqEn = ((value >> 7) & 1) > 0;
-                int ival = (value >> 8) & 0xF;
-                interruptInterval = ival == 0 ? 0x10 : ival;
-                channelMap[chLeft] = chanVals[value & 3];
-                channelMap[chRight] = chanVals[(value >> 2) & 3];
+                handlePwmControlSh2(cpu, reg, value, size);
                 break;
         }
         handlePwmEnable(false);
     }
 
     private void handlePwmControlMd(CpuDeviceAccess cpu, int reg, int value, Size size) {
-        switch (size) {
-            case WORD -> {
-                int val = readBuffer(sysRegsMd, PWM_CTRL.addr, Size.WORD);
-                val &= 0xFFF0;
-                writeBuffers(sysRegsMd, sysRegsSh2, PWM_CTRL.addr, val | (value & 0xF), size);
-                channelMap[chLeft] = chanVals[value & 3];
-                channelMap[chRight] = chanVals[(value >> 2) & 3];
-            }
-            case BYTE -> {
-                if ((reg & 1) == 1) {
-                    writeBuffers(sysRegsMd, sysRegsSh2, reg, value & 0xF, size);
-                    channelMap[chLeft] = chanVals[value & 3];
-                    channelMap[chRight] = chanVals[(value >> 2) & 3];
-                } else {
-                    LOG.warn("{} ignored write to {}: {} {}", cpu, PWM_CTRL, th(value), size);
-                }
-            }
+        assert size != Size.LONG;
+        if (size == Size.BYTE && ((reg & 1) == 0)) {
+            LOG.warn("{} ignored write to {}: {} {}", cpu, PWM_CTRL, th(value), size);
+            return;
         }
+        int val = readBuffer(sysRegsMd, PWM_CTRL.addr, Size.WORD) & 0xFFF0;
+        val |= value & 0xF;
+        writeBuffers(sysRegsMd, sysRegsSh2, reg, val, size);
+
+        value = readBuffer(sysRegsMd, PWM_CTRL.addr, Size.WORD);
+        channelMap[chLeft] = chanVals[value & 3];
+        channelMap[chRight] = chanVals[(value >> 2) & 3];
+    }
+
+    private void handlePwmControlSh2(CpuDeviceAccess cpu, int reg, int val, Size size) {
+        int mask =
+                switch (size) {
+                    case WORD -> 0xF8F;
+                    case BYTE -> (reg & 1) == 1 ? 0x8F : 0xF;
+                    default -> 0;
+                };
+        //Primal Rage, Sh2 write bytes
+        assert size != Size.LONG;
+        writeBuffers(sysRegsMd, sysRegsSh2, reg, val & mask, size);
+        int value = readBuffer(sysRegsMd, PWM_CTRL.addr, Size.WORD);
+        dreqEn = ((value >> 7) & 1) > 0;
+        int ival = (value >> 8) & 0xF;
+        interruptInterval = ival == 0 ? 0x10 : ival;
+        channelMap[chLeft] = chanVals[value & 3];
+        channelMap[chRight] = chanVals[(value >> 2) & 3];
     }
 
     private void handlePwmEnable(boolean cycleChanged) {

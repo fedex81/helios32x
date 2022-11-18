@@ -6,6 +6,7 @@ import omegadrive.bus.md.BusArbiter;
 import omegadrive.bus.md.GenesisZ80BusProviderImpl;
 import omegadrive.bus.model.GenesisBusProvider;
 import omegadrive.bus.model.GenesisZ80BusProvider;
+import omegadrive.cart.MdCartInfoProvider;
 import omegadrive.cpu.m68k.MC68000Wrapper;
 import omegadrive.cpu.z80.Z80CoreWrapper;
 import omegadrive.cpu.z80.Z80Provider;
@@ -39,11 +40,12 @@ public class SystemTestUtil {
         GenesisZ80BusProvider z80bus = new GenesisZ80BusProviderImpl();
         GenesisVdpProvider vdpProvider1 = GenesisVdp.createInstance(busProvider, vdpMem);
         MC68000Wrapper cpu = new MC68000Wrapper(busProvider);
-        GenesisJoypad joypad = new GenesisJoypad();
+        SystemProvider systemProvider = createTestGenesisProvider(cpuMem1);
+        GenesisJoypad joypad = new GenesisJoypad(null);
         Z80Provider z80p1 = Z80CoreWrapper.createInstance(SystemLoader.SystemType.GENESIS, busProvider);
         FmProvider fm1 = new Ym2612Nuke(AbstractSoundManager.audioFormat, 0);
         SoundProvider sp1 = getSoundProvider(fm1);
-        SystemProvider systemProvider = createTestGenesisProvider();
+
         z80bus.attachDevice(BusArbiter.NO_OP).attachDevice(busProvider);
         busProvider.attachDevice(vdpProvider1).attachDevice(cpu).attachDevice(joypad).attachDevice(z80bus).
                 attachDevice(cpuMem1).attachDevice(z80p1).attachDevice(sp1).attachDevice(systemProvider);
@@ -96,8 +98,16 @@ public class SystemTestUtil {
         }
     }
 
-    public static SystemProvider createTestGenesisProvider() {
+    public static SystemProvider createTestGenesisProvider(IMemoryProvider memoryProvider) {
         return new SystemProvider() {
+
+            private RomContext romContext;
+
+            {
+                romContext = new RomContext();
+                romContext.cartridgeInfoProvider = MdCartInfoProvider.createInstance(memoryProvider, null);
+            }
+
             @Override
             public RegionDetector.Region getRegion() {
                 return null;
@@ -116,6 +126,11 @@ public class SystemTestUtil {
             @Override
             public void init() {
 
+            }
+
+            @Override
+            public RomContext getRomContext() {
+                return romContext;
             }
 
             @Override
