@@ -682,7 +682,7 @@ public class Sh2Impl implements Sh2 {
 		int n = RN(code);
 		long tmp0 = ctx.registers[n] & 0xFFFF_FFFFL;
 		long tmp1 = (tmp0 + ctx.registers[m]) & 0xFFFF_FFFFL;
-		long regN = (int) (tmp1 + (ctx.SR & flagT)) & 0xFFFF_FFFFL;
+		long regN = (tmp1 + (ctx.SR & flagT)) & 0xFFFF_FFFFL;
 		boolean tb = tmp0 > tmp1 || tmp1 > regN;
 		ctx.SR &= (~flagT);
 		ctx.SR |= tb ? flagT : 0;
@@ -696,12 +696,15 @@ public class Sh2Impl implements Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		long d = (ctx.registers[n] < 0) ? 1 : 0;
-		long s = ((ctx.registers[m] < 0) ? 1 : 0) + d;
+		int d = (ctx.registers[n] >> 31) & 1;
+		int s = ((ctx.registers[m] >> 31) & 1) + d;
+
 		ctx.registers[n] += ctx.registers[m];
-		long r = ((ctx.registers[n] < 0) ? 1 : 0) + d;
+		int r = ((ctx.registers[n] >> 31) & 1) + d;
+
 		ctx.SR &= (~flagT);
-		ctx.SR = s != 1 ? (r == 1 ? 1 : 0) : 0;
+		//s != 1 ? (r == 1 ? 1 : 0) : 0;
+		ctx.SR |= (s + 1) & r & 1;
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -1154,7 +1157,8 @@ public class Sh2Impl implements Sh2 {
 		ctx.registers[n] -= ctx.registers[m];
 		int r = ((ctx.registers[n] >> 31) & 1) + dest;
 		ctx.SR &= (~flagT);
-		ctx.SR |= src == 1 && r == 1 ? flagT : 0;
+		//src == 1 && r == 1 ? flagT : 0;
+		ctx.SR |= (src & r) & 1;
 
 		ctx.cycles--;
 		ctx.PC += 2;

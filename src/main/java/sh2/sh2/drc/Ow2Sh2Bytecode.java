@@ -35,7 +35,7 @@ public class Ow2Sh2Bytecode {
 
     private final static Logger LOG = LogHelper.getLogger(Ow2Sh2Bytecode.class.getSimpleName());
 
-    public static final boolean addPrintStuff = false, printMissingOpcodes = false;
+    public static final boolean addPrintStuff = false, printMissingOpcodes = true;
     private static final Set<String> instSet = new HashSet<>();
 
     /**
@@ -47,7 +47,92 @@ public class Ow2Sh2Bytecode {
 
 
     public static final void ADDC(BytecodeContext ctx) {
-        fallback(ctx);
+        sumWithCarry(ctx, true);
+    }
+
+    //ADDC, SUBC
+    private static final void sumWithCarry(BytecodeContext ctx, boolean add) {
+        int n = RN(ctx.opcode);
+        int m = RM(ctx.opcode);
+        int tmp0Idx = ctx.mv.newLocal(Type.LONG_TYPE);
+        int tmp1Idx = ctx.mv.newLocal(Type.LONG_TYPE);
+        int regNIdx = ctx.mv.newLocal(Type.LONG_TYPE);
+        int tbIdx = ctx.mv.newLocal(Type.BOOLEAN_TYPE);
+
+        //long tmp0 = ctx.registers[n] & 0xFFFF_FFFFL;
+        pushRegStack(ctx, n);
+        ctx.mv.visitInsn(IALOAD);
+        ctx.mv.visitInsn(I2L);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFFL);
+        ctx.mv.visitInsn(LAND);
+        ctx.mv.visitVarInsn(LSTORE, tmp0Idx);
+
+        //long tmp1 = (tmp0 + ctx.registers[m]) & 0xFFFF_FFFFL;
+        ctx.mv.visitVarInsn(LLOAD, tmp0Idx);
+        pushRegStack(ctx, m);
+        ctx.mv.visitInsn(IALOAD);
+        ctx.mv.visitInsn(I2L);
+        ctx.mv.visitInsn(add ? LADD : LSUB);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFFL);
+        ctx.mv.visitInsn(LAND);
+        ctx.mv.visitVarInsn(LSTORE, tmp1Idx);
+
+//        long regN = (tmp1 + (ctx.SR & flagT)) & 0xFFFF_FFFFL;
+        ctx.mv.visitVarInsn(LLOAD, tmp1Idx);
+        pushSh2ContextAndField(ctx, SR.name(), int.class);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitInsn(I2L);
+        ctx.mv.visitInsn(add ? LADD : LSUB);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFFL);
+        ctx.mv.visitInsn(LAND);
+        ctx.mv.visitVarInsn(LSTORE, regNIdx);
+
+        //boolean tb = tmp0 > tmp1 || tmp1 > regN; (add)
+        //boolean tb = tmp0 < tmp1 || tmp1 < regN; (sub)
+        Label trueLabel = new Label();
+        Label falseLabel = new Label();
+        Label doneLabel = new Label();
+        ctx.mv.visitVarInsn(LLOAD, tmp0Idx);
+        ctx.mv.visitVarInsn(LLOAD, tmp1Idx);
+        ctx.mv.visitInsn(LCMP);
+        ctx.mv.visitJumpInsn(add ? IFGT : IFLT, trueLabel);
+        ctx.mv.visitVarInsn(LLOAD, tmp1Idx);
+        ctx.mv.visitVarInsn(LLOAD, regNIdx);
+        ctx.mv.visitInsn(LCMP);
+        ctx.mv.visitJumpInsn(add ? IFLE : IFGE, falseLabel);
+
+        ctx.mv.visitLabel(trueLabel);
+        emitPushConstToStack(ctx, 1); //true
+        ctx.mv.visitJumpInsn(GOTO, doneLabel);
+
+        ctx.mv.visitLabel(falseLabel);
+        emitPushConstToStack(ctx, 0); //false
+
+        ctx.mv.visitLabel(doneLabel);
+        ctx.mv.visitVarInsn(ISTORE, tbIdx);
+
+        //ctx.SR &= (~flagT);
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, -2);
+        ctx.mv.visitInsn(IAND);
+        popSR(ctx);
+
+        //ctx.SR |= tb ? flagT : 0; (ctx.SR |= (int)tb)
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushSR(ctx);
+        ctx.mv.visitVarInsn(ILOAD, tbIdx);
+        ctx.mv.visitInsn(IOR);
+        popSR(ctx);
+
+        //ctx.registers[n] = (int) regN;
+        pushRegStack(ctx, n);
+        ctx.mv.visitVarInsn(LLOAD, regNIdx);
+        ctx.mv.visitInsn(L2I);
+        ctx.mv.visitInsn(IASTORE);
     }
 
     public static void ADDI(BytecodeContext ctx) {
@@ -57,7 +142,7 @@ public class Ow2Sh2Bytecode {
     }
 
     public static final void ADDV(BytecodeContext ctx) {
-        fallback(ctx);
+        sumWithOverflow(ctx, true);
     }
 
     public static void AND(BytecodeContext ctx) {
@@ -1327,11 +1412,84 @@ public class Ow2Sh2Bytecode {
     }
 
     public static void SUBC(BytecodeContext ctx) {
-        fallback(ctx);
+        sumWithCarry(ctx, false);
     }
 
     public static void SUBV(BytecodeContext ctx) {
-        fallback(ctx);
+        sumWithOverflow(ctx, false);
+    }
+
+    private static void sumWithOverflow(BytecodeContext ctx, boolean add) {
+        int n = RN(ctx.opcode);
+        int m = RM(ctx.opcode);
+        int dIdx = ctx.mv.newLocal(Type.INT_TYPE);
+        int sIdx = ctx.mv.newLocal(Type.INT_TYPE);
+        int rIdx = ctx.mv.newLocal(Type.INT_TYPE);
+
+        //int d = (ctx.registers[n] >> 31) & 1;
+        pushRegStack(ctx, n);
+        ctx.mv.visitInsn(IALOAD);
+        emitPushConstToStack(ctx, 31);
+        ctx.mv.visitInsn(ISHR);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitVarInsn(ISTORE, dIdx);
+
+        //int s = ((ctx.registers[m] >> 31) & 1) + d;
+        pushRegStack(ctx, m);
+        ctx.mv.visitInsn(IALOAD);
+        emitPushConstToStack(ctx, 31);
+        ctx.mv.visitInsn(ISHR);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitVarInsn(ILOAD, dIdx);
+        ctx.mv.visitInsn(IADD);
+        ctx.mv.visitVarInsn(ISTORE, sIdx);
+
+        //ctx.registers[n] -= ctx.registers[m];
+        pushRegStack(ctx, n);
+        ctx.mv.visitInsn(DUP2);
+        ctx.mv.visitInsn(IALOAD);
+        pushRegStack(ctx, m);
+        ctx.mv.visitInsn(IALOAD);
+        ctx.mv.visitInsn(add ? IADD : ISUB);
+        ctx.mv.visitInsn(IASTORE);
+
+//        int r = ((ctx.registers[n] >> 31) & 1) + dest;
+        pushRegStack(ctx, n);
+        ctx.mv.visitInsn(IALOAD);
+        emitPushConstToStack(ctx, 31);
+        ctx.mv.visitInsn(ISHR);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitVarInsn(ILOAD, dIdx);
+        ctx.mv.visitInsn(IADD);
+        ctx.mv.visitVarInsn(ISTORE, rIdx);
+
+//        ctx.SR &= (~flagT);
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, -2);
+        ctx.mv.visitInsn(IAND);
+        popSR(ctx);
+
+//        ctx.SR |= (s & r) & 1; (sub)
+//        ctx.SR |= ((s+1) & r) & 1; (sub)
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushSR(ctx);
+        ctx.mv.visitVarInsn(ILOAD, rIdx);
+        ctx.mv.visitVarInsn(ILOAD, sIdx);
+        if (add) {
+            emitPushConstToStack(ctx, 1);
+            ctx.mv.visitInsn(IADD);
+        }
+        ctx.mv.visitInsn(IAND);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitInsn(IOR);
+        popSR(ctx);
     }
 
     public static final void SHAL(BytecodeContext ctx) {
@@ -1576,6 +1734,9 @@ public class Ow2Sh2Bytecode {
         if (printMissingOpcodes) {
             if (instSet.add(ctx.sh2Inst.name())) {
                 LOG.warn("DRC unimplemented: {},{}", ctx.sh2Inst, ctx.opcode);
+                System.out.println("DRC unimplemented: " + ctx.sh2Inst + "," + ctx.opcode);
+                //TODO CMPSTR wolf3d
+                //TODO DoomRes div1 in delaySlot
             }
         }
         //TODO if the delaySlot inst is a fallback the PC gets corrupted

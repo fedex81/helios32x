@@ -54,6 +54,8 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     public static final int SH2_SLEEP_VALUE = -10000;
 
     //TODO chaotix,vr broken
+    //TODO 16: Zaxxon's Motherbase 2000 (JU) (Prototype - Feb 10, 1995) (32X).32x.zip - black screen
+    //TODO 4: Hot Chick in VDP Mode 2 by DevSter (PD) (32X).32x.zip
     static {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
         boolean drcEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
