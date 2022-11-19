@@ -334,7 +334,76 @@ public class Ow2Sh2Bytecode {
     }
 
     public static final void CMPSTR(BytecodeContext ctx) {
-        fallback(ctx);
+        int n = RN(ctx.opcode);
+        int m = RM(ctx.opcode);
+
+        int tmpIdx = ctx.mv.newLocal(Type.INT_TYPE);
+        int hhIdx = ctx.mv.newLocal(Type.INT_TYPE);
+        int hlIdx = ctx.mv.newLocal(Type.INT_TYPE);
+        int lhIdx = ctx.mv.newLocal(Type.INT_TYPE);
+        int llIdx = ctx.mv.newLocal(Type.INT_TYPE);
+        //int tmp = ctx.registers[n] ^ ctx.registers[m];
+        pushRegStack(ctx, n);
+        ctx.mv.visitInsn(IALOAD);
+        pushRegStack(ctx, m);
+        ctx.mv.visitInsn(IALOAD);
+        ctx.mv.visitInsn(IXOR);
+        ctx.mv.visitVarInsn(ISTORE, tmpIdx);
+
+//        int HH = (tmp >>> 24) & 0xff;
+        ctx.mv.visitVarInsn(ILOAD, tmpIdx);
+        emitPushConstToStack(ctx, 24);
+        ctx.mv.visitInsn(IUSHR);
+        emitPushConstToStack(ctx, 0xFF);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitVarInsn(ISTORE, hhIdx);
+
+//        int HL = (tmp >>> 16) & 0xff;
+        ctx.mv.visitVarInsn(ILOAD, tmpIdx);
+        emitPushConstToStack(ctx, 16);
+        ctx.mv.visitInsn(IUSHR);
+        emitPushConstToStack(ctx, 0xFF);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitVarInsn(ISTORE, hlIdx);
+//        int LH = (tmp >>> 8) & 0xff;
+        ctx.mv.visitVarInsn(ILOAD, tmpIdx);
+        emitPushConstToStack(ctx, 8);
+        ctx.mv.visitInsn(IUSHR);
+        emitPushConstToStack(ctx, 0xFF);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitVarInsn(ISTORE, lhIdx);
+//        int LL = tmp & 0xff;
+        ctx.mv.visitVarInsn(ILOAD, tmpIdx);
+        emitPushConstToStack(ctx, 0xFF);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitVarInsn(ISTORE, llIdx);
+//        ctx.SR &= ~flagT;
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, ~flagT);
+        ctx.mv.visitInsn(IAND);
+        popSR(ctx);
+//        if ((HH & HL & LH & LL) == 0) {
+        Label endLabel = new Label();
+        ctx.mv.visitVarInsn(ILOAD, hhIdx);
+        ctx.mv.visitVarInsn(ILOAD, hlIdx);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitVarInsn(ILOAD, lhIdx);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitVarInsn(ILOAD, llIdx);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitJumpInsn(IFNE, endLabel);
+
+        //ctx.SR |= flagT;
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, flagT);
+        ctx.mv.visitInsn(IOR);
+        popSR(ctx);
+
+        ctx.mv.visitLabel(endLabel);
     }
 
     public static void cmpRegToZero(BytecodeContext ctx, int reg, int cmpOpcode) {
@@ -451,7 +520,173 @@ public class Ow2Sh2Bytecode {
     }
 
     public static void DIV1(BytecodeContext ctx) {
-        fallback(ctx);
+        int dvd = RN(ctx.opcode);
+        int dvsr = RM(ctx.opcode);
+
+        int udvdIdx = ctx.mv.newLocal(Type.LONG_TYPE);
+        int udvsrIdx = ctx.mv.newLocal(Type.LONG_TYPE);
+        int rIdx = ctx.mv.newLocal(Type.LONG_TYPE);
+        int oldQIdx = ctx.mv.newLocal(Type.INT_TYPE);
+        int qmIdx = ctx.mv.newLocal(Type.INT_TYPE);
+        int qIdx = ctx.mv.newLocal(Type.INT_TYPE);
+
+        //long udvd = ctx.registers[dvd] & 0xFFFF_FFFFL;
+        pushRegStack(ctx, dvd);
+        ctx.mv.visitInsn(IALOAD);
+        ctx.mv.visitInsn(I2L);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFFL);
+        ctx.mv.visitInsn(LAND);
+        ctx.mv.visitVarInsn(LSTORE, udvdIdx);
+        //long udvsr = ctx.registers[dvsr] & 0xFFFF_FFFFL
+        pushRegStack(ctx, dvsr);
+        ctx.mv.visitInsn(IALOAD);
+        ctx.mv.visitInsn(I2L);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFFL);
+        ctx.mv.visitInsn(LAND);
+        ctx.mv.visitVarInsn(LSTORE, udvsrIdx);
+
+//        //int old_q = (ctx.SR >> posQ) & 1;
+        pushSh2Context(ctx);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, posQ);
+        ctx.mv.visitInsn(ISHR);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitVarInsn(ISTORE, oldQIdx);
+
+        //ctx.SR &= ~flagQ;
+        //ctx.SR |= ((udvd >> 31) & 1) << posQ;
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, ~flagQ);
+        ctx.mv.visitInsn(IAND);
+        popSR(ctx);
+
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushSR(ctx);
+        ctx.mv.visitVarInsn(LLOAD, udvdIdx);
+        emitPushConstToStack(ctx, 31);
+        ctx.mv.visitInsn(LSHR);
+        ctx.mv.visitInsn(L2I);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IAND);
+        emitPushConstToStack(ctx, posQ);
+        ctx.mv.visitInsn(ISHL);
+        ctx.mv.visitInsn(IOR);
+        popSR(ctx);
+
+        //long r = (udvd << 1) & 0xFFFF_FFFFL;
+        ctx.mv.visitVarInsn(LLOAD, udvdIdx);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(LSHL);
+        emitPushLongConstToStack(ctx, 0xFFFF_FFFFL);
+        ctx.mv.visitInsn(LAND);
+        ctx.mv.visitVarInsn(LSTORE, rIdx);
+
+        //r |= (ctx.SR & flagT);
+        ctx.mv.visitVarInsn(LLOAD, rIdx);
+        pushSh2Context(ctx);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, flagT);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitInsn(I2L);
+        ctx.mv.visitInsn(LOR);
+        ctx.mv.visitVarInsn(LSTORE, rIdx);
+
+        //if (old_q == ((ctx.SR >> posM) & 1))
+        Label elseLabel = new Label();
+        Label endLabel = new Label();
+        ctx.mv.visitVarInsn(ILOAD, oldQIdx);
+        pushSh2Context(ctx);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, posM);
+        ctx.mv.visitInsn(ISHR);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitJumpInsn(IF_ICMPNE, elseLabel);
+
+        //{ r -= udvsr; }
+        ctx.mv.visitVarInsn(LLOAD, rIdx);
+        ctx.mv.visitVarInsn(LLOAD, udvsrIdx);
+        ctx.mv.visitInsn(LSUB);
+        ctx.mv.visitVarInsn(LSTORE, rIdx);
+        ctx.mv.visitJumpInsn(GOTO, endLabel);
+
+        //else { r += udvsr; }
+        ctx.mv.visitLabel(elseLabel);
+        ctx.mv.visitVarInsn(LLOAD, rIdx);
+        ctx.mv.visitVarInsn(LLOAD, udvsrIdx);
+        ctx.mv.visitInsn(LADD);
+        ctx.mv.visitVarInsn(LSTORE, rIdx);
+
+        //ctx.registers[dvd] = (int) r;
+        ctx.mv.visitLabel(endLabel);
+        pushRegStack(ctx, dvd);
+        ctx.mv.visitVarInsn(LLOAD, rIdx);
+        ctx.mv.visitInsn(L2I);
+        ctx.mv.visitInsn(IASTORE);
+
+        //int qm = ((ctx.SR >> posQ) & 1) ^ ((ctx.SR >> posM) & 1);
+        pushSh2Context(ctx);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, posQ);
+        ctx.mv.visitInsn(ISHR);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IAND);
+        pushSh2Context(ctx);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, posM);
+        ctx.mv.visitInsn(ISHR);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitInsn(IXOR);
+        ctx.mv.visitVarInsn(ISTORE, qmIdx);
+
+        //int q = qm ^ (int) ((r >> 32) & 1);
+        ctx.mv.visitVarInsn(ILOAD, qmIdx);
+        ctx.mv.visitVarInsn(LLOAD, rIdx);
+        emitPushConstToStack(ctx, 32);
+        ctx.mv.visitInsn(LSHR);
+        emitPushLongConstToStack(ctx, 1);
+        ctx.mv.visitInsn(LAND);
+        ctx.mv.visitInsn(L2I);
+        ctx.mv.visitInsn(IXOR);
+        ctx.mv.visitVarInsn(ISTORE, qIdx);
+
+        //qm = q ^ ((ctx.SR >> posM) & 1);
+        ctx.mv.visitVarInsn(ILOAD, qIdx);
+        pushSh2Context(ctx);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, posM);
+        ctx.mv.visitInsn(ISHR);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitInsn(IAND);
+        ctx.mv.visitInsn(IXOR);
+        ctx.mv.visitVarInsn(ISTORE, qmIdx);
+
+        //ctx.SR &= ~(flagQ | flagT);
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushSR(ctx);
+        emitPushConstToStack(ctx, ~(flagQ | flagT));
+        ctx.mv.visitInsn(IAND);
+        popSR(ctx);
+
+        //ctx.SR |= (q << posQ) | (1 - qm);
+        pushSh2Context(ctx);
+        ctx.mv.visitInsn(DUP);
+        pushSR(ctx);
+        ctx.mv.visitVarInsn(ILOAD, qIdx);
+        emitPushConstToStack(ctx, posQ);
+        ctx.mv.visitInsn(ISHL);
+        emitPushConstToStack(ctx, 1);
+        ctx.mv.visitVarInsn(ILOAD, qmIdx);
+        ctx.mv.visitInsn(ISUB);
+        ctx.mv.visitInsn(IOR);
+        ctx.mv.visitInsn(IOR);
+        popSR(ctx);
     }
 
     public static void DIV0U(BytecodeContext ctx) {
@@ -1731,6 +1966,7 @@ public class Ow2Sh2Bytecode {
     }
 
     public static void fallback(BytecodeContext ctx) {
+        System.out.println("Fallback block: " + th(ctx.drcCtx.sh2Ctx.PC) + "," + ctx.sh2Inst);
         if (printMissingOpcodes) {
             if (instSet.add(ctx.sh2Inst.name())) {
                 LOG.warn("DRC unimplemented: {},{}", ctx.sh2Inst, ctx.opcode);
@@ -1739,13 +1975,8 @@ public class Ow2Sh2Bytecode {
                 //TODO DoomRes div1 in delaySlot
             }
         }
-        //TODO if the delaySlot inst is a fallback the PC gets corrupted
-        int pcPrev = 0;
-        if (ctx.delaySlot) {
-            pcPrev = ctx.mv.newLocal(Type.INT_TYPE);
-            pushSh2ContextAndField(ctx, PC.name(), int.class);
-            ctx.mv.visitVarInsn(ISTORE, pcPrev);
-        }
+        //if the delaySlot inst is a fallback the PC gets corrupted
+        assert !ctx.delaySlot;
         setContextPc(ctx);
         ctx.mv.visitFieldInsn(GETSTATIC, Type.getInternalName(Sh2Instructions.class), "instOpcodeMap",
                 Type.getDescriptor(Sh2Instructions.Sh2InstructionWrapper[].class));
@@ -1754,13 +1985,6 @@ public class Ow2Sh2Bytecode {
         ctx.mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2Instructions.Sh2InstructionWrapper.class), "runnable",
                 Type.getDescriptor(Runnable.class));
         ctx.mv.visitMethodInsn(INVOKEINTERFACE, Type.getInternalName(Runnable.class), "run", noArgsNoRetDesc);
-        //TODO if the delaySlot inst is a fallback the PC gets corrupted
-        if (ctx.delaySlot) {
-            assert pcPrev != 0;
-            pushSh2Context(ctx);
-            ctx.mv.visitVarInsn(ILOAD, pcPrev);
-            popSh2ContextIntField(ctx, PC.name());
-        }
     }
 
     public static void shiftConst(BytecodeContext ctx, int shiftBytecode, int shift) {

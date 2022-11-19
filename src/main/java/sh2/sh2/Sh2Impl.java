@@ -840,10 +840,10 @@ public class Sh2Impl implements Sh2 {
 		int HL = (tmp >>> 16) & 0xff;
 		int LH = (tmp >>> 8) & 0xff;
 		int LL = tmp & 0xff;
-		if ((HH & HL & LH & LL) != 0)
-			ctx.SR &= ~flagT;
-		else
+		ctx.SR &= ~flagT;
+		if ((HH & HL & LH & LL) == 0) {
 			ctx.SR |= flagT;
+		}
 
 		//	Logger.log(Logger.CPU,String.format("cmp/str: r[%d]=%x >= r[%d]=%x ?\r", n, ctx.registers[n], m, ctx.registers[m]));
 		ctx.cycles--;
@@ -860,12 +860,14 @@ public class Sh2Impl implements Sh2 {
 	public final static void DIV1(Sh2Context ctx, int dvd, int dvsr) {
 		long udvd = ctx.registers[dvd] & 0xFFFF_FFFFL;
 		long udvsr = ctx.registers[dvsr] & 0xFFFF_FFFFL;
-		boolean old_q = (ctx.SR & flagQ) > 0;
+//		boolean old_q = (ctx.SR & flagQ) > 0;
+		int old_q = (ctx.SR >> posQ) & 1;
 		ctx.SR &= ~flagQ;
 		ctx.SR |= ((udvd >> 31) & 1) << posQ;
 		long r = (udvd << 1) & 0xFFFF_FFFFL;
 		r |= (ctx.SR & flagT);
-		if (old_q == ((ctx.SR & flagM) > 0)) {
+//		if (old_q == ((ctx.SR & flagM) > 0)) {
+		if (old_q == ((ctx.SR >> posM) & 1)) {
 			r -= udvsr;
 		} else {
 			r += udvsr;
@@ -874,9 +876,8 @@ public class Sh2Impl implements Sh2 {
 		int qm = ((ctx.SR >> posQ) & 1) ^ ((ctx.SR >> posM) & 1);
 		int q = qm ^ (int) ((r >> 32) & 1);
 		qm = q ^ ((ctx.SR >> posM) & 1);
-		int t = 1 - qm;
 		ctx.SR &= ~(flagQ | flagT);
-		ctx.SR |= (q << posQ) | t;
+		ctx.SR |= (q << posQ) | (1 - qm);
 
 //		System.out.printf("####,div1: r[%d]=%x >= r[%d]=%x, %d, %d, %d\n", dvd,
 //				ctx.registers[dvd], dvsr, ctx.registers[dvsr], ((ctx.SR & flagM) > 0) ? 1 : 0,
