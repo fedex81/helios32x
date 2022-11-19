@@ -114,19 +114,19 @@ public class Md32x extends Genesis {
             runDevices();
             //this should be last as it could change the counter
             runVdp();
-            counter++;
+            cycleCounter++;
         } while (!futureDoneFlag);
     }
 
     protected final void runVdp() {
-        if (counter >= nextVdpCycle) {
+        if (cycleCounter >= nextVdpCycle) {
             int vdpMclk = vdp.runSlot();
             nextVdpCycle += vdpVals[vdpMclk - 4];
         }
     }
 
     protected final void run68k() {
-        if (counter == next68kCycle) {
+        if (cycleCounter == next68kCycle) {
             boolean isRunning = bus.is68kRunning();
             boolean canRun = !cpu.isStopped() && isRunning;
             int cycleDelay = 1;
@@ -145,7 +145,7 @@ public class Md32x extends Genesis {
     }
 
     protected final void runZ80() {
-        if (counter == nextZ80Cycle) {
+        if (cycleCounter == nextZ80Cycle) {
             int cycleDelay = 0;
             boolean running = bus.isZ80Running();
             if (running) {
@@ -160,7 +160,7 @@ public class Md32x extends Genesis {
     }
 
     protected final void runFM() {
-        if ((counter & 1) == 0 && (counter % FM_DIVIDER) == 0) { //perf, avoid some divs
+        if ((cycleCounter & 1) == 0 && (cycleCounter % FM_DIVIDER) == 0) { //perf, avoid some divs
             bus.getFm().tick();
         }
     }
@@ -168,14 +168,14 @@ public class Md32x extends Genesis {
     //PAL: 1/3.0 gives ~ 450k per frame, 22.8Mhz. but the games are too slow!!!
     //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
     protected final void runSh2() {
-        if (nextMSh2Cycle == counter) {
+        if (nextMSh2Cycle == cycleCounter) {
             rt.setAccessType(MASTER);
             sh2.run(masterCtx);
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
             assert (masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == masterCtx.cycles_ran : masterCtx.cycles_ran;
             nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK];
         }
-        if (nextSSh2Cycle == counter) {
+        if (nextSSh2Cycle == cycleCounter) {
             rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
             assert (slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == slaveCtx.cycles_ran : slaveCtx.cycles_ran;

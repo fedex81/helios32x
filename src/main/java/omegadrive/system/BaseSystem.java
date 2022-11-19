@@ -22,6 +22,7 @@ package omegadrive.system;
 import omegadrive.Device;
 import omegadrive.SystemLoader;
 import omegadrive.SystemLoader.SystemType;
+import omegadrive.UserConfigHolder;
 import omegadrive.bus.model.BaseBusProvider;
 import omegadrive.input.InputProvider;
 import omegadrive.input.KeyboardInput;
@@ -29,11 +30,12 @@ import omegadrive.joypad.JoypadProvider;
 import omegadrive.memory.IMemoryProvider;
 import omegadrive.savestate.BaseStateHandler;
 import omegadrive.sound.SoundProvider;
+import omegadrive.sound.javasound.AbstractSoundManager;
 import omegadrive.system.perf.Telemetry;
 import omegadrive.ui.DisplayWindow;
 import omegadrive.ui.PrefStore;
 import omegadrive.util.*;
-import omegadrive.vdp.model.BaseVdpAdapterEventSupport;
+import omegadrive.vdp.model.BaseVdpAdapterEventSupport.VdpEventListener;
 import omegadrive.vdp.model.BaseVdpProvider;
 import org.slf4j.Logger;
 
@@ -44,7 +46,10 @@ import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
-public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemProvider, SystemProvider.NewFrameListener {
+import static omegadrive.system.SystemProvider.RomContext.NO_ROM;
+
+public abstract class BaseSystem<BUS extends BaseBusProvider> implements
+        SystemProvider, SystemProvider.NewFrameListener, SystemProvider.SystemClock {
 
     private final static Logger LOG = LogHelper.getLogger(BaseSystem.class.getSimpleName());
 
@@ -59,12 +64,9 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
     protected BUS bus;
     protected SystemType systemType;
 
-    protected RegionDetector.Region region = RegionDetector.Region.USA;
     protected VideoMode videoMode = VideoMode.PAL_H40_V30;
-    private Path romPath;
-
+    protected RomContext romContext = NO_ROM;
     protected Future<Void> runningRomFuture;
-    protected Path romFile;
     protected DisplayWindow emuFrame;
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -78,13 +80,14 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
     protected volatile boolean softReset = false;
     private boolean soundEnFlag = true;
 
+    protected int cycleCounter = 1;
+
     //frame pacing stuff
-    protected Telemetry telemetry = Telemetry.getInstance();
+    protected final Telemetry telemetry = Telemetry.getInstance();
     private static final boolean fullThrottle;
     protected long elapsedWaitNs, frameProcessingDelayNs;
     protected long targetNs, startNs = 0;
     private long driftNs = 0;
-    protected int counter = 1;
     private Optional<String> stats = Optional.empty();
 
     private final CyclicBarrier pauseBarrier = new CyclicBarrier(2);
@@ -95,7 +98,9 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
 
     protected abstract void loop();
 
-    protected abstract void initAfterRomLoad();
+    protected void initAfterRomLoad() {
+        sound = AbstractSoundManager.createSoundProvider(getSystemType(), romContext.region);
+    }
 
     protected abstract void resetCycleCounters(int counter);
 
@@ -149,11 +154,11 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
                 softReset = true;
                 break;
             case PAD_SETUP_CHANGE:
-                String[] s1 = parameter.toString().split(":");
-                joypad.setPadSetupChange(InputProvider.PlayerNumber.valueOf(s1[0]), s1[1]);
+            case FORCE_PAD_TYPE:
+                UserConfigHolder.addUserConfig(event, parameter);
                 break;
             default:
-                LOG.warn("Unable to handle event: {}, with parameter: {}", event, Objects.toString(parameter));
+                LOG.warn("Unable to handle event: {}, with parameter: {}", event, parameter);
                 break;
         }
     }
@@ -172,7 +177,6 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
 
     public void handleNewRom(Path file) {
         init();
-        this.romFile = file;
         Runnable runnable = new RomRunnable(file);
         PrefStore.addRecentFile(file.toAbsolutePath().toString());
         runningRomFuture = executorService.submit(runnable, null);
@@ -231,24 +235,14 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
         return runningRomFuture != null && !runningRomFuture.isDone();
     }
 
-    @Override
-    public RegionDetector.Region getRegion() {
-        return region;
-    }
-
-    @Override
-    public Path getRomPath() {
-        return romPath;
-    }
-
     protected void pauseAndWait() {
         if (!pauseFlag) {
             return;
         }
-        LOG.info("Pause: {}", pauseFlag);
+        LOG.info("Pause start: {}", pauseFlag);
         try {
             Util.waitOnBarrier(pauseBarrier);
-            LOG.info("Pause: {}", pauseFlag);
+            LOG.info("Pause end: {}", pauseFlag);
         } finally {
             pauseBarrier.reset();
         }
@@ -304,7 +298,7 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
     }
 
     protected void createAndAddVdpEventListener() {
-        vdp.addVdpEventListener(new BaseVdpAdapterEventSupport.VdpEventListener() {
+        vdp.addVdpEventListener(new VdpEventListener() {
             @Override
             public void onNewFrame() {
                 newFrame();
@@ -329,8 +323,8 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
         handleVdpDumpScreenData();
         processSaveState();
         pauseAndWait();
-        resetCycleCounters(counter);
-        counter = 0;
+        resetCycleCounters(cycleCounter);
+        cycleCounter = 0;
         futureDoneFlag = runningRomFuture.isDone();
         handleSoftReset();
         inputProvider.handleEvents();
@@ -356,13 +350,12 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
                     return;
                 }
                 memory.setRomData(data);
-                romPath = file;
-                String romName = file.getFileName().toString();
+                romContext = createRomContext(memory, file);
+                String romName = FileUtil.getFileName(file);
+                emuFrame.setTitle(romName);
                 Thread.currentThread().setName(threadNamePrefix + romName);
                 Thread.currentThread().setPriority(Thread.NORM_PRIORITY + 1);
-                emuFrame.setTitle(FileUtil.getFileName(romPath));
-                region = getRegionInternal(memory, emuFrame.getRegionOverride());
-                LOG.info("Running rom: {}, region: {}", romName, region);
+                LOG.info("Running rom: {},\n{}", romName, romContext);
                 initAfterRomLoad();
                 sound.setEnabled(soundEnFlag);
                 LOG.info("Starting game loop");
@@ -374,6 +367,13 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
             }
             handleCloseRom();
         }
+    }
+
+    protected RomContext createRomContext(IMemoryProvider memoryProvider, Path rom) {
+        RomContext rc = new RomContext();
+        rc.romPath = rom;
+        rc.region = getRegionInternal(memory, emuFrame.getRegionOverride());
+        return rc;
     }
 
     protected void handleVdpDumpScreenData() {
@@ -388,10 +388,11 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
     }
 
     private void handlePause() {
-        boolean isPausing = pauseFlag;
-        pauseFlag = !isPausing;
-        sound.setEnabled(pauseFlag);
-        if (isPausing) {
+        boolean wasPausing = pauseFlag;
+        pauseFlag = !wasPausing;
+        sound.setEnabled(wasPausing);
+        LOG.info("Pausing: {}, soundEn: {}", pauseFlag, wasPausing);
+        if (wasPausing) {
             Util.waitOnBarrier(pauseBarrier);
         }
     }
@@ -399,11 +400,11 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
     @Override
     public void reset() {
         handleCloseRom();
-        handleNewRom(romFile);
+        handleNewRom(romContext.romPath);
     }
 
     protected void resetAfterRomLoad() {
-        vdp.setRegion(region);
+        vdp.setRegion(romContext.region);
         //detect ROM first
         joypad.init();
         vdp.init();
@@ -414,5 +415,21 @@ public abstract class BaseSystem<BUS extends BaseBusProvider> implements SystemP
     @Override
     public final SystemType getSystemType() {
         return systemType;
+    }
+
+    @Override
+    public RomContext getRomContext() {
+        assert romContext != null;
+        return romContext;
+    }
+
+    @Override
+    public int getCycleCounter() {
+        return cycleCounter;
+    }
+
+    @Override
+    public long getFrameCounter() {
+        return telemetry.getFrameCounter();
     }
 }

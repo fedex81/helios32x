@@ -12,11 +12,11 @@ import sh2.sh2.device.DmaC;
 import sh2.sh2.device.IntControl;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
-import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
-import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
+import static sh2.S32xUtil.CpuDeviceAccess.*;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
 import static sh2.pwm.Pwm.PwmChannelSetup.OFF;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.PWM_6;
@@ -61,7 +61,8 @@ public class Pwm implements StepDevice {
     private int pwmSamplesPerFrame = 0, stepsPerFrame = 0, dreqPerFrame = 0;
 
     private Fifo<Integer> fifoLeft, fifoRight;
-    private int latestPwmValue = 0;
+    private AtomicInteger latestPwmValueLeft = new AtomicInteger(0),
+            latestPwmValueRight = new AtomicInteger(0);
     private static final boolean verbose = false;
     private PwmProvider playSupport = PwmProvider.NO_SOUND;
 
@@ -75,6 +76,7 @@ public class Pwm implements StepDevice {
 
     public int read(CpuDeviceAccess cpu, RegSpecS32x regSpec, int address, Size size) {
         int res = readBuffer(sysRegsMd, address, size);
+        assert res == readBuffer(sysRegsSh2, address, size);
         if (verbose) LOG.info("{} PWM read {}: {} {}", cpu, regSpec.name, th(res), size);
         return res;
     }
@@ -83,7 +85,7 @@ public class Pwm implements StepDevice {
         if (verbose) LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), size);
         switch (size) {
             case BYTE:
-                writeByte(cpu, regSpec, reg, value, size);
+                writeByte(cpu, regSpec, reg, value);
                 break;
             case WORD:
                 writeWord(cpu, regSpec, reg, value);
@@ -95,49 +97,50 @@ public class Pwm implements StepDevice {
         }
     }
 
-    public void writeByte(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value, Size size) {
-        if (verbose) LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), Size.WORD);
+    public void writeByte(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value) {
         switch (regSpec) {
             case PWM_CTRL:
-                handlePwmControlMd(cpu, reg, value, size);
+                handlePwmControl(cpu, reg, value, Size.BYTE);
                 break;
-            case PWM_RCH_PW:
-            case PWM_LCH_PW:
-            case PWM_MONO:
             case PWM_CYCLE: {
-                //NOTE: z80 writes MSB then LSB, we trigger the write when writing to LSB
-                if ((reg & 1) == 0) {
-                    writeBuffers(sysRegsMd, sysRegsSh2, reg, value & 0xF, size);
-                    return;
+                assert cpu == Z80 || cpu == M68K : regSpec;
+                handlePartialByteWrite(reg, value);
+                if (regSpec == PWM_CYCLE) {
+                    int val = readBuffer(sysRegsMd, regSpec.addr, Size.WORD);
+                    handlePwmCycleWord(cpu, val);
                 }
-                int val = readBuffer(sysRegsMd, regSpec.addr, Size.WORD);
-                boolean even = (reg & 1) == 0;
-                val = (val & (even ? 0xFF : 0xFF00)) | (even ? value << 8 : value);
-                writeWord(cpu, regSpec, reg, val);
             }
             break;
             default:
                 LOG.error("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), Size.BYTE);
                 break;
         }
+    }
 
+    private void handlePartialByteWrite(int reg, int value) {
+        //NOTE: z80 writes MSB then LSB, we trigger a wordWrite when setting the LSB
+        boolean even = (reg & 1) == 0;
+        if (even) {
+            writeBuffers(sysRegsMd, sysRegsSh2, reg, value & 0xF, Size.BYTE);
+            return;
+        }
+        writeBuffers(sysRegsMd, sysRegsSh2, reg, value & 0xFF, Size.BYTE);
     }
 
     private void writeWord(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value) {
-        if (verbose) LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), Size.WORD);
         switch (regSpec) {
             case PWM_CTRL -> handlePwmControl(cpu, reg, value, Size.WORD);
-            case PWM_CYCLE -> handlePwmCycleWord(cpu, reg, value);
-            case PWM_MONO -> writeMono(reg, value, Size.WORD);
-            case PWM_LCH_PW -> writeFifo(regSpec, reg, fifoLeft, value, Size.WORD);
-            case PWM_RCH_PW -> writeFifo(regSpec, reg, fifoRight, value, Size.WORD);
+            case PWM_CYCLE -> handlePwmCycleWord(cpu, value);
+            case PWM_MONO -> writeMono(value);
+            case PWM_LCH_PW -> writeFifo(fifoLeft, value);
+            case PWM_RCH_PW -> writeFifo(fifoRight, value);
             default -> writeBuffers(sysRegsMd, sysRegsSh2, regSpec.addr, value, Size.WORD);
         }
     }
 
-    private void handlePwmCycleWord(CpuDeviceAccess cpu, int reg, int value) {
+    private void handlePwmCycleWord(CpuDeviceAccess cpu, int value) {
         value &= 0xFFF;
-        writeBuffers(sysRegsMd, sysRegsSh2, reg, value, Size.WORD);
+        writeBuffers(sysRegsMd, sysRegsSh2, PWM_CYCLE.addr, value, Size.WORD);
         int prevCycle = cycle;
         cycle = (value - 1) & 0xFFF;
         if (cycle < CYCLE_LIMIT) {
@@ -150,40 +153,48 @@ public class Pwm implements StepDevice {
 
     private void handlePwmControl(CpuDeviceAccess cpu, int reg, int value, Size size) {
         switch (cpu) {
-            case Z80:
             case M68K:
+            case Z80:
                 handlePwmControlMd(cpu, reg, value, size);
                 break;
             default:
-                assert size != Size.BYTE;
-                writeBuffers(sysRegsMd, sysRegsSh2, PWM_CTRL.addr, value, size);
-                dreqEn = ((value >> 7) & 1) > 0;
-                int ival = (value >> 8) & 0xF;
-                interruptInterval = ival == 0 ? 0x10 : ival;
-                channelMap[chLeft] = chanVals[value & 3];
-                channelMap[chRight] = chanVals[(value >> 2) & 3];
+                handlePwmControlSh2(cpu, reg, value, size);
                 break;
         }
         handlePwmEnable(false);
     }
 
     private void handlePwmControlMd(CpuDeviceAccess cpu, int reg, int value, Size size) {
-        switch (size) {
-            case WORD -> {
-                writeBuffers(sysRegsMd, sysRegsSh2, PWM_CTRL.addr, value & 0xF, size);
-                channelMap[chLeft] = chanVals[value & 3];
-                channelMap[chRight] = chanVals[(value >> 2) & 3];
-            }
-            case BYTE -> {
-                if ((reg & 1) == 1) {
-                    writeBuffers(sysRegsMd, sysRegsSh2, reg, value & 0xF, size);
-                    channelMap[chLeft] = chanVals[value & 3];
-                    channelMap[chRight] = chanVals[(value >> 2) & 3];
-                } else {
-                    LOG.warn("{} ignored write to {}: {} {}", cpu, PWM_CTRL, th(value), size);
-                }
-            }
+        assert size != Size.LONG;
+        if (size == Size.BYTE && ((reg & 1) == 0)) {
+            LOG.warn("{} ignored write to {}: {} {}", cpu, PWM_CTRL, th(value), size);
+            return;
         }
+        int val = readBuffer(sysRegsMd, PWM_CTRL.addr, Size.WORD) & 0xFFF0;
+        val |= value & 0xF;
+        writeBuffers(sysRegsMd, sysRegsSh2, reg, val, size);
+
+        value = readBuffer(sysRegsMd, PWM_CTRL.addr, Size.WORD);
+        channelMap[chLeft] = chanVals[value & 3];
+        channelMap[chRight] = chanVals[(value >> 2) & 3];
+    }
+
+    private void handlePwmControlSh2(CpuDeviceAccess cpu, int reg, int val, Size size) {
+        int mask =
+                switch (size) {
+                    case WORD -> 0xF8F;
+                    case BYTE -> (reg & 1) == 1 ? 0x8F : 0xF;
+                    default -> 0;
+                };
+        //Primal Rage, Sh2 write bytes
+        assert size != Size.LONG;
+        writeBuffers(sysRegsMd, sysRegsSh2, reg, val & mask, size);
+        int value = readBuffer(sysRegsMd, PWM_CTRL.addr, Size.WORD);
+        dreqEn = ((value >> 7) & 1) > 0;
+        int ival = (value >> 8) & 0xF;
+        interruptInterval = ival == 0 ? 0x10 : ival;
+        channelMap[chLeft] = chanVals[value & 3];
+        channelMap[chRight] = chanVals[(value >> 2) & 3];
     }
 
     private void handlePwmEnable(boolean cycleChanged) {
@@ -192,7 +203,7 @@ public class Pwm implements StepDevice {
         if (!wasEnabled && pwmEnable || cycleChanged) {
             sh2TicksToNextPwmSample = cycle;
             sh2ticksToNextPwmInterrupt = interruptInterval;
-            latestPwmValue = cycle >> 1;
+//            latestPwmValue = cycle >> 1; //TODO check
             resetFifo();
             updateFifoRegs();
             playSupport.updatePwmCycle(cycle);
@@ -204,10 +215,10 @@ public class Pwm implements StepDevice {
         fifoLeft.clear();
     }
 
-    private void writeFifo(RegSpecS32x regSpec, int reg, Fifo<Integer> fifo, int value, Size size) {
+    private void writeFifo(Fifo<Integer> fifo, int value) {
         if (fifo.isFull()) {
-            //TODO replace oldest
-//            LOG.warn("PWM FIFO push when fifo full: {} {}", th(value), size);
+            fifo.pop();
+            if (verbose) LOG.warn("PWM FIFO push when fifo full: {} {}", th(value));
             return;
         }
         fifo.push((value - 1) & 0xFFF);
@@ -217,9 +228,9 @@ public class Pwm implements StepDevice {
     //TEST only
     public int readFifoMono(RegSpecS32x regSpec) {
         return switch (regSpec) {
-            case PWM_LCH_PW -> readFifo(fifoLeft);
-            case PWM_RCH_PW -> readFifo(fifoRight);
-            case PWM_MONO -> (readFifo(fifoLeft) + readFifo(fifoRight)) >> 1;
+            case PWM_LCH_PW -> readFifo(fifoLeft, latestPwmValueLeft);
+            case PWM_RCH_PW -> readFifo(fifoRight, latestPwmValueRight);
+            case PWM_MONO -> readMono();
             default -> {
                 assert false : regSpec;
                 yield 0;
@@ -227,34 +238,41 @@ public class Pwm implements StepDevice {
         };
     }
 
-    private int readFifo(Fifo<Integer> fifo) {
-        if (fifo.isEmpty()) {
-//            LOG.warn("PWM FIFO pop when fifo empty: {}", th(latestPwmValue));
-            return latestPwmValue;
-        }
-        latestPwmValue = fifo.pop();
-        updateFifoRegs();
-        return latestPwmValue;
+    private int readMono() {
+        return (readFifo(fifoLeft, latestPwmValueLeft) + readFifo(fifoRight, latestPwmValueRight)) >> 1;
     }
 
+    private int readFifo(Fifo<Integer> fifo, AtomicInteger latestPwmValue) {
+        if (fifo.isEmpty()) {
+            if (verbose) LOG.warn("PWM FIFO pop when fifo empty: {}", th(latestPwmValue.get()));
+            return latestPwmValue.get();
+        }
+        int res = fifo.pop();
+        latestPwmValue.set(res);
+        updateFifoRegs();
+        return res;
+    }
+
+    //TODO update on read instead??
+    //TODO keep the existing value instead of replacing it
     private void updateFifoRegs() {
         int regValue = (fifoLeft.isFullBit() << PWM_FIFO_FULL_BIT_POS) | (fifoLeft.isEmptyBit() << PWM_FIFO_EMPTY_BIT_POS);
         writeBuffers(sysRegsMd, sysRegsSh2, PWM_LCH_PW.addr, regValue, Size.WORD);
         regValue = (fifoRight.isFullBit() << PWM_FIFO_FULL_BIT_POS) | (fifoRight.isEmptyBit() << PWM_FIFO_EMPTY_BIT_POS);
         writeBuffers(sysRegsMd, sysRegsSh2, PWM_RCH_PW.addr, regValue, Size.WORD);
-        updateMono(PWM_RCH_PW);
+        updateMono();
     }
 
-    private void updateMono(RegSpecS32x regSpec) {
+    private void updateMono() {
         int fifoFull = ((fifoLeft.isFullBit() | fifoRight.isFullBit()) << PWM_FIFO_FULL_BIT_POS);
         int fifoEmpty = ((fifoLeft.isEmptyBit() & fifoRight.isEmptyBit()) << PWM_FIFO_EMPTY_BIT_POS);
         int regValue = fifoFull | fifoEmpty;
         writeBuffers(sysRegsMd, sysRegsSh2, PWM_MONO.addr, regValue, Size.WORD);
     }
 
-    public void writeMono(int reg, int value, Size size) {
-        writeFifo(PWM_LCH_PW, reg, fifoLeft, value, size);
-        writeFifo(PWM_RCH_PW, reg, fifoRight, value, size);
+    public void writeMono(int value) {
+        writeFifo(fifoLeft, value);
+        writeFifo(fifoRight, value);
     }
 
     public void newFrame() {
@@ -281,8 +299,8 @@ public class Pwm implements StepDevice {
         if (--sh2TicksToNextPwmSample == 0) {
             sh2TicksToNextPwmSample = cycle;
             pwmSamplesPerFrame++;
-            ls = Math.min(cycle, readFifo(fifoLeft));
-            rs = Math.min(cycle, readFifo(fifoRight));
+            ls = Math.min(cycle, readFifo(fifoLeft, latestPwmValueLeft));
+            rs = Math.min(cycle, readFifo(fifoRight, latestPwmValueRight));
             if (--sh2ticksToNextPwmInterrupt == 0) {
                 intControls[MASTER.ordinal()].setIntPending(PWM_6, true);
                 intControls[SLAVE.ordinal()].setIntPending(PWM_6, true);

@@ -57,7 +57,6 @@ public class Sh2Impl implements Sh2 {
 	}
 
 	public static boolean tasReadNoCache = true;
-	private int stackCheck = 0;
 
 	public void reset(Sh2Context ctx) {
 		Md32xRuntimeData.setAccessTypeExt(ctx.cpuAccess);
@@ -71,7 +70,6 @@ public class Sh2Impl implements Sh2 {
 
 	//push to stack
 	private void push(int data) {
-		assert --stackCheck > -STACK_LIMIT_SIZE : toStackErrorStr();
 		ctx.registers[15] -= 4;
 		memory.write32(ctx.registers[15], data);
 //		System.out.println(ctx.sh2TypeCode + " PUSH SP: " + th(ctx.registers[15])
@@ -80,7 +78,6 @@ public class Sh2Impl implements Sh2 {
 
 	//pop from stack
 	private int pop() {
-		assert ++stackCheck < STACK_LIMIT_SIZE : toStackErrorStr();
 		int res = memory.read32(ctx.registers[15]);
 //		System.out.println(ctx.cpuAccess + " POP SP: " + Integer.toHexString(ctx.registers[15])
 //				+ "," + Integer.toHexString(res));
@@ -541,7 +538,7 @@ public class Sh2Impl implements Sh2 {
 		int n = RN(code);
 		long tmp0 = ctx.registers[n] & 0xFFFF_FFFFL;
 		long tmp1 = (tmp0 + ctx.registers[m]) & 0xFFFF_FFFFL;
-		long regN = (int) (tmp1 + (ctx.SR & flagT)) & 0xFFFF_FFFFL;
+		long regN = (tmp1 + (ctx.SR & flagT)) & 0xFFFF_FFFFL;
 		boolean tb = tmp0 > tmp1 || tmp1 > regN;
 		ctx.SR &= (~flagT);
 		ctx.SR |= tb ? flagT : 0;
@@ -555,12 +552,15 @@ public class Sh2Impl implements Sh2 {
 		int m = RM(code);
 		int n = RN(code);
 
-		long d = (ctx.registers[n] < 0) ? 1 : 0;
-		long s = ((ctx.registers[m] < 0) ? 1 : 0) + d;
+		int d = (ctx.registers[n] >> 31) & 1;
+		int s = ((ctx.registers[m] >> 31) & 1) + d;
+
 		ctx.registers[n] += ctx.registers[m];
-		long r = ((ctx.registers[n] < 0) ? 1 : 0) + d;
+		int r = ((ctx.registers[n] >> 31) & 1) + d;
+
 		ctx.SR &= (~flagT);
-		ctx.SR = s != 1 ? (r == 1 ? 1 : 0) : 0;
+		//s != 1 ? (r == 1 ? 1 : 0) : 0;
+		ctx.SR |= (s + 1) & r & 1;
 
 		ctx.cycles--;
 		ctx.PC += 2;
@@ -892,8 +892,6 @@ public class Sh2Impl implements Sh2 {
 	protected static final void MACW(Sh2Context ctx, short rn, short rm) {
 //		String s = "#### " + th(rn) + "," + th(rm) + "," + th(ctx.MACH) + "," + th(ctx.MACL) + ",S=" +
 //				((ctx.SR & flagS) > 0);
-		int macl = ctx.MACL;
-		int mach = ctx.MACH;
 		if ((ctx.SR & flagS) > 0) { //16 x 16 + 32
 			long res = rm * rn + (long) ctx.MACL;
 			//saturation
@@ -2422,9 +2420,5 @@ public class Sh2Impl implements Sh2 {
 
 	public void setCtx(Sh2Context ctx) {
 		this.ctx = ctx;
-	}
-
-	private String toStackErrorStr() {
-		return "Stack too deep: " + stackCheck + "\n" + ctx + "\n" + Sh2Helper.toDebuggingString(ctx);
 	}
 }
