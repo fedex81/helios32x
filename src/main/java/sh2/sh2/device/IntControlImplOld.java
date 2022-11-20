@@ -18,8 +18,7 @@ import static sh2.S32xUtil.*;
 import static sh2.dict.S32xDict.RegSpecS32x.SH2_INT_MASK;
 import static sh2.dict.Sh2Dict.RegSpec.*;
 import static sh2.event.SysEventManager.SysEvent.INT;
-import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
-import static sh2.sh2.device.IntControl.Sh2Interrupt.VRES_14;
+import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
 import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 
 /**
@@ -220,6 +219,8 @@ public class IntControlImplOld implements IntControl {
         Sh2Interrupt intType = intVals[interruptLevel];
         if (intType.internal == 0) {
             return getExternalDeviceVectorNumber();
+        } else if (intType == NMI_16) {
+            return 11;
         }
         return 64 + (interruptLevel >> 1);
     }

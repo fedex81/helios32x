@@ -5,12 +5,15 @@ import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
+import sh2.S32xUtil;
 import sh2.Sh2MMREG;
 import sh2.event.SysEventManager;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.device.IntControl;
 import sh2.sh2.drc.Ow2Sh2BlockRecompiler;
 import sh2.sh2.drc.Sh2Block;
+
+import java.util.Arrays;
 
 import static omegadrive.util.Util.th;
 import static sh2.dict.S32xDict.SH2_CACHE_THROUGH_OFFSET;
@@ -68,6 +71,15 @@ public class Sh2Impl implements Sh2 {
 
 	private boolean acceptInterrupts(final int level) {
 		if (level > getIMASK()) {
+			if (S32xUtil.assertionsEnabled) {
+				Sh2InstructionWrapper instWrapper = Sh2Instructions.instOpcodeMap[ctx.opcode];
+				boolean legal = Arrays.binarySearch(Sh2Instructions.intDisabledOpcodes, instWrapper.inst) < 0;
+//				assert legal : th(inst.pc) + "," + inst.inst;
+				if (!legal) {
+					LOG.warn("{}, {}", th(ctx.PC), instWrapper.inst);
+					return false;
+				}
+			}
 			processInterrupt(ctx, level);
 			ctx.devices.intC.clearCurrentInterrupt();
 			return true;
@@ -82,7 +94,7 @@ public class Sh2Impl implements Sh2 {
 		push(ctx.PC); //stores the next inst to be executed
 		//SR 7-4
 		ctx.SR &= 0xF0F;
-		ctx.SR |= (level << 4);
+		ctx.SR |= ((level & 0xF) << 4);
 
 		int vectorNum = ctx.devices.intC.getVectorNumber();
 		ctx.PC = memory.read32(ctx.VBR + (vectorNum << 2));

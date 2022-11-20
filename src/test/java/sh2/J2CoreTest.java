@@ -37,25 +37,26 @@ import static sh2.S32xUtil.writeBuffer;
  */
 public class J2CoreTest {
 
+    static final String binNameLocal = "j2tests.bin";
+
     static final int FAIL_VALUE = 0x8888_8888;
     final static int ramSize = 0x8000;
-    static String binName = "j2tests.bin";
     static ByteBuffer rom;
     private static boolean done = false;
-    private static boolean sh2Debug = false;
+    protected static boolean sh2Debug = true;
 
-    public static Path baseDataFolder = Paths.get(new File(".").getAbsolutePath(),
+    public static final Path baseDataFolder = Paths.get(new File(".").getAbsolutePath(),
             "src", "test", "resources");
 
-    private Sh2 sh2;
-    private Sh2Context ctx;
+    protected Sh2 sh2;
+    protected Sh2Context ctx;
     private static Sh2Config config = new Sh2Config(false, false, false, false,
             false, false);
 
     @BeforeAll
     public static void beforeAll() {
         System.out.println(new File(".").getAbsolutePath());
-        Path binPath = Paths.get(baseDataFolder.toAbsolutePath().toString(), "j2tests.bin");
+        Path binPath = Paths.get(baseDataFolder.toAbsolutePath().toString(), getBinName());
         System.out.println("Bin file: " + binPath.toAbsolutePath());
         rom = ByteBuffer.wrap(FileUtil.loadBiosFile(binPath));
     }
@@ -63,15 +64,20 @@ public class J2CoreTest {
     @BeforeEach
     public void before() {
         Sh2Config.reset(config);
-        IMemory memory = getMemory(rom);
+        IMemory memory = getMemoryInt(rom);
         sh2 = getSh2Interpreter(memory, sh2Debug);
         ctx = createContext(S32xUtil.CpuDeviceAccess.MASTER, memory);
         sh2.reset(ctx);
         System.out.println("Reset, PC: " + ctx.PC + ", SP: " + ctx.registers[15]);
     }
 
+    public static String getBinName() {
+        return binNameLocal;
+    }
+
     @Test
     public void testJ2() {
+        Assertions.assertEquals(binNameLocal, getBinName());
         int limit = 3_000;
         int cnt = 0;
         do {
@@ -112,6 +118,10 @@ public class J2CoreTest {
 
     public static Sh2 getSh2Interpreter(IMemory memory, boolean debug) {
         return sh2Debug ? new Sh2Debug(memory) : new Sh2Impl(memory);
+    }
+
+    protected IMemory getMemoryInt(final ByteBuffer rom) {
+        return J2CoreTest.getMemory(rom);
     }
 
 

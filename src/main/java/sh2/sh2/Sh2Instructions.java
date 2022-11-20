@@ -42,6 +42,18 @@ public class Sh2Instructions {
     public static Sh2InstructionWrapper[] instOpcodeMap;
     public static Sh2BaseInstruction[] sh2OpcodeMap;
 
+    //interrupts cannot be triggered during these instructions, I think it can be ignored
+    public static Sh2Instructions.Sh2BaseInstruction[] intDisabledOpcodes = {
+            LDCGBR, LDSPR, LDCMGBR, LDCMSR, LDCMVBR, LDCSR,
+            LDCVBR, LDSMACH, LDSMACL, LDSMMACH, LDSMMACH, LDSMPR,
+            STCSR, STCGBR, STCVBR, STCMSR, STCMGBR, STCMVBR,
+            STSMACH, STSMACL, STSPR, STSMMACH, STSMMACL, STSMPR
+    };
+
+    static {
+        Arrays.sort(intDisabledOpcodes);
+    }
+
     public static Sh2InstructionWrapper[] createOpcodeMap(Sh2Impl sh2) {
         instOpcodeMap = new Sh2InstructionWrapper[NUM_OPCODES];
         sh2OpcodeMap = new Sh2BaseInstruction[NUM_OPCODES];
