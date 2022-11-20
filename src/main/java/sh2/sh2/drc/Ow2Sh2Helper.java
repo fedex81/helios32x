@@ -46,437 +46,154 @@ public class Ow2Sh2Helper {
     public static void createInst(Sh2Prefetch.BytecodeContext ctx) {
 //        printString(ctx.mv, ctx.sh2Inst + "," + ctx.opcode);
         switch (ctx.sh2Inst) {
-            case ADD:
-                ADD(ctx);
-                break;
-            case ADDC:
-                ADDC(ctx);
-                break;
-            case ADDI:
-                ADDI(ctx);
-                break;
-            case ADDV:
-                ADDV(ctx);
-                break;
-            case AND:
-                AND(ctx);
-                break;
-            case ANDI:
-                ANDI(ctx);
-                break;
-            case ANDM:
-                ANDM(ctx);
-                break;
-            case BF:
-                BF(ctx);
-                break;
-            case BFS:
-                BFS(ctx);
-                break;
-            case BRA:
-                BRA(ctx);
-                break;
-            case BRAF:
-                BRAF(ctx);
-                break;
-            case BSR:
-                BSR(ctx);
-                break;
-            case BSRF:
-                BSRF(ctx);
-                break;
-            case BT:
-                BT(ctx);
-                break;
-            case BTS:
-                BTS(ctx);
-                break;
-            case CLRMAC:
-                CLRMAC(ctx);
-                break;
-            case CLRT:
-                CLRT(ctx);
-                break;
-            case CMPEQ:
-                CMPEQ(ctx);
-                break;
-            case CMPGE:
-                CMPGE(ctx);
-                break;
-            case CMPGT:
-                CMPGT(ctx);
-                break;
-            case CMPHI:
-                CMPHI(ctx);
-                break;
-            case CMPHS:
-                CMPHS(ctx);
-                break;
-            case CMPIM:
-                CMPIM(ctx);
-                break;
-            case CMPPL:
-                CMPPL(ctx);
-                break;
-            case CMPPZ:
-                CMPPZ(ctx);
-                break;
-            case CMPSTR:
-                CMPSTR(ctx);
-                break;
-            case DIV0S:
-                DIV0S(ctx);
-                break;
-            case DIV0U:
-                DIV0U(ctx);
-                break;
-            case DIV1:
-                DIV1(ctx);
-                break;
-            case DMULS:
-                DMULS(ctx);
-                break;
-            case DMULU:
-                DMULU(ctx);
-                break;
-            case DT:
-                DT(ctx);
-                break;
-            case EXTSB:
-                EXTSB(ctx);
-                break;
-            case EXTSW:
-                EXTSW(ctx);
-                break;
-            case EXTUB:
-                EXTUB(ctx);
-                break;
-            case EXTUW:
-                EXTUW(ctx);
-                break;
-            case ILLEGAL:
-                ILLEGAL(ctx);
-                break;
-            case JMP:
-                JMP(ctx);
-                break;
-            case JSR:
-                JSR(ctx);
-                break;
-            case LDCGBR:
-                LDCGBR(ctx);
-                break;
-            case LDCMGBR:
-                LDCMGBR(ctx);
-                break;
-            case LDCMSR:
-                LDCMSR(ctx);
-                break;
-            case LDCMVBR:
-                LDCMVBR(ctx);
-                break;
-            case LDCSR:
-                LDCSR(ctx);
-                break;
-            case LDCVBR:
-                LDCVBR(ctx);
-                break;
-            case LDSMACH:
-                LDSMACH(ctx);
-                break;
-            case LDSMACL:
-                LDSMACL(ctx);
-                break;
-            case LDSMMACH:
-                LDSMMACH(ctx);
-                break;
-            case LDSMMACL:
-                LDSMMACL(ctx);
-                break;
-            case LDSMPR:
-                LDSMPR(ctx);
-                break;
-            case LDSPR:
-                LDSPR(ctx);
-                break;
-            case MACL:
-                MACL(ctx);
-                break;
-            case MACW:
-                MACW(ctx);
-                break;
-            case MOV:
-                MOV(ctx);
-                break;
-            case MOVA:
-                MOVA(ctx);
-                break;
-            case MOVBL:
-                MOVBL(ctx);
-                break;
-            case MOVBL0:
-                MOVBL0(ctx);
-                break;
-            case MOVBL4:
-                MOVBL4(ctx);
-                break;
-            case MOVBLG:
-                MOVBLG(ctx);
-                break;
-            case MOVBM:
-                MOVBM(ctx);
-                break;
-            case MOVBP:
-                MOVBP(ctx);
-                break;
-            case MOVBS:
-                MOVBS(ctx);
-                break;
-            case MOVBS0:
-                MOVBS0(ctx);
-                break;
-            case MOVBS4:
-                MOVBS4(ctx);
-                break;
-            case MOVBSG:
-                MOVBSG(ctx);
-                break;
-            case MOVI:
-                MOVI(ctx);
-                break;
-            case MOVLI:
-                MOVLI(ctx);
-                break;
-            case MOVLL:
-                MOVLL(ctx);
-                break;
-            case MOVLL0:
-                MOVLL0(ctx);
-                break;
-            case MOVLL4:
-                MOVLL4(ctx);
-                break;
-            case MOVLLG:
-                MOVLLG(ctx);
-                break;
-            case MOVLM:
-                MOVLM(ctx);
-                break;
-            case MOVLP:
-                MOVLP(ctx);
-                break;
-            case MOVLS:
-                MOVLS(ctx);
-                break;
-            case MOVLS0:
-                MOVLS0(ctx);
-                break;
-            case MOVLS4:
-                MOVLS4(ctx);
-                break;
-            case MOVLSG:
-                MOVLSG(ctx);
-                break;
-            case MOVT:
-                MOVT(ctx);
-                break;
-            case MOVWI:
-                MOVWI(ctx);
-                break;
-            case MOVWL:
-                MOVWL(ctx);
-                break;
-            case MOVWL0:
-                MOVWL0(ctx);
-                break;
-            case MOVWL4:
-                MOVWL4(ctx);
-                break;
-            case MOVWLG:
-                MOVWLG(ctx);
-                break;
-            case MOVWM:
-                MOVWM(ctx);
-                break;
-            case MOVWP:
-                MOVWP(ctx);
-                break;
-            case MOVWS:
-                MOVWS(ctx);
-                break;
-            case MOVWS0:
-                MOVWS0(ctx);
-                break;
-            case MOVWS4:
-                MOVWS4(ctx);
-                break;
-            case MOVWSG:
-                MOVWSG(ctx);
-                break;
-            case MULL:
-                MULL(ctx);
-                break;
-            case MULSU:
-                MULSU(ctx);
-                break;
-            case MULSW:
-                MULSW(ctx);
-                break;
-            case NEG:
-                NEG(ctx);
-                break;
-            case NEGC:
-                NEGC(ctx);
-                break;
-            case NOP:
-                NOP(ctx);
-                break;
-            case NOT:
-                NOT(ctx);
-                break;
-            case OR:
-                OR(ctx);
-                break;
-            case ORI:
-                ORI(ctx);
-                break;
-            case ORM:
-                ORM(ctx);
-                break;
-            case ROTCL:
-                ROTCL(ctx);
-                break;
-            case ROTCR:
-                ROTCR(ctx);
-                break;
-            case ROTL:
-                ROTL(ctx);
-                break;
-            case ROTR:
-                ROTR(ctx);
-                break;
-            case RTE:
-                RTE(ctx);
-                break;
-            case RTS:
-                RTS(ctx);
-                break;
-            case SETT:
-                SETT(ctx);
-                break;
-            case SHAL:
-                SHAL(ctx);
-                break;
-            case SHAR:
-                SHAR(ctx);
-                break;
-            case SHLL:
-                SHLL(ctx);
-                break;
-            case SHLL16:
-                SHLL16(ctx);
-                break;
-            case SHLL2:
-                SHLL2(ctx);
-                break;
-            case SHLL8:
-                SHLL8(ctx);
-                break;
-            case SHLR:
-                SHLR(ctx);
-                break;
-            case SHLR16:
-                SHLR16(ctx);
-                break;
-            case SHLR2:
-                SHLR2(ctx);
-                break;
-            case SHLR8:
-                SHLR8(ctx);
-                break;
-            case SLEEP:
-                SLEEP(ctx);
-                break;
-            case STCGBR:
-                STCGBR(ctx);
-                break;
-            case STCMGBR:
-                STCMGBR(ctx);
-                break;
-            case STCMSR:
-                STCMSR(ctx);
-                break;
-            case STCMVBR:
-                STCMVBR(ctx);
-                break;
-            case STCSR:
-                STCSR(ctx);
-                break;
-            case STCVBR:
-                STCVBR(ctx);
-                break;
-            case STSMACH:
-                STSMACH(ctx);
-                break;
-            case STSMACL:
-                STSMACL(ctx);
-                break;
-            case STSMMACH:
-                STSMMACH(ctx);
-                break;
-            case STSMMACL:
-                STSMMACL(ctx);
-                break;
-            case STSMPR:
-                STSMPR(ctx);
-                break;
-            case STSPR:
-                STSPR(ctx);
-                break;
-            case SUB:
-                SUB(ctx);
-                break;
-            case SUBC:
-                SUBC(ctx);
-                break;
-            case SUBV:
-                SUBV(ctx);
-                break;
-            case SWAPB:
-                SWAPB(ctx);
-                break;
-            case SWAPW:
-                SWAPW(ctx);
-                break;
-            case TAS:
-                TAS(ctx);
-                break;
-            case TRAPA:
-                TRAPA(ctx);
-                break;
-            case TST:
-                TST(ctx);
-                break;
-            case TSTI:
-                TSTI(ctx);
-                break;
-            case TSTM:
-                TSTM(ctx);
-                break;
-            case XOR:
-                XOR(ctx);
-                break;
-            case XORI:
-                XORI(ctx);
-                break;
-            case XORM:
-                XORM(ctx);
-                break;
-            case XTRCT:
-                XTRCT(ctx);
-                break;
-            default:
+            case ADD -> ADD(ctx);
+            case ADDC -> ADDC(ctx);
+            case ADDI -> ADDI(ctx);
+            case ADDV -> ADDV(ctx);
+            case AND -> AND(ctx);
+            case ANDI -> ANDI(ctx);
+            case ANDM -> ANDM(ctx);
+            case BF -> BF(ctx);
+            case BFS -> BFS(ctx);
+            case BRA -> BRA(ctx);
+            case BRAF -> BRAF(ctx);
+            case BSR -> BSR(ctx);
+            case BSRF -> BSRF(ctx);
+            case BT -> BT(ctx);
+            case BTS -> BTS(ctx);
+            case CLRMAC -> CLRMAC(ctx);
+            case CLRT -> CLRT(ctx);
+            case CMPEQ -> CMPEQ(ctx);
+            case CMPGE -> CMPGE(ctx);
+            case CMPGT -> CMPGT(ctx);
+            case CMPHI -> CMPHI(ctx);
+            case CMPHS -> CMPHS(ctx);
+            case CMPIM -> CMPIM(ctx);
+            case CMPPL -> CMPPL(ctx);
+            case CMPPZ -> CMPPZ(ctx);
+            case CMPSTR -> CMPSTR(ctx);
+            case DIV0S -> DIV0S(ctx);
+            case DIV0U -> DIV0U(ctx);
+            case DIV1 -> DIV1(ctx);
+            case DMULS -> DMULS(ctx);
+            case DMULU -> DMULU(ctx);
+            case DT -> DT(ctx);
+            case EXTSB -> EXTSB(ctx);
+            case EXTSW -> EXTSW(ctx);
+            case EXTUB -> EXTUB(ctx);
+            case EXTUW -> EXTUW(ctx);
+            case ILLEGAL -> ILLEGAL(ctx);
+            case JMP -> JMP(ctx);
+            case JSR -> JSR(ctx);
+            case LDCGBR -> LDCGBR(ctx);
+            case LDCMGBR -> LDCMGBR(ctx);
+            case LDCMSR -> LDCMSR(ctx);
+            case LDCMVBR -> LDCMVBR(ctx);
+            case LDCSR -> LDCSR(ctx);
+            case LDCVBR -> LDCVBR(ctx);
+            case LDSMACH -> LDSMACH(ctx);
+            case LDSMACL -> LDSMACL(ctx);
+            case LDSMMACH -> LDSMMACH(ctx);
+            case LDSMMACL -> LDSMMACL(ctx);
+            case LDSMPR -> LDSMPR(ctx);
+            case LDSPR -> LDSPR(ctx);
+            case MACL -> MACL(ctx);
+            case MACW -> MACW(ctx);
+            case MOV -> MOV(ctx);
+            case MOVA -> MOVA(ctx);
+            case MOVBL -> MOVBL(ctx);
+            case MOVBL0 -> MOVBL0(ctx);
+            case MOVBL4 -> MOVBL4(ctx);
+            case MOVBLG -> MOVBLG(ctx);
+            case MOVBM -> MOVBM(ctx);
+            case MOVBP -> MOVBP(ctx);
+            case MOVBS -> MOVBS(ctx);
+            case MOVBS0 -> MOVBS0(ctx);
+            case MOVBS4 -> MOVBS4(ctx);
+            case MOVBSG -> MOVBSG(ctx);
+            case MOVI -> MOVI(ctx);
+            case MOVLI -> MOVLI(ctx);
+            case MOVLL -> MOVLL(ctx);
+            case MOVLL0 -> MOVLL0(ctx);
+            case MOVLL4 -> MOVLL4(ctx);
+            case MOVLLG -> MOVLLG(ctx);
+            case MOVLM -> MOVLM(ctx);
+            case MOVLP -> MOVLP(ctx);
+            case MOVLS -> MOVLS(ctx);
+            case MOVLS0 -> MOVLS0(ctx);
+            case MOVLS4 -> MOVLS4(ctx);
+            case MOVLSG -> MOVLSG(ctx);
+            case MOVT -> MOVT(ctx);
+            case MOVWI -> MOVWI(ctx);
+            case MOVWL -> MOVWL(ctx);
+            case MOVWL0 -> MOVWL0(ctx);
+            case MOVWL4 -> MOVWL4(ctx);
+            case MOVWLG -> MOVWLG(ctx);
+            case MOVWM -> MOVWM(ctx);
+            case MOVWP -> MOVWP(ctx);
+            case MOVWS -> MOVWS(ctx);
+            case MOVWS0 -> MOVWS0(ctx);
+            case MOVWS4 -> MOVWS4(ctx);
+            case MOVWSG -> MOVWSG(ctx);
+            case MULL -> MULL(ctx);
+            case MULSU -> MULSU(ctx);
+            case MULSW -> MULSW(ctx);
+            case NEG -> NEG(ctx);
+            case NEGC -> NEGC(ctx);
+            case NOP -> NOP(ctx);
+            case NOT -> NOT(ctx);
+            case OR -> OR(ctx);
+            case ORI -> ORI(ctx);
+            case ORM -> ORM(ctx);
+            case ROTCL -> ROTCL(ctx);
+            case ROTCR -> ROTCR(ctx);
+            case ROTL -> ROTL(ctx);
+            case ROTR -> ROTR(ctx);
+            case RTE -> RTE(ctx);
+            case RTS -> RTS(ctx);
+            case SETT -> SETT(ctx);
+            case SHAL -> SHAL(ctx);
+            case SHAR -> SHAR(ctx);
+            case SHLL -> SHLL(ctx);
+            case SHLL16 -> SHLL16(ctx);
+            case SHLL2 -> SHLL2(ctx);
+            case SHLL8 -> SHLL8(ctx);
+            case SHLR -> SHLR(ctx);
+            case SHLR16 -> SHLR16(ctx);
+            case SHLR2 -> SHLR2(ctx);
+            case SHLR8 -> SHLR8(ctx);
+            case SLEEP -> SLEEP(ctx);
+            case STCGBR -> STCGBR(ctx);
+            case STCMGBR -> STCMGBR(ctx);
+            case STCMSR -> STCMSR(ctx);
+            case STCMVBR -> STCMVBR(ctx);
+            case STCSR -> STCSR(ctx);
+            case STCVBR -> STCVBR(ctx);
+            case STSMACH -> STSMACH(ctx);
+            case STSMACL -> STSMACL(ctx);
+            case STSMMACH -> STSMMACH(ctx);
+            case STSMMACL -> STSMMACL(ctx);
+            case STSMPR -> STSMPR(ctx);
+            case STSPR -> STSPR(ctx);
+            case SUB -> SUB(ctx);
+            case SUBC -> SUBC(ctx);
+            case SUBV -> SUBV(ctx);
+            case SWAPB -> SWAPB(ctx);
+            case SWAPW -> SWAPW(ctx);
+            case TAS -> TAS(ctx);
+            case TRAPA -> TRAPA(ctx);
+            case TST -> TST(ctx);
+            case TSTI -> TSTI(ctx);
+            case TSTM -> TSTM(ctx);
+            case XOR -> XOR(ctx);
+            case XORI -> XORI(ctx);
+            case XORM -> XORM(ctx);
+            case XTRCT -> XTRCT(ctx);
+            default -> {
+                LOG.warn("Fallback: {}", ctx.sh2Inst);
+                System.out.println("Fallback: " + ctx.sh2Inst);
                 fallback(ctx);
+            }
         }
     }
     //@formatter:on
@@ -537,9 +254,9 @@ public class Ow2Sh2Helper {
         ctx.mv.visitFieldInsn(GETFIELD, ctx.classDesc, DRC_CLASS_FIELD.memory.name(), Type.getDescriptor(IMemory.class));
     }
 
-    public static void pushSh2ContextAndField(Sh2Prefetch.BytecodeContext ctx, String name, Class<?> clazz) {
+    public static void pushSh2ContextIntField(Sh2Prefetch.BytecodeContext ctx, String name) {
         pushSh2Context(ctx);
-        pushField(ctx, Sh2Context.class, name, clazz);
+        pushField(ctx, Sh2Context.class, name, int.class);
     }
 
     public static void sh2PushReg15(Sh2Prefetch.BytecodeContext ctx) {
@@ -599,7 +316,11 @@ public class Ow2Sh2Helper {
     }
 
     public static void emitPushLongConstToStack(Sh2Prefetch.BytecodeContext ctx, long val) {
-        ctx.mv.visitLdcInsn(val);
+        if (val == 0 || val == 1) {
+            ctx.mv.visitInsn((int) (LCONST_0 + val));
+        } else {
+            ctx.mv.visitLdcInsn(val);
+        }
     }
 
     public static void emitPushConstToStack(Sh2Prefetch.BytecodeContext ctx, int val) {
