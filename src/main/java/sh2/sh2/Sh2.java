@@ -53,6 +53,16 @@ public interface Sh2 extends Device {
         public Sh2Block block;
         //TODO
         public Sh2PcInfoWrapper piw = SH2_NOT_VISITED;
+
+        @Override
+        public String toString() {
+            return new StringJoiner(", ", FetchResult.class.getSimpleName() + "[", "]")
+                    .add("pc=" + pc)
+                    .add("opcode=" + opcode)
+                    .add("block=" + block)
+                    .add("piw=" + piw)
+                    .toString();
+        }
     }
 
     class Sh2Config {

@@ -3,10 +3,7 @@ package sh2.sh2;
 import sh2.IMemory;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Optional;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -35,6 +32,14 @@ public class Sh2Instructions {
             this.opcode = opcode;
             this.inst = inst;
             this.runnable = r;
+        }
+
+        @Override
+        public String toString() {
+            return new StringJoiner(", ", Sh2InstructionWrapper.class.getSimpleName() + "[", "]")
+                    .add("inst=" + inst)
+                    .add("opcode=" + opcode)
+                    .toString();
         }
     }
 

@@ -290,15 +290,17 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         }
     }
 
-    //TODO test
     public void invalidateCachePrefetch(Sh2Cache.CacheInvalidateContext ctx) {
         final PrefetchContext p = prefetchContexts[ctx.cpu.ordinal()];
-        boolean isCacheAddress = ctx.cacheReadAddr >>> PC_CACHE_AREA_SHIFT == 0;
+        if (p.dirty) {
+            return;
+        }
+        boolean isCacheAddress = ctx.force || ctx.cacheReadAddr >>> PC_CACHE_AREA_SHIFT == 0;
         assert isCacheAddress : ctx.cpu + "," + th(ctx.cacheReadAddr);
         int start = p.prefetchPc;
         int end = start + (p.pfMaxIndex << 1);
         int lineStart = ctx.prevCacheAddr;
-        int lineEnd = lineStart + 16;
+        int lineEnd = lineStart + Sh2Cache.CACHE_BYTES_PER_LINE;
         if (ctx.force || lineEnd >= start && lineStart <= end) {
             if (verbose) {
                 String s = LogHelper.formatMessage("{} invalidateCachePrefetch forced={} from addr: {}, cacheLine: [{},{}]" +

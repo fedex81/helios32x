@@ -153,11 +153,11 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     private int fillOpcodes(CpuDeviceAccess cpu, int pc, Sh2Block block) {
-        return fillOpcodes(cpu, pc, block.start, block.fetchBuffer, block, opcodeWords, false);
+        return fillOpcodes(cpu, pc, block.start, block.fetchBuffer, block, opcodeWords);
     }
 
     private int fillOpcodes(CpuDeviceAccess cpu, int pc, int blockStart, ByteBuffer fetchBuffer,
-                            Sh2Block block, int[] opcodeWords, boolean dummy) {
+                            Sh2Block block, int[] opcodeWords) {
         final Sh2Cache sh2Cache = cache[cpu.ordinal()];
         final int pcLimit = pc + SH2_DRC_MAX_BLOCK_LEN;
         final boolean isCache = (pc >>> PC_CACHE_AREA_SHIFT) == 0 && sh2Cache.getCacheContext().cacheEn > 0;
@@ -170,11 +170,9 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             int val = isCache ? sh2Cache.readDirect(currentPc, Size.WORD) : fetchBuffer.getShort(bytePos) & 0xFFFF;
             final Sh2Instructions.Sh2BaseInstruction inst = op[val].inst;
             if (inst.isIllegal) {
-                if (!dummy) {
-                    LOG.error("{} Invalid fetch, start PC: {}, current: {} opcode: {}", cpu, th(pc), th(bytePos), th(val));
-                    throw new RuntimeException("Fatal! " + inst + "," + th(val) + "\n" + block);
-                }
-                return -1;
+                LOG.error("{} Invalid fetch, start PC: {}, current: {} opcode: {}", cpu, th(pc), th(bytePos), th(val));
+                throw new RuntimeException("Fatal! " + inst + "," + th(val) + "\n" + block);
+//                return -1;
             }
             opcodeWords[wordsCount++] = val;
             if (inst.isBranch) {
@@ -193,9 +191,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             currentPc += 2;
         } while (currentPc < pcLimit);
         assert currentPc == pcLimit ? !breakOnJump : true; //TODO test
-        if (!dummy) {
-            block.setNoJump(currentPc == pcLimit && !breakOnJump);
-        }
+        block.setNoJump(currentPc == pcLimit && !breakOnJump);
         return wordsCount;
     }
 
@@ -266,6 +262,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         piw.setBlock(block);
         fetchResult.block = block;
     }
+
+    @Override
     public void fetch(FetchResult fetchResult, CpuDeviceAccess cpu) {
         final int pc = fetchResult.pc;
         if (!sh2Config.prefetchEn) {
@@ -280,38 +278,6 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         block.poller.spinCount = 0;
         assert prev != block : "\n" + prev + "\n" + block;
         assert block.poller.spinCount == 0 : "\n" + prev + "\n" + block;
-        cacheOnFetch(pc, block.prefetchWords[pcPosWords], cpu);
-        if (collectStats) stats[cpu.ordinal()].pfTotal++;
-        S32xMemAccessDelay.addReadCpuDelay(block.fetchMemAccessDelay);
-        assert block != Sh2Block.INVALID_BLOCK && block.prefetchWords != null && block.prefetchWords.length > 0;
-        fetchResult.opcode = block.prefetchWords[pcPosWords];
-        assert fetchResult.block != null;
-        return;
-    }
-
-    @Deprecated
-    public void fetchOld(FetchResult fetchResult, CpuDeviceAccess cpu) {
-        final int pc = fetchResult.pc;
-        if (!sh2Config.prefetchEn) {
-            fetchResult.opcode = memory.read(pc, Size.WORD);
-            return;
-        }
-        Sh2Block prev = fetchResult.block;
-        Sh2Block block = fetchResult.block;
-        int pcPosWords = block != null ? (pc - block.prefetchPc) >> 1 : -1; //0 based
-        boolean withinFetchWindow = pcPosWords < block.prefetchLenWords && pcPosWords >= 0;
-        if (!withinFetchWindow) {
-            checkBlock(fetchResult, cpu);
-            pcPosWords = 0;
-            block = fetchResult.block;
-            block.poller.spinCount = 0;
-            assert prev != block : "\n" + prev + "\n" + block;
-            assert block.poller.spinCount == 0 : "\n" + prev + "\n" + block;
-        } else {
-            //only gets here when jumping inside a block
-            assert pc != block.prefetchPc;
-            block.addHit(); //keeps looping on the same block
-        }
         cacheOnFetch(pc, block.prefetchWords[pcPosWords], cpu);
         if (collectStats) stats[cpu.ordinal()].pfTotal++;
         S32xMemAccessDelay.addReadCpuDelay(block.fetchMemAccessDelay);
