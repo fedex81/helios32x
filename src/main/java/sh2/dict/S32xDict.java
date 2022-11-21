@@ -326,7 +326,7 @@ public class S32xDict {
                 if (logCtx.read) {
                     return;
                 }
-                int valueMem = S32xUtil.readBuffer(logCtx.regArea, address & S32X_REG_MASK, Size.LONG);
+                int valueMem = S32xUtil.readBuffer(logCtx.regArea, (address & S32X_REG_MASK) & ~1, Size.LONG);
                 String s2 = decodeComm(valueMem);
                 s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.name,
                         s2, value, valueMem, size.name(), evenOdd);

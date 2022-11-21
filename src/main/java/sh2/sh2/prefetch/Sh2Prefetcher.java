@@ -10,6 +10,7 @@ import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.drc.Sh2Block;
 
 import java.util.List;
+import java.util.StringJoiner;
 
 /**
  * Federico Berti
@@ -38,16 +39,25 @@ public interface Sh2Prefetcher {
     default void newFrame() {
     }
 
-    public static class Sh2BlockUnit extends Sh2InstructionWrapper {
+    class Sh2BlockUnit extends Sh2InstructionWrapper {
         public Sh2BlockUnit next;
         public int pc;
 
         public Sh2BlockUnit(Sh2InstructionWrapper i) {
             super(i.opcode, i.inst, i.runnable);
         }
+
+        @Override
+        public String toString() {
+            return new StringJoiner(", ", Sh2BlockUnit.class.getSimpleName() + "[", "]")
+                    .add("pc=" + pc)
+                    .add("inst=" + inst)
+                    .add("opcode=" + opcode)
+                    .toString();
+        }
     }
 
-    public static class Stats {
+    class Stats {
         static String format = "%s pfTot: %d, pfMissPerc: %f, pfDsMissPerc: %f";
         public long pfMiss, pfTotal, pfDsMiss;
         private final CpuDeviceAccess cpu;

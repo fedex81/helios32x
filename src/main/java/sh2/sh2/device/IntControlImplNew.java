@@ -273,10 +273,7 @@ public class IntControlImplNew implements IntControl {
                 vn = readBuffer(regs, INTC_VCRDIV.addr, Size.BYTE) & 0xFF;
                 break;
             case SCI:
-                //TODO
-                //RIE vs TIE
-                int offset1 = ctx.source.subType == RXI ? 0 : 1;
-                int pos = offset1 == 1 ? INTC_VCRA.addr + 1 : INTC_VCRB.addr;
+                int pos = ctx.source.subType == RXI ? INTC_VCRA.addr + 1 : INTC_VCRB.addr;
                 vn = readBuffer(regs, pos, Size.BYTE) & 0xFF;
                 break;
             case NONE:
