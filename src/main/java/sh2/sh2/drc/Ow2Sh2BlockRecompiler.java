@@ -11,6 +11,7 @@ import org.objectweb.asm.util.TraceClassVisitor;
 import org.slf4j.Logger;
 import sh2.IMemory;
 import sh2.Sh2MMREG;
+import sh2.Sh2Memory;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.device.Sh2DeviceHelper;
 import sh2.sh2.prefetch.Sh2Prefetch.BytecodeContext;
@@ -48,6 +49,10 @@ public class Ow2Sh2BlockRecompiler {
     public static final String noArgsNoRetDesc = "()V";
     public static final String classConstructor = "<init>";
     public static final String runMethodName = "run";
+
+    //detect that memory is Sh2Memory vs IMemory and use a Sh2Memory field for the class
+    //should be faster
+    public static Class<?> memoryClass;
 
     private static Ow2Sh2BlockRecompiler current = null;
     private String token;
@@ -99,6 +104,7 @@ public class Ow2Sh2BlockRecompiler {
 
     private static byte[] createClassBinary(Sh2Block block, Sh2DrcContext drcCtx, String blockClass) {
         String blockClassDesc = blockClass.replace('.', '/');
+        memoryClass = drcCtx.memory instanceof Sh2Memory ? Sh2Memory.class : IMemory.class;
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
         cw.visit(V11, ACC_PUBLIC | ACC_FINAL, blockClassDesc, null, Type.getInternalName(Object.class),
                 new String[]{Type.getInternalName(Runnable.class)});
@@ -109,7 +115,7 @@ public class Ow2Sh2BlockRecompiler {
             cw.visitField(ACC_PRIVATE | ACC_FINAL, sh2DrcContext.name(), Type.getDescriptor(Sh2DrcContext.class), null, null).visitEnd();
             cw.visitField(ACC_PRIVATE | ACC_FINAL, sh2Context.name(), Type.getDescriptor(Sh2Context.class), null, null).visitEnd();
             cw.visitField(ACC_PRIVATE | ACC_FINAL, sh2MMREG.name(), Type.getDescriptor(Sh2MMREG.class), null, null).visitEnd();
-            cw.visitField(ACC_PRIVATE | ACC_FINAL, memory.name(), Type.getDescriptor(IMemory.class), null, null).visitEnd();
+            cw.visitField(ACC_PRIVATE | ACC_FINAL, memory.name(), Type.getDescriptor(memoryClass), null, null).visitEnd();
         }
         {
 
@@ -149,7 +155,10 @@ public class Ow2Sh2BlockRecompiler {
                 mv.visitFieldInsn(GETFIELD, Type.getInternalName(Sh2DrcContext.class),
                         Ow2Sh2Helper.SH2_DRC_CTX_CLASS_FIELD.memory.name(),
                         Type.getDescriptor(IMemory.class));
-                mv.visitFieldInsn(PUTFIELD, blockClassDesc, memory.name(), Type.getDescriptor(IMemory.class));
+                if (memoryClass != IMemory.class) {
+                    mv.visitTypeInsn(CHECKCAST, Type.getInternalName(memoryClass));
+                }
+                mv.visitFieldInsn(PUTFIELD, blockClassDesc, memory.name(), Type.getDescriptor(memoryClass));
             }
             mv.visitInsn(RETURN);
             mv.visitMaxs(0, 0);
