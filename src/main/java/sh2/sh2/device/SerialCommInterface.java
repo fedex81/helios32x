@@ -90,7 +90,7 @@ public class SerialCommInterface implements Sh2Device {
                             (value & 0x80) > 0, (value & 0x40) > 0, (value & 4) > 0, (value & 8) > 0);
                 if (!txEn) {
                     setTdre(1);
-                    setBit(regs, SCI_SSR.addr, SCI_SSR_TEND_BIT_POS, 0, Size.BYTE);
+                    setBit(regs, SCI_SSR.addr, SCI_SSR_TEND_BIT_POS, 1, Size.BYTE);
                 }
                 break;
             case SCI_SSR:
@@ -123,7 +123,8 @@ public class SerialCommInterface implements Sh2Device {
         int tdreVal = (value & 0x80) > 0 || !txEn || !txDataReady ? tdre : 0;
         setTdre(tdreVal);
         if (tdreVal > 0) {
-            setBit(regs, SCI_SSR.addr, SCI_SSR_TEND_BIT_POS, 0, Size.BYTE);
+            //TODO check not sure this is right
+//            setBit(regs, SCI_SSR.addr, SCI_SSR_TEND_BIT_POS, 0, Size.BYTE);
         }
         int rdrfVal = (value & 0x40) == 0 ? 0 : rdrf;
         setRdrf(rdrfVal);
@@ -145,6 +146,7 @@ public class SerialCommInterface implements Sh2Device {
             sendData(data);
             txDataReady = false;
             setTdre(1);
+            //TODO check, should we have a delay?
             setBit(regs, SCI_SSR.addr, SCI_SSR_TEND_BIT_POS, 1, Size.BYTE);
             if ((scr & 0x80) > 0) { //TIE
                 intControl.setOnChipDeviceIntPending(SCI, TXI);

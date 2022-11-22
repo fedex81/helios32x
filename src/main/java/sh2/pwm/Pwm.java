@@ -12,13 +12,14 @@ import sh2.sh2.device.DmaC;
 import sh2.sh2.device.IntControl;
 
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.RegSpecS32x.*;
+import static sh2.pwm.Pwm.PwmChannel.LEFT;
+import static sh2.pwm.Pwm.PwmChannel.RIGHT;
 import static sh2.pwm.Pwm.PwmChannelSetup.OFF;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.PWM_6;
 
@@ -40,6 +41,8 @@ public class Pwm implements StepDevice {
         }
     }
 
+    enum PwmChannel {LEFT, RIGHT}
+
     private static final int PWM_DMA_CHANNEL = 1;
     private static final int chLeft = 0, chRight = 1;
     private static final int PWM_FIFO_SIZE = 3;
@@ -47,6 +50,9 @@ public class Pwm implements StepDevice {
     private static final int PWM_FIFO_EMPTY_BIT_POS = 14;
     public static final int CYCLE_LIMIT = 400; //57khz @ 60hz
     public static final int CYCLE_22khz = 1042;
+
+    //used to clamp samples [0+sld, cycle-sld]
+    public static final int SAMPLE_LIMIT_DELTA = 5;
 
 
     private static final PwmChannelSetup[] chanVals = PwmChannelSetup.values();
@@ -62,8 +68,8 @@ public class Pwm implements StepDevice {
     private int pwmSamplesPerFrame = 0, stepsPerFrame = 0, dreqPerFrame = 0;
 
     private Fifo<Integer> fifoLeft, fifoRight;
-    private AtomicInteger latestPwmValueLeft = new AtomicInteger(0),
-            latestPwmValueRight = new AtomicInteger(0);
+
+    private final int[] latestPwmValue = new int[PwmChannel.values().length];
     private static final boolean verbose = false;
     private PwmProvider playSupport = PwmProvider.NO_SOUND;
 
@@ -112,14 +118,24 @@ public class Pwm implements StepDevice {
                 }
             }
             break;
+            case PWM_RCH_PW:
+            case PWM_LCH_PW:
+            case PWM_MONO:
+                //Mars check test1
+                //NOTE: z80 writes MSB then LSB, we trigger a wordWrite when setting the LSB
+                handlePartialByteWrite(reg, value);
+                if ((reg & 1) == 1) {
+                    int val = readBuffer(sysRegsMd, regSpec.addr, Size.WORD);
+                    writeWord(cpu, regSpec, regSpec.addr, val);
+                }
+                break;
             default:
-                LOG.error("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), Size.BYTE);
+                LOG.error("{} PWM write {} {}: {} {}", cpu, regSpec.name, th(reg), th(value), Size.BYTE);
                 break;
         }
     }
 
     private void handlePartialByteWrite(int reg, int value) {
-        //NOTE: z80 writes MSB then LSB, we trigger a wordWrite when setting the LSB
         boolean even = (reg & 1) == 0;
         if (even) {
             writeBuffers(sysRegsMd, sysRegsSh2, reg, value & 0xF, Size.BYTE);
@@ -167,7 +183,7 @@ public class Pwm implements StepDevice {
     private void handlePwmControlMd(CpuDeviceAccess cpu, int reg, int value, Size size) {
         assert size != Size.LONG;
         if (size == Size.BYTE && ((reg & 1) == 0)) {
-            LOG.warn("{} ignored write to {}: {} {}", cpu, PWM_CTRL, th(value), size);
+            LOG.info("{} ignored write to {} {}, read only byte: val {} {}", cpu, PWM_CTRL, th(reg), th(value), size);
             return;
         }
         int val = readBuffer(sysRegsMd, PWM_CTRL.addr, Size.WORD) & 0xFFF0;
@@ -203,7 +219,7 @@ public class Pwm implements StepDevice {
         if (!wasEnabled && pwmEnable || cycleChanged) {
             sh2TicksToNextPwmSample = cycle;
             sh2ticksToNextPwmInterrupt = interruptInterval;
-//            latestPwmValue = cycle >> 1; //TODO check
+            latestPwmValue[0] = latestPwmValue[1] = cycle >> 1; //TODO check
             resetFifo();
             updateFifoRegs();
             playSupport.updatePwmCycle(cycle);
@@ -218,7 +234,7 @@ public class Pwm implements StepDevice {
     private void writeFifo(Fifo<Integer> fifo, int value) {
         if (fifo.isFull()) {
             fifo.pop();
-            if (verbose) LOG.warn("PWM FIFO push when fifo full: {} {}", th(value));
+            if (verbose) LOG.warn("PWM FIFO push when fifo full: {}", th(value));
             return;
         }
         fifo.push((value - 1) & 0xFFF);
@@ -228,8 +244,8 @@ public class Pwm implements StepDevice {
     //TEST only
     public int readFifoMono(RegSpecS32x regSpec) {
         return switch (regSpec) {
-            case PWM_LCH_PW -> readFifo(fifoLeft, latestPwmValueLeft);
-            case PWM_RCH_PW -> readFifo(fifoRight, latestPwmValueRight);
+            case PWM_LCH_PW -> readFifo(fifoLeft, LEFT);
+            case PWM_RCH_PW -> readFifo(fifoRight, RIGHT);
             case PWM_MONO -> readMono();
             default -> {
                 assert false : regSpec;
@@ -239,16 +255,16 @@ public class Pwm implements StepDevice {
     }
 
     private int readMono() {
-        return (readFifo(fifoLeft, latestPwmValueLeft) + readFifo(fifoRight, latestPwmValueRight)) >> 1;
+        return (readFifo(fifoLeft, LEFT) + readFifo(fifoRight, RIGHT)) >> 1;
     }
 
-    private int readFifo(Fifo<Integer> fifo, AtomicInteger latestPwmValue) {
+    private int readFifo(Fifo<Integer> fifo, PwmChannel chan) {
         if (fifo.isEmpty()) {
-            if (verbose) LOG.warn("PWM FIFO pop when fifo empty: {}", th(latestPwmValue.get()));
-            return latestPwmValue.get();
+            if (verbose) LOG.warn("PWM FIFO pop when fifo empty: {}", th(latestPwmValue[chan.ordinal()]));
+            return latestPwmValue[chan.ordinal()];
         }
         int res = fifo.pop();
-        latestPwmValue.set(res);
+        latestPwmValue[chan.ordinal()] = res;
         updateFifoRegs();
         return res;
     }
@@ -299,8 +315,10 @@ public class Pwm implements StepDevice {
         if (--sh2TicksToNextPwmSample == 0) {
             sh2TicksToNextPwmSample = cycle;
             pwmSamplesPerFrame++;
-            ls = Math.min(cycle, readFifo(fifoLeft, latestPwmValueLeft));
-            rs = Math.min(cycle, readFifo(fifoRight, latestPwmValueRight));
+            //sample range should be [0,cycle], let's clamp to [sld, cycle - sld]
+            ls = Math.min(cycle - SAMPLE_LIMIT_DELTA, readFifo(fifoLeft, LEFT) + SAMPLE_LIMIT_DELTA);
+            rs = Math.min(cycle - SAMPLE_LIMIT_DELTA, readFifo(fifoRight, RIGHT) + SAMPLE_LIMIT_DELTA);
+            assert ls >= SAMPLE_LIMIT_DELTA && rs >= SAMPLE_LIMIT_DELTA;
             if (--sh2ticksToNextPwmInterrupt == 0) {
                 intControls[MASTER.ordinal()].setIntPending(PWM_6, true);
                 intControls[SLAVE.ordinal()].setIntPending(PWM_6, true);

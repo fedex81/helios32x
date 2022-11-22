@@ -12,11 +12,15 @@ import java.util.Arrays;
 
 import static omegadrive.util.Util.th;
 import static sh2.pwm.Pwm.CYCLE_LIMIT;
+import static sh2.pwm.S32xPwmProvider.PwmStats.NO_STATS;
 
 /**
  * Federico Berti
  * <p>
  * Copyright 2022
+ * <p>
+ * TODO: anything not using 22khz sounds bad (ie. Bad Apple 32x, cycle 719*60 -> 43khz)
+ * TODO: other problematic stuff: Mars Test #2 (should be mute?), OutRom.bin
  */
 public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider {
 
@@ -25,7 +29,7 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
     private static final Warmup WARMUP = new Warmup();
     public static AudioFormat pwmAudioFormat = new AudioFormat(SoundProvider.SAMPLE_RATE_HZ,
             16, 2, true, false);
-    private static final boolean printStats = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.stats", "false"));
+    private static final boolean collectStats = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.stats", "false"));
 
     private float sh2ClockMhz, scale = 0;
     private int cycle;
@@ -33,7 +37,7 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
 
     private boolean shouldPlay;
     private Warmup warmup = NO_WARMUP;
-    private PwmStats stats;
+    private PwmStats stats = NO_STATS;
 
     static class Warmup {
         static final int stepSamples = 5_000;
@@ -50,11 +54,13 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
     }
 
     static class PwmStats {
+
+        public static final PwmStats NO_STATS = new PwmStats();
         public int monoSamplesFiller = 0, monoSamplesPull = 0, monoSamplesPush = 0, monoSamplesDiscard = 0,
                 monoSamplesDiscardHalf = 0;
 
         public void print(int monoLen) {
-            if (!printStats) {
+            if (!collectStats) {
                 return;
             }
             LOG.info("Pwm frame monoSamples, push: {} (discard: {}, discardHalf: {}), pop: {}, filler: {}, " +
@@ -72,7 +78,7 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
         super(pwmAudioFormat);
         this.fps = region.getFps();
         this.sh2ClockMhz = region == RegionDetector.Region.EUROPE ? PAL_SH2CLOCK_MHZ : NTSC_SH2CLOCK_MHZ;
-        this.stats = new PwmStats();
+        if (collectStats) this.stats = new PwmStats();
     }
 
     @Override
@@ -117,16 +123,17 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
             sright = (short) Math.min(Math.max(sright, Short.MIN_VALUE), Short.MAX_VALUE);
         }
         final int len = stereoQueueLen.get();
+        //very crude adaptive rate control, will break for anything not 22khz
         if (len < 2000) {
             addStereoSample(sleft, sright);
             addStereoSample(sleft, sright);
-            stats.monoSamplesPush++;
+            if (collectStats) stats.monoSamplesPush++;
         } else if (len < 3000) {
             addStereoSample(sleft, sright);
-            stats.monoSamplesDiscardHalf++;
+            if (collectStats) stats.monoSamplesDiscardHalf++;
         } else {
             //drop both samples
-            stats.monoSamplesDiscard++;
+            if (collectStats) stats.monoSamplesDiscard++;
         }
     }
 
@@ -149,10 +156,10 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
             preFilter = buf_lr.clone();
         }
         int actualStereo = super.updateStereo16(preFilter, offset, countMono);
-        stats.monoSamplesPull += actualStereo >> 1;
+        if (collectStats) stats.monoSamplesPull += actualStereo >> 1;
         if (actualStereo == 0) {
-            stats.monoSamplesFiller += stereoSamples >> 1;
-            Arrays.fill(buf_lr, 0, stereoSamples, 0);
+            if (collectStats) stats.monoSamplesFiller += stereoSamples >> 1;
+            Arrays.fill(buf_lr, 0, stereoSamples, 0); //TODO this is bad
             return stereoSamples;
         }
         if (actualStereo < stereoSamples) {
@@ -161,7 +168,7 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
                 preFilter[i] = preFilter[actualStereo - 2];
                 preFilter[i + 1] = preFilter[actualStereo - 1];
             }
-            stats.monoSamplesFiller += (stereoSamples - actualStereo) >> 1;
+            if (collectStats) stats.monoSamplesFiller += (stereoSamples - actualStereo) >> 1;
         }
         dcBlockerLpf(preFilter, buf_lr, prev, stereoSamples);
         doWarmup(buf_lr, stereoSamples);
@@ -205,8 +212,10 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
     @Override
     public void newFrame() {
         int monoLen = stereoQueueLen.get() >> 1;
-        stats.print(monoLen);
-        stats.reset();
+        if (collectStats) {
+            stats.print(monoLen);
+            stats.reset();
+        }
         if (monoLen > 5000) {
             LOG.warn("Pwm monoQLen: {}", monoLen);
             sampleQueue.clear();
