@@ -1,5 +1,6 @@
 package sh2.sh2.device;
 
+import com.google.common.annotations.VisibleForTesting;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
@@ -12,13 +13,15 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.StringJoiner;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.dict.S32xDict.RegSpecS32x.SH2_INT_MASK;
 import static sh2.dict.Sh2Dict.RegSpec.*;
 import static sh2.event.SysEventManager.SysEvent.INT;
-import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
+import static sh2.sh2.device.IntControl.Sh2Interrupt.NMI_16;
+import static sh2.sh2.device.IntControl.Sh2Interrupt.VRES_14;
 import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 
 /**
@@ -38,10 +41,27 @@ public class IntControlImplOld implements IntControl {
     private final Map<Sh2DeviceType, Integer> onChipDevicePriority = new HashMap<>();
     private final Map<Integer, Sh2Interrupt> s32xInt = new HashMap<>(MAX_LEVEL);
 
-    //valid = not masked
-    private final boolean[] intValid = new boolean[MAX_LEVEL];
-    private final boolean[] intPending = new boolean[MAX_LEVEL];
-    private final boolean[] intTrigger = new boolean[MAX_LEVEL];
+    public static class InterruptState {
+        Sh2Interrupt interrupt;
+        boolean active;
+        boolean enable;
+
+        @Override
+        public String toString() {
+            return new StringJoiner(", ", InterruptState.class.getSimpleName() + "[", "]")
+                    .add("interrupt=" + interrupt)
+                    .add("active=" + active)
+                    .add("enable=" + enable)
+                    .toString();
+        }
+    }
+
+    private final InterruptState[] istate = new InterruptState[MAX_LEVEL];
+
+//    //valid = not masked
+//    private final boolean[] intValid = new boolean[MAX_LEVEL];
+//    private final boolean[] intPending = new boolean[MAX_LEVEL];
+//    private final boolean[] intTrigger = new boolean[MAX_LEVEL];
 
     // V, H, CMD and PWM each possesses exclusive address on the master side and the slave side.
     private final ByteBuffer sh2_int_mask;
@@ -59,7 +79,12 @@ public class IntControlImplOld implements IntControl {
 
     @Override
     public void init() {
-        Arrays.fill(intValid, true);
+        for (int i = 0; i < istate.length; i++) {
+            InterruptState st = new InterruptState();
+            st.enable = true;
+            st.interrupt = intVals[i];
+            istate[i] = st;
+        }
         setIntsMasked(0);
         Arrays.stream(Sh2DeviceType.values()).forEach(d -> onChipDevicePriority.put(d, 0));
     }
@@ -97,20 +122,10 @@ public class IntControlImplOld implements IntControl {
         return readBuffer(regs, reg, size);
     }
 
-    private void setIntMasked(int ipt, boolean isValid) {
-        boolean val = this.intValid[ipt];
-        if (val != isValid) {
-            this.intValid[ipt] = isValid;
-            boolean isPending = this.intPending[ipt];
-            boolean isTrigger = this.intTrigger[ipt];
-            //TODO check
-//            if (!isTrigger || ipt == CMD_8.ordinal()) {
-            if (ipt == CMD_8.ordinal()) {
-                this.intTrigger[ipt] = isValid && isPending;
-            }
-            resetInterruptLevel();
-            logInfo("MASK", ipt);
-        }
+    private void setIntEnable(int ipt, boolean enable) {
+        istate[ipt].enable = enable;
+        resetInterruptLevel();
+        logInfo("ENABLE_MASK", ipt);
     }
 
     public void setIntsMasked(int value) {
@@ -118,7 +133,7 @@ public class IntControlImplOld implements IntControl {
             int imask = value & (1 << i);
             //0->PWM_6, 1->CMD_8, 2->HINT_10, 3->VINT_12
             int sh2Int = 6 + (i << 1);
-            setIntMasked(sh2Int, imask > 0);
+            setIntEnable(sh2Int, imask > 0);
         }
     }
 
@@ -136,17 +151,13 @@ public class IntControlImplOld implements IntControl {
         setExternalIntPending(deviceType, data, true);
     }
 
-    public void setIntPending(Sh2Interrupt interrupt, boolean isPending) {
-        setIntPending(interrupt.ordinal(), isPending);
-    }
-
     public void setExternalIntPending(Sh2DeviceType deviceType, int intData, boolean isPending) {
         int level = onChipDevicePriority.get(deviceType);
         if (interruptLevel > 0 && interruptLevel < level) {
             LOG.info("{} {}{} ext interrupt pending: {}, level: {}", cpu, deviceType, intData, level, interruptLevel);
         }
         if (level > 0) {
-            setIntPending(level, isPending);
+            setIntActive(level, isPending);
             additionalIntData = intData;
             if (verbose) LOG.info("{} {}{} interrupt pending: {}", cpu, deviceType, intData, level);
         }
@@ -156,27 +167,22 @@ public class IntControlImplOld implements IntControl {
         return readBuffer(sh2_int_mask, pos, size);
     }
 
-    private void setIntPending(int ipt, boolean isPending) {
-        boolean val = this.intPending[ipt];
-        if (val != isPending) {
-            boolean valid = this.intValid[ipt];
-            if (valid) {
-                this.intPending[ipt] = isPending;
-                this.intTrigger[ipt] = valid && isPending;
-                if (valid && isPending) {
-                    resetInterruptLevel();
-                }
-                logInfo("PENDING", ipt);
-            }
-        }
+    public void setIntActive(Sh2Interrupt interrupt, boolean active) {
+        setIntActive(interrupt.ordinal(), active);
+    }
+
+    private void setIntActive(int ipt, boolean isPending) {
+        istate[ipt].active = isPending;
+        resetInterruptLevel();
+        logInfo("ACTIVE_PENDING", ipt);
     }
 
     private void resetInterruptLevel() {
-        boolean[] ints = this.intTrigger;
         int newLevel = 0;
         int prev = interruptLevel;
         for (int i = MAX_LEVEL - 1; i >= 0; i--) {
-            if (ints[i]) {
+            InterruptState ist = istate[i];
+            if (ist.active && ist.enable) {
                 newLevel = i;
                 break;
             }
@@ -191,24 +197,24 @@ public class IntControlImplOld implements IntControl {
         }
     }
 
+    @VisibleForTesting
     public void clearInterrupt(Sh2Interrupt intType) {
         clearInterrupt(intType.ordinal());
     }
 
-    public void clearInterrupt(int ipt) {
-        this.intPending[ipt] = false;
-        this.intTrigger[ipt] = false;
-        resetInterruptLevel();
-        logInfo("CLEAR", ipt);
+    private void clearInterrupt(int ipt) {
+//        istate[ipt].active = false;
+//        resetInterruptLevel();
+//        logInfo("CLEAR", ipt);
     }
 
+    @Override
     public void clearCurrentInterrupt() {
-        //only autoclear external (ie.DMA,SCI, etc) interrupts? NO
-        //36 Great Holes Starring Fred Couples (Prototype - Nov 05, 1994) (32X).32x
-        //doesn't clear VINT=12
-//        if(intVals[interruptLevel].internal == 0) {
-        clearInterrupt(interruptLevel);
-//        }
+        //only autoclear external (ie.DMA,SCI, etc) interrupts? Yes, according to Ares
+        //CHECK: 36 Great Holes Starring Fred Couples (Prototype - Nov 05, 1994) (32X).32x -> doesn't clear VINT=12
+        if (intVals[interruptLevel].internal == 0) {
+            clearInterrupt(interruptLevel);
+        }
     }
 
     public int getInterruptLevel() {
@@ -271,8 +277,7 @@ public class IntControlImplOld implements IntControl {
 
     private void logInfo(String action, int ipt) {
         if (verbose) {
-            LOG.info("{}: {} {} valid (unmasked): {}, pending: {}, willTrigger: {}, intLevel: {}",
-                    action, cpu, ipt, intValid[ipt], intPending[ipt], intTrigger[ipt], interruptLevel);
+            LOG.info("{}: {} {}, {} intLevel: {}", action, cpu, ipt, istate[ipt], interruptLevel);
         }
     }
 

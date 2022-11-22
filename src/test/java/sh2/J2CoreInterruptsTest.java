@@ -56,7 +56,7 @@ public class J2CoreInterruptsTest extends J2CoreTest {
                     fail = true;
                     break;
                 }
-                this.ctx.devices.intC.setIntPending(next, true);
+                this.ctx.devices.intC.setIntActive(next, true);
                 next = null;
             }
             if (ctx.PC == 0x266) {
@@ -130,7 +130,7 @@ public class J2CoreInterruptsTest extends J2CoreTest {
                     System.out.println(next + " interrupt trigger write: " + th(value) +
                             ", IMASK: " + th((ctx.SR & flagIMASK) >>> 4));
                     if (next != Sh2Interrupt.NMI_16) {
-                        ctx.devices.intC.setIntPending(next, true);
+                        ctx.devices.intC.setIntActive(next, true);
                         next = null;
                     }
                 } else if (address == 0xBCDE0010) {

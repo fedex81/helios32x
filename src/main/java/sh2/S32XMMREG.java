@@ -260,7 +260,7 @@ public class S32XMMREG implements Device {
         assert cpu == MASTER || cpu == SLAVE;
         int intIdx = VRES_14.ordinal() - (regEven - 0x14);
         IntControl.Sh2Interrupt intType = IntControl.intVals[intIdx];
-        interruptControls[cpu.ordinal()].clearInterrupt(intType);
+        interruptControls[cpu.ordinal()].setIntActive(IntControl.intVals[intIdx], false);
         //autoclear Int_control_reg too
         if (intType == CMD_8) {
             int newVal = readWordFromBuffer(MD_INT_CTRL) & ~(1 << cpu.ordinal());
@@ -297,8 +297,8 @@ public class S32XMMREG implements Device {
             int newVal = readBuffer(sysRegsMd, MD_INT_CTRL.addr, Size.WORD);
             boolean intm = (newVal & 1) > 0;
             boolean ints = (newVal & 2) > 0;
-            interruptControls[0].setIntPending(CMD_8, intm);
-            interruptControls[1].setIntPending(CMD_8, ints);
+            interruptControls[0].setIntActive(CMD_8, intm);
+            interruptControls[1].setIntActive(CMD_8, ints);
 //            writeBufferWord(MD_INT_CTRL, 0); //TODO autoclear?? Blackthorne sound works better
         }
         return changed;

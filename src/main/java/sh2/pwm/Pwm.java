@@ -302,8 +302,8 @@ public class Pwm implements StepDevice {
             ls = Math.min(cycle, readFifo(fifoLeft, latestPwmValueLeft));
             rs = Math.min(cycle, readFifo(fifoRight, latestPwmValueRight));
             if (--sh2ticksToNextPwmInterrupt == 0) {
-                intControls[MASTER.ordinal()].setIntPending(PWM_6, true);
-                intControls[SLAVE.ordinal()].setIntPending(PWM_6, true);
+                intControls[MASTER.ordinal()].setIntActive(PWM_6, true);
+                intControls[SLAVE.ordinal()].setIntActive(PWM_6, true);
                 sh2ticksToNextPwmInterrupt = interruptInterval;
                 dreq();
             }

@@ -1,5 +1,6 @@
 package sh2.sh2.device;
 
+import com.google.common.annotations.VisibleForTesting;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
@@ -17,7 +18,6 @@ import static sh2.dict.S32xDict.RegSpecS32x.SH2_INT_MASK;
 import static sh2.dict.Sh2Dict.RegSpec.*;
 import static sh2.sh2.device.IntControl.OnChipSubType.DMA_C0;
 import static sh2.sh2.device.IntControl.OnChipSubType.RXI;
-import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.VRES_14;
 import static sh2.sh2.device.IntControl.Sh2InterruptSource.getSh2InterruptSource;
 import static sh2.sh2.device.IntControl.Sh2InterruptSource.vals;
@@ -38,14 +38,10 @@ public class IntControlImplNew implements IntControl {
     private final Map<Sh2DeviceType, Integer> onChipDevicePriority;
     private final Map<Sh2InterruptSource, InterruptContext> s32xInt;
 
-    static final int VALID_BIT_POS = 0;
-    static final int PENDING_BIT_POS = 1;
-    static final int TRIGGER_BIT_POS = 2;
-
-    static final int INT_VALID_MASK = 1 << VALID_BIT_POS;
-    static final int INT_PENDING_MASK = 1 << PENDING_BIT_POS;
-    static final int INT_TRIGGER_MASK = 1 << TRIGGER_BIT_POS;
-
+    static final int ENABLE_BIT_POS = 0;
+    static final int ACTIVE_BIT_POS = 1;
+    static final int INT_ENABLE_MASK = 1 << ENABLE_BIT_POS;
+    static final int INT_ACTIVE_MASK = 1 << ACTIVE_BIT_POS;
     private InterruptContext currentInterrupt = LEV_0;
 
     // V, H, CMD and PWM each possesses exclusive address on the master side and the slave side.
@@ -53,7 +49,7 @@ public class IntControlImplNew implements IntControl {
     private final ByteBuffer regs;
     private final CpuDeviceAccess cpu;
 
-    private static final boolean legacy = true;
+    private static final boolean legacy = false;
 
     public static IntControl createInstance(CpuDeviceAccess cpu, ByteBuffer regs) {
         return legacy ? new IntControlImplOld(cpu, regs) : new IntControlImplNew(cpu, regs);
@@ -76,6 +72,7 @@ public class IntControlImplNew implements IntControl {
         Arrays.stream(Sh2InterruptSource.values()).forEach(s -> {
             InterruptContext intCtx = new InterruptContext();
             intCtx.source = s;
+            intCtx.intState |= INT_ENABLE_MASK;
             s32xInt.put(s, intCtx);
         });
         setIntsMasked(0);
@@ -84,6 +81,7 @@ public class IntControlImplNew implements IntControl {
     @Override
     public void write(RegSpec regSpec, int pos, int value, Size size) {
         int val = 0;
+        LOG.info("{} write {} {}, val {} {}", cpu, regSpec, th(pos), th(value), size);
         writeBuffer(regs, pos, value, size);
         switch (regSpec) {
             case INTC_IPRA:
@@ -132,19 +130,17 @@ public class IntControlImplNew implements IntControl {
         return source;
     }
 
-    private void setIntMasked(int ipt, int isValid) {
+    private void setIntMasked(int ipt, int enabled) {
         Sh2Interrupt sh2Interrupt = intVals[ipt];
         InterruptContext source = getContextFromExternalInterrupt(sh2Interrupt);
-        boolean change = (source.intState & INT_VALID_MASK) != isValid;
+        boolean change = (source.intState & INT_ENABLE_MASK) != enabled;
         if (change) {
-            setBit(source, VALID_BIT_POS, isValid);
-            //TODO check
-//            if (!isTrigger || ipt == CMD_8.ordinal()) {
-            if (ipt == CMD_8.ordinal()) {
-                setBit(source, TRIGGER_BIT_POS, (isValid > 0) && (source.intState & INT_PENDING_MASK) > 0);
+            setBit(source, ENABLE_BIT_POS, enabled);
+            if (enabled > 0 && ((source.intState & INT_ACTIVE_MASK) > 0)) {
+                source.level = ipt;
             }
+            logInfo("ENABLED_MASK", source);
             resetInterruptLevel();
-            logInfo("MASK", source);
         }
     }
 
@@ -164,8 +160,8 @@ public class IntControlImplNew implements IntControl {
         setIntsMasked(newVal & 0xF);
     }
 
-    public void setIntPending(Sh2Interrupt interrupt, boolean isPending) {
-        setIntPending(interrupt.ordinal(), isPending);
+    public void setIntActive(Sh2Interrupt interrupt, boolean active) {
+        setIntActive(interrupt.ordinal(), active);
     }
 
     public void setOnChipDeviceIntPending(Sh2DeviceType deviceType, OnChipSubType subType) {
@@ -177,8 +173,7 @@ public class IntControlImplNew implements IntControl {
         intCtx.source = source;
         intCtx.level = onChipDevicePriority.get(deviceType);
         if (level > 0) {
-            setBit(intCtx, PENDING_BIT_POS, 1);
-            setBit(intCtx, TRIGGER_BIT_POS, 1);
+            setBit(intCtx, ACTIVE_BIT_POS, 1);
             if (verbose) LOG.info("{} {}{} interrupt pending: {}", cpu, deviceType, subType, level);
             resetInterruptLevel();
         }
@@ -188,54 +183,52 @@ public class IntControlImplNew implements IntControl {
         return readBuffer(sh2_int_mask, pos, size);
     }
 
-    private void setIntPending(int ipt, boolean isPending) {
+    private void setIntActive(int ipt, boolean active) {
         InterruptContext source = getContextFromExternalInterrupt(intVals[ipt]);
-        boolean val = (source.intState & INT_PENDING_MASK) > 0;
-        if (val != isPending) {
-            boolean valid = (source.intState & INT_VALID_MASK) > 0;
-            if (valid) {
-                setBit(source, PENDING_BIT_POS, isPending);
-                if (valid && isPending) {
-                    setBit(source, TRIGGER_BIT_POS, 1);
-                    source.level = ipt;
-                    resetInterruptLevel();
-                } else {
-                    setBit(source, TRIGGER_BIT_POS, 0);
-                }
-                logInfo("PENDING", source);
+        boolean val = (source.intState & INT_ACTIVE_MASK) > 0;
+        if (val != active) {
+            setBit(source, ACTIVE_BIT_POS, active);
+            boolean valid = (source.intState & INT_ENABLE_MASK) > 0;
+            if (valid && active) {
+                source.level = ipt;
             }
+//            logInfo("ACTIVE", source);
+            resetInterruptLevel();
         }
     }
 
     private void resetInterruptLevel() {
-        int maxLevel = s32xInt.values().stream().filter(s -> s.intState > INT_TRIGGER_MASK).
+        int maxLevel = s32xInt.values().stream().filter(s -> s.intState > INT_ACTIVE_MASK).
                 max((c1, c2) -> Integer.compare(c1.level, c2.level)).map(ctx -> ctx.level).orElse(0);
         assert maxLevel >= 0;
+        InterruptContext prev = currentInterrupt;
         if (maxLevel > 0) {
 //            assert s32xInt.values().stream().filter(c -> c.level == maxLevel).count() < 2; //TODO debug if it happens
             //order is important
             InterruptContext ctx = Arrays.stream(vals).map(s32xInt::get).filter(ic -> ic.level == maxLevel).
                     findFirst().orElse(null);
             assert ctx != null;
-            if (verbose && currentInterrupt != ctx) {
-                LOG.info("{} Level change: {} -> {}", cpu, currentInterrupt, ctx);
-            }
             currentInterrupt = ctx;
         } else {
             currentInterrupt = LEV_0;
         }
+        if (prev != currentInterrupt) {
+            if (verbose) LOG.info("{} Level change: {} -> {}", cpu, prev, currentInterrupt);
+        }
         assert currentInterrupt.level != VRES_14.ordinal();
+        assert currentInterrupt != LEV_0 ? currentInterrupt.level > 0 : true;
     }
 
+    @VisibleForTesting
     public void clearInterrupt(Sh2Interrupt intType) {
         clearInterrupt(getContextFromExternalInterrupt(intType));
     }
 
-    public void clearInterrupt(InterruptContext source) {
-        source.intState &= ~(INT_PENDING_MASK | INT_TRIGGER_MASK);
+    private void clearInterrupt(InterruptContext source) {
+        source.intState &= ~INT_ACTIVE_MASK;
         source.level = 0;
-        resetInterruptLevel();
         logInfo("CLEAR", source);
+        resetInterruptLevel();
     }
 
     public void clearCurrentInterrupt() {
@@ -273,10 +266,7 @@ public class IntControlImplNew implements IntControl {
                 vn = readBuffer(regs, INTC_VCRDIV.addr, Size.BYTE) & 0xFF;
                 break;
             case SCI:
-                //TODO
-                //RIE vs TIE
-                int offset1 = ctx.source.subType == RXI ? 0 : 1;
-                int pos = offset1 == 1 ? INTC_VCRA.addr + 1 : INTC_VCRB.addr;
+                int pos = ctx.source.subType == RXI ? INTC_VCRA.addr + 1 : INTC_VCRB.addr;
                 vn = readBuffer(regs, pos, Size.BYTE) & 0xFF;
                 break;
             case NONE:
@@ -294,10 +284,9 @@ public class IntControlImplNew implements IntControl {
 
     private void logInfo(String action, InterruptContext source) {
         if (verbose) {
-            LOG.info("{}: {} {} valid (unmasked): {}, pending: {}, willTrigger: {}, intLevel: {}",
-                    action, cpu, source, (source.intState & INT_VALID_MASK) > 0,
-                    (source.intState & INT_PENDING_MASK) > 0, (source.intState & INT_TRIGGER_MASK) > 0,
-                    source.level);
+            LOG.info("{}: {} {} enabled (unmasked): {}, active: {}, {}",
+                    action, cpu, source.source, (source.intState & INT_ENABLE_MASK) > 0,
+                    (source.intState & INT_ACTIVE_MASK) > 0, source);
         }
     }
 

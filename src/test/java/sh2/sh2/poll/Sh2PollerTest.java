@@ -313,7 +313,7 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
     private void setInterrupt(IntControl.Sh2Interrupt interrupt) {
         IntControl intc = lc.mDevCtx.intC;
         intc.setIntsMasked(0xF); //unmask
-        intc.setIntPending(interrupt, true);
+        intc.setIntActive(interrupt, true);
     }
 
     private void clearInterrupt(IntControl.Sh2Interrupt interrupt) {

@@ -40,7 +40,7 @@ public class VdpHintTest {
 
     //hcount = 0, hen = 0
     @Test
-    public void test01() {
+    public void testHIntEveryLineHenOff() {
         setReloadHCount(0);
         s32XMMREG.write(MarsRegTestUtil.SH2_INT_MASK, 0x4, Size.WORD); //enable HINT
         int hint = testInternal(VideoMode.NTSCU_H40_V28, false);
@@ -49,7 +49,7 @@ public class VdpHintTest {
 
     //hcount = 0, hen = 1
     @Test
-    public void test02() {
+    public void testHIntEveryLineHenOn() {
         setReloadHCount(0);
         s32XMMREG.write(MarsRegTestUtil.SH2_INT_MASK, 0x84, Size.WORD); //enable HINT, HEN = 1
         int hint = testInternal(VideoMode.NTSCU_H40_V28, true);
@@ -58,10 +58,19 @@ public class VdpHintTest {
 
     //hcount = 5, hen = 1
     @Test
-    public void test03() {
+    public void testHIntEvery5LinesHenOn() {
         setReloadHCount(5);
         s32XMMREG.write(MarsRegTestUtil.SH2_INT_MASK, 0x84, Size.WORD); //enable HINT, HEN = 1
         int hint = testInternal(VideoMode.NTSCU_H40_V28, true);
+        Assertions.assertTrue((hint & 0xFF00) == 0x500); //0x519
+    }
+
+    //hcount = 5, hen = 0
+    @Test
+    public void testHIntEvery5LinesHenOff() {
+        setReloadHCount(5);
+        s32XMMREG.write(MarsRegTestUtil.SH2_INT_MASK, 0x84, Size.WORD); //enable HINT, HEN = 1
+        int hint = testInternal(VideoMode.NTSCU_H40_V28, false);
         Assertions.assertTrue((hint & 0xFF00) == 0x500); //0x519
     }
 

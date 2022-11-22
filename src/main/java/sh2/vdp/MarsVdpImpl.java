@@ -287,9 +287,9 @@ public class MarsVdpImpl implements MarsVdp {
                 updateFrameBuffer(vdpContext.fsLatch);
 //                System.out.println("##### VBLANK, D" + frameBufferDisplay + "W" + frameBufferWritable + ", fsLatch: " + fsLatch + ", VB: " + vBlankOn);
             }
-            s32XMMREG.interruptControls[0].setIntPending(VINT_12, true);
-            s32XMMREG.interruptControls[1].setIntPending(VINT_12, true);
         }
+        s32XMMREG.interruptControls[0].setIntActive(VINT_12, vBlankOn);
+        s32XMMREG.interruptControls[1].setIntActive(VINT_12, vBlankOn);
         setPen(vdpContext.hBlankOn || vBlankOn ? 1 : 0);
         vdpRegChange(FBCR);
 //        System.out.println("VBlank: " + vBlankOn);
@@ -300,17 +300,19 @@ public class MarsVdpImpl implements MarsVdp {
         setBitFromWord(FBCR, FBCR_HBLK_BIT_POS, hBlankOn ? 1 : 0);
         //TODO hack, FEN =0 after 40 cycles @ 23Mhz
         setBitFromWord(FBCR, FBCR_nFEN_BIT_POS, hBlankOn ? 1 : 0);
+        boolean hIntActive = false;
         if (hBlankOn) {
             if (hen > 0 || !vdpContext.vBlankOn) {
                 if (--vdpContext.hCount < 0) {
                     vdpContext.hCount = readWordFromBuffer(SH2_HCOUNT_REG) & 0xFF;
-                    s32XMMREG.interruptControls[0].setIntPending(HINT_10, true);
-                    s32XMMREG.interruptControls[1].setIntPending(HINT_10, true);
+                    hIntActive = true;
                 }
             } else {
                 vdpContext.hCount = readWordFromBuffer(SH2_HCOUNT_REG) & 0xFF;
             }
         }
+        s32XMMREG.interruptControls[0].setIntActive(HINT_10, hIntActive);
+        s32XMMREG.interruptControls[1].setIntActive(HINT_10, hIntActive);
         setPen(hBlankOn || vdpContext.vBlankOn ? 1 : 0);
         //TODO check if any poller is testing the HBlank byte
         vdpRegChange(FBCR);

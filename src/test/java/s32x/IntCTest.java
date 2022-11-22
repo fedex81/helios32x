@@ -48,13 +48,9 @@ public class IntCTest {
             //regMask = (sh2Int - 6)/2
             int regMask = 1 << ((sint.ordinal() - 6) >> 1);
             mInt.setIntsMasked(regMask); //mask all but current
-            mInt.setIntPending(sint, true);
+            mInt.setIntActive(sint, true);
             int actual = mInt.getInterruptLevel();
             Assertions.assertEquals(sint.ordinal(), actual);
-
-            mInt.clearInterrupt(sint);
-            actual = mInt.getInterruptLevel();
-            Assertions.assertEquals(0, actual);
         }
     }
 
@@ -65,21 +61,12 @@ public class IntCTest {
             //regMask = (sh2Int - 6)/2
             int regMask = 1 << ((sint.ordinal() - 6) >> 1);
             intc.setIntsMasked(regMask); //mask all but current
-            intc.setIntPending(sint, true);
+            intc.setIntActive(sint, true);
             int actual = intc.getInterruptLevel();
             Assertions.assertEquals(sint.ordinal(), actual);
 
             //mask it
             intc.setIntsMasked(0);
-            actual = intc.getInterruptLevel();
-            if (sint == CMD_8) {
-                Assertions.assertEquals(0, actual);
-            } else {
-                Assertions.assertEquals(sint.ordinal(), actual);
-            }
-
-            //clears it
-            intc.clearInterrupt(sint);
             actual = intc.getInterruptLevel();
             Assertions.assertEquals(0, actual);
         }
@@ -92,7 +79,7 @@ public class IntCTest {
         //regMask = (sh2Int - 6)/2
         int regMask = 1 << ((sint.ordinal() - 6) >> 1);
         intc.setIntsMasked(regMask); //mask all but current
-        intc.setIntPending(sint, true);
+        intc.setIntActive(sint, true);
         int actual = intc.getInterruptLevel();
         Assertions.assertEquals(sint.ordinal(), actual);
 
@@ -105,11 +92,6 @@ public class IntCTest {
         intc.setIntsMasked(regMask);
         actual = intc.getInterruptLevel();
         Assertions.assertEquals(sint.ordinal(), actual);
-
-        //clears it
-        intc.clearInterrupt(sint);
-        actual = intc.getInterruptLevel();
-        Assertions.assertEquals(0, actual);
     }
 
     @Test
@@ -119,7 +101,7 @@ public class IntCTest {
         //regMask = (sh2Int - 6)/2
         int regMask = 1 << ((sint.ordinal() - 6) >> 1);
         intc.setIntsMasked(regMask); //mask all but current
-        intc.setIntPending(sint, true);
+        intc.setIntActive(sint, true);
         int actual = intc.getInterruptLevel();
         Assertions.assertEquals(sint.ordinal(), actual);
 
@@ -159,8 +141,8 @@ public class IntCTest {
             int regMask = 1 << ((sint.ordinal() - 6) >> 1);
             mInt.setIntsMasked(regMask); //mask all but current
             sInt.setIntsMasked(regMask);
-            mInt.setIntPending(sint, true);
-            sInt.setIntPending(sint, true);
+            mInt.setIntActive(sint, true);
+            sInt.setIntActive(sint, true);
             Assertions.assertEquals(sint.ordinal(), mInt.getInterruptLevel());
             Assertions.assertEquals(sint.ordinal(), sInt.getInterruptLevel());
 
@@ -183,7 +165,7 @@ public class IntCTest {
 
         //discarded
         intc.setIntsMasked(0);
-        intc.setIntPending(vint, true);
+        intc.setIntActive(vint, true);
 
         int actual = intc.getInterruptLevel();
         Assertions.assertEquals(0, actual);
@@ -202,8 +184,8 @@ public class IntCTest {
         IntControl intc = mInt;
         Sh2Interrupt vint = VINT_12;
         Sh2Interrupt hint = HINT_10;
-        intc.setIntPending(hint, true);
-        intc.setIntPending(vint, true);
+        intc.setIntActive(hint, false);
+        intc.setIntActive(vint, false);
         //regMask = (sh2Int - 6)/2
         int regMask = (1 << ((hint.ordinal() - 6) >> 1)) | (1 << ((vint.ordinal() - 6) >> 1));
         intc.setIntsMasked(regMask); //unmask VINT,HINT
@@ -212,8 +194,8 @@ public class IntCTest {
         Assertions.assertEquals(0, actual);
 
         //set pending
-        intc.setIntPending(hint, true);
-        intc.setIntPending(vint, true);
+        intc.setIntActive(hint, true);
+        intc.setIntActive(vint, true);
 
         //VINT
         actual = intc.getInterruptLevel();
@@ -222,7 +204,6 @@ public class IntCTest {
         //clears VINT
         intc.clearInterrupt(vint);
 
-        //TODO check this
         //HINT is left
         actual = intc.getInterruptLevel();
         Assertions.assertEquals(hint.ordinal(), actual);
@@ -250,7 +231,7 @@ public class IntCTest {
         Assertions.assertEquals(prio, actual);
         Assertions.assertEquals(Sh2InterruptSource.DIVU, intc.getInterruptContext().source);
 
-        intc.setIntPending(hint, true);
+        intc.setIntActive(hint, true);
         actual = intc.getInterruptLevel();
         Assertions.assertEquals(prio, 10);
         Assertions.assertEquals(Sh2InterruptSource.HINT10, intc.getInterruptContext().source);

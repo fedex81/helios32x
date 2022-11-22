@@ -68,12 +68,12 @@ public class S32xSharedRegsTest {
         Assertions.assertEquals(0, otherRes);
 
         for (Sh2Interrupt inter : ints) {
-            intC.setIntPending(inter, true);
-            otherIntC.setIntPending(inter, true);
+            intC.setIntActive(inter, true);
+            otherIntC.setIntActive(inter, true);
             Assertions.assertEquals(intC.getInterruptLevel(), inter.ordinal());
             Assertions.assertEquals(otherIntC.getInterruptLevel(), 0);
             intC.clearCurrentInterrupt();
-            otherIntC.setIntPending(inter, false);
+            otherIntC.setIntActive(inter, false);
         }
     }
 

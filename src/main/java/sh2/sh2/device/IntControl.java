@@ -72,7 +72,7 @@ public interface IntControl extends S32xUtil.Sh2Device {
         }
     }
 
-    public enum Sh2Interrupt {
+    enum Sh2Interrupt {
         NONE_0(0), NONE_1(0), NONE_2(0), NONE_3(0), NONE_4(0), NONE_5(0),
         PWM_6(1), NONE_7(1), CMD_8(1), NONE_9(0), HINT_10(1), NONE_11(0), VINT_12(1),
         NONE_13(0), VRES_14(1), NONE_15(0), NMI_16(1);
@@ -84,7 +84,7 @@ public interface IntControl extends S32xUtil.Sh2Device {
         }
     }
 
-    static class InterruptContext {
+    class InterruptContext {
         public Sh2InterruptSource source;
         public Sh2Interrupt interrupt;
         public int level = 0;
@@ -113,7 +113,7 @@ public interface IntControl extends S32xUtil.Sh2Device {
 
     public void setOnChipDeviceIntPending(Sh2DeviceType deviceType, OnChipSubType subType);
 
-    void setIntPending(Sh2Interrupt interrupt, boolean isPending);
+    void setIntActive(Sh2Interrupt interrupt, boolean active);
 
     int readSh2IntMaskReg(int pos, Size size);
 
