@@ -111,14 +111,24 @@ public class Pwm implements StepDevice {
                 }
             }
             break;
+            case PWM_RCH_PW:
+            case PWM_LCH_PW:
+            case PWM_MONO:
+                //Mars check test1
+                //NOTE: z80 writes MSB then LSB, we trigger a wordWrite when setting the LSB
+                handlePartialByteWrite(reg, value);
+                if ((reg & 1) == 1) {
+                    int val = readBuffer(sysRegsMd, regSpec.addr, Size.WORD);
+                    writeWord(cpu, regSpec, regSpec.addr, val);
+                }
+                break;
             default:
-                LOG.error("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), Size.BYTE);
+                LOG.error("{} PWM write {} {}: {} {}", cpu, regSpec.name, th(reg), th(value), Size.BYTE);
                 break;
         }
     }
 
     private void handlePartialByteWrite(int reg, int value) {
-        //NOTE: z80 writes MSB then LSB, we trigger a wordWrite when setting the LSB
         boolean even = (reg & 1) == 0;
         if (even) {
             writeBuffers(sysRegsMd, sysRegsSh2, reg, value & 0xF, Size.BYTE);
