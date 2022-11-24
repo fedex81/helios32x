@@ -9,6 +9,7 @@ import sh2.MarsLauncherHelper;
 import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.Sh2Memory;
+import sh2.dict.S32xDict;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2.Sh2Config;
 import sh2.sh2.cache.Sh2Cache;
@@ -16,6 +17,7 @@ import sh2.sh2.cache.Sh2CacheImpl;
 import sh2.sh2.drc.Sh2Block;
 
 import java.util.Optional;
+import java.util.Random;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
@@ -249,6 +251,48 @@ public class Sh2CacheTest {
         testCacheWriteNoHitInternal(Size.LONG);
     }
 
+    @Test
+    public void testCacheDataArrayCacheOff() {
+        testCacheDataArray(false, false);
+        testCacheDataArray(false, true);
+    }
+
+    @Test
+    public void testCacheDataArrayTwoWayCache() {
+        testCacheDataArray(true, true);
+        try {
+            testCacheDataArray(true, false);
+            Assertions.fail("Should throw an AssertionError");
+        } catch (AssertionError ae) {/*ignore*/}
+    }
+
+    private void testCacheDataArray(boolean cacheOn, boolean twoWayCache) {
+        Md32xRuntimeData.setAccessTypeExt(MASTER);
+        initRam(0x100);
+        int val = cacheOn ? 1 : 0;
+        val |= (twoWayCache ? 1 : 0) << 3;
+        Sh2Cache.CacheContext ctx = memory.cache[MASTER.ordinal()].updateState(val);
+        Assertions.assertEquals(cacheOn, ctx.cacheEn > 0);
+        Assertions.assertEquals(twoWayCache, ctx.twoWay > 0);
+        clearCache(MASTER);
+        Random r = new Random(0x12);
+        int dataArrayStart = S32xDict.SH2_START_DATA_ARRAY;
+        int dataArraySize = cacheOn && twoWayCache ? Sh2Cache.DATA_ARRAY_SIZE >> 1 : Sh2Cache.DATA_ARRAY_SIZE;
+        int[] vals = new int[Sh2Cache.DATA_ARRAY_SIZE];
+
+        for (int i = 0; i < Sh2Cache.DATA_ARRAY_SIZE; i++) {
+            vals[i] = r.nextInt(0x100);
+            memory.write(dataArrayStart + i, vals[i], Size.BYTE);
+        }
+
+        for (int i = 0; i < Sh2Cache.DATA_ARRAY_SIZE; i++) {
+            if (i < dataArraySize) {
+                Assertions.assertEquals(vals[i], memory.read(dataArrayStart + i, Size.BYTE), th(dataArrayStart + i));
+            } else {
+                Assertions.assertEquals(Size.BYTE.getMask(), memory.read(dataArrayStart + i, Size.BYTE), th(dataArrayStart + i));
+            }
+        }
+    }
 
     private void testCacheWriteNoHitInternal(Size size) {
         Md32xRuntimeData.setAccessTypeExt(MASTER);

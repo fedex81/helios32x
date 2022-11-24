@@ -120,41 +120,10 @@ public class Sh2CacheImpl implements Sh2Cache {
                     assert cpu == Md32xRuntimeData.getAccessTypeExt();
                     return readMemoryUncached(memory, addr, size);
                 }
-                final int tagaddr = (addr & TAG_MASK);
-                final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
-
-                for (int i = 0; i < CACHE_WAYS; i++) {
-                    Sh2CacheLine line = ca.way[i][entry];
-                    if ((line.v > 0) && (line.tag == tagaddr)) {
-                        updateLru(i, ca.lru, entry);
-                        if (verbose) LOG.info("{} Cache hit, read at {} {}, val: {}", cpu, th(addr), size,
-                                th(getCachedData(line.data, addr & LINE_MASK, size)));
-                        //two way uses ways0,1
-                        assert ctx.twoWay == 0 || (ctx.twoWay == 1 && i > 1);
-                        return getCachedData(line.data, addr & LINE_MASK, size);
-                    }
-                }
-                // cache miss
-                int lruway = selectWayToReplace(ctx.twoWay, ca.lru[entry]);
-                assert ctx.twoWay == 0 || (ctx.twoWay == 1 && lruway > 1);
-                final Sh2CacheLine line = ca.way[lruway][entry];
-                invalidatePrefetcher(line, entry, addr);
-                updateLru(lruway, ca.lru, entry);
-                line.tag = tagaddr;
-
-                refillCache(line.data, addr);
-
-                line.v = 1; //becomes valid
-                if (verbose) LOG.info("{} Cache miss, read at {} {}, val: {}", cpu, th(addr), size,
-                        th(getCachedData(line.data, addr & LINE_MASK, size)));
-                return getCachedData(line.data, addr & LINE_MASK, size);
+                return readCache(addr, size);
             }
             case CACHE_DATA_ARRAY:
-                assert ca.enable == 0 || ctx.twoWay == 1;
-                if (verbose) LOG.info("{} Cache data array read: {}({}) {}, val: {}", cpu, th(addr),
-                        th(addr & (DATA_ARRAY_MASK >> ctx.twoWay)), size,
-                        th(readBuffer(data_array, addr & (DATA_ARRAY_MASK >> ctx.twoWay), size)));
-                return readBuffer(data_array, addr & (DATA_ARRAY_MASK >> ctx.twoWay), size);
+                return readDataArray(addr, size);
             case CACHE_PURGE:
                 LOG.warn("{} CACHE_PURGE read: {}, {}", cpu, th(addr), size);
                 break;
@@ -178,29 +147,11 @@ public class Sh2CacheImpl implements Sh2Cache {
                     writeMemoryUncached(memory, addr, val, size);
                     return;
                 }
-                final int tagaddr = (addr & TAG_MASK);
-                final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
-
-                for (int i = 0; i < CACHE_WAYS; i++) {
-                    Sh2CacheLine line = ca.way[i][entry];
-                    if ((line.v > 0) && (line.tag == tagaddr)) {
-                        assert ctx.twoWay == 0 || (ctx.twoWay == 1 && i > 1);
-                        setCachedData(line.data, addr & LINE_MASK, val, size);
-                        updateLru(i, ca.lru, entry);
-                        if (verbose) LOG.info("Cache write at {}, val: {} {}", th(addr), th(val), size);
-                        break;
-                    }
-                }
-                // write through
-                writeMemoryUncached(memory, addr, val, size);
+                writeCache(addr, val, size);
             }
             break;
             case CACHE_DATA_ARRAY:
-                assert ca.enable == 0 || ctx.twoWay == 1;
-                if (verbose)
-                    LOG.info("{} Cache data array write: {}({}) {}, val: {}", cpu, th(addr),
-                            th(addr & (DATA_ARRAY_MASK >> ctx.twoWay)), size, th(val));
-                writeBuffer(data_array, addr & (DATA_ARRAY_MASK >> ctx.twoWay), val, size);
+                writeDataArray(addr, val, size);
                 break;
             case CACHE_PURGE://associative purge
             {
@@ -232,6 +183,88 @@ public class Sh2CacheImpl implements Sh2Cache {
         }
     }
 
+    private int readCache(int addr, Size size) {
+        final int tagaddr = (addr & TAG_MASK);
+        final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
+
+        for (int i = 0; i < CACHE_WAYS; i++) {
+            Sh2CacheLine line = ca.way[i][entry];
+            if ((line.v > 0) && (line.tag == tagaddr)) {
+                updateLru(i, ca.lru, entry);
+                if (verbose) LOG.info("{} Cache hit, read at {} {}, val: {}", cpu, th(addr), size,
+                        th(getCachedData(line.data, addr & LINE_MASK, size)));
+                //two way uses ways0,1
+                assert ctx.twoWay == 0 || (ctx.twoWay == 1 && i > 1);
+                return getCachedData(line.data, addr & LINE_MASK, size);
+            }
+        }
+        // cache miss
+        int lruway = selectWayToReplace(ctx.twoWay, ca.lru[entry]);
+        assert ctx.twoWay == 0 || (ctx.twoWay == 1 && lruway > 1);
+        final Sh2CacheLine line = ca.way[lruway][entry];
+        invalidatePrefetcher(line, entry, addr);
+        updateLru(lruway, ca.lru, entry);
+        line.tag = tagaddr;
+
+        refillCache(line.data, addr);
+
+        line.v = 1; //becomes valid
+        if (verbose) LOG.info("{} Cache miss, read at {} {}, val: {}", cpu, th(addr), size,
+                th(getCachedData(line.data, addr & LINE_MASK, size)));
+        return getCachedData(line.data, addr & LINE_MASK, size);
+    }
+
+    private void writeCache(int addr, int val, Size size) {
+        final int tagaddr = (addr & TAG_MASK);
+        final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
+
+        for (int i = 0; i < CACHE_WAYS; i++) {
+            Sh2CacheLine line = ca.way[i][entry];
+            if ((line.v > 0) && (line.tag == tagaddr)) {
+                assert ctx.twoWay == 0 || (ctx.twoWay == 1 && i > 1);
+                setCachedData(line.data, addr & LINE_MASK, val, size);
+                updateLru(i, ca.lru, entry);
+                if (verbose) LOG.info("Cache write at {}, val: {} {}", th(addr), th(val), size);
+                break;
+            }
+        }
+        // write through
+        writeMemoryUncached(memory, addr, val, size);
+    }
+
+    private void writeDataArray(int addr, int val, Size size) {
+        assert ca.enable == 0 || ctx.twoWay == 1;
+        int dataArrayMask = DATA_ARRAY_MASK >> (ca.enable & ctx.twoWay);
+        int address = addr & dataArrayMask;
+        if (verbose)
+            LOG.info("{} Cache data array write: {}({}) {}, val: {}", cpu, th(addr),
+                    th(address), size, th(val));
+        if (address == (addr & DATA_ARRAY_MASK)) {
+            writeBuffer(data_array, address, val, size);
+        } else {
+            LOG.error("{} Error Cache data array write: {}({}) {}, val: {}", cpu, th(addr),
+                    th(address), size, th(val));
+        }
+    }
+
+    private int readDataArray(int addr, Size size) {
+        int dataArrayMask = DATA_ARRAY_MASK >> (ca.enable & ctx.twoWay);
+        int address = addr & dataArrayMask;
+        if (verbose)
+            if (verbose) LOG.info("{} Cache data array read: {}({}) {}, val: {}", cpu, th(addr),
+                    th(addr & dataArrayMask), size,
+                    th(readBuffer(data_array, address, size)));
+        if (address == (addr & DATA_ARRAY_MASK)) {
+            readBuffer(data_array, address, size);
+        } else {
+            LOG.error("{} Error Cache data array read: {}({}) {}, val: {}", cpu, th(addr),
+                    th(addr & dataArrayMask), size,
+                    th(readBuffer(data_array, address, size)));
+            return (int) size.getMask();
+        }
+        return readBuffer(data_array, address, size);
+    }
+
     private void writeAddressArray(int addr, int data) {
         final int tagaddr = (addr & TAG_MASK);
         final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
@@ -247,6 +280,7 @@ public class Sh2CacheImpl implements Sh2Cache {
         final int tagaddr = ca.way[ctx.way][entry].tag;
         return (tagaddr & 0x7ffff << 10) | (ca.lru[entry] << 4) | ca.enable;
     }
+
 
     @Override
     public CacheContext updateState(int value) {
