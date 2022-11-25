@@ -168,6 +168,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                     }
                 }
                 if (verbose) LOG.info("{} Cache purge: {}", cpu, th(addr));
+                assert addr < 0x4800_0000;
             }
             break;
             case CACHE_ADDRESS_ARRAY:

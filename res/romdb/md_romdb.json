@@ -205,7 +205,7 @@
     "notes": "according to Ares",
     "eeprom": {
       "type": "EEPROM_24C04",
-      "lineMap": "ACCLAIM_32M"
+      "lineMap": "ACCLAIM_32M_SCL8"
     }
   },
   {

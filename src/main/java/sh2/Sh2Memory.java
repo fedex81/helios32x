@@ -1,5 +1,6 @@
 package sh2;
 
+import omegadrive.system.SystemProvider;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import omegadrive.util.Util;
@@ -16,8 +17,10 @@ import sh2.sh2.prefetch.Sh2PrefetchSimple;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.List;
 
+import static omegadrive.system.SystemProvider.NO_CLOCK;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
@@ -93,6 +96,9 @@ public final class Sh2Memory implements IMemory {
 				} else if (address >= SH2_START_SDRAM && address < SH2_END_SDRAM) {
 					res = readBuffer(sdram, address & SH2_SDRAM_MASK, size);
 					S32xMemAccessDelay.addReadCpuDelay(SDRAM);
+					if (SDRAM_SYNC_TESTER) {
+						readSyncCheck(cpuAccess, address, size);
+					}
 				} else if (address >= S32xDict.START_DRAM && address < S32xDict.END_DRAM) {
 					res = s32XMMREG.read(address, size);
 					S32xMemAccessDelay.addReadCpuDelay(FRAME_BUFFER);
@@ -148,6 +154,9 @@ public final class Sh2Memory implements IMemory {
 						LOG.warn("{} sh2 ignoring access to FB when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
 					}
 				} else if (address >= SH2_START_SDRAM && address < SH2_END_SDRAM) {
+					if (SDRAM_SYNC_TESTER) {
+						writeSyncCheck(cpuAccess, address, val, size);
+					}
 					writeBuffer(sdram, address & SH2_SDRAM_MASK, val, size);
 					S32xMemAccessDelay.addWriteCpuDelay(SDRAM);
 				} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
@@ -220,11 +229,107 @@ public final class Sh2Memory implements IMemory {
 	@Override
 	public void newFrame() {
 		prefetch.newFrame();
+		newFrameSync();
 	}
 
 	@Override
 	public void resetSh2() {
 		sh2MMREGS[MASTER.ordinal()].reset();
 		sh2MMREGS[SLAVE.ordinal()].reset();
+	}
+
+	//TODO sync tester, extend to check other areas: framebuffer, cache data array (vr), ...
+
+
+	private static final boolean SDRAM_SYNC_TESTER = false;
+	private static final int MAST_READ = 1;
+	private static final int MAST_WRITE = 2;
+	private static final int SLAVE_READ = 4;
+	private static final int SLAVE_WRITE = 8;
+
+	private static String[] names = {"EMPTY", "MAST_READ", "MAST_WRITE", "EMPTY", "SLAVE_READ", "EMPTY", "EMPTY",
+			"EMPTY", "SLAVE_WRITE"};
+
+	static class SdramSync {
+		int accessMask;
+		int[] cycleAccess = new int[SLAVE_WRITE + 1];
+	}
+
+	private SdramSync[] sdramAccess = new SdramSync[SH2_SDRAM_SIZE];
+	private Runnable valToWrite;
+	private int clockDiffMin = 100;
+
+	{
+		if (SDRAM_SYNC_TESTER) {
+			for (int i = 0; i < sdramAccess.length; i++) {
+				sdramAccess[i] = new SdramSync();
+			}
+		}
+	}
+
+	private void readSyncCheck(CpuDeviceAccess cpuAccess, int address, Size size) {
+		if (valToWrite != null && cpuAccess == MASTER) {
+			LOG.info("Writing after reading: {} {}", th(address), size);
+			valToWrite.run();
+			valToWrite = null;
+		}
+		//TODO fix this
+		SystemProvider.SystemClock clock = NO_CLOCK; //Genesis.clock;
+		int readType = cpuAccess == MASTER ? MAST_READ : SLAVE_READ;
+		sdramAccess[address & SH2_SDRAM_MASK].accessMask |= readType;
+		sdramAccess[address & SH2_SDRAM_MASK].cycleAccess[readType] = clock.getCycleCounter();
+	}
+
+	private void writeSyncCheck(CpuDeviceAccess cpuAccess, int address, int val, Size size) {
+		//TODO fix this
+		SystemProvider.SystemClock clock = NO_CLOCK; //Genesis.clock;
+		boolean check = cpuAccess == SLAVE &&
+				(address & SH2_SDRAM_MASK) == 0x4c20 && clock.getCycleCounter() == 111787;
+		if (check) {
+			final int v = val;
+			valToWrite = () -> {
+				writeBuffer(sdram, address & SH2_SDRAM_MASK, v, size);
+			};
+		} else {
+			writeBuffer(sdram, address & SH2_SDRAM_MASK, val, size);
+		}
+		int writeType = cpuAccess == MASTER ? MAST_WRITE : SLAVE_WRITE;
+		sdramAccess[address & SH2_SDRAM_MASK].accessMask |= writeType;
+		sdramAccess[address & SH2_SDRAM_MASK].cycleAccess[writeType] = clock.getCycleCounter();
+	}
+
+	private void newFrameSync() {
+		if (SDRAM_SYNC_TESTER) {
+			for (int i = 0; i < sdramAccess.length; i++) {
+				if (sdramAccess[i].accessMask > 2) {
+					SdramSync entry = sdramAccess[i];
+					int val = entry.accessMask;
+					int check = (int) ((val & (MAST_READ | SLAVE_WRITE)) | (val & (MAST_WRITE | SLAVE_READ)));
+					boolean ok = val != (MAST_READ | MAST_WRITE) && val != (SLAVE_READ | SLAVE_WRITE) && val != (MAST_READ | SLAVE_READ)
+							&& val != (MAST_WRITE | SLAVE_WRITE);
+					if (check > 0 && ok) {
+						String s = "";
+						int localMin = Integer.MAX_VALUE;
+						int localMax = Integer.MIN_VALUE;
+						int cnt = 0;
+						for (int j = 0; j < entry.cycleAccess.length; j++) {
+							if (entry.cycleAccess[j] > 0) {
+								cnt++;
+								s += names[j] + ": " + entry.cycleAccess[j] + ",";
+								localMax = Math.max(entry.cycleAccess[j], localMax);
+								localMin = Math.min(entry.cycleAccess[j], localMin);
+							}
+						}
+						int diff = Math.abs(localMax - localMin);
+						if (cnt > 1 && diff < clockDiffMin) {
+							clockDiffMin = Math.max(100, diff);
+							LOG.info("Sync on: {}, {}, clockDiff: {}\n{}", th(i), th(val), diff, s);
+						}
+					}
+					sdramAccess[i].accessMask = 0;
+					Arrays.fill(sdramAccess[i].cycleAccess, 0);
+				}
+			}
+		}
 	}
 }
