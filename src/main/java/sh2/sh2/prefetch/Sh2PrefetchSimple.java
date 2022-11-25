@@ -13,12 +13,9 @@ import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Instructions;
 import sh2.sh2.Sh2Instructions.Sh2BaseInstruction;
 import sh2.sh2.cache.Sh2Cache;
-import sh2.sh2.drc.Sh2Block;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
@@ -81,7 +78,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
     public final ByteBuffer sdram;
     public final ByteBuffer rom;
 
-    public final PrefetchContext[] prefetchContexts = {new PrefetchContext(), new PrefetchContext()};
+    public final static PrefetchContext[] prefetchContexts = new PrefetchContext[2];
 
     public Sh2PrefetchSimple(Sh2Memory memory, Sh2Cache[] cache) {
         this.cache = cache;
@@ -92,6 +89,8 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         rom = memory.rom;
         bios = memory.bios;
         sh2Config = Sh2.Sh2Config.get();
+        prefetchContexts[0] = new PrefetchContext();
+        prefetchContexts[1] = new PrefetchContext();
     }
     public void doPrefetch(final PrefetchContext pctx, int pc, CpuDeviceAccess cpu) {
         if (!sh2Config.prefetchEn) return;
@@ -255,18 +254,6 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
                 checkPrefetch(cpuWrite, CpuDeviceAccess.cdaValues[i], otherAddr, val, size);
             }
         }
-    }
-
-    @Override
-    public List<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int address) {
-        if (prefetchContexts[cpu.ordinal()].prefetchPc == address) {
-            Sh2Block block = new Sh2Block(address, cpu);
-            block.start = address;
-            block.end = prefetchContexts[cpu.ordinal()].end;
-            block.prefetchWords = prefetchContexts[cpu.ordinal()].prefetchWords;
-            return List.of(block);
-        }
-        return Collections.emptyList();
     }
 
     @Override

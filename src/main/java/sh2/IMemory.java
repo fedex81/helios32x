@@ -6,11 +6,12 @@ import org.slf4j.Logger;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.sh2.Sh2;
 import sh2.sh2.cache.Sh2Cache.CacheInvalidateContext;
-import sh2.sh2.drc.Sh2Block;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -80,10 +81,6 @@ public interface IMemory extends Sh2Prefetcher {
 
     default void invalidateAllPrefetch(CpuDeviceAccess cpuDeviceAccess) {
         //do nothing
-    }
-
-    default List<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int address) {
-        return Collections.emptyList();
     }
 
     default void newFrame() {

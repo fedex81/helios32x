@@ -145,6 +145,10 @@ public class S32xUtil {
         setBit(b2, pos, bitPos, bitValue, size);
     }
 
+    public static int getBitFromByte(byte b, int bitPos) {
+        return (b >> bitPos) & 1;
+    }
+
     /**
      * @return true - has changed, false - otherwise
      */

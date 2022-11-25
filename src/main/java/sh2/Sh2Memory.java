@@ -11,14 +11,12 @@ import sh2.dict.S32xMemAccessDelay;
 import sh2.sh2.Sh2;
 import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.cache.Sh2CacheImpl;
-import sh2.sh2.drc.Sh2Block;
 import sh2.sh2.prefetch.Sh2Prefetch;
 import sh2.sh2.prefetch.Sh2PrefetchSimple;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.List;
 
 import static omegadrive.system.SystemProvider.NO_CLOCK;
 import static omegadrive.util.Util.th;
@@ -214,11 +212,6 @@ public final class Sh2Memory implements IMemory {
 	@Override
 	public Sh2MMREG getSh2MMREGS(CpuDeviceAccess cpu) {
 		return sh2MMREGS[cpu.ordinal()];
-	}
-
-	@Override
-	public List<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int address) {
-		return prefetch.getPrefetchBlocksAt(cpu, address);
 	}
 
 	@Override

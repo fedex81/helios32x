@@ -102,8 +102,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                 assert cpu == Md32xRuntimeData.getAccessTypeExt();
                 return readMemoryUncachedNoDelay(memory, addr, size);
             case CACHE_DATA_ARRAY:
-                assert ca.enable == 0 || ctx.twoWay == 1;
-                return readBuffer(data_array, addr & (DATA_ARRAY_MASK >> ctx.twoWay), size);
+                return readDataArray(addr, size);
             default:
                 LOG.error("{} Unexpected cache read: {}, {}", cpu, th(addr), size);
                 if (true) throw new RuntimeException();
@@ -234,8 +233,8 @@ public class Sh2CacheImpl implements Sh2Cache {
     }
 
     private void writeDataArray(int addr, int val, Size size) {
-        assert ca.enable == 0 || ctx.twoWay == 1;
-        int dataArrayMask = DATA_ARRAY_MASK >> (ca.enable & ctx.twoWay);
+        assert ctx.cacheEn == 0 || ctx.twoWay == 1;
+        int dataArrayMask = DATA_ARRAY_MASK >> (ctx.cacheEn & ctx.twoWay);
         int address = addr & dataArrayMask;
         if (verbose)
             LOG.info("{} Cache data array write: {}({}) {}, val: {}", cpu, th(addr),
@@ -249,12 +248,12 @@ public class Sh2CacheImpl implements Sh2Cache {
     }
 
     private int readDataArray(int addr, Size size) {
-        int dataArrayMask = DATA_ARRAY_MASK >> (ca.enable & ctx.twoWay);
+        assert ctx.cacheEn == 0 || ctx.twoWay == 1;
+        int dataArrayMask = DATA_ARRAY_MASK >> (ctx.cacheEn & ctx.twoWay);
         int address = addr & dataArrayMask;
-        if (verbose)
-            if (verbose) LOG.info("{} Cache data array read: {}({}) {}, val: {}", cpu, th(addr),
-                    th(addr & dataArrayMask), size,
-                    th(readBuffer(data_array, address, size)));
+        if (verbose) LOG.info("{} Cache data array read: {}({}) {}, val: {}", cpu, th(addr),
+                th(addr & dataArrayMask), size,
+                th(readBuffer(data_array, address, size)));
         if (address == (addr & DATA_ARRAY_MASK)) {
             readBuffer(data_array, address, size);
         } else {
@@ -279,7 +278,7 @@ public class Sh2CacheImpl implements Sh2Cache {
     private int readAddressArray(int addr) {
         final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
         final int tagaddr = ca.way[ctx.way][entry].tag;
-        return (tagaddr & 0x7ffff << 10) | (ca.lru[entry] << 4) | ca.enable;
+        return (tagaddr & 0x7ffff << 10) | (ca.lru[entry] << 4) | ctx.cacheEn;
     }
 
 
@@ -291,8 +290,8 @@ public class Sh2CacheImpl implements Sh2Cache {
         ctx.dataReplaceDis = (value >> 2) & 1;
         ctx.instReplaceDis = (value >> 1) & 1;
         ctx.cacheEn = value & 1;
-        handleCacheEnabled();
         if (verbose) LOG.info("{} CCR update: {}", cpu, ctx);
+        handleCacheEnabled();
         if (ctx.cachePurge > 0) {
             cacheClear();
             ctx.cachePurge = 0; //always reverts to 0
@@ -307,7 +306,7 @@ public class Sh2CacheImpl implements Sh2Cache {
         ca.enable = ctx.cacheEn;
         //cache enable does not clear the cache
         if (prevCaEn != ctx.cacheEn) {
-            if (verbose) LOG.info("Cache enable: " + ctx.cacheEn);
+            if (verbose) LOG.info("{} Cache enable: {}", cpu, ctx.cacheEn);
             if (ctx.cacheEn > 0) {
                 memory.invalidateAllPrefetch(cpu);
             }

@@ -462,7 +462,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         if (isCache && cache[cpu.ordinal()].getCacheContext().cacheEn > 0) {
             //NOTE necessary to trigger the cache hit on fetch
             int cached = cache[cpu.ordinal()].cacheMemoryRead(pc, Size.WORD);
-            assert cached == expOpcode;
+            assert cached == expOpcode : th(pc) + "," + th(expOpcode) + "," + th(cached);
         }
     }
 

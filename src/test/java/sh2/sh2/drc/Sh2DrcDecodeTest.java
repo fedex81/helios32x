@@ -9,9 +9,10 @@ import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.prefetch.Sh2CacheTest;
+import sh2.sh2.prefetch.Sh2PrefetchTest;
 
 import java.nio.ByteBuffer;
-import java.util.List;
+import java.util.Collection;
 
 import static omegadrive.util.Util.th;
 import static s32x.MarsRegTestUtil.createTestInstance;
@@ -116,9 +117,10 @@ public class Sh2DrcDecodeTest {
         int pc = sh2Context.PC;
         CpuDeviceAccess cpu = sh2Context.cpuAccess;
         if (!blockTable.contains(cpu, pc)) {
-            List<Sh2Block> l = lc.memory.getPrefetchBlocksAt(cpu, pc);
-            if (l.size() > 0 && l.get(0) != Sh2Block.INVALID_BLOCK) {
-                blockTable.put(cpu, pc, l.get(0));
+            Collection<Sh2Block> l = Sh2PrefetchTest.getPrefetchBlocksAt(cpu, pc);
+            Sh2Block b = l.stream().findFirst().orElse(Sh2Block.INVALID_BLOCK);
+            if (b != Sh2Block.INVALID_BLOCK) {
+                blockTable.put(cpu, pc, b);
                 System.out.println(cpu + " Detected block: " + th(pc));
             }
         }

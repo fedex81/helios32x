@@ -2,11 +2,14 @@ package sh2.sh2.prefetch;
 
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import s32x.MarsRegTestUtil;
 import sh2.MarsLauncherHelper;
 import sh2.Md32xRuntimeData;
+import sh2.S32xUtil;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.Sh2Memory;
 import sh2.dict.S32xDict;
@@ -16,8 +19,10 @@ import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.cache.Sh2CacheImpl;
 import sh2.sh2.drc.Sh2Block;
 
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.Random;
+import java.util.stream.Stream;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
@@ -43,20 +48,66 @@ public class Sh2CacheTest {
     public static final int CLRMAC = 0x28;
     public static final int JMP_0 = 0x402b;
 
-    protected Sh2Config configCacheEn = Sh2Config.DEFAULT_CONFIG;
-    protected Sh2Config configDrcEn = new Sh2Config(true, true, true, false, false);
+    protected static int RAM_SIZE = 0x100;
+    protected static int ROM_SIZE = 0x1000;
+
+    protected static Sh2Config configCacheEn = new Sh2Config(true, true, true, false, false);
+    protected static Sh2Config config = configCacheEn;
+
+    protected static Sh2Config[] configList;
+
+    static {
+        int parNumber = 5;
+        int combinations = 1 << parNumber;
+        configList = new Sh2Config[combinations];
+        assert combinations < 0x100;
+        int pn = parNumber;
+        for (int i = 0; i < combinations; i++) {
+            byte ib = (byte) i;
+            configList[i] = new Sh2Config(S32xUtil.getBitFromByte(ib, pn - 1) > 0,
+                    S32xUtil.getBitFromByte(ib, pn - 2) > 0, S32xUtil.getBitFromByte(ib, pn - 3) > 0,
+                    S32xUtil.getBitFromByte(ib, pn - 4) > 0, S32xUtil.getBitFromByte(ib, pn - 5) > 0);
+        }
+    }
+
+    protected static Stream<Sh2Config> fileProvider() {
+        return Arrays.stream(configList);
+    }
+
+    @ParameterizedTest
+    @MethodSource("fileProvider")
+    public void testCache(Sh2Config c) {
+        System.out.println("Testing: " + c);
+        Runnable r = () -> {
+            resetCacheConfig(c);
+            testCacheOffInternal();
+            testCacheOnInternal();
+            testCacheReplaceInternal();
+            testCacheDataArrayCacheOffInternal();
+            testCacheDataArrayTwoWayCacheInternal();
+            testCacheWriteNoHitInternal(Size.BYTE);
+            testCacheWriteNoHitInternal(Size.WORD);
+            testCacheWriteNoHitInternal(Size.LONG);
+        };
+        r.run();
+        r.run();
+    }
 
     @BeforeEach
     public void before() {
-        Sh2Config.reset(configCacheEn);
-        Assertions.assertTrue(Sh2Config.get().cacheEn);
-        rom = new byte[0x1000];
+        Sh2Config.reset(config);
+        rom = new byte[ROM_SIZE];
         lc = MarsRegTestUtil.createTestInstance(rom);
         lc.s32XMMREG.aden = 1;
         memory = (Sh2Memory) lc.memory;
         Md32xRuntimeData.releaseInstance();
         Md32xRuntimeData.newInstance();
-        initRam(0x100);
+        initRam(RAM_SIZE);
+    }
+
+    protected void resetMemory() {
+        rom = new byte[ROM_SIZE];
+        initRam(RAM_SIZE);
     }
 
     protected void initRam(int len) {
@@ -67,11 +118,9 @@ public class Sh2CacheTest {
         memory.write16(SH2_START_SDRAM | 0x18, JMP_0); //JMP 0
     }
 
-    @Test
-    public void testCacheOff() {
-        testCacheOffInternal();
-        Sh2Config.reset(configDrcEn);
-        testCacheOffInternal();
+    protected void resetCacheConfig(Sh2Config c) {
+        config = c;
+        before();
     }
 
     protected void testCacheOffInternal() {
@@ -102,14 +151,11 @@ public class Sh2CacheTest {
         checkCacheContents(MASTER, Optional.empty(), noCacheAddr, Size.WORD);
     }
 
-    @Test
-    public void testCacheOn() {
-        testCacheOnInternal();
-        Sh2Config.reset(configDrcEn);
-        testCacheOnInternal();
-    }
-
     protected void testCacheOnInternal() {
+        if (!config.cacheEn) {
+            return;
+        }
+        Assumptions.assumeTrue(config.cacheEn);
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         initRam(0x100);
         int noCacheAddr = SH2_START_SDRAM | 0x8;
@@ -129,47 +175,46 @@ public class Sh2CacheTest {
         checkVal(MASTER, noCacheAddr, CLRMAC, Size.WORD);
         checkCacheContents(MASTER, Optional.empty(), noCacheAddr, Size.WORD);
 
-        //read cache, entry added to cache
-        res = memory.read16(cacheAddr);
-        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr, Size.WORD);
+        if (configCacheEn.cacheEn) {
+            //read cache, entry added to cache
+            res = memory.read16(cacheAddr);
+            checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr, Size.WORD);
 
-        //write no cache, cache not modified
-        memory.write16(noCacheAddr, SETT);
-        checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr, Size.WORD);
 
-        //cache clear, reload from SDRAM
-        clearCache(MASTER);
-        res = memory.read16(cacheAddr);
-        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr, Size.WORD);
+            //write no cache, cache not modified
+            memory.write16(noCacheAddr, SETT);
+            checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr, Size.WORD);
 
-        //cache disable, write to SDRAM
-        enableCache(MASTER, false);
-        memory.write16(cacheAddr, NOP);
-        //enable cache, still holding the previous value
-        enableCache(MASTER, true);
-        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr, Size.WORD);
+            //cache clear, reload from SDRAM
+            clearCache(MASTER);
+            res = memory.read16(cacheAddr);
+            checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr, Size.WORD);
 
-        //cache out of sync
-        res = memory.read16(cacheAddr);
-        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr, Size.WORD);
-        res = memory.read16(noCacheAddr);
-        checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr, Size.WORD);
+            //cache disable, write to SDRAM
+            enableCache(MASTER, false);
+            memory.write16(cacheAddr, NOP);
+            //enable cache, still holding the previous value
+            enableCache(MASTER, true);
+            checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr, Size.WORD);
 
-        //needs a purge or a write
-        memory.write16(cacheAddr, NOP);
-        checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr, Size.WORD);
+            //cache out of sync
+            res = memory.read16(cacheAddr);
+            checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr, Size.WORD);
+            res = memory.read16(noCacheAddr);
+            checkCacheContents(MASTER, Optional.of(SETT), noCacheAddr, Size.WORD);
+
+            //needs a purge or a write
+            memory.write16(cacheAddr, NOP);
+            checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr, Size.WORD);
+        }
     }
 
     protected int[] cacheReplace_cacheAddr = new int[5];
 
-    @Test
-    public void testCacheReplace() {
-        testCacheReplaceInternal();
-        Sh2Config.reset(configDrcEn);
-        testCacheReplaceInternal();
-    }
-
     protected void testCacheReplaceInternal() {
+        if (!Sh2Config.get().cacheEn) {
+            return;
+        }
         int[] cacheAddr = cacheReplace_cacheAddr;
         int[] noCacheAddr = new int[5];
 
@@ -230,35 +275,13 @@ public class Sh2CacheTest {
         checkCacheContents(MASTER, Optional.of(MACL), cacheAddr[4], Size.WORD);
     }
 
-    @Test
-    public void testCacheWriteNoHitByte() {
-        testCacheWriteNoHitInternal(Size.BYTE);
-        Sh2Config.reset(configDrcEn);
-        testCacheWriteNoHitInternal(Size.BYTE);
-    }
-
-    @Test
-    public void testCacheWriteNoHitWord() {
-        testCacheWriteNoHitInternal(Size.WORD);
-        Sh2Config.reset(configDrcEn);
-        testCacheWriteNoHitInternal(Size.WORD);
-    }
-
-    @Test
-    public void testCacheWriteNoHitLong() {
-        testCacheWriteNoHitInternal(Size.LONG);
-        Sh2Config.reset(configDrcEn);
-        testCacheWriteNoHitInternal(Size.LONG);
-    }
-
-    @Test
-    public void testCacheDataArrayCacheOff() {
+    private void testCacheDataArrayCacheOffInternal() {
         testCacheDataArray(false, false);
         testCacheDataArray(false, true);
     }
 
-    @Test
-    public void testCacheDataArrayTwoWayCache() {
+
+    private void testCacheDataArrayTwoWayCacheInternal() {
         testCacheDataArray(true, true);
         try {
             testCacheDataArray(true, false);
@@ -317,9 +340,11 @@ public class Sh2CacheTest {
         memory.read(noCacheAddr, size);
         checkCacheContents(MASTER, Optional.empty(), noCacheAddr, size);
 
-        //cache gets populated
-        memory.read(cacheAddr, size);
-        checkCacheContents(MASTER, Optional.of(val), noCacheAddr, size);
+        if (Sh2Config.get().cacheEn) {
+            //cache gets populated
+            memory.read(cacheAddr, size);
+            checkCacheContents(MASTER, Optional.of(val), noCacheAddr, size);
+        }
     }
 
     protected void enableCache(CpuDeviceAccess cpu, boolean enabled) {

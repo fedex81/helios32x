@@ -101,6 +101,7 @@ public class Sh2Helper {
         getPcInfoWrapper();
         assert (pc & 1) == 0 : th(pc);
         final int piwPc = pc | cpu.ordinal();
+        //TODO cache-through vs cached
         Sh2PcInfoWrapper piw = piwArr[piwPc >>> SH2_PC_AREA_SHIFT][piwPc & Sh2Debug.pcAreaMaskMap[piwPc >>> SH2_PC_AREA_SHIFT]];
         assert (piw != SH2_NOT_VISITED
                 ? piw.pcMasked == (pc & Sh2Debug.pcAreaMaskMap[pc >>> SH2_PC_AREA_SHIFT]) : true) : th(piwPc) + "," + th(piw.pcMasked);

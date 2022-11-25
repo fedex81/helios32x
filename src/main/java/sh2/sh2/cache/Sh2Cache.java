@@ -109,10 +109,15 @@ public interface Sh2Cache {
             public CacheContext updateState(int value) {
                 CacheContext ctx = super.updateState(value);
                 if (ctx.cacheEn > 0) {
-                    LOG.warn("Ignoring cache enable, as cache emulation is not active");
+//                    LOG.warn("Ignoring cache enable, as cache emulation is not active");
                 }
-                ca.enable = ctx.cacheEn = 0; //always disabled
+                ca.enable = 0; //always disabled
                 return ctx;
+            }
+
+            @Override
+            public int readDirect(int addr, Size size) {
+                return readMemoryUncachedNoDelay(memory, addr, size);
             }
         };
     }

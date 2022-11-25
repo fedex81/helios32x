@@ -4,10 +4,8 @@ import omegadrive.util.Size;
 import sh2.dict.S32xDict;
 import sh2.sh2.Sh2;
 import sh2.sh2.cache.Sh2Cache;
-import sh2.sh2.drc.Sh2Block;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 
@@ -107,11 +105,6 @@ public final class Sh2MemoryParallel implements IMemory {
     @Override
     public void invalidateAllPrefetch(S32xUtil.CpuDeviceAccess cpuDeviceAccess) {
         memory.invalidateAllPrefetch(cpuDeviceAccess);
-    }
-
-    @Override
-    public List<Sh2Block> getPrefetchBlocksAt(S32xUtil.CpuDeviceAccess cpu, int address) {
-        return memory.getPrefetchBlocksAt(cpu, address);
     }
 
     @Override

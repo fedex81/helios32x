@@ -7,9 +7,7 @@ import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.sh2.Sh2.FetchResult;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.cache.Sh2Cache;
-import sh2.sh2.drc.Sh2Block;
 
-import java.util.List;
 import java.util.StringJoiner;
 
 /**
@@ -29,8 +27,6 @@ public interface Sh2Prefetcher {
 
     default void dataWrite(CpuDeviceAccess cpu, int addr, int val, Size size) {
     }
-
-    List<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int address);
 
     void invalidateAllPrefetch(CpuDeviceAccess cpuDeviceAccess);
 
