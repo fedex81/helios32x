@@ -1,6 +1,8 @@
 package sh2.sh2.cache;
 
+import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
+import org.slf4j.Logger;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
 import sh2.S32xUtil;
@@ -16,6 +18,8 @@ import java.nio.ByteBuffer;
  * https://github.com/Yabause/yabause/blob/master/yabause/src/sh2cache.h
  */
 public interface Sh2Cache {
+
+    Logger LOG = LogHelper.getLogger(Sh2Cache.class.getSimpleName());
 
     int CACHE_LINES = 64;
     int CACHE_BYTES_PER_LINE = 16;
@@ -104,8 +108,16 @@ public interface Sh2Cache {
             @Override
             public CacheContext updateState(int value) {
                 CacheContext ctx = super.updateState(value);
-                ca.enable = ctx.cacheEn = 0; //always disabled
+                if (ctx.cacheEn > 0) {
+//                    LOG.warn("Ignoring cache enable, as cache emulation is not active");
+                }
+                ca.enable = 0; //always disabled
                 return ctx;
+            }
+
+            @Override
+            public int readDirect(int addr, Size size) {
+                return readMemoryUncachedNoDelay(memory, addr, size);
             }
         };
     }

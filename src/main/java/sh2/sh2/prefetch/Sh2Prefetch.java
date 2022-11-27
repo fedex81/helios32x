@@ -21,6 +21,7 @@ import static sh2.Md32x.SH2_ENABLE_PREFETCH;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.*;
 import static sh2.dict.S32xMemAccessDelay.SDRAM;
+import static sh2.sh2.cache.Sh2Cache.DATA_ARRAY_MASK;
 
 /**
  * Federico Berti
@@ -136,13 +137,14 @@ public class Sh2Prefetch {
                 break;
             default:
                 if ((pc >>> PC_CACHE_AREA_SHIFT) == 0xC) {
-                    //TODO check this
-                    int twoWay = cache[cpu.ordinal()].getCacheContext().twoWay;
-                    final int mask = Sh2Cache.DATA_ARRAY_MASK >> twoWay;
-                    pctx.start = Math.max(0, pctx.start) & mask;
+                    final Sh2Cache.CacheContext cc = cache[cpu.ordinal()].getCacheContext();
+                    int dataArrayMask = DATA_ARRAY_MASK >> (cc.cacheEn & cc.twoWay);
+                    assert (pc & dataArrayMask) == (pc & DATA_ARRAY_MASK);
+                    assert cc.cacheEn == 0 || cc.twoWay == 1;
+                    pctx.start = Math.max(0, pctx.start) & dataArrayMask;
                     pctx.memAccessDelay = S32xMemAccessDelay.SYS_REG;
                     pctx.buf = cache[cpu.ordinal()].getDataArray();
-                    pctx.pcMasked = pc & mask;
+                    pctx.pcMasked = pc & dataArrayMask;
                 } else {
                     LOG.error("{} Unhandled prefetch: {}", cpu, th(pc));
                     throw new RuntimeException("Unhandled prefetch: " + th(pc));

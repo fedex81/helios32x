@@ -76,6 +76,7 @@ public class Sh2Impl implements Sh2 {
 	private void push(int data) {
 		ctx.registers[15] -= 4;
 		memory.write32(ctx.registers[15], data);
+		checkStack();
 //		System.out.println(ctx.sh2TypeCode + " PUSH SP: " + th(ctx.registers[15])
 //				+ "," + th(data));
 	}
@@ -90,10 +91,10 @@ public class Sh2Impl implements Sh2 {
 	}
 
 	private void checkStack() {
-		int curr = ctx.cpuAccess.ordinal();
-		int other = (curr + 1) & 1;
-		if (curr == 0 && ctx.registers[15] < contexts[other].registers[15]) {
-			LOG.error("{} Stack smashing: {} vs {} {}", ctx.cpuAccess, th(ctx.registers[15]),
+		//X-men
+		if ((ctx.registers[15] & 0x0FF0_0000) == 0x0600_0000 && ctx.registers[15] < 0x603_f800 && ctx.cpuAccess.ordinal() == 0) {
+			int other = (ctx.cpuAccess.ordinal() + 1) & 1;
+			LOG.error("{} Stack overflow: {} vs {} {}", ctx.cpuAccess, th(ctx.registers[15]),
 					CpuDeviceAccess.cdaValues[other], th(contexts[other].registers[15]));
 		}
 	}
