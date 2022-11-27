@@ -48,10 +48,10 @@ public final class Sh2Memory implements IMemory {
 		bios[MASTER.ordinal()] = biosHolder.getBiosData(MASTER);
 		bios[SLAVE.ordinal()] = biosHolder.getBiosData(SLAVE);
 		sdram = ByteBuffer.allocateDirect(SH2_SDRAM_SIZE);
-		reInitCache(enableCache);
 		romSize = rom.capacity();
 		romMask = Util.getRomMask(romSize);
 		LOG.info("Rom size: {}, mask: {}", th(romSize), th(romMask));
+		reInitCache(enableCache);
 	}
 
 	public void reInitCache(boolean enableCache) {

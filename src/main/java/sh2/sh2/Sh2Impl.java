@@ -6,6 +6,7 @@ import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
+import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.Sh2MMREG;
 import sh2.dict.S32xDict;
 import sh2.sh2.device.IntControl;
@@ -58,6 +59,8 @@ public class Sh2Impl implements Sh2 {
 
 	public static boolean tasReadNoCache = true;
 
+	private final Sh2Context[] contexts = new Sh2Context[2];
+
 	public void reset(Sh2Context ctx) {
 		Md32xRuntimeData.setAccessTypeExt(ctx.cpuAccess);
 		ctx.VBR = 0;
@@ -65,6 +68,7 @@ public class Sh2Impl implements Sh2 {
 		ctx.SR = flagIMASK;
 		ctx.registers[15] = memory.read32(4); //SP
 		ctx.cycles = Sh2Context.burstCycles;
+		contexts[ctx.cpuAccess.ordinal()] = ctx;
 		LOG.info("{} Reset, PC: {}, SP: {}", ctx.cpuAccess, th(ctx.PC), th(ctx.registers[15]));
 	}
 
@@ -83,6 +87,15 @@ public class Sh2Impl implements Sh2 {
 //				+ "," + Integer.toHexString(res));
 		ctx.registers[15] += 4;
 		return res;
+	}
+
+	private void checkStack() {
+		int curr = ctx.cpuAccess.ordinal();
+		int other = (curr + 1) & 1;
+		if (curr == 0 && ctx.registers[15] < contexts[other].registers[15]) {
+			LOG.error("{} Stack smashing: {} vs {} {}", ctx.cpuAccess, th(ctx.registers[15]),
+					CpuDeviceAccess.cdaValues[other], th(contexts[other].registers[15]));
+		}
 	}
 
 	protected final void ILLEGAL(int code) {
@@ -1793,6 +1806,7 @@ public class Sh2Impl implements Sh2 {
 		final IntControl intControl = ctx.devices.intC;
 		for (; ctx.cycles >= 0; ) {
 			decode(memory.fetch(ctx.PC, ctx.cpuAccess));
+//			checkStack();
 			sh2MMREG.deviceStep();
 			ctx.cycles -= Md32xRuntimeData.resetCpuDelayExt();
 			if (acceptInterrupts(intControl.getInterruptLevel())) {

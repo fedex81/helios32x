@@ -90,6 +90,7 @@ public class Sh2Prefetch {
         sdram = memory.sdram;
         rom = memory.rom;
         bios = memory.bios;
+        assert romMask > 0 && romSize > 0;
     }
 
     public PrefetchContext prefetchCreate(int pc, CpuDeviceAccess cpu) {
@@ -113,6 +114,7 @@ public class Sh2Prefetch {
                 pctx.pcMasked = pc & SH2_SDRAM_MASK;
                 pctx.memAccessDelay = SDRAM;
                 pctx.buf = sdram;
+                assert (pctx.start & 0xFF_FFF) < 0x40_000 : "Invalid SH2 area: " + th(pc);
                 break;
             case 2:
             case 0x22:
@@ -121,6 +123,7 @@ public class Sh2Prefetch {
                 pctx.pcMasked = pc & romMask;
                 pctx.memAccessDelay = S32xMemAccessDelay.ROM;
                 pctx.buf = rom;
+                assert pctx.start < 0x400_000 : "Invalid SH2 area: " + th(pc);
                 break;
             case 0:
             case 0x20:
@@ -129,9 +132,11 @@ public class Sh2Prefetch {
                 pctx.end = pctx.end & bios[cpu.ordinal()].padMask;
                 pctx.pcMasked = pc;
                 pctx.memAccessDelay = S32xMemAccessDelay.BOOT_ROM;
+                assert pctx.start < 0x4_000 : "Invalid SH2 area: " + th(pc);
                 break;
             default:
                 if ((pc >>> PC_CACHE_AREA_SHIFT) == 0xC) {
+                    //TODO check this
                     int twoWay = cache[cpu.ordinal()].getCacheContext().twoWay;
                     final int mask = Sh2Cache.DATA_ARRAY_MASK >> twoWay;
                     pctx.start = Math.max(0, pctx.start) & mask;
