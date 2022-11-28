@@ -100,7 +100,7 @@ public class Sh2Impl implements Sh2 {
 	private void push(int data) {
 		ctx.registers[15] -= 4;
 		memory.write32(ctx.registers[15], data);
-		sod.checkStack(ctx);
+//		sod.checkStack(ctx);
 //		System.out.println(ctx.sh2TypeCode + " PUSH SP: " + th(ctx.registers[15])
 //				+ "," + th(data));
 	}

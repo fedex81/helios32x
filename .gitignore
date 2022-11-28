@@ -6,6 +6,7 @@ out
 sh4_code
 helios.prefs
 test_output.log
+notes*
 
 # Project exclude paths
 /build/
