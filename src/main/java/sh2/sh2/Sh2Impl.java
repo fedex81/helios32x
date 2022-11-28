@@ -58,8 +58,32 @@ public class Sh2Impl implements Sh2 {
 	}
 
 	public static boolean tasReadNoCache = true;
+	private StackOverflowDetector sod = new StackOverflowDetector();
 
-	private final Sh2Context[] contexts = new Sh2Context[2];
+	static class StackOverflowDetector {
+		int lowStack = Integer.MAX_VALUE;
+		CpuDeviceAccess cpuLowStack;
+		final Sh2Context[] contexts = new Sh2Context[2];
+
+		public void checkStack(Sh2Context ctx) {
+			if (ctx.cpuAccess == cpuLowStack) {
+				return;
+			}
+			if ((ctx.registers[15] & 0x0FF0_0000) == 0x0600_0000 && (ctx.registers[15] & 0xFFF_FFFF) == lowStack) {
+				int other = (ctx.cpuAccess.ordinal() + 1) & 1;
+				LOG.error("{} Stack overflow: {} vs {} {}", ctx.cpuAccess, th(ctx.registers[15]),
+						CpuDeviceAccess.cdaValues[other], th(contexts[other].registers[15]));
+			}
+		}
+
+		public void reset(Sh2Context ctx) {
+			contexts[ctx.cpuAccess.ordinal()] = ctx;
+			lowStack = Math.min(lowStack, ctx.registers[15]);
+			if (lowStack == ctx.registers[15]) {
+				cpuLowStack = ctx.cpuAccess;
+			}
+		}
+	}
 
 	public void reset(Sh2Context ctx) {
 		Md32xRuntimeData.setAccessTypeExt(ctx.cpuAccess);
@@ -68,7 +92,7 @@ public class Sh2Impl implements Sh2 {
 		ctx.SR = flagIMASK;
 		ctx.registers[15] = memory.read32(4); //SP
 		ctx.cycles = Sh2Context.burstCycles;
-		contexts[ctx.cpuAccess.ordinal()] = ctx;
+		sod.reset(ctx);
 		LOG.info("{} Reset, PC: {}, SP: {}", ctx.cpuAccess, th(ctx.PC), th(ctx.registers[15]));
 	}
 
@@ -76,7 +100,7 @@ public class Sh2Impl implements Sh2 {
 	private void push(int data) {
 		ctx.registers[15] -= 4;
 		memory.write32(ctx.registers[15], data);
-		checkStack();
+		sod.checkStack(ctx);
 //		System.out.println(ctx.sh2TypeCode + " PUSH SP: " + th(ctx.registers[15])
 //				+ "," + th(data));
 	}
@@ -88,15 +112,6 @@ public class Sh2Impl implements Sh2 {
 //				+ "," + Integer.toHexString(res));
 		ctx.registers[15] += 4;
 		return res;
-	}
-
-	private void checkStack() {
-		//X-men
-		if ((ctx.registers[15] & 0x0FF0_0000) == 0x0600_0000 && ctx.registers[15] < 0x603_f800 && ctx.cpuAccess.ordinal() == 0) {
-			int other = (ctx.cpuAccess.ordinal() + 1) & 1;
-			LOG.error("{} Stack overflow: {} vs {} {}", ctx.cpuAccess, th(ctx.registers[15]),
-					CpuDeviceAccess.cdaValues[other], th(contexts[other].registers[15]));
-		}
 	}
 
 	protected final void ILLEGAL(int code) {

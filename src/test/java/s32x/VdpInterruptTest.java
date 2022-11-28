@@ -15,14 +15,14 @@ import sh2.sh2.device.IntControl.Sh2Interrupt;
 
 import static omegadrive.util.Util.th;
 import static sh2.dict.S32xDict.RegSpecS32x.SH2_HCOUNT_REG;
-import static sh2.sh2.device.IntControl.Sh2Interrupt.HINT_10;
+import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
 
 /**
  * Federico Berti
  * <p>
  * Copyright 2021
  */
-public class VdpHintTest {
+public class VdpInterruptTest {
 
     public static final int HCOUNT_OFFSET = 0x4000 + SH2_HCOUNT_REG.addr;
 
@@ -63,6 +63,57 @@ public class VdpHintTest {
         s32XMMREG.write(MarsRegTestUtil.SH2_INT_MASK, 0x84, Size.WORD); //enable HINT, HEN = 1
         int hint = testInternal(VideoMode.NTSCU_H40_V28, true);
         Assertions.assertTrue((hint & 0xFF00) == 0x500); //0x519
+    }
+
+    /**
+     * Partially follows Ares impl
+     */
+    @Test
+    public void testHBlankOffAffectIntPendingState() {
+        setReloadHCount(0);
+        s32XMMREG.setHBlank(false);
+        s32XMMREG.write(MarsRegTestUtil.SH2_INT_MASK, 0x4, Size.WORD); //enable HINT
+
+        s32XMMREG.setHBlank(true);
+        int lev = masterIntControl.getInterruptLevel();
+        Sh2Interrupt actualInt = IntControl.intVals[lev];
+        Assertions.assertEquals(HINT_10, actualInt);
+
+        //unset int_pending but the interrupt remains triggered until cleared
+        s32XMMREG.setHBlank(false);
+        lev = masterIntControl.getInterruptLevel();
+        actualInt = IntControl.intVals[lev];
+        Assertions.assertEquals(HINT_10, actualInt);
+
+        masterIntControl.clearCurrentInterrupt();
+        lev = masterIntControl.getInterruptLevel();
+        actualInt = IntControl.intVals[lev];
+        Assertions.assertEquals(NONE_0, actualInt);
+    }
+
+    /**
+     * Partially follows Ares impl
+     */
+    @Test
+    public void testVBlankOffAffectIntPendingState() {
+        s32XMMREG.setVBlank(false);
+        s32XMMREG.write(MarsRegTestUtil.SH2_INT_MASK, 0x8, Size.WORD); //enable VINT
+
+        s32XMMREG.setVBlank(true);
+        int lev = masterIntControl.getInterruptLevel();
+        Sh2Interrupt actualInt = IntControl.intVals[lev];
+        Assertions.assertEquals(VINT_12, actualInt);
+
+        //unset int_pending but the interrupt remains triggered until cleared
+        s32XMMREG.setVBlank(false);
+        lev = masterIntControl.getInterruptLevel();
+        actualInt = IntControl.intVals[lev];
+        Assertions.assertEquals(VINT_12, actualInt);
+
+        masterIntControl.clearCurrentInterrupt();
+        lev = masterIntControl.getInterruptLevel();
+        actualInt = IntControl.intVals[lev];
+        Assertions.assertEquals(NONE_0, actualInt);
     }
 
     private void setReloadHCount(int hCount) {
