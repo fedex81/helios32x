@@ -56,11 +56,8 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         testLongWriteInternal();
         testCacheReplaceWithPrefetchInternal();
         testCacheEffectsOnPrefetchInternal();
-        //TODO check this, bug?
-        if (!c.drcEn || !c.prefetchEn || !c.prefetchEn) {
-            testRamCacheToggleInternal();
-            testRamCacheMasterSlaveInternal();
-        }
+        testRamCacheToggleInternal();
+        testRamCacheMasterSlaveInternal();
     }
 
     @Disabled

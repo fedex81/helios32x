@@ -36,6 +36,7 @@ import static sh2.dict.S32xMemAccessDelay.SDRAM;
 import static sh2.sh2.Sh2Debug.pcAreaMaskMap;
 import static sh2.sh2.Sh2Helper.SH2_NOT_VISITED;
 import static sh2.sh2.Sh2Instructions.generateInst;
+import static sh2.sh2.cache.Sh2Cache.CACHE_BYTES_PER_LINE;
 import static sh2.sh2.drc.Ow2DrcOptimizer.PollerCtx;
 
 /**
@@ -399,27 +400,36 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         invalidateMemoryRegion(writer, blockOwner, addr, end, val, false, size);
     }
 
+    //TODO test
     private void invalidateMemoryRegion(CpuDeviceAccess writer, CpuDeviceAccess blockOwner,
                                         int addr, int end, int val, boolean cacheOnly, Size size) {
         boolean ignore = addr >>> SH2_PC_AREA_SHIFT > 0xC0;
         if (ignore) {
             return;
         }
-        Sh2PcInfoWrapper pcInfoWrapper = SH2_NOT_VISITED;
         final int addrEven = addr & ~1;
         //find closest block
         for (int i = addrEven; i > addrEven - SH2_DRC_MAX_BLOCK_LEN; i -= 2) {
-            Sh2PcInfoWrapper piw = Sh2Helper.get(addrEven, blockOwner);
+            if (!Sh2Helper.isValidPc(i, blockOwner)) {
+                break;
+            }
+//            System.out.println(th(i));
+            Sh2PcInfoWrapper piw = Sh2Helper.get(i, blockOwner);
             if (piw == null || piw == SH2_NOT_VISITED || piw.block == Sh2Block.INVALID_BLOCK) {
                 continue;
             }
             final Sh2Block b = piw.block;
             var range = Range.closed(b.prefetchPc, b.prefetchPc + (b.prefetchLenWords << 1));
             if (range.contains(addr) || range.contains(end)) {
-                pcInfoWrapper = piw;
+                invalidateWrapper(writer, blockOwner, piw, cacheOnly, size, i, val);
             }
             break;
         }
+    }
+
+    private void invalidateWrapper(CpuDeviceAccess writer, CpuDeviceAccess blockOwner,
+                                   Sh2PcInfoWrapper pcInfoWrapper, boolean cacheOnly,
+                                   Size size, int addr, int val) {
         if (pcInfoWrapper != SH2_NOT_VISITED) {
             if (cacheOnly && !pcInfoWrapper.block.isCacheFetch()) {
                 return;
@@ -466,7 +476,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
     }
 
-    //TODO this should check cache contents vs SDRAM to detect inconsistencies
+    //TODO remove
     public void invalidateAllPrefetch(CpuDeviceAccess cpu) {
         if (sh2Config.cacheEn) {
 //            prefetchMap[cpu.ordinal()].clear();
@@ -474,8 +484,27 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
     }
 
+    //TODO should we check cache contents vs SDRAM to detect inconsistencies?
+    //TODO test
     public void invalidateCachePrefetch(Sh2Cache.CacheInvalidateContext ctx) {
-        invalidateMemoryRegion(ctx.cpu, ctx.cpu, ctx.prevCacheAddr, ctx.prevCacheAddr + 16, 0, true, null);
+        int addr = ctx.prevCacheAddr;
+        int end = ctx.prevCacheAddr + CACHE_BYTES_PER_LINE;
+        boolean ignore = addr >>> SH2_PC_AREA_SHIFT > 0xC0;
+        if (ignore) {
+            return;
+        }
+        final int addrEven = end;
+        for (int i = addrEven; i > addr - SH2_DRC_MAX_BLOCK_LEN; i -= 2) {
+            if (!Sh2Helper.isValidPc(i, ctx.cpu)) {
+                break;
+            }
+            Sh2PcInfoWrapper piw = Sh2Helper.get(i, ctx.cpu);
+            if (piw == null || piw == SH2_NOT_VISITED || piw.block == Sh2Block.INVALID_BLOCK) {
+                continue;
+            }
+            final Sh2Block b = piw.block;
+            invalidateWrapper(ctx.cpu, ctx.cpu, piw, true, null, i, -1);
+        }
     }
 
     //TODO this should be test only, move it somewhere else

@@ -307,8 +307,11 @@ public class Sh2CacheImpl implements Sh2Cache {
         //cache enable does not clear the cache
         if (prevCaEn != ctx.cacheEn) {
             if (verbose) LOG.info("{} Cache enable: {}", cpu, ctx.cacheEn);
-            if (ctx.cacheEn > 0) {
-                memory.invalidateAllPrefetch(cpu);
+            //only invalidate prefecth stuff
+            for (int entry = 0; entry < CACHE_LINES; entry++) {
+                for (int way = 0; way < CACHE_WAYS; way++) {
+                    invalidatePrefetcher(ca.way[way][entry], entry, -1);
+                }
             }
         }
     }
@@ -387,12 +390,18 @@ public class Sh2CacheImpl implements Sh2Cache {
             boolean force = addr < 0;
             invalidCtx.line = line;
             invalidCtx.prevCacheAddr = line.tag | (entry << ENTRY_SHIFT);
-            int nonCached = force ? 0 : readMemoryUncachedNoDelay(memory, invalidCtx.prevCacheAddr, Size.WORD);
+            boolean invalidate = force;
             invalidCtx.cacheReadAddr = force ? invalidCtx.prevCacheAddr : addr;
-            int cached = getCachedData(line.data, invalidCtx.prevCacheAddr & LINE_MASK, Size.WORD);
-            if (force || nonCached != cached) {
+            if (!invalidate) {
+                int nonCached = readMemoryUncachedNoDelay(memory, invalidCtx.prevCacheAddr, Size.WORD);
+                int cached = getCachedData(line.data, invalidCtx.prevCacheAddr & LINE_MASK, Size.WORD);
+                invalidate |= nonCached != cached;
+            }
+            if (invalidate) {
                 if (verbose)
-                    LOG.info("{} Cache miss on addr {} , replacing line {}", cpu, th(addr), th(line.tag));
+                    LOG.info("{} {} on addr {}, cache line {}", force ? "Force invalidate" :
+                                    "Cache miss, replacing line",
+                            cpu, th(addr), th(line.tag));
                 memory.invalidateCachePrefetch(invalidCtx);
             }
         }

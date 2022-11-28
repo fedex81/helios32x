@@ -71,7 +71,7 @@ public class Sh2CacheTest {
     }
 
     protected static Stream<Sh2Config> fileProvider() {
-        return Arrays.stream(configList);
+        return Arrays.stream(configList); //.filter(c -> c.prefetchEn && c.cacheEn && c.drcEn).limit(1);
     }
 
     @ParameterizedTest

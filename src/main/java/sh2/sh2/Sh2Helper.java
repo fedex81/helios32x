@@ -29,6 +29,7 @@ public class Sh2Helper {
 
     public static final Sh2PcInfoWrapper SH2_NOT_VISITED = new Sh2PcInfoWrapper(0, 0);
     private static Sh2PcInfoWrapper[][] piwArr;
+    private static final Sh2PcInfoWrapper[] empty = new Sh2PcInfoWrapper[0];
 
     public final static class Sh2PcInfoWrapper extends CpuFastDebug.PcInfoWrapper {
 
@@ -85,12 +86,20 @@ public class Sh2Helper {
 
         for (int i = 0; i < ctx.pcAreasMaskMap.length; ++i) {
             int pcAreaSize = ctx.pcAreasMaskMap[i] + 1;
+            pcInfoWrapper[i] = empty;
             if (pcAreaSize > 1) {
                 pcInfoWrapper[i] = new Sh2PcInfoWrapper[pcAreaSize];
                 Arrays.fill(pcInfoWrapper[i], SH2_NOT_VISITED);
             }
         }
         return pcInfoWrapper;
+    }
+
+    public static boolean isValidPc(int pc, CpuDeviceAccess cpu) {
+        getPcInfoWrapper();
+        assert (pc & 1) == 0 : th(pc);
+        final int piwPc = pc | cpu.ordinal();
+        return piwArr[piwPc >>> SH2_PC_AREA_SHIFT].length > 0;
     }
 
     /**
