@@ -5,6 +5,7 @@ import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
 import org.slf4j.event.Level;
+import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xDict.S32xRegType;
@@ -52,14 +53,24 @@ public class Ow2DrcOptimizer {
     public enum PollType {
         UNKNOWN,
         NONE,
-        BUSY_LOOP,
-        SDRAM,
+        BUSY_LOOP(true),
+        SDRAM(true),
         FRAMEBUFFER,
-        COMM,
+        COMM(true),
         DMA,
         PWM,
-        SYS,
-        VDP;
+        SYS(true),
+        VDP(true);
+
+        public final boolean supported;
+
+        PollType() {
+            this(false);
+        }
+
+        PollType(boolean supported) {
+            this.supported = supported;
+        }
     }
     private static final Predicate<Integer> isCmpTstOpcode = Sh2Debug.isTstOpcode.or(Sh2Debug.isCmpOpcode);
 
@@ -360,17 +371,16 @@ public class Ow2DrcOptimizer {
         PollerCtx toSet = NO_POLLER;
         if (bpd.isPoller) {
             block.pollType = getAccessType(bpd.memLoadTarget);
+            log |= bpd.branchDestPc == bpd.pc;
             if (block.pollType != UNKNOWN) {
                 pctx.event = SysEvent.valueOf(block.pollType.name());
                 log = true;
-                //TODO not supported
-                boolean isSupported = ENABLE_POLL_DETECT && block.pollType != DMA && block.pollType != PWM;
-                if (isSupported) {
+                if (ENABLE_POLL_DETECT && block.pollType.supported) {
                     supported = true;
                     toSet = pctx;
+//                    log = false;
                 }
             }
-            log |= bpd.branchDestPc == bpd.pc;
             log |= bpd.memLoadTargetSize == null && block.pollType != UNKNOWN;
             if (LOG_POLL_DETECT && log) {
                 LOG.makeLoggingEventBuilder(supported ? Level.INFO : Level.ERROR).log(
@@ -396,25 +406,28 @@ public class Ow2DrcOptimizer {
     //TODO poll on cached address??? tas poll is allowed even on cached addresses
     //TODO DoomRes polls the framebuffer
     public static PollType getAccessType(int address) {
-        //TODO fix
+        //TODO check, is it necessary/relevant
         final boolean isCache = false; //(address >>> PC_CACHE_AREA_SHIFT) == 0 && sh2Cache.getCacheContext().cacheEn > 0;
         if (isCache) {
             LOG.warn("Polling on a cache address: {}", th(address));
             System.err.println("Polling on a cache address: " + th(address));
         }
         switch (address >>> SH2_PC_AREA_SHIFT) {
-            case 0x6: //DoomRes tas poll
+            case 0x6:
             case 0x26:
                 return SDRAM;
-//            case 0x24:
-//                return FRAMEBUFFER;
+            case 0x24:
+            case 0x4:
+                return FRAMEBUFFER;
             case 0:
-            case 0x20:
+            case 0x20: {
                 PollType pt = ptMap.get(S32xDict.getRegSpec(MASTER, address).deviceType);
 //                assert pt != null : th(address);
                 return pt == null ? NONE : pt;
+            }
             default:
-                LOG.error("Unexpected access type for polling: {}", th(address));
+                LOG.error("{} Unexpected {} access type for polling: {}", Md32xRuntimeData.getAccessTypeExt(), NONE
+                        , th(address));
                 return NONE;
         }
     }

@@ -5,7 +5,6 @@ import omegadrive.memory.IMemoryProvider;
 import omegadrive.memory.MemoryProvider;
 import omegadrive.util.RomHolder;
 import omegadrive.util.Size;
-import omegadrive.util.Util;
 import org.junit.jupiter.api.Assertions;
 import s32x.util.SystemTestUtil;
 import sh2.*;
@@ -58,20 +57,26 @@ public class MarsRegTestUtil {
     }
 
     public static Sh2LaunchContext createTestInstance() {
-        return createTestInstance(new byte[0x1000]);
+        return createTestInstance(0x1000);
     }
 
-    public static Sh2LaunchContext createTestInstance(byte[] brom) {
+    /**
+     * NOTE: any array modification after this point, will be ignored by the emulated system
+     */
+    public static Sh2LaunchContext createTestInstance(int[] irom) {
         Md32xRuntimeData.releaseInstance();
         Md32xRuntimeData.newInstance();
-        RomHolder romHolder = new RomHolder(Util.toUnsignedIntArray(brom));
+        RomHolder romHolder = new RomHolder(irom);
         Sh2LaunchContext lc = MarsLauncherHelper.setupRom(new S32xBus(), romHolder, createTestBiosHolder());
-
-        int[] irom = Util.toSignedIntArray(brom);
         IMemoryProvider mp = MemoryProvider.createGenesisInstance();
         mp.setRomData(irom);
         SystemTestUtil.setupNewMdSystem(lc.bus, mp);
+        lc.bus.setRom(lc.rom);
         return lc;
+    }
+
+    public static Sh2LaunchContext createTestInstance(int romSize) {
+        return createTestInstance(new int[romSize]);
     }
 
     private static BiosHolder createTestBiosHolder() {

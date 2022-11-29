@@ -104,6 +104,21 @@ public class Sh2Helper {
         return piwArr[piwPc >>> SH2_PC_AREA_SHIFT].length > 0;
     }
 
+    public static Sh2PcInfoWrapper getOrDefault(int pc, CpuDeviceAccess cpu) {
+        getPcInfoWrapper();
+        assert (pc & 1) == 0 : th(pc);
+        final int piwPc = pc | cpu.ordinal();
+        final Sh2PcInfoWrapper[] piwSubArr = piwArr[piwPc >>> SH2_PC_AREA_SHIFT];
+        if (piwSubArr.length == 0) {
+            return SH2_NOT_VISITED;
+        }
+        //TODO cache-through vs cached
+        Sh2PcInfoWrapper piw = piwSubArr[piwPc & Sh2Debug.pcAreaMaskMap[piwPc >>> SH2_PC_AREA_SHIFT]];
+        assert (piw != SH2_NOT_VISITED
+                ? piw.pcMasked == (pc & Sh2Debug.pcAreaMaskMap[pc >>> SH2_PC_AREA_SHIFT]) : true) : th(piwPc) + "," + th(piw.pcMasked);
+        return piw;
+    }
+
     /**
      * area = pc >>> SH2_PC_AREA_SHIFT;
      * pcMasked = pc & pcAreaMaskMap[area]

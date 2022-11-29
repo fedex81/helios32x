@@ -3,19 +3,14 @@ package sh2.sh2.prefetch;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import s32x.MarsRegTestUtil;
-import sh2.MarsLauncherHelper;
 import sh2.Md32xRuntimeData;
-import sh2.S32xUtil;
 import sh2.S32xUtil.CpuDeviceAccess;
-import sh2.Sh2Memory;
 import sh2.dict.S32xDict;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2.Sh2Config;
-import sh2.sh2.Sh2Helper;
+import sh2.sh2.Sh2MultiTestBase;
 import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.cache.Sh2CacheImpl;
 import sh2.sh2.drc.Sh2Block;
@@ -37,11 +32,7 @@ import static sh2.sh2.Sh2Disassembler.*;
  * <p>
  * Copyright 2022
  **/
-public class Sh2CacheTest {
-
-    private MarsLauncherHelper.Sh2LaunchContext lc;
-    protected Sh2Memory memory;
-    private byte[] rom;
+public class Sh2CacheTest extends Sh2MultiTestBase {
 
     public static final int ILLEGAL = 0;
     public static final int NOP = 9;
@@ -49,30 +40,8 @@ public class Sh2CacheTest {
     public static final int CLRMAC = 0x28;
     public static final int JMP_0 = 0x402b;
 
-    protected static int RAM_SIZE = 0x100;
-    protected static int ROM_SIZE = 0x1000;
-
-    protected static Sh2Config configCacheEn = new Sh2Config(true, true, true, false, false);
-    protected static Sh2Config config = configCacheEn;
-
-    protected static Sh2Config[] configList;
-
-    static {
-        int parNumber = 5;
-        int combinations = 1 << parNumber;
-        configList = new Sh2Config[combinations];
-        assert combinations < 0x100;
-        int pn = parNumber;
-        for (int i = 0; i < combinations; i++) {
-            byte ib = (byte) i;
-            configList[i] = new Sh2Config(S32xUtil.getBitFromByte(ib, pn - 1) > 0,
-                    S32xUtil.getBitFromByte(ib, pn - 2) > 0, S32xUtil.getBitFromByte(ib, pn - 3) > 0,
-                    S32xUtil.getBitFromByte(ib, pn - 4) > 0, S32xUtil.getBitFromByte(ib, pn - 5) > 0);
-        }
-    }
-
     protected static Stream<Sh2Config> fileProvider() {
-        return Arrays.stream(configList); //.filter(c -> c.prefetchEn && c.cacheEn && c.drcEn).limit(1);
+        return Arrays.stream(configList);//.filter(c -> c.prefetchEn && c.drcEn).limit(1);
     }
 
     @ParameterizedTest
@@ -94,35 +63,11 @@ public class Sh2CacheTest {
         r.run();
     }
 
-    @BeforeEach
-    public void before() {
-        Sh2Config.reset(config);
-        rom = new byte[ROM_SIZE];
-        lc = MarsRegTestUtil.createTestInstance(rom);
-        lc.s32XMMREG.aden = 1;
-        memory = (Sh2Memory) lc.memory;
-        Md32xRuntimeData.releaseInstance();
-        Md32xRuntimeData.newInstance();
-        initRam(RAM_SIZE);
-    }
-
-    protected void resetMemory() {
-        rom = new byte[ROM_SIZE];
-        initRam(RAM_SIZE);
-    }
-
+    @Override
     protected void initRam(int len) {
-        for (int i = 0; i < len; i += 2) {
-            memory.write16(SH2_START_SDRAM | i, NOP);
-        }
+        super.initRam(len);
         memory.write16(SH2_START_SDRAM | 4, JMP_0); //JMP 0
         memory.write16(SH2_START_SDRAM | 0x18, JMP_0); //JMP 0
-    }
-
-    protected void resetCacheConfig(Sh2Config c) {
-        config = c;
-        before();
-        Sh2Helper.clear();
     }
 
     protected void testCacheOffInternal() {

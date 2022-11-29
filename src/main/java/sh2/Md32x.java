@@ -44,14 +44,15 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     protected final static int SH2_CYCLES_PER_STEP;
     //3 cycles @ 23Mhz = 1 cycle @ 7.67, 23.01/7.67 = 3
     protected final static int SH2_CYCLE_RATIO = 3;
-
-    //TODO vr needs ~ 1/6,SH2_CYCLES_PER_STEP=32
     private static final double SH2_CYCLE_DIV = 1 / Double.parseDouble(System.getProperty("helios.32x.sh2.cycle.div", "3.0"));
     private static final int CYCLE_TABLE_LEN_MASK = 0xFF;
     private final static int[] sh2CycleTable = new int[CYCLE_TABLE_LEN_MASK + 1];
     private final static Sh2Config sh2Config;
 
     public static final int SH2_SLEEP_VALUE = -10000;
+
+    //TODO vr breaks with poll1, also it keep re-analyzing the same block,
+    //TODO is it continuosly recreated or do we just keep calling polling detect on it?
 
     static {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));

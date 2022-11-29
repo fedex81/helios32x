@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import sh2.MarsLauncherHelper;
 import sh2.S32xUtil;
 
+import static omegadrive.util.Util.th;
+import static omegadrive.util.Util.toUnsignedIntArray;
 import static s32x.MarsRegTestUtil.readBus;
 import static s32x.MarsRegTestUtil.setRv;
 import static sh2.S32xUtil.CpuDeviceAccess.*;
@@ -20,13 +22,12 @@ import static sh2.dict.S32xDict.*;
 public class RomAccessTest {
 
     private MarsLauncherHelper.Sh2LaunchContext lc;
-    private byte[] rom;
 
     @BeforeEach
     public void before() {
-        rom = new byte[0x1000];
+        byte[] rom = new byte[0x1000];
         MarsRegTestUtil.fillAsMdRom(rom, true);
-        lc = MarsRegTestUtil.createTestInstance(rom);
+        lc = MarsRegTestUtil.createTestInstance(toUnsignedIntArray(rom));
         lc.s32XMMREG.aden = 1;
     }
 
@@ -41,7 +42,7 @@ public class RomAccessTest {
         setRv(lc, 0);
         res = readBus(lc, cpu, M68K_START_ROM_MIRROR + 0x200, Size.BYTE);
         //random values are guaranteed not be 0 or 0xFF
-        Assertions.assertTrue(res != 0 && res != 0xFF);
+        Assertions.assertTrue(res != 0 && res != 0xFF, th(res));
 
         res = readBus(lc, cpu, M68K_START_ROM_MIRROR_BANK + 0x202, Size.BYTE);
         Assertions.assertTrue(res != 0 && res != 0xFF);

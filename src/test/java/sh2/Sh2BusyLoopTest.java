@@ -751,7 +751,7 @@ public class Sh2BusyLoopTest {
     }
 
     private boolean isPollSequence(int[] opcodes) {
-        return getPollType(opcodes).ordinal() > Ow2DrcOptimizer.PollType.BUSY_LOOP.ordinal();
+        return getPollType(opcodes).ordinal() > Ow2DrcOptimizer.PollType.BUSY_LOOP.ordinal() && getPollType(opcodes).supported;
     }
 
     private boolean isBusyLoopSequence(int[] opcodes) {

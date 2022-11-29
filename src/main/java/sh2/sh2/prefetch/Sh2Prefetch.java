@@ -357,6 +357,9 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     public void dataWriteWord(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
+        if (addr >= 0 && addr < 0x100) { //Doom res 2.2
+            return;
+        }
         boolean isCacheArray = addr >>> SH2_PC_AREA_SHIFT == 0xC0;
         boolean isWriteThrough = addr >>> 28 == 2;
 
@@ -389,11 +392,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         final int addrEven = addr & ~1;
         //find closest block
         for (int i = addrEven; i > addrEven - SH2_DRC_MAX_BLOCK_LEN; i -= 2) {
-            if (!Sh2Helper.isValidPc(i, blockOwner)) {
-                break;
-            }
-//            System.out.println(th(i));
-            Sh2PcInfoWrapper piw = Sh2Helper.get(i, blockOwner);
+            Sh2PcInfoWrapper piw = Sh2Helper.getOrDefault(i, blockOwner);
             if (piw == null || piw == SH2_NOT_VISITED || piw.block == Sh2Block.INVALID_BLOCK) {
                 continue;
             }
@@ -402,7 +401,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             if (range.contains(addr) || range.contains(end)) {
                 invalidateWrapper(writer, blockOwner, piw, cacheOnly, size, i, val);
             }
-            break;
+//            break;
         }
     }
 
@@ -416,10 +415,12 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             final Sh2Block block = pcInfoWrapper.block;
             assert block != Sh2Block.INVALID_BLOCK;
             assert size != Size.LONG;
-            //cosmic carnage
-            int prev = block.prefetchWords[((addr - block.prefetchPc) >> 1)];
-            if (prev == val) {
-                return;
+            if (!cacheOnly) {
+                //cosmic carnage
+                int prev = block.prefetchWords[((addr - block.prefetchPc) >> 1)];
+                if (prev == val) {
+                    return;
+                }
             }
             if (verbose) {
                 String s = LogHelper.formatMessage(
@@ -466,14 +467,10 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
         final int addrEven = end;
         for (int i = addrEven; i > addr - SH2_DRC_MAX_BLOCK_LEN; i -= 2) {
-            if (!Sh2Helper.isValidPc(i, ctx.cpu)) {
-                break;
-            }
-            Sh2PcInfoWrapper piw = Sh2Helper.get(i, ctx.cpu);
+            Sh2PcInfoWrapper piw = Sh2Helper.getOrDefault(i, ctx.cpu);
             if (piw == null || piw == SH2_NOT_VISITED || piw.block == Sh2Block.INVALID_BLOCK) {
                 continue;
             }
-            final Sh2Block b = piw.block;
             invalidateWrapper(ctx.cpu, ctx.cpu, piw, true, null, i, -1);
         }
     }

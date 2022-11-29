@@ -23,6 +23,7 @@ import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.*;
 import static sh2.sh2.cache.Sh2Cache.CACHE_BYTES_PER_LINE;
+import static sh2.sh2.prefetch.Sh2Prefetch.SH2_DRC_MAX_BLOCK_LEN;
 import static sh2.sh2.prefetch.Sh2PrefetchSimple.prefetchContexts;
 
 /**
@@ -247,8 +248,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
         checkFetch(MASTER, cacheAddr2, NOP);
 
-        //TODO check this, bug?
-        if (Sh2Config.get().cacheEn) {
+        if (!Sh2Config.get().prefetchEn) {
             return;
         }
         Collection<Sh2Block> l = getPrefetchBlocksAt(MASTER, cacheAddr2);
@@ -339,7 +339,11 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
     }
 
     protected void testCacheReplaceWithPrefetchInternal() {
+        if (!Sh2Config.get().prefetchEn || !Sh2Config.get().cacheEn) {
+            return;
+        }
         resetMemory();
+        //NOTE: this test doesn't run when !cacheEn
         super.testCacheReplaceInternal();
         Collection<Sh2Block> blocks = getPrefetchBlocksAt(MASTER, cacheReplace_cacheAddr[0]);
         blocks.stream().allMatch(b -> Sh2Block.INVALID_BLOCK == b);
@@ -362,7 +366,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
         Md32xRuntimeData.setAccessTypeExt(MASTER);
 
-        int prefetchEndAddress = cacheAddr + CACHE_BYTES_PER_LINE + 4;
+        int prefetchEndAddress = cacheAddr + CACHE_BYTES_PER_LINE + 6;
         memory.write16(prefetchEndAddress, JMP_0);
 
         //fetch triggers a cache refill on cacheAddr
@@ -376,17 +380,12 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         Assertions.assertEquals(1, l.size());
         Sh2Block block = l.stream().findFirst().get();
 
-        //TODO check, bug?
-        if (Sh2Config.get().prefetchEn && Sh2Config.get().drcEn) {
-            return;
-        }
-
         //JMP + delaySlot (NOP)
         int blockEndAddress = SH2_START_SDRAM_CACHE | block.end;
         int[] exp = {NOP, NOP, NOP, NOP, NOP, NOP, NOP, NOP};
         int baseCacheAddr = cacheAddr & 0xFFFF_FFF0;
         int outOfCacheAddr = baseCacheAddr + CACHE_BYTES_PER_LINE;
-        Assertions.assertEquals(prefetchEndAddress + 4, blockEndAddress);
+        Assertions.assertEquals(prefetchEndAddress + 2, blockEndAddress);
         Assertions.assertTrue(blockEndAddress > outOfCacheAddr);
 
         //fetch continued after to load data after the cache line limit
@@ -437,8 +436,8 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
     public static Collection<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int address) {
         Set<Sh2Block> l = new HashSet<>();
         if (Sh2Config.get().drcEn) {
-            for (int i = address - 16; i < address; i += 2) {
-                Sh2Block b = Sh2Helper.get(address, cpu).block;
+            for (int i = address - SH2_DRC_MAX_BLOCK_LEN; i <= address; i += 2) {
+                Sh2Block b = Sh2Helper.getOrDefault(i, cpu).block;
                 if (b != Sh2Block.INVALID_BLOCK) {
                     int end = b.prefetchPc + (b.end - b.start);
                     boolean include = b.prefetchPc <= address && end > address;
@@ -448,10 +447,12 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
                 }
             }
         } else {
+            assert Sh2Config.get().prefetchEn;
             if (prefetchContexts[cpu.ordinal()].prefetchPc == address) {
                 Sh2Block block = new Sh2Block(address, cpu);
                 block.start = address;
-                block.end = prefetchContexts[cpu.ordinal()].end;
+                //TODO mismatch between block.end and prefetch.end
+                block.end = prefetchContexts[cpu.ordinal()].end - 2;
                 block.prefetchWords = prefetchContexts[cpu.ordinal()].prefetchWords;
                 l.add(block);
             }

@@ -2,91 +2,98 @@ package sh2.sh2.drc;
 
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Table;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import sh2.IMemory;
-import sh2.MarsLauncherHelper;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
+import sh2.sh2.Sh2MultiTestBase;
 import sh2.sh2.prefetch.Sh2CacheTest;
 import sh2.sh2.prefetch.Sh2PrefetchTest;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.stream.Stream;
 
 import static omegadrive.util.Util.th;
-import static s32x.MarsRegTestUtil.createTestInstance;
 import static sh2.dict.S32xDict.SH2_START_ROM;
+import static sh2.sh2.prefetch.Sh2CacheTest.NOP;
 
 /**
  * Federico Berti
  * <p>
  * Copyright 2022
  * <p>
- * TODO fix
  */
-@Disabled
-public class Sh2DrcDecodeTest {
-    protected static Sh2.Sh2Config configDrcEn = new Sh2.Sh2Config(true, true, true, true, true);
-
-    private static MarsLauncherHelper.Sh2LaunchContext lc;
-    private Sh2 sh2;
-    private Sh2Context masterCtx;
-    private ByteBuffer rom;
+public class Sh2DrcDecodeTest extends Sh2MultiTestBase {
     private int pc = 0x100;
 
     //2 blocks:  the 2nd block jumps back to the start of the 1st
     private static int[] trace1 = {
-            Sh2CacheTest.NOP, //0
+            NOP, //0
             Sh2CacheTest.SETT, //2
             0xA000, //4: BRA 8
-            Sh2CacheTest.NOP, //6
+            NOP, //6
             Sh2CacheTest.CLRMAC, //8
             0xAFF9, //A: BRA 0
-            Sh2CacheTest.NOP, //C
+            NOP, //C
     };
 
     //2 blocks:  the 2nd block jumps back to the middle of the 1st
     //this generates 3 blocks
     private static int[] trace2 = {
-            Sh2CacheTest.NOP, //0
+            NOP, //0
             Sh2CacheTest.SETT, //2
             0xA000, //4: BRA 8
-            Sh2CacheTest.NOP, //6
+            NOP, //6
             Sh2CacheTest.CLRMAC, //8
             0xAFFA, //A: BRA 2
-            Sh2CacheTest.NOP, //C
+            NOP, //C
     };
 
-    @BeforeAll
-    public static void beforeAll() {
-        Sh2.Sh2Config.reset(configDrcEn);
-        lc = createTestInstance();
+    static {
+        config = configCacheEn;
     }
 
+    protected static Stream<Sh2.Sh2Config> fileProvider() {
+        return Arrays.stream(configList).filter(c -> c.prefetchEn && c.drcEn);
+    }
+
+    @ParameterizedTest
+    @MethodSource("fileProvider")
+    public void testDrc(Sh2.Sh2Config c) {
+        System.out.println("Testing: " + c);
+        Runnable r = () -> {
+            resetCacheConfig(c);
+            testTrace1();
+            testTrace2();
+        };
+        r.run();
+        r.run();
+    }
+
+    @Override
     @BeforeEach
     public void before() {
+        super.before();
         IMemory.MemoryDataCtx mdc = lc.memory.getMemoryDataCtx();
         int sp = mdc.rom.capacity() - 4;
         ByteBuffer bios = mdc.bios[CpuDeviceAccess.MASTER.ordinal()].buffer;
         bios.putInt(0, SH2_START_ROM | pc);
         bios.putInt(4, SH2_START_ROM | sp);
-        rom = mdc.rom;
-        sh2 = lc.sh2;
-        masterCtx = lc.masterCtx;
     }
 
-    @Test
-    public void testTrace1() {
-        System.out.println(Sh2.Sh2Config.get());
+    private void testTrace1() {
         setTrace(trace1, masterCtx);
         triggerDrcBlocks();
         sh2.run(masterCtx);
     }
 
-    @Test
-    public void testTrace2() {
-        System.out.println(Sh2.Sh2Config.get());
+    private void testTrace2() {
         setTrace(trace2, masterCtx);
         triggerDrcBlocks();
         sh2.run(masterCtx);
