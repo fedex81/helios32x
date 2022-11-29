@@ -256,7 +256,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         }
     }
 
-    @Override
+    //TODO fix
     public void invalidateAllPrefetch(CpuDeviceAccess cpu) {
         prefetchContexts[cpu.ordinal()].dirty = true;
     }

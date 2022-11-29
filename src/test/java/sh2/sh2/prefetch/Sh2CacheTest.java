@@ -15,6 +15,7 @@ import sh2.Sh2Memory;
 import sh2.dict.S32xDict;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2.Sh2Config;
+import sh2.sh2.Sh2Helper;
 import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.cache.Sh2CacheImpl;
 import sh2.sh2.drc.Sh2Block;
@@ -121,6 +122,7 @@ public class Sh2CacheTest {
     protected void resetCacheConfig(Sh2Config c) {
         config = c;
         before();
+        Sh2Helper.clear();
     }
 
     protected void testCacheOffInternal() {

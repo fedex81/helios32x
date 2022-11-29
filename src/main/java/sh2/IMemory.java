@@ -79,10 +79,6 @@ public interface IMemory extends Sh2Prefetcher {
         //do nothing
     }
 
-    default void invalidateAllPrefetch(CpuDeviceAccess cpuDeviceAccess) {
-        //do nothing
-    }
-
     default void newFrame() {
     }
 

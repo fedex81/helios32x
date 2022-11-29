@@ -213,8 +213,6 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         enableCache(SLAVE, true);
         clearCache(MASTER);
         clearCache(SLAVE);
-        memory.invalidateAllPrefetch(MASTER);
-        memory.invalidateAllPrefetch(SLAVE);
 
         //on a word boundary but not on a long boundary
         Assertions.assertTrue((cacheAddrDef & 1) == 0 && (cacheAddrDef & 3) != 0);

@@ -25,12 +25,10 @@ public interface Sh2Prefetcher {
 
     int fetchDelaySlot(int pc, FetchResult ft, CpuDeviceAccess cpu);
 
+    void invalidateCachePrefetch(Sh2Cache.CacheInvalidateContext ctx);
+
     default void dataWrite(CpuDeviceAccess cpu, int addr, int val, Size size) {
     }
-
-    void invalidateAllPrefetch(CpuDeviceAccess cpuDeviceAccess);
-
-    void invalidateCachePrefetch(Sh2Cache.CacheInvalidateContext ctx);
 
     default void newFrame() {
     }

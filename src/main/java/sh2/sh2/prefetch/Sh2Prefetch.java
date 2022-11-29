@@ -25,7 +25,10 @@ import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.drc.Sh2Block;
 
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static omegadrive.util.Util.th;
@@ -178,11 +181,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             opcodeWords[wordsCount++] = val;
             if (inst.isBranch) {
                 if (inst.isBranchDelaySlot) {
-                    //TODO readDirect breaks Chaotix, Vf and possibly more
-//                    int nextVal = isCache ? sh2Cache.readDirect(currentPc + 2, Size.WORD) :
-//                            block.fetchBuffer.getShort(bytePos) & 0xFFFF;
-                    int nextVal = isCache ? sh2Cache.cacheMemoryRead((currentPc + 2), Size.WORD) :
-                            fetchBuffer.getShort(bytePos + 2) & 0xFFFF;
+                    int nextVal = isCache ? sh2Cache.readDirect(currentPc + 2, Size.WORD) :
+                            block.fetchBuffer.getShort(bytePos + 2) & 0xFFFF;
                     opcodeWords[wordsCount++] = nextVal;
                 }
                 breakOnJump = true;
@@ -256,7 +256,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         Sh2Block prev = piw.block;
         assert prev != null;
         assert block != null && block.isValid();
-        assert SH2_NOT_VISITED.block == Sh2Block.INVALID_BLOCK : cpu + "," + th(pc);
+        assert SH2_NOT_VISITED.block == Sh2Block.INVALID_BLOCK : cpu + "," + th(pc) + "," + SH2_NOT_VISITED.block;
         if (prev != Sh2Block.INVALID_BLOCK && !block.equals(prev)) {
             LOG.warn("{} New block generated at PC: {}\nPrev: {}\nNew : {}", cpu, th(pc), prev, block);
         }
@@ -300,27 +300,6 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         S32xMemAccessDelay.addReadCpuDelay(block.fetchMemAccessDelay);
         int res = block.prefetchWords[pcDeltaWords];
         cacheOnFetch(pc, res, cpu);
-        return res;
-    }
-
-    @Deprecated
-    public int fetchDelaySlotOld(int pc, Sh2.FetchResult ft, CpuDeviceAccess cpu) {
-        if (!sh2Config.prefetchEn) {
-            return memory.read(pc, Size.WORD);
-        }
-        Sh2Block block = ft.block;
-        int pcDeltaWords = (pc - block.prefetchPc) >> 1;
-        if (collectStats) stats[cpu.ordinal()].pfTotal++;
-        int res;
-        boolean withinFetchWindow = pcDeltaWords < block.prefetchLenWords && pcDeltaWords >= 0;
-        if (withinFetchWindow) {
-            S32xMemAccessDelay.addReadCpuDelay(block.fetchMemAccessDelay);
-            res = block.prefetchWords[pcDeltaWords];
-            cacheOnFetch(pc, res, cpu);
-        } else {
-            res = memory.read(pc, Size.WORD);
-            if (collectStats) stats[cpu.ordinal()].addDelaySlotMiss();
-        }
         return res;
     }
 
@@ -476,14 +455,6 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
     }
 
-    //TODO remove
-    public void invalidateAllPrefetch(CpuDeviceAccess cpu) {
-        if (sh2Config.cacheEn) {
-//            prefetchMap[cpu.ordinal()].clear();
-//            if (verbose) LOG.info("{} invalidate all prefetch data", cpu);
-        }
-    }
-
     //TODO should we check cache contents vs SDRAM to detect inconsistencies?
     //TODO test
     public void invalidateCachePrefetch(Sh2Cache.CacheInvalidateContext ctx) {
@@ -505,22 +476,6 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             final Sh2Block b = piw.block;
             invalidateWrapper(ctx.cpu, ctx.cpu, piw, true, null, i, -1);
         }
-    }
-
-    //TODO this should be test only, move it somewhere else
-    public List<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int addr) {
-        List<Sh2Block> l = new ArrayList<>();
-//        for (var entry : prefetchMap[cpu.ordinal()].entrySet()) {
-//            Sh2Block b = entry.getValue();
-//            if (b != null) {
-//                int start = b.prefetchPc;
-//                int end = b.prefetchPc + (b.prefetchLenWords << 1);
-//                if (addr >= start && addr < end) {
-//                    l.add(b);
-//                }
-//            }
-//        }
-        return l;
     }
 
     long cnt = 0;

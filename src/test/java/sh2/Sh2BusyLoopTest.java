@@ -759,7 +759,7 @@ public class Sh2BusyLoopTest {
     }
 
     private Ow2DrcOptimizer.PollType getPollType(int[] opcodes) {
-        Sh2Helper.Sh2PcInfoWrapper piw = Sh2Helper.get(sh2Context.PC, sh2Context.cpuAccess);
+        Sh2Helper.Sh2PcInfoWrapper piw = Sh2Helper.getOrCreate(sh2Context.PC, sh2Context.cpuAccess);
         Sh2Block block = new Sh2Block(sh2Context.PC, sh2Context.cpuAccess);
         block.prefetchWords = opcodes;
         block.prefetchLenWords = opcodes.length;

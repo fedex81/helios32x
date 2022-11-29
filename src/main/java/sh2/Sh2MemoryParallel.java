@@ -103,11 +103,6 @@ public final class Sh2MemoryParallel implements IMemory {
     }
 
     @Override
-    public void invalidateAllPrefetch(S32xUtil.CpuDeviceAccess cpuDeviceAccess) {
-        memory.invalidateAllPrefetch(cpuDeviceAccess);
-    }
-
-    @Override
     public void newFrame() {
         memory.newFrame();
     }

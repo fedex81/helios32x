@@ -195,11 +195,6 @@ public final class Sh2Memory implements IMemory {
 		prefetch.invalidateCachePrefetch(ctx);
 	}
 
-	@Override
-	public void invalidateAllPrefetch(CpuDeviceAccess cpuDeviceAccess) {
-		prefetch.invalidateAllPrefetch(cpuDeviceAccess);
-	}
-
 	public void fetch(Sh2.FetchResult fetchResult, S32xUtil.CpuDeviceAccess cpu) {
 		prefetch.fetch(fetchResult, cpu);
 	}

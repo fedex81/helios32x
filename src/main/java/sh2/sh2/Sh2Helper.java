@@ -42,6 +42,7 @@ public class Sh2Helper {
         }
 
         public void setBlock(Sh2Block block) {
+            assert this != SH2_NOT_VISITED;
             this.block = block;
             if (verbose && block == Sh2Block.INVALID_BLOCK) {
                 LOG.info("set invalid block: {} {}", th(area), th(pcMasked));
@@ -58,6 +59,7 @@ public class Sh2Helper {
         }
 
         public Sh2Block addToKnownBlocks(Sh2Block b) {
+            assert this != SH2_NOT_VISITED;
             if (knownBlocks == Collections.EMPTY_MAP) {
                 knownBlocks = new HashMap<>(2);
             }
