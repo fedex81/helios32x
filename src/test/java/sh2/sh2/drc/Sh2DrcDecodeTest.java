@@ -1,6 +1,7 @@
 package sh2.sh2.drc;
 
 import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.Range;
 import com.google.common.collect.Table;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,6 +11,7 @@ import sh2.IMemory;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
+import sh2.sh2.Sh2Helper;
 import sh2.sh2.Sh2MultiTestBase;
 import sh2.sh2.prefetch.Sh2CacheTest;
 import sh2.sh2.prefetch.Sh2PrefetchTest;
@@ -20,7 +22,9 @@ import java.util.Collection;
 import java.util.stream.Stream;
 
 import static omegadrive.util.Util.th;
+import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.dict.S32xDict.SH2_START_ROM;
+import static sh2.sh2.drc.Sh2Block.INVALID_BLOCK;
 import static sh2.sh2.prefetch.Sh2CacheTest.NOP;
 
 /**
@@ -30,10 +34,10 @@ import static sh2.sh2.prefetch.Sh2CacheTest.NOP;
  * <p>
  */
 public class Sh2DrcDecodeTest extends Sh2MultiTestBase {
-    private int pc = 0x100;
+    private static int pc = 0x100;
 
     //2 blocks:  the 2nd block jumps back to the start of the 1st
-    private static int[] trace1 = {
+    public static int[] trace1 = {
             NOP, //0
             Sh2CacheTest.SETT, //2
             0xA000, //4: BRA 8
@@ -43,9 +47,14 @@ public class Sh2DrcDecodeTest extends Sh2MultiTestBase {
             NOP, //C
     };
 
+    public static Range[] trace1Ranges = {
+            Range.closedOpen(pc, pc + 8),
+            Range.closedOpen(pc + 8, pc + 0xE)
+    };
+
     //2 blocks:  the 2nd block jumps back to the middle of the 1st
     //this generates 3 blocks
-    private static int[] trace2 = {
+    public static int[] trace2 = {
             NOP, //0
             Sh2CacheTest.SETT, //2
             0xA000, //4: BRA 8
@@ -53,6 +62,31 @@ public class Sh2DrcDecodeTest extends Sh2MultiTestBase {
             Sh2CacheTest.CLRMAC, //8
             0xAFFA, //A: BRA 2
             NOP, //C
+    };
+
+    public static Range[] trace2Ranges = {
+            Range.closedOpen(pc, pc + 8),
+            Range.closedOpen(pc + 2, pc + 8),
+            Range.closedOpen(pc + 8, pc + 0xE)
+    };
+
+    //2 blocks:  the 2nd block jumps back to the middle of the 1st
+    //this generates 3 blocks, 2nd block is long-word aligned
+    public static int[] trace3 = {
+            NOP, //0
+            NOP, //2
+            Sh2CacheTest.SETT, //4
+            0xA000, //6: BRA A
+            NOP, //8
+            Sh2CacheTest.CLRMAC, //A
+            0xAFFA, //C: BRA 4
+            NOP, //E
+    };
+
+    public static Range[] trace3Ranges = {
+            Range.closedOpen(pc, pc + 0xA),
+            Range.closedOpen(pc + 4, pc + 0xA),
+            Range.closedOpen(pc + 0xA, pc + 0x10)
     };
 
     static {
@@ -69,11 +103,24 @@ public class Sh2DrcDecodeTest extends Sh2MultiTestBase {
         System.out.println("Testing: " + c);
         Runnable r = () -> {
             resetCacheConfig(c);
-            testTrace1();
-            testTrace2();
+            testTrace(trace1);
+            testTrace(trace2);
+            testTrace(trace3);
         };
         r.run();
         r.run();
+    }
+
+    @ParameterizedTest
+    @MethodSource("fileProvider")
+    public void testBlock(Sh2.Sh2Config c) {
+        System.out.println("Testing: " + c);
+        resetCacheConfig(c);
+        testBlockInternal(c, trace1, trace1Ranges);
+        resetCacheConfig(c);
+        testBlockInternal(c, trace2, trace2Ranges);
+        resetCacheConfig(c);
+        testBlockInternal(c, trace3, trace3Ranges);
     }
 
     @Override
@@ -87,16 +134,34 @@ public class Sh2DrcDecodeTest extends Sh2MultiTestBase {
         bios.putInt(4, SH2_START_ROM | sp);
     }
 
-    private void testTrace1() {
-        setTrace(trace1, masterCtx);
+    private void testTrace(int[] trace) {
+        setTrace(trace, masterCtx);
         triggerDrcBlocks();
         sh2.run(masterCtx);
     }
 
-    private void testTrace2() {
-        setTrace(trace2, masterCtx);
-        triggerDrcBlocks();
+    private void testBlockInternal(Sh2.Sh2Config c, int[] trace, Range<Integer>[] blockRanges) {
+        resetCacheConfig(c);
+        setTrace(trace, masterCtx);
+
         sh2.run(masterCtx);
+        sh2.run(masterCtx);
+        sh2.run(masterCtx);
+
+        for (var range : blockRanges) {
+            int pc = range.lowerEndpoint();
+            Sh2Helper.Sh2PcInfoWrapper wrapper = Sh2Helper.getOrDefault(SH2_START_ROM | pc, MASTER);
+            checkWrapper(wrapper, SH2_START_ROM | pc, memory.romMask);
+        }
+    }
+
+    public static void checkWrapper(Sh2Helper.Sh2PcInfoWrapper wrapper, int pc, int pcMask) {
+        Assertions.assertEquals(pc >> 24, wrapper.area);
+        Assertions.assertEquals(pc & pcMask, wrapper.pcMasked);
+        Assertions.assertNotEquals(INVALID_BLOCK, wrapper.block);
+        Assertions.assertEquals(pc & pcMask, wrapper.block.start);
+        Assertions.assertEquals(pc, wrapper.block.prefetchPc);
+        Assertions.assertTrue(wrapper.block.isValid());
     }
 
     private void triggerDrcBlocks() {
@@ -115,7 +180,7 @@ public class Sh2DrcDecodeTest extends Sh2MultiTestBase {
         for (int i = 0; i < trace.length; i++) {
             rom.putShort(pc + (i << 1), (short) trace[i]);
         }
-        sh2.reset(masterCtx);
+        sh2.reset(context);
     }
 
     private Table<CpuDeviceAccess, Integer, Sh2Block> blockTable = HashBasedTable.create();

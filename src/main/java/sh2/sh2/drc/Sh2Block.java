@@ -64,6 +64,7 @@ public class Sh2Block {
     static {
         S32xUtil.assertPowerOf2Minus1("OPT_THRESHOLD2", OPT_THRESHOLD2 + 1);
         sh2Config = Sh2.Sh2Config.get();
+        INVALID_BLOCK.setFlag(VALID_FLAG, false);
     }
 
     public Sh2Block(int pc, CpuDeviceAccess cpu) {

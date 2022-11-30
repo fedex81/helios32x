@@ -378,7 +378,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     private void checkAddress(CpuDeviceAccess writer, CpuDeviceAccess blockOwner, int addr, int val, Size size) {
-        int end = addr + size.getByteSize();
+        int end = addr + size.ordinal();
         invalidateMemoryRegion(writer, blockOwner, addr, end, val, false, size);
     }
 
@@ -397,11 +397,11 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                 continue;
             }
             final Sh2Block b = piw.block;
-            var range = Range.closed(b.prefetchPc, b.prefetchPc + (b.prefetchLenWords << 1));
+            //TODO check perf
+            var range = Range.closedOpen(b.prefetchPc, b.prefetchPc + (b.prefetchLenWords << 1));
             if (range.contains(addr) || range.contains(end)) {
                 invalidateWrapper(writer, blockOwner, piw, cacheOnly, size, i, val);
             }
-//            break;
         }
     }
 
