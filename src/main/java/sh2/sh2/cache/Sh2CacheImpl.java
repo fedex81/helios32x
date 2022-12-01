@@ -44,11 +44,16 @@ import static sh2.S32xUtil.writeBuffer;
  * Federico Berti
  * <p>
  * Copyright 2022
+ * <p>
+ * TODO lru after cache purge, not sure zero is the correct value...
  */
 public class Sh2CacheImpl implements Sh2Cache {
 
     private static final Logger LOG = LogHelper.getLogger(Sh2CacheImpl.class.getSimpleName());
     private static final boolean verbose = false;
+
+    //TODO looks like this is NOT needed, ie. it doesn't improve compat
+    public static final boolean PARANOID_ON_CACHE_ENABLED_TOGGLE = false;
 
     protected Sh2CacheEntry ca;
     private final CpuDeviceAccess cpu;
@@ -307,10 +312,12 @@ public class Sh2CacheImpl implements Sh2Cache {
         //cache enable does not clear the cache
         if (prevCaEn != ctx.cacheEn) {
             if (verbose) LOG.info("{} Cache enable: {}", cpu, ctx.cacheEn);
-            //only invalidate prefecth stuff
-            for (int entry = 0; entry < CACHE_LINES; entry++) {
-                for (int way = 0; way < CACHE_WAYS; way++) {
-                    invalidatePrefetcher(ca.way[way][entry], entry, -1);
+            if (PARANOID_ON_CACHE_ENABLED_TOGGLE) {
+                //only invalidate prefetch stuff
+                for (int entry = 0; entry < CACHE_LINES; entry++) {
+                    for (int way = 0; way < CACHE_WAYS; way++) {
+                        invalidatePrefetcher(ca.way[way][entry], entry, -1);
+                    }
                 }
             }
         }

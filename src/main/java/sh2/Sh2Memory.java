@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import sh2.BiosHolder.BiosData;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
+import sh2.event.SysEventManager;
 import sh2.sh2.Sh2;
 import sh2.sh2.cache.Sh2Cache;
 import sh2.sh2.cache.Sh2CacheImpl;
@@ -44,6 +45,7 @@ public final class Sh2Memory implements IMemory {
 	private final Sh2MMREG[] sh2MMREGS = new Sh2MMREG[2];
 	private final S32XMMREG s32XMMREG;
 	private final MemoryDataCtx memoryDataCtx;
+	private final Sh2.Sh2Config config;
 
 	public Sh2Memory(S32XMMREG s32XMMREG, ByteBuffer rom, BiosHolder biosHolder, Sh2Prefetch.Sh2DrcContext... drcCtx) {
 		memoryDataCtx = new MemoryDataCtx();
@@ -62,6 +64,7 @@ public final class Sh2Memory implements IMemory {
 		memoryDataCtx.romSize = romSize = rom.capacity();
 		memoryDataCtx.romMask = romMask = Util.getRomMask(romSize);
 		prefetch = sh2Config.drcEn ? new Sh2Prefetch(this, cache, drcCtx) : new Sh2PrefetchSimple(this, cache);
+		config = Sh2.Sh2Config.get();
 		LOG.info("Rom size: {}, mask: {}", th(romSize), th(romMask));
 	}
 
@@ -136,11 +139,31 @@ public final class Sh2Memory implements IMemory {
 		if (SH2_MEM_ACCESS_STATS) {
 			memAccessStats.addMemHit(false, address, size);
 		}
+		//flag to check if code memory has been changed
+		boolean hasMemoryChanged = false;
 		switch ((address >>> CACHE_ADDRESS_BITS) & 0xFF) {
+			/**
+			 * TODO check
+			 * write to 2600_0000
+			 * invalidate block 2600_0000
+			 * invalidate block 600_0000
+			 *
+			 * write to 600_0000
+			 * invalidate block 600_0000
+			 * invalidate block 2600_0000
+			 *
+			 * this works because how the cache performs write-through:
+			 * 1. writing to 600_0000
+			 * 2. write to 2600_0000
+			 * 3. check mem @2600_0000
+			 * 4. check mem @600_0000
+			 */
 			case CACHE_USE_H3:
+			case CACHE_DATA_ARRAY_H3: //vr
+				hasMemoryChanged = true; //todo worth detecting if it has really changed?
+				//fall-through
 			case CACHE_PURGE_H3:
 			case CACHE_ADDRESS_ARRAY_H3:
-			case CACHE_DATA_ARRAY_H3: //vr
 				//NOTE: vf slave writes to sysReg 0x401c, 0x4038 via cache
 				cache[cpuAccess.ordinal()].cacheMemoryWrite(address, val, size);
 				break;
@@ -155,7 +178,7 @@ public final class Sh2Memory implements IMemory {
 					if (SDRAM_SYNC_TESTER) {
 						writeSyncCheck(cpuAccess, address, val, size);
 					}
-					writeBuffer(sdram, address & SH2_SDRAM_MASK, val, size);
+					hasMemoryChanged = writeBuffer(sdram, address & SH2_SDRAM_MASK, val, size);
 					S32xMemAccessDelay.addWriteCpuDelay(SDRAM);
 				} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
 					if (s32XMMREG.fm > 0) {
@@ -187,7 +210,12 @@ public final class Sh2Memory implements IMemory {
 				if (true) throw new RuntimeException();
 				break;
 		}
-		prefetch.dataWrite(cpuAccess, address, val, size);
+		if (hasMemoryChanged) {
+			prefetch.dataWrite(cpuAccess, address, val, size);
+		}
+		if (config.pollDetectEn) {
+			Sh2Prefetch.checkPoller(cpuAccess, SysEventManager.SysEvent.SDRAM, address, val, size);
+		}
 	}
 
 	@Override

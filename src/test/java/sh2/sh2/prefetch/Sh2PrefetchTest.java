@@ -23,6 +23,7 @@ import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.*;
 import static sh2.sh2.cache.Sh2Cache.CACHE_BYTES_PER_LINE;
+import static sh2.sh2.cache.Sh2CacheImpl.PARANOID_ON_CACHE_ENABLED_TOGGLE;
 import static sh2.sh2.prefetch.Sh2Prefetch.SH2_DRC_MAX_BLOCK_LEN;
 import static sh2.sh2.prefetch.Sh2PrefetchSimple.prefetchContexts;
 
@@ -189,7 +190,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         checkFetch(MASTER, noCacheAddrDef, NOP);
         checkFetch(MASTER, cacheAddrDef, NOP);
 
-        if (Sh2Config.get().cacheEn) {
+        if (Sh2Config.get().cacheEn && PARANOID_ON_CACHE_ENABLED_TOGGLE) {
             //enable cache, we should still be holding the old value (ie. before disabling the cache)
             enableCache(MASTER, true);
 

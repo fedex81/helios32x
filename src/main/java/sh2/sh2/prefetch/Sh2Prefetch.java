@@ -1,7 +1,6 @@
 package sh2.sh2.prefetch;
 
 import com.google.common.collect.Range;
-import omegadrive.cpu.CpuFastDebug.PcInfoWrapper;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.objectweb.asm.commons.LocalVariablesSorter;
@@ -26,10 +25,6 @@ import sh2.sh2.drc.Sh2Block;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
@@ -305,14 +300,12 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     @Override
     public void dataWrite(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
-        checkPoller(cpuWrite, SysEvent.SDRAM, addr, val, size);
         if (pcAreaMaskMap[addr >>> SH2_PC_AREA_SHIFT] == 0) return;
-        switch (size) {
-            case WORD, BYTE -> dataWriteWord(cpuWrite, addr, val, size);
-            case LONG -> {
-                dataWriteWord(cpuWrite, addr, val >> 16, Size.WORD);
-                dataWriteWord(cpuWrite, addr + 2, val & 0xFFFF, Size.WORD);
-            }
+        if (size != Size.LONG) {
+            dataWriteWord(cpuWrite, addr, val, size);
+        } else {
+            dataWriteWord(cpuWrite, addr, val >> 16, Size.WORD);
+            dataWriteWord(cpuWrite, addr + 2, val & 0xFFFF, Size.WORD);
         }
     }
 
@@ -356,40 +349,49 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
     }
 
+    public static class InvalidateMemCtx {
+        public CpuDeviceAccess writer;
+        public int addr, val;
+        public Size size;
+        public boolean cacheOnly;
+    }
+
+    private final InvalidateMemCtx invCtx = new InvalidateMemCtx();
+
     public void dataWriteWord(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
         if (addr >= 0 && addr < 0x100) { //Doom res 2.2
             return;
         }
+        invCtx.writer = cpuWrite;
+        invCtx.addr = addr;
+        invCtx.val = val;
+        invCtx.size = size;
+        invCtx.cacheOnly = false;
         boolean isCacheArray = addr >>> SH2_PC_AREA_SHIFT == 0xC0;
-        boolean isWriteThrough = addr >>> 28 == 2;
+        boolean isWriteThrough = addr >>> PC_CACHE_AREA_SHIFT == 2;
 
         for (int i = 0; i <= SLAVE.ordinal(); i++) {
             //sh2 cacheArrays are not shared!
             if (isCacheArray && i != cpuWrite.ordinal()) {
                 continue;
             }
-            checkAddress(cpuWrite, CpuDeviceAccess.cdaValues[i], addr, val, size);
+            invCtx.addr = addr;
+            invalidateMemoryRegion(invCtx, CpuDeviceAccess.cdaValues[i], addr + size.getByteSize() - 1);
             boolean isCacheEnabled = cache[i].getCacheContext().cacheEn > 0;
             if (!isCacheEnabled && !isCacheArray) {
                 int otherAddr = isWriteThrough ? addr & 0xFFF_FFFF : addr | SH2_CACHE_THROUGH_OFFSET;
-                checkAddress(cpuWrite, CpuDeviceAccess.cdaValues[i], otherAddr, val, size);
+                invCtx.addr = otherAddr;
+                invalidateMemoryRegion(invCtx, CpuDeviceAccess.cdaValues[i], otherAddr + size.getByteSize() - 1);
             }
         }
     }
 
-    private void checkAddress(CpuDeviceAccess writer, CpuDeviceAccess blockOwner, int addr, int val, Size size) {
-        int end = addr + size.ordinal();
-        invalidateMemoryRegion(writer, blockOwner, addr, end, val, false, size);
-    }
-
-    //TODO test
-    private void invalidateMemoryRegion(CpuDeviceAccess writer, CpuDeviceAccess blockOwner,
-                                        int addr, int end, int val, boolean cacheOnly, Size size) {
-        boolean ignore = addr >>> SH2_PC_AREA_SHIFT > 0xC0;
+    private void invalidateMemoryRegion(InvalidateMemCtx invCtx, CpuDeviceAccess blockOwner, int end) {
+        boolean ignore = invCtx.addr >>> SH2_PC_AREA_SHIFT > 0xC0;
         if (ignore) {
             return;
         }
-        final int addrEven = addr & ~1;
+        final int addrEven = (invCtx.addr & ~1);
         //find closest block
         for (int i = addrEven; i > addrEven - SH2_DRC_MAX_BLOCK_LEN; i -= 2) {
             Sh2PcInfoWrapper piw = Sh2Helper.getOrDefault(i, blockOwner);
@@ -399,33 +401,33 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             final Sh2Block b = piw.block;
             //TODO check perf
             var range = Range.closedOpen(b.prefetchPc, b.prefetchPc + (b.prefetchLenWords << 1));
-            if (range.contains(addr) || range.contains(end)) {
-                invalidateWrapper(writer, blockOwner, piw, cacheOnly, size, i, val);
+            if (range.contains(invCtx.addr) || range.contains(end)) {
+                invalidateWrapper(invCtx, blockOwner, piw);
             }
         }
     }
 
-    private void invalidateWrapper(CpuDeviceAccess writer, CpuDeviceAccess blockOwner,
-                                   Sh2PcInfoWrapper pcInfoWrapper, boolean cacheOnly,
-                                   Size size, int addr, int val) {
+    private void invalidateWrapper(InvalidateMemCtx invCtx, CpuDeviceAccess blockOwner,
+                                   Sh2PcInfoWrapper pcInfoWrapper) {
         if (pcInfoWrapper != SH2_NOT_VISITED) {
-            if (cacheOnly && !pcInfoWrapper.block.isCacheFetch()) {
+            if (invCtx.cacheOnly && !pcInfoWrapper.block.isCacheFetch()) {
                 return;
             }
             final Sh2Block block = pcInfoWrapper.block;
             assert block != Sh2Block.INVALID_BLOCK;
-            assert size != Size.LONG;
-            if (!cacheOnly) {
+            assert invCtx.size != Size.LONG;
+            //TODO this is only needed to detect changes to 0xC00000 data array
+            if (!invCtx.cacheOnly) {
                 //cosmic carnage
-                int prev = block.prefetchWords[((addr - block.prefetchPc) >> 1)];
-                if (prev == val) {
+                int prev = block.prefetchWords[((invCtx.addr - block.prefetchPc) >> 1)];
+                if (prev == invCtx.val) {
                     return;
                 }
             }
             if (verbose) {
                 String s = LogHelper.formatMessage(
                         "{} write at addr: {} val: {} {}, {} invalidate block with start: {} blockLen: {}",
-                        writer, th(addr), th(val), size, blockOwner, th(pcInfoWrapper.block.prefetchPc),
+                        invCtx.writer, th(invCtx.addr), th(invCtx.val), invCtx.size, blockOwner, th(pcInfoWrapper.block.prefetchPc),
                         pcInfoWrapper.block.prefetchLenWords);
                 LOG.info(s);
             }
@@ -465,13 +467,18 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         if (ignore) {
             return;
         }
+        invCtx.cacheOnly = true;
+        invCtx.size = null;
+        invCtx.val = -1;
+        invCtx.writer = ctx.cpu;
         final int addrEven = end;
         for (int i = addrEven; i > addr - SH2_DRC_MAX_BLOCK_LEN; i -= 2) {
             Sh2PcInfoWrapper piw = Sh2Helper.getOrDefault(i, ctx.cpu);
             if (piw == null || piw == SH2_NOT_VISITED || piw.block == Sh2Block.INVALID_BLOCK) {
                 continue;
             }
-            invalidateWrapper(ctx.cpu, ctx.cpu, piw, true, null, i, -1);
+            invCtx.addr = i;
+            invalidateWrapper(invCtx, ctx.cpu, piw);
         }
     }
 
@@ -480,45 +487,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     @Override
     public void newFrame() {
         if (SH2_LOG_PC_HITS && (++cnt & 0x2FF) == 0) {
-            logPcHits(MASTER);
-            logPcHits(SLAVE);
+            PrefetchUtil.logPcHits(MASTER);
+            PrefetchUtil.logPcHits(SLAVE);
         }
-    }
-
-    private void logPcHits(CpuDeviceAccess cpu) {
-        Map<PcInfoWrapper, Long> hitMap = new HashMap<>();
-        long top10 = 10;
-        Sh2PcInfoWrapper[][] pcInfoWrapper = Sh2Helper.getPcInfoWrapper();
-        for (int i = 0; i < pcInfoWrapper.length; i++) {
-            for (int j = 0; j < pcInfoWrapper[i].length; j++) {
-                Sh2PcInfoWrapper piw = pcInfoWrapper[i][j | cpu.ordinal()];
-                if (piw != SH2_NOT_VISITED) {
-                    if (piw.block.hits < top10) {
-                        continue;
-                    }
-                    hitMap.put(piw, Long.valueOf(piw.block.hits));
-                    top10 = hitMap.values().stream().sorted().limit(10).findFirst().orElse(10L);
-//                        LOG.info("{} PC: {} hits: {}, {}", cpu, th(pc), piw.hits, piw);
-                }
-            }
-        }
-        List<Map.Entry<PcInfoWrapper, Long>> l = hitMap.entrySet().stream().sorted((e1, e2) -> Long.compare(e2.getValue(), e1.getValue())).
-                limit(10).collect(Collectors.toList());
-        StringBuilder sb = new StringBuilder();
-        l.forEach(e -> {
-            PcInfoWrapper piw = e.getKey();
-            int pc = (piw.area << SH2_PC_AREA_SHIFT) | piw.pcMasked;
-            //TODO fix
-            Sh2Block res = Sh2Block.INVALID_BLOCK;
-//            Sh2Block res = prefetchMap[cpu.ordinal()].getOrDefault(piw, Sh2Block.INVALID_BLOCK);
-            //TODO fix
-            assert res != Sh2Block.INVALID_BLOCK;
-            sb.append(cpu + " " + th(pc) + "," + e.getValue() + ", block: " +
-                    th(res.prefetchPc) + "," + res.pollType + "," + res.hits + "\n" + Sh2Helper.toListOfInst(res)).append("\n");
-
-        });
-//            String s = hitMap.entrySet().stream().sorted((e1, e2) -> Long.compare(e2.getValue(), e1.getValue())).
-//                    limit(10).map(Objects::toString).collect(Collectors.joining("\n"));
-        LOG.info(sb.toString());
     }
 }

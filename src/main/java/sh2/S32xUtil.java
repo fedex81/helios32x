@@ -105,23 +105,34 @@ public class S32xUtil {
         writeBuffer(b, r.addr, value & r.writeMask, size);
     }
 
-    public static void writeBuffer(ByteBuffer b, int pos, int value, Size size) {
+    public static boolean writeBuffer(ByteBuffer b, int pos, int value, Size size) {
+        boolean changed = false;
         switch (size) {
             case BYTE:
-                b.put(pos, (byte) value);
+                if (b.get(pos) != value) {
+                    b.put(pos, (byte) value);
+                    changed = true;
+                }
                 break;
             case WORD:
                 assert (pos & 1) == 0;
-                b.putShort(pos, (short) value);
+                if (b.getShort(pos) != value) {
+                    b.putShort(pos, (short) value);
+                    changed = true;
+                }
                 break;
             case LONG:
                 assert (pos & 1) == 0;
-                b.putInt(pos, value);
+                if (b.getInt(pos) != value) {
+                    b.putInt(pos, value);
+                    changed = true;
+                }
                 break;
             default:
                 System.err.println("Unsupported size: " + size);
                 break;
         }
+        return changed;
     }
 
     public static int readBuffer(ByteBuffer b, int pos, Size size) {

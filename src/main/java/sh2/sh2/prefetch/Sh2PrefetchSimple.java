@@ -24,6 +24,8 @@ import static sh2.dict.S32xMemAccessDelay.SDRAM;
 
 /**
  * Prefetcher in interpreter mode (no drc)
+ *
+ * @Deprecated very slow, use drc instead
  * <p>
  * Federico Berti
  * <p>
@@ -190,7 +192,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
             if (isCache && cache[cpu.ordinal()].getCacheContext().cacheEn > 0) {
                 //NOTE necessary to trigger the cache effect on fetch
                 int cached = cache[cpu.ordinal()].cacheMemoryRead(pc, Size.WORD);
-                assert cached == pctx.prefetchWords[pcDeltaWords];
+                assert cached == pctx.prefetchWords[pcDeltaWords] : th(cached) + "," + th(pctx.prefetchWords[pcDeltaWords]);
             }
         }
         //TODO sh2 has 2 words prefecth, this should always be 0 ??
