@@ -28,13 +28,13 @@ public class Sh2MultiTestBase {
     protected static int RAM_SIZE = 0x100;
     protected static int ROM_SIZE = 0x1000;
 
-    public static final Sh2.Sh2Config configDrcEn = new Sh2.Sh2Config(true, true, true, true, true);
-    public static final Sh2.Sh2Config configCacheEn = new Sh2.Sh2Config(true, true, true, false, false);
+    public static final Sh2.Sh2Config configDrcEn = new Sh2.Sh2Config(true, true, true, true);
+    public static final Sh2.Sh2Config configCacheEn = new Sh2.Sh2Config(true, true, true, false);
     public static final Sh2.Sh2Config[] configList;
     protected static Sh2.Sh2Config config = configCacheEn;
 
     static {
-        int parNumber = 5;
+        int parNumber = 4;
         int combinations = 1 << parNumber;
         configList = new Sh2.Sh2Config[combinations];
         assert combinations < 0x100;
@@ -43,7 +43,7 @@ public class Sh2MultiTestBase {
             byte ib = (byte) i;
             configList[i] = new Sh2.Sh2Config(S32xUtil.getBitFromByte(ib, pn - 1) > 0,
                     S32xUtil.getBitFromByte(ib, pn - 2) > 0, S32xUtil.getBitFromByte(ib, pn - 3) > 0,
-                    S32xUtil.getBitFromByte(ib, pn - 4) > 0, S32xUtil.getBitFromByte(ib, pn - 5) > 0);
+                    S32xUtil.getBitFromByte(ib, pn - 4) > 0);
         }
     }
 

@@ -1,12 +1,12 @@
 package sh2.sh2.prefetch;
 
-import com.google.common.collect.Range;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.objectweb.asm.commons.LocalVariablesSorter;
 import org.slf4j.Logger;
 import sh2.BiosHolder;
 import sh2.IMemory;
+import sh2.Md32xRuntimeData;
 import sh2.S32xUtil;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict;
@@ -349,24 +349,11 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
     }
 
-    public static class InvalidateMemCtx {
-        public CpuDeviceAccess writer;
-        public int addr, val;
-        public Size size;
-        public boolean cacheOnly;
-    }
-
-    private final InvalidateMemCtx invCtx = new InvalidateMemCtx();
-
     public void dataWriteWord(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
+        assert size != Size.LONG;
         if (addr >= 0 && addr < 0x100) { //Doom res 2.2
             return;
         }
-        invCtx.writer = cpuWrite;
-        invCtx.addr = addr;
-        invCtx.val = val;
-        invCtx.size = size;
-        invCtx.cacheOnly = false;
         boolean isCacheArray = addr >>> SH2_PC_AREA_SHIFT == 0xC0;
         boolean isWriteThrough = addr >>> PC_CACHE_AREA_SHIFT == 2;
 
@@ -375,23 +362,21 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             if (isCacheArray && i != cpuWrite.ordinal()) {
                 continue;
             }
-            invCtx.addr = addr;
-            invalidateMemoryRegion(invCtx, CpuDeviceAccess.cdaValues[i], addr + size.getByteSize() - 1);
+            invalidateMemoryRegion(addr, CpuDeviceAccess.cdaValues[i], addr + size.getByteSize() - 1, val);
             boolean isCacheEnabled = cache[i].getCacheContext().cacheEn > 0;
             if (!isCacheEnabled && !isCacheArray) {
                 int otherAddr = isWriteThrough ? addr & 0xFFF_FFFF : addr | SH2_CACHE_THROUGH_OFFSET;
-                invCtx.addr = otherAddr;
-                invalidateMemoryRegion(invCtx, CpuDeviceAccess.cdaValues[i], otherAddr + size.getByteSize() - 1);
+                invalidateMemoryRegion(otherAddr, CpuDeviceAccess.cdaValues[i], otherAddr + size.getByteSize() - 1, val);
             }
         }
     }
 
-    private void invalidateMemoryRegion(InvalidateMemCtx invCtx, CpuDeviceAccess blockOwner, int end) {
-        boolean ignore = invCtx.addr >>> SH2_PC_AREA_SHIFT > 0xC0;
+    private void invalidateMemoryRegion(final int addr, final CpuDeviceAccess blockOwner, final int wend, final int val) {
+        boolean ignore = addr >>> SH2_PC_AREA_SHIFT > 0xC0;
         if (ignore) {
             return;
         }
-        final int addrEven = (invCtx.addr & ~1);
+        final int addrEven = (addr & ~1);
         //find closest block
         for (int i = addrEven; i > addrEven - SH2_DRC_MAX_BLOCK_LEN; i -= 2) {
             Sh2PcInfoWrapper piw = Sh2Helper.getOrDefault(i, blockOwner);
@@ -399,46 +384,61 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                 continue;
             }
             final Sh2Block b = piw.block;
-            //TODO check perf
-            var range = Range.closedOpen(b.prefetchPc, b.prefetchPc + (b.prefetchLenWords << 1));
-            if (range.contains(invCtx.addr) || range.contains(end)) {
-                invalidateWrapper(invCtx, blockOwner, piw);
+            final int bend = b.prefetchPc + ((b.prefetchLenWords - 1) << 1); //inclusive
+            if (rangeIntersect(b.prefetchPc, bend, addr, wend)) {
+                invalidateWrapper(addr, piw, false, val);
             }
+            //TODO slow, enabling this needs the nested block attribute implemented
+//            break;
         }
     }
 
-    private void invalidateWrapper(InvalidateMemCtx invCtx, CpuDeviceAccess blockOwner,
-                                   Sh2PcInfoWrapper pcInfoWrapper) {
-        if (pcInfoWrapper != SH2_NOT_VISITED) {
-            if (invCtx.cacheOnly && !pcInfoWrapper.block.isCacheFetch()) {
+
+    static final int RANGE_MASK = 0xFFF_FFFF;
+
+    /**
+     * Assumes closed ranges, does not work for the general case (32bit signed integer); use only for small ranges
+     * [r1s, r1e] intersect [r2s, r2e]
+     */
+    protected static boolean rangeIntersect(int r1start, int r1end, int r2start, int r2end) {
+        return !(((r1start & RANGE_MASK) > (r2end & RANGE_MASK)) || ((r1end & RANGE_MASK) < (r2start & RANGE_MASK)));
+    }
+
+    private void invalidateWrapperFromCache(final int addr, final Sh2PcInfoWrapper pcInfoWrapper) {
+        invalidateWrapper(addr, pcInfoWrapper, true, -1);
+    }
+
+    private void invalidateWrapper(final int addr, final Sh2PcInfoWrapper pcInfoWrapper, final boolean cacheOnly, final int val) {
+        assert pcInfoWrapper != SH2_NOT_VISITED;
+        if (cacheOnly && !pcInfoWrapper.block.isCacheFetch()) {
+            return;
+        }
+        final Sh2Block block = pcInfoWrapper.block;
+        assert block != Sh2Block.INVALID_BLOCK;
+        //TODO this is only needed to detect changes to 0xC00000 data array
+        if (!cacheOnly) {
+            //cosmic carnage
+            int prev = block.prefetchWords[((addr - block.prefetchPc) >> 1)];
+            if (prev == val) {
                 return;
             }
-            final Sh2Block block = pcInfoWrapper.block;
-            assert block != Sh2Block.INVALID_BLOCK;
-            assert invCtx.size != Size.LONG;
-            //TODO this is only needed to detect changes to 0xC00000 data array
-            if (!invCtx.cacheOnly) {
-                //cosmic carnage
-                int prev = block.prefetchWords[((invCtx.addr - block.prefetchPc) >> 1)];
-                if (prev == invCtx.val) {
-                    return;
-                }
-            }
-            if (verbose) {
-                String s = LogHelper.formatMessage(
-                        "{} write at addr: {} val: {} {}, {} invalidate block with start: {} blockLen: {}",
-                        invCtx.writer, th(invCtx.addr), th(invCtx.val), invCtx.size, blockOwner, th(pcInfoWrapper.block.prefetchPc),
-                        pcInfoWrapper.block.prefetchLenWords);
+        }
+        if (verbose) {
+            String s = LogHelper.formatMessage(
+                    "{} write at addr: {} val: {} {}, {} invalidate block with start: {} blockLen: {}",
+                    Md32xRuntimeData.getAccessTypeExt(), th(addr), th(val),
+                    pcInfoWrapper.block.drcContext.cpu, th(pcInfoWrapper.block.prefetchPc),
+                    pcInfoWrapper.block.prefetchLenWords);
                 LOG.info(s);
             }
             //motocross byte, vf word
             invalidateBlock(pcInfoWrapper);
-        }
     }
 
     private void invalidateBlock(Sh2PcInfoWrapper piw) {
         Sh2Block b = piw.block;
         boolean isCacheArray = b.prefetchPc >>> SH2_PC_AREA_SHIFT == 0xC0;
+        //TODO Blackthorne lots of SDRAM invalidation, does removing (&& isCacheArray) help?
         if (ENABLE_BLOCK_RECYCLING && isCacheArray) {
             assert b.getCpu() != null;
             piw.addToKnownBlocks(b);
@@ -447,9 +447,6 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     private void cacheOnFetch(int pc, int expOpcode, CpuDeviceAccess cpu) {
-        if (!sh2Config.cacheEn) {
-            return;
-        }
         boolean isCache = pc >>> PC_CACHE_AREA_SHIFT == 0;
         if (isCache && cache[cpu.ordinal()].getCacheContext().cacheEn > 0) {
             //NOTE necessary to trigger the cache hit on fetch
@@ -467,18 +464,13 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         if (ignore) {
             return;
         }
-        invCtx.cacheOnly = true;
-        invCtx.size = null;
-        invCtx.val = -1;
-        invCtx.writer = ctx.cpu;
         final int addrEven = end;
         for (int i = addrEven; i > addr - SH2_DRC_MAX_BLOCK_LEN; i -= 2) {
             Sh2PcInfoWrapper piw = Sh2Helper.getOrDefault(i, ctx.cpu);
             if (piw == null || piw == SH2_NOT_VISITED || piw.block == Sh2Block.INVALID_BLOCK) {
                 continue;
             }
-            invCtx.addr = i;
-            invalidateWrapper(invCtx, ctx.cpu, piw);
+            invalidateWrapper(i, piw, true, -1);
         }
     }
 

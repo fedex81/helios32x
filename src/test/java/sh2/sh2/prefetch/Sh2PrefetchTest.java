@@ -1,9 +1,11 @@
 package sh2.sh2.prefetch;
 
+import com.google.common.collect.Range;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import sh2.Md32xRuntimeData;
@@ -25,6 +27,7 @@ import static sh2.dict.S32xDict.*;
 import static sh2.sh2.cache.Sh2Cache.CACHE_BYTES_PER_LINE;
 import static sh2.sh2.cache.Sh2CacheImpl.PARANOID_ON_CACHE_ENABLED_TOGGLE;
 import static sh2.sh2.prefetch.Sh2Prefetch.SH2_DRC_MAX_BLOCK_LEN;
+import static sh2.sh2.prefetch.Sh2Prefetch.rangeIntersect;
 import static sh2.sh2.prefetch.Sh2PrefetchSimple.prefetchContexts;
 
 /**
@@ -76,6 +79,26 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         }
     }
 
+    @Test
+    public void testRangeIntersect() {
+        int[] bs = {0xc0000000, 0xc0000000};
+        int[] be = {0xc0000006, 0xc0000006};
+        int[] ws = {0xc0000008, 0xc0000000};
+        int[] we = {0xc0000009, 0xc0000001};
+        for (int i = 0; i < bs.length; i++) {
+            int bstart = bs[i];
+            int bend = be[i];
+            int wstart = ws[i];
+            int wend = we[i];
+            //expected
+            var range = Range.closed(bstart, bend);
+            boolean exp = range.contains(wstart) || range.contains(wend);
+            //actual
+            boolean act = rangeIntersect(bstart, bend, wstart, wend);
+            Assertions.assertEquals(exp, act);
+        }
+    }
+
     protected void testRamCacheOffInternal() {
         resetMemory();
         enableCache(MASTER, false);
@@ -117,7 +140,6 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
     protected void testRamCacheOnWrite_01Internal() {
         resetMemory();
-        testRamCacheOffInternal();
         enableCache(MASTER, true);
 
         Md32xRuntimeData.setAccessTypeExt(MASTER);
@@ -127,18 +149,15 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         checkFetch(MASTER, cacheAddrDef, CLRMAC);
         checkFetch(MASTER, noCacheAddrDef, CLRMAC);
 
-        if (Sh2Config.get().cacheEn) {
-            //no cache write, cache is stale
-            memory.write16(noCacheAddrDef, NOP);
+        //no cache write, cache is stale
+        memory.write16(noCacheAddrDef, NOP);
 
-            checkFetch(MASTER, cacheAddrDef, CLRMAC);
-            checkFetch(MASTER, noCacheAddrDef, NOP);
-        }
+        checkFetch(MASTER, cacheAddrDef, CLRMAC);
+        checkFetch(MASTER, noCacheAddrDef, NOP);
     }
 
     protected void testRamCacheOnWrite_02Internal() {
         resetMemory();
-        testRamCacheOffInternal();
         enableCache(MASTER, true);
         enableCache(SLAVE, true);
 
@@ -156,7 +175,6 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
         checkAllFetches(noCacheAddrDef, NOP);
         checkFetch(MASTER, cacheAddrDef, NOP);
-        if (Sh2Config.get().cacheEn) {
             //cache hit
             checkFetch(SLAVE, cacheAddrDef, CLRMAC);
 
@@ -166,12 +184,10 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
             //cache hit
             checkFetch(SLAVE, cacheAddrDef, NOP);
-        }
     }
 
     protected void testRamCacheToggleInternal() {
         resetMemory();
-        testRamCacheOffInternal();
         enableCache(MASTER, true);
 
         Md32xRuntimeData.setAccessTypeExt(MASTER);
@@ -190,7 +206,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         checkFetch(MASTER, noCacheAddrDef, NOP);
         checkFetch(MASTER, cacheAddrDef, NOP);
 
-        if (Sh2Config.get().cacheEn && PARANOID_ON_CACHE_ENABLED_TOGGLE) {
+        if (PARANOID_ON_CACHE_ENABLED_TOGGLE) {
             //enable cache, we should still be holding the old value (ie. before disabling the cache)
             enableCache(MASTER, true);
 
@@ -225,9 +241,6 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
         checkFetch(MASTER, cacheAddrDef, NOP);
 
-        if (!Sh2Config.get().cacheEn) {
-            return;
-        }
         checkCacheContents(MASTER, Optional.of(NOP), noCacheAddrDef, Size.WORD);
 
         //long write within the prefetch window
@@ -266,7 +279,6 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
     protected void testRamCacheMasterSlaveInternal() {
         resetMemory();
-        testRamCacheOffInternal();
         enableCache(MASTER, true);
         enableCache(SLAVE, true);
         clearCache(MASTER);
@@ -284,9 +296,6 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         //M add to cache
         memory.read(cacheAddrDef, Size.WORD);
 
-        if (!Sh2Config.get().cacheEn) {
-            return;
-        }
         Md32xRuntimeData.setAccessTypeExt(SLAVE);
         //S not in cache
         memory.write16(noCacheAddrDef, SETT);
@@ -340,7 +349,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
     }
 
     protected void testCacheReplaceWithPrefetchInternal() {
-        if (!Sh2Config.get().prefetchEn || !Sh2Config.get().cacheEn) {
+        if (!Sh2Config.get().prefetchEn) {
             return;
         }
         resetMemory();
@@ -392,9 +401,6 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         //fetch continued after to load data after the cache line limit
         Assertions.assertTrue(block.prefetchWords[8] > 0);
 
-        if (!Sh2Config.get().cacheEn) {
-            return;
-        }
         //fetch should trigger cache refill on cacheAddr but avoid the cache on successive prefetches
         checkCacheLineFilled(MASTER, cacheAddr, exp);
 

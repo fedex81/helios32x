@@ -75,29 +75,16 @@ public class S32xUtil {
         writeBuffer(b, r1.addr & RegSpec.REG_MASK, value, Size.LONG);
     }
 
-    public static boolean writeBufferHasChanged(ByteBuffer b, int pos, int value, Size size) {
-        if (size == Size.LONG) {
-            LOG.error("Unable to handle LONG writes, reg: {}, value: {}", Integer.toHexString(pos),
-                    Integer.toHexString(value));
-            throw new RuntimeException("Unable to handle LONG writes, reg: " + Integer.toHexString(pos));
-        }
-        int baseReg = pos & ~1;
-        int val = readBuffer(b, baseReg, Size.WORD);
-        writeBuffer(b, pos, value, size);
-        int newVal = readBuffer(b, baseReg, Size.WORD);
-        return newVal != val;
-    }
-
     public static boolean writeBufferHasChangedWithMask(S32xDict.RegSpecS32x regSpec, ByteBuffer b, int reg, int value, Size size) {
-        //TODO slower, esp. Metal Head
+        //TODO slower, esp. Metal Head, fixes Blackthorne sound
         if (assertionsEnabled) {
             assert regSpec.size == Size.WORD;
             assert size != Size.LONG;
             int andMask = size == Size.WORD ? regSpec.writeAndMask : ((reg & 1) == 0) ? regSpec.writeAndMask >> 8 : regSpec.writeAndMask & 0xFF;
             int orMask = size == Size.WORD ? regSpec.writeOrMask : ((reg & 1) == 0) ? regSpec.writeOrMask >> 8 : regSpec.writeOrMask & 0xFF;
-            return writeBufferHasChanged(b, reg, (value & andMask) | orMask, size);
+            return writeBuffer(b, reg, (value & andMask) | orMask, size);
         } else {
-            return writeBufferHasChanged(b, reg, value, size);
+            return writeBuffer(b, reg, value, size);
         }
     }
 

@@ -48,8 +48,8 @@ public class Sh2DrcDecodeTest extends Sh2MultiTestBase {
     };
 
     public static Range[] trace1Ranges = {
-            Range.closedOpen(pc, pc + 8),
-            Range.closedOpen(pc + 8, pc + 0xE)
+            Range.closed(pc, pc + 6),
+            Range.closed(pc + 8, pc + 0xC)
     };
 
     //2 blocks:  the 2nd block jumps back to the middle of the 1st
@@ -65,9 +65,9 @@ public class Sh2DrcDecodeTest extends Sh2MultiTestBase {
     };
 
     public static Range[] trace2Ranges = {
-            Range.closedOpen(pc, pc + 8),
-            Range.closedOpen(pc + 2, pc + 8),
-            Range.closedOpen(pc + 8, pc + 0xE)
+            Range.closed(pc, pc + 6),
+            Range.closed(pc + 2, pc + 6),
+            Range.closed(pc + 8, pc + 0xC)
     };
 
     //2 blocks:  the 2nd block jumps back to the middle of the 1st
@@ -84,9 +84,9 @@ public class Sh2DrcDecodeTest extends Sh2MultiTestBase {
     };
 
     public static Range[] trace3Ranges = {
-            Range.closedOpen(pc, pc + 0xA),
-            Range.closedOpen(pc + 4, pc + 0xA),
-            Range.closedOpen(pc + 0xA, pc + 0x10)
+            Range.closed(pc, pc + 0x8),
+            Range.closed(pc + 4, pc + 0x8),
+            Range.closed(pc + 0xA, pc + 0xE)
     };
 
     static {

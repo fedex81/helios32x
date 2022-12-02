@@ -31,7 +31,7 @@ import static sh2.sh2.drc.Sh2DrcDecodeTest.*;
 public class Sh2BlockInvalidateTest extends Sh2MultiTestBase {
 
     private int pc = 0x100;
-    private final boolean verbose = false;
+    private final boolean verbose = true;
 
 
     static {
@@ -58,7 +58,7 @@ public class Sh2BlockInvalidateTest extends Sh2MultiTestBase {
 
     private void testDrcTrace(int[] trace, Range<Integer>[] blockRanges) {
         Range<Integer>[] blockRangesSdram =
-                (Range<Integer>[]) Arrays.stream(blockRanges).map(br -> Range.closedOpen(SH2_START_SDRAM | br.lowerEndpoint(),
+                (Range<Integer>[]) Arrays.stream(blockRanges).map(br -> Range.closed(SH2_START_SDRAM | br.lowerEndpoint(),
                         SH2_START_SDRAM | br.upperEndpoint())).toArray(Range[]::new);
         System.out.println("Trace: " + Arrays.toString(trace));
         for (var br : blockRangesSdram) {

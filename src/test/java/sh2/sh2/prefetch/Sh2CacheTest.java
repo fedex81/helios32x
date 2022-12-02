@@ -2,7 +2,6 @@ package sh2.sh2.prefetch;
 
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import sh2.Md32xRuntimeData;
@@ -99,10 +98,6 @@ public class Sh2CacheTest extends Sh2MultiTestBase {
     }
 
     protected void testCacheOnInternal() {
-        if (!config.cacheEn) {
-            return;
-        }
-        Assumptions.assumeTrue(config.cacheEn);
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         initRam(0x100);
         int noCacheAddr = SH2_START_SDRAM | 0x8;
@@ -122,8 +117,8 @@ public class Sh2CacheTest extends Sh2MultiTestBase {
         checkVal(MASTER, noCacheAddr, CLRMAC, Size.WORD);
         checkCacheContents(MASTER, Optional.empty(), noCacheAddr, Size.WORD);
 
-        if (configCacheEn.cacheEn) {
-            //read cache, entry added to cache
+
+        //read cache, entry added to cache
             res = memory.read16(cacheAddr);
             checkCacheContents(MASTER, Optional.of(CLRMAC), noCacheAddr, Size.WORD);
 
@@ -153,15 +148,11 @@ public class Sh2CacheTest extends Sh2MultiTestBase {
             //needs a purge or a write
             memory.write16(cacheAddr, NOP);
             checkCacheContents(MASTER, Optional.of(NOP), noCacheAddr, Size.WORD);
-        }
     }
 
     protected int[] cacheReplace_cacheAddr = new int[5];
 
     protected void testCacheReplaceInternal() {
-        if (!Sh2Config.get().cacheEn) {
-            return;
-        }
         int[] cacheAddr = cacheReplace_cacheAddr;
         int[] noCacheAddr = new int[5];
 
@@ -287,11 +278,10 @@ public class Sh2CacheTest extends Sh2MultiTestBase {
         memory.read(noCacheAddr, size);
         checkCacheContents(MASTER, Optional.empty(), noCacheAddr, size);
 
-        if (Sh2Config.get().cacheEn) {
-            //cache gets populated
+
+        //cache gets populated
             memory.read(cacheAddr, size);
             checkCacheContents(MASTER, Optional.of(val), noCacheAddr, size);
-        }
     }
 
     protected void enableCache(CpuDeviceAccess cpu, boolean enabled) {

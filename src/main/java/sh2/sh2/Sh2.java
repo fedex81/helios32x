@@ -68,26 +68,25 @@ public interface Sh2 extends Device {
     class Sh2Config {
         public final static Sh2Config DEFAULT_CONFIG = new Sh2Config();
         private static final AtomicReference<Sh2Config> instance = new AtomicReference<>(DEFAULT_CONFIG);
-        public final boolean prefetchEn, cacheEn, drcEn, pollDetectEn, ignoreDelays, tasQuirk;
+        public final boolean prefetchEn, drcEn, pollDetectEn, ignoreDelays, tasQuirk;
 
         private Sh2Config() {
-            cacheEn = tasQuirk = true;
+            tasQuirk = true;
             prefetchEn = drcEn = pollDetectEn = ignoreDelays = false;
             LOG.info("Default config: {}", toString());
         }
 
-        public Sh2Config(boolean prefetchEn, boolean cacheEn, boolean drcEn, boolean pollDetectEn, boolean ignoreDelays) {
-            this(prefetchEn, cacheEn, drcEn, pollDetectEn, ignoreDelays, true);
+        public Sh2Config(boolean prefetchEn, boolean drcEn, boolean pollDetectEn, boolean ignoreDelays) {
+            this(prefetchEn, drcEn, pollDetectEn, ignoreDelays, 1);
         }
 
 
-        public Sh2Config(boolean prefetchEn, boolean cacheEn, boolean drcEn, boolean pollDetectEn, boolean ignoreDelays, boolean tasQuirk) {
+        public Sh2Config(boolean prefetchEn, boolean drcEn, boolean pollDetectEn, boolean ignoreDelays, int tasQuirk) {
             this.prefetchEn = prefetchEn;
-            this.cacheEn = cacheEn;
             this.drcEn = drcEn;
             this.pollDetectEn = pollDetectEn;
             this.ignoreDelays = ignoreDelays;
-            this.tasQuirk = tasQuirk;
+            this.tasQuirk = tasQuirk > 0;
             if (instance.compareAndSet(DEFAULT_CONFIG, this)) {
                 LOG.info("Using config: {}", this);
             } else {
@@ -109,7 +108,6 @@ public interface Sh2 extends Device {
         public String toString() {
             return new StringJoiner(", ", Sh2Config.class.getSimpleName() + "[", "]")
                     .add("prefetchEn=" + prefetchEn)
-                    .add("cacheEn=" + cacheEn)
                     .add("drcEn=" + drcEn)
                     .add("pollDetectEn=" + pollDetectEn)
                     .add("ignoreDelays=" + ignoreDelays)

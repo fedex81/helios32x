@@ -285,7 +285,7 @@ public class S32XMMREG implements Device {
                 res = handleIntControlWriteMd(reg, value, size);
                 break;
             case SH2:
-                res = writeBufferHasChanged(sysRegsSh2, reg, value, size);
+                res = writeBuffer(sysRegsSh2, reg, value, size);
                 break;
         }
         return res;

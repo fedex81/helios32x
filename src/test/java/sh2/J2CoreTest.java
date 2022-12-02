@@ -50,8 +50,8 @@ public class J2CoreTest {
 
     protected Sh2 sh2;
     protected Sh2Context ctx;
-    private static Sh2Config config = new Sh2Config(false, false, false, false,
-            false, false);
+    private static Sh2Config config = new Sh2Config(false, false, false,
+            false, 0);
 
     @BeforeAll
     public static void beforeAll() {
