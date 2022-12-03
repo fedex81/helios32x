@@ -63,6 +63,14 @@ public class MdRegsTest {
         testZ80RegsInternal(regSpecs);
     }
 
+    //Blackthorne sound relies on this
+    @Test
+    public void testMdIntCtrlMasking() {
+        setAdenMdSide(true);
+        testMdIntCtrlMasking(M68K);
+        testMdIntCtrlMasking(Z80);
+    }
+
     @Test
     public void testMasking() {
         testMasking(M68K);
@@ -217,6 +225,31 @@ public class MdRegsTest {
             Assertions.assertEquals(i & 3, lc.bus.getBankSetValue() & 3);
         }
     }
+
+    private void testMdIntCtrlMasking(CpuDeviceAccess cpu) {
+        setAdenMdSide(true);
+        int regAddr = M68K_START_32X_SYSREG | MD_INT_CTRL.addr;
+        int res;
+        writeBus(lc, M68K, regAddr, 0, Size.WORD);
+        if (cpu == M68K) {
+            writeBus(lc, cpu, regAddr, 0, Size.WORD);
+            res = readBus(lc, cpu, regAddr, Size.WORD);
+            Assertions.assertEquals(0, res);
+            writeBus(lc, cpu, regAddr, 0x200, Size.WORD);
+            res = readBus(lc, cpu, regAddr, Size.WORD);
+            Assertions.assertEquals(0, res);
+        }
+
+        writeBus(lc, cpu, regAddr, 0x2, Size.BYTE);
+        res = readBus(lc, M68K, regAddr, Size.WORD);
+        Assertions.assertEquals(0, res);
+        res = readBus(lc, M68K, regAddr, Size.BYTE);
+        Assertions.assertEquals(0, res);
+
+        writeBus(lc, cpu, regAddr + 1, 0x3, Size.BYTE);
+        res = readBus(lc, M68K, regAddr, Size.WORD);
+    }
+
 
     private void setAdenMdSide(boolean enable) {
         int val = enable ? 1 : 0;

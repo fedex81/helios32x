@@ -294,12 +294,12 @@ public class S32XMMREG implements Device {
     private boolean handleIntControlWriteMd(int reg, int value, Size size) {
         boolean changed = writeBufferHasChangedWithMask(MD_INT_CTRL, sysRegsMd, reg, value, size);
         if (changed) {
-            int newVal = readBuffer(sysRegsMd, MD_INT_CTRL.addr, Size.WORD);
+            int newVal = readBuffer(sysRegsMd, MD_INT_CTRL.addr, Size.WORD) & MD_INT_CTRL.writeAndMask;
             boolean intm = (newVal & 1) > 0;
             boolean ints = (newVal & 2) > 0;
             interruptControls[0].setIntPending(CMD_8, intm);
             interruptControls[1].setIntPending(CMD_8, ints);
-//            writeBufferWord(MD_INT_CTRL, 0); //TODO autoclear?? Blackthorne sound works better
+            writeBufferWord(MD_INT_CTRL, newVal);
         }
         return changed;
     }
