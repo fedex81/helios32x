@@ -55,8 +55,13 @@ public class Sh2Instructions {
             STSMACH, STSMACL, STSPR, STSMMACH, STSMMACL, STSMPR
     };
 
+    public static Sh2Instructions.Sh2BaseInstruction[] illegalSlotOpcodes = {
+            JMP, JSR, BRA, BSR, RTS, RTE, BT, BF, TRAPA, BFS, BTS, BSRF, BRAF
+    };
+
     static {
         Arrays.sort(intDisabledOpcodes);
+        Arrays.sort(illegalSlotOpcodes);
     }
 
     public static Sh2InstructionWrapper[] createOpcodeMap(Sh2Impl sh2) {

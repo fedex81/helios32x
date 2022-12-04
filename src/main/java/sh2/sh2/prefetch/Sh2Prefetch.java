@@ -179,6 +179,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                     int nextVal = isCache ? sh2Cache.readDirect(currentPc + 2, Size.WORD) :
                             block.fetchBuffer.getShort(bytePos + 2) & 0xFFFF;
                     opcodeWords[wordsCount++] = nextVal;
+                    assert Arrays.binarySearch(Sh2Instructions.illegalSlotOpcodes,
+                            Sh2Instructions.instOpcodeMap[nextVal].inst) < 0;
                 }
                 breakOnJump = true;
                 break;

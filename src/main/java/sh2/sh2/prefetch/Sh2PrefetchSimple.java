@@ -152,6 +152,10 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
             if (instType.isBranchDelaySlot) {
                 outNext = true;
             } else if (instType.isBranch || outNext) {
+                if (outNext) {
+                    assert Arrays.binarySearch(Sh2Instructions.illegalSlotOpcodes,
+                            Sh2Instructions.instOpcodeMap[opc].inst) < 0 : Sh2Instructions.instOpcodeMap[opc].inst;
+                }
                 pctx.end = bytePos + 2;
                 break;
             }
