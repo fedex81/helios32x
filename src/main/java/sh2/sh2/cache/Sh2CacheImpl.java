@@ -144,18 +144,19 @@ public class Sh2CacheImpl implements Sh2Cache {
     }
 
     @Override
-    public void cacheMemoryWrite(int addr, int val, Size size) {
+    public boolean cacheMemoryWrite(int addr, int val, Size size) {
+        boolean change = false;
         switch (addr & AREA_MASK) {
             case CACHE_USE: {
                 if (ca.enable == 0) {
                     writeMemoryUncached(memory, addr, val, size);
-                    return;
+                    return true; //TODO check this, false works?
                 }
-                writeCache(addr, val, size);
+                change = writeCache(addr, val, size);
             }
             break;
             case CACHE_DATA_ARRAY:
-                writeDataArray(addr, val, size);
+                change = writeDataArray(addr, val, size);
                 break;
             case CACHE_PURGE://associative purge
             {
@@ -186,6 +187,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                 if (true) throw new RuntimeException();
                 break;
         }
+        return change;
     }
 
     private int readCache(int addr, Size size) {
@@ -219,15 +221,20 @@ public class Sh2CacheImpl implements Sh2Cache {
         return getCachedData(line.data, addr & LINE_MASK, size);
     }
 
-    private void writeCache(int addr, int val, Size size) {
+    private boolean writeCache(int addr, int val, Size size) {
         final int tagaddr = (addr & TAG_MASK);
         final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
 
+        boolean change = false;
         for (int i = 0; i < CACHE_WAYS; i++) {
             Sh2CacheLine line = ca.way[i][entry];
             if ((line.v > 0) && (line.tag == tagaddr)) {
                 assert ctx.twoWay == 0 || (ctx.twoWay == 1 && i > 1);
-                setCachedData(line.data, addr & LINE_MASK, val, size);
+                int prev = getCachedData(line.data, addr & LINE_MASK, size);
+                if (prev != val) {
+                    setCachedData(line.data, addr & LINE_MASK, val, size);
+                    change = true;
+                }
                 updateLru(i, ca.lru, entry);
                 if (verbose) LOG.info("Cache write at {}, val: {} {}", th(addr), th(val), size);
                 break;
@@ -235,21 +242,24 @@ public class Sh2CacheImpl implements Sh2Cache {
         }
         // write through
         writeMemoryUncached(memory, addr, val, size);
+        return change;
     }
 
-    private void writeDataArray(int addr, int val, Size size) {
+    private boolean writeDataArray(int addr, int val, Size size) {
         assert ctx.cacheEn == 0 || ctx.twoWay == 1;
         int dataArrayMask = DATA_ARRAY_MASK >> (ctx.cacheEn & ctx.twoWay);
         int address = addr & dataArrayMask;
+        boolean change = false;
         if (verbose)
             LOG.info("{} Cache data array write: {}({}) {}, val: {}", cpu, th(addr),
                     th(address), size, th(val));
         if (address == (addr & DATA_ARRAY_MASK)) {
-            writeBuffer(data_array, address, val, size);
+            change = writeBuffer(data_array, address, val, size);
         } else {
             LOG.error("{} Error Cache data array write: {}({}) {}, val: {}", cpu, th(addr),
                     th(address), size, th(val));
         }
+        return change;
     }
 
     private int readDataArray(int addr, Size size) {

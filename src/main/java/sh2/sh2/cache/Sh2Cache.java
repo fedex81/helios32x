@@ -80,7 +80,7 @@ public interface Sh2Cache {
 
     int cacheMemoryRead(int addr, Size size);
 
-    void cacheMemoryWrite(int addr, int val, Size size);
+    boolean cacheMemoryWrite(int addr, int val, Size size);
 
     ByteBuffer getDataArray();
 

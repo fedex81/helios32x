@@ -160,12 +160,10 @@ public final class Sh2Memory implements IMemory {
 			 */
 			case CACHE_USE_H3:
 			case CACHE_DATA_ARRAY_H3: //vr
-				hasMemoryChanged = true; //todo worth detecting if it has really changed?
-				//fall-through
 			case CACHE_PURGE_H3:
 			case CACHE_ADDRESS_ARRAY_H3:
 				//NOTE: vf slave writes to sysReg 0x401c, 0x4038 via cache
-				cache[cpuAccess.ordinal()].cacheMemoryWrite(address, val, size);
+				hasMemoryChanged = cache[cpuAccess.ordinal()].cacheMemoryWrite(address, val, size);
 				break;
 			case CACHE_THROUGH_H3:
 				if (address >= START_DRAM && address < END_DRAM) {
