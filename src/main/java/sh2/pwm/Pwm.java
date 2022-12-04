@@ -157,7 +157,8 @@ public class Pwm implements StepDevice {
 
     private void handlePwmCycleWord(CpuDeviceAccess cpu, int value) {
         value &= 0xFFF;
-        writeBuffers(sysRegsMd, sysRegsSh2, PWM_CYCLE.addr, value, Size.WORD);
+        writeBufferHasChangedWithMask(PWM_CYCLE, sysRegsMd, PWM_CYCLE.addr, value, Size.WORD);
+        writeBufferHasChangedWithMask(PWM_CYCLE, sysRegsSh2, PWM_CYCLE.addr, value, Size.WORD);
         int prevCycle = cycle;
         cycle = (value - 1) & 0xFFF;
         if (cycle < CYCLE_LIMIT) {

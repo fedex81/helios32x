@@ -31,8 +31,6 @@ public class DmaFifo68k {
     public static final int DREQ0_CHANNEL = 0;
     public static final int DMA_FIFO_SIZE = 8;
     public static final int M68K_DMA_FIFO_LEN_MASK = 0xFFFC;
-
-
     private final ByteBuffer sysRegsMd, sysRegsSh2;
     private DmaC[] dmac;
     private final Fifo<Integer> fifo = Fifo.createIntegerFixedSizeFifo(DMA_FIFO_SIZE);
@@ -73,6 +71,7 @@ public class DmaFifo68k {
     }
 
     private void writeMd(RegSpecS32x regSpec, int address, int value, Size size) {
+        assert size != Size.LONG;
         switch (regSpec) {
             case MD_DMAC_CTRL:
                 handleDreqCtlWriteMd(address, value, size);
@@ -91,9 +90,8 @@ public class DmaFifo68k {
             case MD_DREQ_SRC_ADDR_L:
                 assert Md32xRuntimeData.getAccessTypeExt() != Z80;
                 //NOTE after burner 68k byte writes: (MD_DREQ_DEST_ADDR_H +1) 0xd,2,BYTE
-                //TODO mask for word and long writes
-                writeBuffer(sysRegsMd, address, value, size);
-                writeBuffer(sysRegsSh2, address, value, size);
+                writeBufferHasChangedWithMask(regSpec, sysRegsMd, address, value, size);
+                writeBufferHasChangedWithMask(regSpec, sysRegsSh2, address, value, size);
                 break;
             default:
                 LOG.error("{} check DMA write {}: {} {}", M68K, regSpec.name, th(value), size);

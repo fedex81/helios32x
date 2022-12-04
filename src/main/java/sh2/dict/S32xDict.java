@@ -47,14 +47,14 @@ public class S32xDict {
     }
 
     public enum RegSpecS32x {
-        SH2_INT_MASK(SYS, 0, 0x808F, 0),   //Interrupt Mask
+        SH2_INT_MASK(SYS, 0, 0x808F),   //Interrupt Mask
         SH2_STBY_CHANGE(SYS, 2),   //StandBy Changer Register
-        SH2_HCOUNT_REG(SYS, 4, 0xFF, 0), //H Count Register
-        SH2_DREQ_CTRL(DMA, 6, 0, 0), //DREQ Control Reg.
-        SH2_DREQ_SRC_ADDR_H(DMA, 8),
-        SH2_DREQ_SRC_ADDR_L(DMA, 0xA),
-        SH2_DREQ_DEST_ADDR_H(DMA, 0xC),
-        SH2_DREQ_DEST_ADDR_L(DMA, 0xE),
+        SH2_HCOUNT_REG(SYS, 4, 0xFF), //H Count Register
+        SH2_DREQ_CTRL(DMA, 6, 0), //DREQ Control Reg. (read-only)
+        SH2_DREQ_SRC_ADDR_H(DMA, 8, 0xFF),
+        SH2_DREQ_SRC_ADDR_L(DMA, 0xA, 0xFFFE),
+        SH2_DREQ_DEST_ADDR_H(DMA, 0xC, 0xFF),
+        SH2_DREQ_DEST_ADDR_L(DMA, 0xE, 0xFFE),
         SH2_DREQ_LEN(DMA, 0x10),
         SH2_FIFO_REG(DMA, 0x12),
         SH2_VRES_INT_CLEAR(SYS, 0x14),//VRES Interrupt Clear Register
@@ -64,16 +64,16 @@ public class S32xDict {
         SH2_PWM_INT_CLEAR(SYS, 0x1C),
 
         MD_ADAPTER_CTRL(SYS, 0, 0x8003, 0x80),
-        MD_INT_CTRL(SYS, 2, 0x3, 0),  //Interrupt Control Register
-        MD_BANK_SET(SYS, 4, 0x3, 0),  //Bank Set Register
-        MD_DMAC_CTRL(DMA, 6, 0x7, 0), //Transfers Data to SH2 DMAC
+        MD_INT_CTRL(SYS, 2, 0x3),  //Interrupt Control Register
+        MD_BANK_SET(SYS, 4, 0x3),  //Bank Set Register
+        MD_DMAC_CTRL(DMA, 6, 0x7), //Transfers Data to SH2 DMAC
         MD_DREQ_SRC_ADDR_H(DMA, 8),
         MD_DREQ_SRC_ADDR_L(DMA, 0xA),
         MD_DREQ_DEST_ADDR_H(DMA, 0xC),
         MD_DREQ_DEST_ADDR_L(DMA, 0xE),
         MD_DREQ_LEN(DMA, 0x10),
         MD_FIFO_REG(DMA, 0x12),
-        MD_SEGA_TV(SYS, 0x1A),
+        MD_SEGA_TV(SYS, 0x1A, 0x1),
 
         COMM0(COMM, 0x20),
         COMM1(COMM, 0x22),
@@ -85,13 +85,13 @@ public class S32xDict {
         COMM7(COMM, 0x2E),
 
         PWM_CTRL(PWM, 0x30),
-        PWM_CYCLE(PWM, 0x32), //PWM Cycle Register
-        PWM_LCH_PW(PWM, 0x34), //PWM Left channel Pulse Width Reg
-        PWM_RCH_PW(PWM, 0x36), //PWM Right channel Pulse Width Reg
-        PWM_MONO(PWM, 0x38), //PWM Mono Pulse Width Reg
+        PWM_CYCLE(PWM, 0x32, 0xFFF), //PWM Cycle Register
+        PWM_LCH_PW(PWM, 0x34, 0xFFF), //PWM Left channel Pulse Width Reg
+        PWM_RCH_PW(PWM, 0x36, 0xFFF), //PWM Right channel Pulse Width Reg
+        PWM_MONO(PWM, 0x38, 0xFFF), //PWM Mono Pulse Width Reg
 
         VDP_BITMAP_MODE(VDP, 0x100),
-        SSCR(VDP, 0x102), //Screen Shift Control Register
+        SSCR(VDP, 0x102, 1), //Screen Shift Control Register
         AFLR(VDP, 0x104), //Auto Fill Length Register
         AFSAR(VDP, 0x106), //Auto Fill Start Address Register
         AFDR(VDP, 0x108), //Auto Fill Data Register
@@ -125,6 +125,10 @@ public class S32xDict {
 
         RegSpecS32x(S32xRegType deviceType, int addr) {
             this(deviceType, addr, 0xFFFF, 0);
+        }
+
+        RegSpecS32x(S32xRegType deviceType, int addr, int writeAndMask) {
+            this(deviceType, addr, writeAndMask, 0);
         }
 
         private void init() {

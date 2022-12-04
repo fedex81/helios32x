@@ -173,6 +173,7 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     private boolean handleVdpRegWriteInternal(S32xDict.RegSpecS32x regSpec, int reg, int value, Size size) {
+        assert size != Size.LONG : regSpec;
         boolean regChanged = false;
         switch (regSpec) {
             case VDP_BITMAP_MODE:
@@ -185,6 +186,9 @@ public class MarsVdpImpl implements MarsVdp {
                 runAutoFill(value);
                 regChanged = true;
                 break;
+            case AFLR:
+                value &= 0xFF;
+                //fall-through
             default:
                 int res = readBufferReg(regContext, regSpec, reg, size);
                 if (res != value) {
@@ -197,6 +201,9 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     private boolean handleBitmapModeWrite(int reg, int value, Size size) {
+        if (size == Size.BYTE && (reg & 1) == 0) { //golf
+            return false;
+        }
         int val = readWordFromBuffer(VDP_BITMAP_MODE);
         int prevPrio = (val >> 7) & 1;
         writeBufferReg(regContext, VDP_BITMAP_MODE, reg, value, size);
@@ -287,11 +294,11 @@ public class MarsVdpImpl implements MarsVdp {
                 updateFrameBuffer(vdpContext.fsLatch);
 //                System.out.println("##### VBLANK, D" + frameBufferDisplay + "W" + frameBufferWritable + ", fsLatch: " + fsLatch + ", VB: " + vBlankOn);
             }
-            s32XMMREG.interruptControls[0].setIntPending(VINT_12, true);
-            s32XMMREG.interruptControls[1].setIntPending(VINT_12, true);
         }
         setPen(vdpContext.hBlankOn || vBlankOn ? 1 : 0);
         vdpRegChange(FBCR);
+        s32XMMREG.interruptControls[0].setIntPending(VINT_12, vBlankOn);
+        s32XMMREG.interruptControls[1].setIntPending(VINT_12, vBlankOn);
 //        System.out.println("VBlank: " + vBlankOn);
     }
 
@@ -300,17 +307,19 @@ public class MarsVdpImpl implements MarsVdp {
         setBitFromWord(FBCR, FBCR_HBLK_BIT_POS, hBlankOn ? 1 : 0);
         //TODO hack, FEN =0 after 40 cycles @ 23Mhz
         setBitFromWord(FBCR, FBCR_nFEN_BIT_POS, hBlankOn ? 1 : 0);
+        boolean hintOn = false;
         if (hBlankOn) {
             if (hen > 0 || !vdpContext.vBlankOn) {
                 if (--vdpContext.hCount < 0) {
                     vdpContext.hCount = readWordFromBuffer(SH2_HCOUNT_REG) & 0xFF;
-                    s32XMMREG.interruptControls[0].setIntPending(HINT_10, true);
-                    s32XMMREG.interruptControls[1].setIntPending(HINT_10, true);
+                    hintOn = true;
                 }
             } else {
                 vdpContext.hCount = readWordFromBuffer(SH2_HCOUNT_REG) & 0xFF;
             }
         }
+        s32XMMREG.interruptControls[0].setIntPending(HINT_10, hintOn);
+        s32XMMREG.interruptControls[1].setIntPending(HINT_10, hintOn);
         setPen(hBlankOn || vdpContext.vBlankOn ? 1 : 0);
         //TODO check if any poller is testing the HBlank byte
         vdpRegChange(FBCR);

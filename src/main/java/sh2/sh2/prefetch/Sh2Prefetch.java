@@ -424,7 +424,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
         final Sh2Block block = pcInfoWrapper.block;
         assert block != Sh2Block.INVALID_BLOCK;
-        //TODO this is only needed to detect changes to 0xC00000 data array
+        //TODO this is only needed to detect LONG changes
         if (!cacheOnly) {
             //cosmic carnage
             int prev = block.prefetchWords[((addr - block.prefetchPc) >> 1)];
@@ -448,7 +448,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         Sh2Block b = piw.block;
         boolean isCacheArray = b.prefetchPc >>> SH2_PC_AREA_SHIFT == 0xC0;
         //TODO Blackthorne lots of SDRAM invalidation, does removing (&& isCacheArray) help?
-        if (ENABLE_BLOCK_RECYCLING && isCacheArray) {
+        if (ENABLE_BLOCK_RECYCLING) {// && isCacheArray) {
             assert b.getCpu() != null;
             piw.addToKnownBlocks(b);
         }
