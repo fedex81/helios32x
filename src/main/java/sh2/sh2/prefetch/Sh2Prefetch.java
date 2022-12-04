@@ -267,13 +267,14 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             return;
         }
         final Sh2Block prev = fetchResult.block;
+        boolean isPrevInvalid = !prev.isValid();
         assert fetchResult.pc != fetchResult.block.prefetchPc;
         checkBlock(fetchResult, cpu);
         final int pcPosWords = 0;
         final Sh2Block block = fetchResult.block;
+        //block recycled, was invalid before
+        assert (block == prev ? isPrevInvalid : true) : "\n" + block;
         block.poller.spinCount = 0;
-        assert prev != block : "\n" + prev + "\n" + block;
-        assert block.poller.spinCount == 0 : "\n" + prev + "\n" + block;
         cacheOnFetch(pc, block.prefetchWords[pcPosWords], cpu);
         if (collectStats) stats[cpu.ordinal()].pfTotal++;
         S32xMemAccessDelay.addReadCpuDelay(block.fetchMemAccessDelay);
@@ -289,7 +290,13 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             return memory.read(pc, Size.WORD);
         }
         final Sh2Block block = ft.block;
-        final int pcDeltaWords = (pc - block.prefetchPc) >> 1;
+        //TODO test, if a block clears the cache, the block itself will be invalidated, leading to its PC becoming odd
+        //TODO and breaking the fetching of the delaySlot, see Sangokushi blockPc = 0x200_6ACD
+        int blockPc = block.prefetchPc;
+        if (!block.isValid()) {
+            blockPc &= ~1;
+        }
+        final int pcDeltaWords = (pc - blockPc) >> 1;
         assert pcDeltaWords < block.prefetchLenWords && pcDeltaWords >= 0;
         if (collectStats) stats[cpu.ordinal()].pfTotal++;
         S32xMemAccessDelay.addReadCpuDelay(block.fetchMemAccessDelay);
@@ -459,6 +466,9 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     //TODO test
     public void invalidateCachePrefetch(Sh2Cache.CacheInvalidateContext ctx) {
         int addr = ctx.prevCacheAddr;
+        if (addr >= 0 && addr < 0x100) { //Sangokushi
+            return;
+        }
         int end = ctx.prevCacheAddr + CACHE_BYTES_PER_LINE;
         boolean ignore = addr >>> SH2_PC_AREA_SHIFT > 0xC0;
         if (ignore) {

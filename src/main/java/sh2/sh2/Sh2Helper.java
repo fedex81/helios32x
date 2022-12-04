@@ -50,9 +50,9 @@ public class Sh2Helper {
         }
 
         public void invalidateBlock() {
-            if (verbose) LOG.info("Invalidate pc: {} {}", th(area), th(pcMasked));
+            if (verbose) LOG.info("Invalidate pc area: {}, pcMasked: {}", th(area), th(pcMasked));
             if (block != Sh2Block.INVALID_BLOCK) {
-                if (verbose) LOG.info("{} Block: {}", block.drcContext.cpu, block);
+                if (verbose) LOG.info("{} Block pc: {}, {}", block.drcContext.cpu, th(block.prefetchPc), block);
                 block.invalidate();
                 block = Sh2Block.INVALID_BLOCK;
             }
