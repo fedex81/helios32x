@@ -31,6 +31,7 @@ public class MarsRegTestUtil {
     public static final int VDP_REG_OFFSET = 0x100;
     public static final int SH2_FBCR_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + FBCR.addr;
     public static final int SH2_BITMAP_MODE_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + VDP_BITMAP_MODE.addr;
+    public static final int SH2_SSCR_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + SSCR.addr;
     public static final int SH2_INT_MASK = START_32X_SYSREG_CACHE + S32xDict.RegSpecS32x.SH2_INT_MASK.addr;
     public static final int MD_ADAPTER_CTRL_REG = M68K_START_32X_SYSREG + S32xDict.RegSpecS32x.MD_ADAPTER_CTRL.fullAddress;
     public static int SH2_AFLEN_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + AFLR.addr;

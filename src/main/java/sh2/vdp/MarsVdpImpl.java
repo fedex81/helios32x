@@ -174,6 +174,10 @@ public class MarsVdpImpl implements MarsVdp {
 
     private boolean handleVdpRegWriteInternal(S32xDict.RegSpecS32x regSpec, int reg, int value, Size size) {
         assert size != Size.LONG : regSpec;
+        if (size == Size.BYTE && (reg & 1) == 0) {
+            LOG.warn("{} even byte write: {} {}", regSpec, th(value), size);
+            return false;
+        }
         boolean regChanged = false;
         switch (regSpec) {
             case VDP_BITMAP_MODE:
@@ -183,9 +187,13 @@ public class MarsVdpImpl implements MarsVdp {
                 regChanged = handleFBCRWrite(reg, value, size);
                 break;
             case AFDR:
+                assert size == Size.WORD;
                 runAutoFill(value);
                 regChanged = true;
                 break;
+            case SSCR:
+                value &= 1;
+                //fall-through
             case AFLR:
                 value &= 0xFF;
                 //fall-through
@@ -201,15 +209,13 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     private boolean handleBitmapModeWrite(int reg, int value, Size size) {
-        if (size == Size.BYTE && (reg & 1) == 0) { //golf
-            return false;
-        }
+        //NOTE: golf, writes on even byte
         int val = readWordFromBuffer(VDP_BITMAP_MODE);
         int prevPrio = (val >> 7) & 1;
         writeBufferReg(regContext, VDP_BITMAP_MODE, reg, value, size);
         int newVal = readWordFromBuffer(VDP_BITMAP_MODE) & ~(P32XV_PAL | P32XV_240);
         int v240 = pal == 0 && vdpContext.videoMode.isV30() ? 1 : 0;
-        newVal = newVal | (pal * P32XV_PAL) | (v240 * P32XV_240);
+        newVal = (newVal & 0xC3) | (pal * P32XV_PAL) | (v240 * P32XV_240);
         writeBufferWord(VDP_BITMAP_MODE, newVal);
         vdpContext.bitmapMode = BitmapMode.vals[newVal & 3];
         int prio = (newVal >> 7) & 1;

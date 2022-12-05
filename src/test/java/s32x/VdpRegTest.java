@@ -1,6 +1,7 @@
 package s32x;
 
 import omegadrive.util.Size;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.S32XMMREG;
@@ -126,5 +127,50 @@ public class VdpRegTest {
 //
 ////        s32XMMREG.write(SH2_BITMAP_MODE_OFFSET, 0, Size.WORD);
 //        assertPRIO(s32XMMREG, false);
+    }
+
+    @Test
+    public void testVdpBitmapMode() {
+        testByteWriteRegIgnoresEvenByte(SH2_BITMAP_MODE_OFFSET, 0x83, 0x7FFF);
+    }
+
+    @Test
+    public void testAFLR() {
+        testByteWriteRegIgnoresEvenByte(SH2_AFLEN_OFFSET, 0xFF, 0xFFFF);
+    }
+
+    @Test
+    public void testSSCR() {
+        testByteWriteRegIgnoresEvenByte(SH2_SSCR_OFFSET, 0x1, 0xFFFF);
+    }
+
+    private void testByteWriteRegIgnoresEvenByte(int regOffset, int oddByteMask, int readWordMask) {
+        for (int i = 0; i < 0x100; i++) {
+            s32XMMREG.write(regOffset + 1, i, Size.BYTE);
+            int res1 = s32XMMREG.read(regOffset, Size.WORD);
+            Assertions.assertEquals(i & oddByteMask, res1 & readWordMask);
+
+            //ignored
+            s32XMMREG.write(regOffset, i, Size.BYTE);
+            int res2 = s32XMMREG.read(regOffset, Size.WORD);
+            Assertions.assertEquals(res1, res2);
+        }
+    }
+
+    @Test
+    public void testFBCR() {
+        s32XMMREG.write(SH2_FBCR_OFFSET, 0, Size.WORD);
+        int res = s32XMMREG.read(SH2_FBCR_OFFSET, Size.WORD);
+        Assertions.assertEquals(0, res & 0x1FFF);
+
+        s32XMMREG.write(SH2_FBCR_OFFSET, 0b111 << 12, Size.WORD);
+        res = s32XMMREG.read(SH2_FBCR_OFFSET, Size.WORD);
+        Assertions.assertEquals(0, res & 0x1FFF);
+
+        s32XMMREG.write(SH2_FBCR_OFFSET, 0b111 << 4, Size.BYTE);
+        res = s32XMMREG.read(SH2_FBCR_OFFSET, Size.WORD);
+        Assertions.assertEquals(0, res & 0x1FFF);
+
+        testByteWriteRegIgnoresEvenByte(SH2_FBCR_OFFSET, 3, 0x1FFF);
     }
 }
