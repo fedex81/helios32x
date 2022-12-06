@@ -52,7 +52,7 @@ public class Sh2CacheImpl implements Sh2Cache {
     private static final Logger LOG = LogHelper.getLogger(Sh2CacheImpl.class.getSimpleName());
     private static final boolean verbose = false;
 
-    //TODO looks like this is NOT needed, ie. it doesn't improve compat
+    //NOTE looks like this is NOT needed, ie. it doesn't improve compat
     public static final boolean PARANOID_ON_CACHE_ENABLED_TOGGLE = false;
 
     protected Sh2CacheEntry ca;
@@ -150,7 +150,7 @@ public class Sh2CacheImpl implements Sh2Cache {
             case CACHE_USE: {
                 if (ca.enable == 0) {
                     writeMemoryUncached(memory, addr, val, size);
-                    return true; //TODO check this, false works?
+                    return false; //TODO check this
                 }
                 change = writeCache(addr, val, size);
             }
