@@ -1,3 +1,8 @@
+## 22.1206
+* default to DRC, cacheOn
+* does not require official bioses, uses homebrew
+* lots of other changes, some games are playable
+
 ## 22.0516-PD-SNAPSHOT
 * (pre-drc branch)
 * 32x: fix bug on address masking

@@ -51,6 +51,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
 
     public static final int SH2_SLEEP_VALUE = -10000;
 
+    //NOTE vr helios.32x.sh2.cycles = 12
     //TODO vr breaks with poll1, also it keep re-analyzing the same block,
     //TODO is it continuosly recreated or do we just keep calling polling detect on it?
 
