@@ -111,7 +111,7 @@ public class Ow2DrcOptimizer {
         public int memLoadPos = -1, memLoadOpcode, cmpPos = -1, cmpOpcode, branchPos = -1,
                 branchOpcode, branchPc, branchDestPc;
         public int pc;
-        public int memLoadTarget = 0;
+        public int memLoadTarget = 0, memLoadTargetEnd;
         public int numNops, numRegOnly;
         public Size memLoadTargetSize;
         public final int[] words;
@@ -369,6 +369,9 @@ public class Ow2DrcOptimizer {
         } else if ((memReadOpcode & 0xF0FF) == 0x401b) { //TAS.B @Rn
             bpd.memLoadTarget = r[(memReadOpcode >> 8) & 0xF];
             bpd.memLoadTargetSize = Size.BYTE;
+        }
+        if (bpd.memLoadTargetSize != null) {
+            bpd.memLoadTargetEnd = bpd.memLoadTarget + (bpd.memLoadTargetSize.getByteSize() - 1);
         }
     }
 

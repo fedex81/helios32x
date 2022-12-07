@@ -22,6 +22,7 @@ import static sh2.dict.S32xDict.SH2_START_ROM;
 import static sh2.dict.S32xDict.SH2_START_SDRAM;
 import static sh2.sh2.Sh2Disassembler.NOP;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.PWM_6;
+import static sh2.sh2.drc.Sh2Block.POLLER_ACTIVATE_LIMIT;
 
 /**
  * Federico Berti
@@ -50,6 +51,7 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
 
     @BeforeEach
     public void before() {
+        lc = createTestInstance();
         lastCpuEvent = null;
         lastEvent = null;
         lc.sh2.reset(lc.masterCtx);
@@ -124,6 +126,35 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
         testMemLoad02Internal(c);
     }
 
+    /**
+     * Check that if the value matches the exit condition we don't begin polling.
+     * R0 = 0 and we enter this code:
+     * <p>
+     * 06000ba0	c539	mov.w @(57, GBR), R0
+     * 00000ba2	8800	cmp/eq H'00, R0
+     * 00000ba4	8bfc	bf H'00000ba0
+     */
+    @Test
+    public void testMemLoad03() {
+        LocalTestCtx c = new LocalTestCtx();
+        c.regs = getEmptyRegs();
+        c.memLoadAddress = 0x8c;
+        c.memLoadSize = Size.WORD;
+        c.matchVal = 0;
+        c.noMatchVal = 4;
+        c.matchOrNot = true;
+        c.regs[2] = c.matchVal;
+        c.regs[1] = SH2_START_SDRAM | (c.memLoadAddress - 10);
+        c.cyclesPerBlock = 10 + 11; //exec + fetch
+        c.start = 0x600;
+        c.opcodes = new int[]{0xc539, 0x8800, 0x8bfc, 0xaffb, NOP, 0xaffa, NOP}; //BRA 0x400,  BRA 0x400
+        c.isPoll = true;
+
+        int gbrVal = 0x1a;
+        lc.masterCtx.GBR = SH2_START_SDRAM | gbrVal;
+        testMemLoad03Internal(c);
+    }
+
     @Test
     public void testMemLoadChangeMemoryLocation() {
         LocalTestCtx c = new LocalTestCtx();
@@ -182,7 +213,7 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
     public void testInterruptStopBusyLoop() {
         LocalTestCtx c = new LocalTestCtx();
         c.regs = getEmptyRegs();
-        c.cyclesPerBlock = 3;
+        c.cyclesPerBlock = 1;
         c.start = 0x600;
         c.opcodes = new int[]{0xaffe, NOP};
         c.isPoll = false;
@@ -279,7 +310,7 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
             runBlock(sh2Context, cycles);
             Assertions.assertFalse(isPollerActive());
             cnt++;
-        } while (cnt < 10);
+        } while (cnt < POLLER_ACTIVATE_LIMIT << 1);
 
         ByteBuffer sdram = lc.memory.getMemoryDataCtx().sdram;
         //now we start looping
@@ -290,6 +321,39 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
         //stop looping
         sdram.putShort(c.memLoadAddress, (short) c.matchVal);
         runBlock(sh2Context, cycles);
+        Assertions.assertFalse(isPollerActive());
+    }
+
+    public void testMemLoad03Internal(LocalTestCtx c) {
+        int startRom = SH2_START_ROM | c.start;
+        Sh2Context sh2Context = lc.masterCtx;
+        int cycles = c.cyclesPerBlock;
+
+        setupMemSh2(c);
+
+        runBlock(sh2Context, cycles);
+        //activate drc
+        Sh2Helper.Sh2PcInfoWrapper wrapper = Sh2Helper.get(startRom, CpuDeviceAccess.MASTER);
+        Assertions.assertNotNull(wrapper);
+        Assertions.assertNotEquals(Sh2Helper.SH2_NOT_VISITED, wrapper);
+        loopUntilDrc(sh2Context, wrapper);
+        Assertions.assertEquals(PollType.SDRAM, wrapper.block.pollType);
+        System.out.println(th(wrapper.block.poller.blockPollData.memLoadTarget));
+
+        Assertions.assertFalse(isPollerActive());
+
+        //we shouldn't start looping, as the value matches the exit condition
+        ByteBuffer sdram = lc.memory.getMemoryDataCtx().sdram;
+        sdram.putShort(c.memLoadAddress, (short) c.matchVal);
+
+        int cnt = 0;
+        do {
+            runBlock(sh2Context, cycles);
+            Assertions.assertFalse(isPollerActive());
+            cnt++;
+        } while (cnt < POLLER_ACTIVATE_LIMIT << 1);
+
+        Assertions.assertFalse(wrapper.block.poller.isPollingActive());
         Assertions.assertFalse(isPollerActive());
     }
 
@@ -354,7 +418,7 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
             lc.sh2.run(sh2Context);
             pollActive = isPollerActive();
             cnt++;
-        } while (!pollActive && cnt < 100);
+        } while (!pollActive && cnt < POLLER_ACTIVATE_LIMIT *20);
         Assertions.assertNotEquals(100, cnt);
         Assertions.assertEquals(CpuDeviceAccess.MASTER, lastCpuEvent);
         Assertions.assertEquals(SysEventManager.SysEvent.START_POLLING, lastEvent);

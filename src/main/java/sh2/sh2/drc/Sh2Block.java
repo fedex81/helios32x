@@ -77,9 +77,6 @@ public class Sh2Block {
         assert (blockFlags & VALID_FLAG) > 0;
         if (stage2Drc != null) {
             stage2Drc.run();
-            if (sh2Config.pollDetectEn) {
-                handlePoll();
-            }
             return;
         }
         runInterpreter(sh2, sm, drcContext.sh2Ctx);
@@ -102,9 +99,9 @@ public class Sh2Block {
         curr = prev;
     }
 
-    private static final int POLLER_ACTIVATE_LIMIT = 2;
+    public static final int POLLER_ACTIVATE_LIMIT = 2;
 
-    protected final void handlePoll() {
+    public final void handlePoll() {
         final CpuDeviceAccess cpu = getCpu();
         if (!isPollingBlock()) {
             final Ow2DrcOptimizer.PollerCtx current = SysEventManager.instance.getPoller(cpu);
@@ -152,9 +149,11 @@ public class Sh2Block {
         }
         blockPoller.pollState = Ow2DrcOptimizer.PollState.ACTIVE_POLL;
         Ow2DrcOptimizer.parseMemLoad(blockPoller.blockPollData);
+        //TODO
+        int val = 0; //drcContext.memory.read(blockPoller.blockPollData.memLoadTarget, blockPoller.blockPollData.memLoadTargetSize);
         if (verbose)
-            LOG.info("{} entering {} poll at PC {}, on address: {}", blockPoller.cpu, pollType,
-                    th(this.prefetchPc), th(blockPoller.blockPollData.memLoadTarget));
+            LOG.info("{} entering {} poll at PC {}, on address: {}, currentVal: {}", blockPoller.cpu, pollType,
+                    th(this.prefetchPc), th(blockPoller.blockPollData.memLoadTarget), th(val));
         SysEventManager.instance.fireSysEvent(blockPoller.cpu, SysEvent.START_POLLING);
     }
 

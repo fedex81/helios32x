@@ -336,7 +336,7 @@ public class MarsVdpImpl implements MarsVdp {
         assert regSpec.size == Size.WORD;
         int val = readWordFromBuffer(FBCR); //TODO avoid the read?
         int addr = SH2_CACHE_THROUGH_OFFSET | START_32X_SYSREG_CACHE | regSpec.fullAddress;
-        Sh2Prefetch.checkPollers(regSpec.deviceType, addr, val, Size.WORD);
+        Sh2Prefetch.checkPollersVdp(regSpec.deviceType, addr, val, Size.WORD);
     }
 
     private void writeBufferWord(RegSpecS32x reg, int value) {

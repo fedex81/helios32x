@@ -77,6 +77,9 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
             Sh2Helper.get(SH2_START_SDRAM_CACHE | i, MASTER).invalidateBlock();
             Sh2Helper.get(SH2_START_SDRAM | i, MASTER).invalidateBlock();
         }
+        //invalidate prefetch for drcEn=false
+        Optional.ofNullable(prefetchContexts[0]).map(pf -> pf.dirty = true);
+        Optional.ofNullable(prefetchContexts[1]).map(pf -> pf.dirty = true);
     }
 
     @Test
@@ -112,7 +115,6 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
     protected void testRamCacheOffWriteInternal() {
         resetMemory();
-        testRamCacheOffInternal();
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         memory.write16(cacheAddrDef, CLRMAC);
 
@@ -144,11 +146,6 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
         Md32xRuntimeData.setAccessTypeExt(MASTER);
         memory.write16(cacheAddrDef, CLRMAC);
-
-        //TODO fix
-        if (Sh2Config.get().prefetchEn && !Sh2Config.get().drcEn) {
-            return;
-        }
 
         //cache is write-through
         checkFetch(MASTER, cacheAddrDef, CLRMAC);
@@ -417,7 +414,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
 
     //check that [addr & 0xF0, (addr & 0xF0) + 14] has been filled in a cache line
     private void checkCacheLineFilled(CpuDeviceAccess cpu, int addr, int... words) {
-        Assertions.assertTrue(words.length == 8);
+        Assertions.assertEquals(8, words.length);
         int baseCacheAddr = addr & 0xFFFF_FFF0;
         for (int i = baseCacheAddr; i < baseCacheAddr + 16; i += 2) {
             int w = (i & 0xF) >> 1;

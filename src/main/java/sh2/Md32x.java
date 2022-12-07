@@ -52,14 +52,11 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     public static final int SH2_SLEEP_VALUE = -10000;
 
     //NOTE vr helios.32x.sh2.cycles = 12
-    //TODO vr breaks with poll1, also it keep re-analyzing the same block,
-    //TODO is it continuosly recreated or do we just keep calling polling detect on it?
-    //TODO after burner smoke was fixed and then broken again
-
+    //TODO chaotix,kolibri break with poll1
     static {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
         boolean drcEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
-        boolean pollEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "false"));
+        boolean pollEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "true"));
         boolean ignoreDelays = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.ignore.delays", "false"));
         sh2Config = new Sh2Config(prefEn, drcEn, pollEn, ignoreDelays);
 
@@ -243,7 +240,6 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
             default -> { //stop polling
                 final Ow2DrcOptimizer.PollerCtx pc = SysEventManager.instance.getPoller(cpu);
                 stopPolling(cpu, event, pc);
-                if (verbose) LOG.info("{} {} {}: {}", cpu, event, cycleCounter, pc);
             }
         }
     }
@@ -252,9 +248,9 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
 //        assert event == SysEventManager.SysEvent.INT ? pc.isPollingBusyLoop() : true;
         boolean stopOk = event == pc.event || event == SysEventManager.SysEvent.INT;
         if (stopOk) {
+            if (verbose) LOG.info("{} stop polling {} {}: {}", cpu, event, cycleCounter, pc);
             setNextCycle(cpu, cycleCounter + 1);
             SysEventManager.instance.resetPoller(cpu);
-            if (verbose) LOG.info("{} {} {}: {}", cpu, event, cycleCounter, pc);
         } else {
             LOG.warn("{} {} ignore stop polling: {}", cpu, event, pc);
         }

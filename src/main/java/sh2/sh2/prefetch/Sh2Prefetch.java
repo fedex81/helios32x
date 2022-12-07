@@ -21,6 +21,7 @@ import sh2.sh2.Sh2Helper.Sh2PcInfoWrapper;
 import sh2.sh2.Sh2Instructions;
 import sh2.sh2.Sh2Instructions.Sh2InstructionWrapper;
 import sh2.sh2.cache.Sh2Cache;
+import sh2.sh2.drc.Ow2DrcOptimizer;
 import sh2.sh2.drc.Sh2Block;
 
 import java.nio.ByteBuffer;
@@ -323,9 +324,9 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         checkPoller(cpuWrite, SysEvent.valueOf(type.name()), addr, val, size);
     }
 
-    public static void checkPollers(S32xDict.S32xRegType type, int addr, int val, Size size) {
-        checkPoller(MASTER, SysEvent.valueOf(type.name()), addr, val, size);
-        checkPoller(SLAVE, SysEvent.valueOf(type.name()), addr, val, size);
+    public static void checkPollersVdp(S32xDict.S32xRegType type, int addr, int val, Size size) {
+        //cpuWrite doesn't apply here...
+        checkPoller(null, SysEvent.valueOf(type.name()), addr, val, size);
     }
 
     public static void checkPoller(CpuDeviceAccess cpuWrite, SysEvent type, int addr, int val, Size size) {
@@ -346,11 +347,11 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         if (c.isPollingBusyLoop() || type != c.event) {
             return;
         }
+        final Ow2DrcOptimizer.BlockPollData bpd = c.blockPollData;
+        //TODO check, cache vs cache-through
         addr = addr & 0xFFF_FFFF;
-        int tgtStart = (c.blockPollData.memLoadTarget & 0xFFF_FFFF);
-        int tgtEnd = tgtStart + c.blockPollData.memLoadTargetSize.getByteSize();
-        int addrEnd = addr + size.getByteSize();
-        if ((addrEnd > tgtStart) && (addr < tgtEnd)) {
+        if (rangeIntersect(bpd.memLoadTarget & 0xFFF_FFFF,
+                bpd.memLoadTargetEnd & 0xFFF_FFFF, addr, addr + size.getByteSize() - 1)) {
             if (verbose)
                 LOG.info("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
                         th(addr), size, c.cpu, th(c.blockPollData.memLoadTarget),

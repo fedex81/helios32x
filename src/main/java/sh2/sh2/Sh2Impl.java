@@ -159,6 +159,9 @@ public class Sh2Impl implements Sh2 {
 			assert block.isValid();
 			block.nextBlock = fr.block;
 			block.poller.spinCount++;
+			if (sh2Config.pollDetectEn) {
+				block.handlePoll();
+			}
 			return;
 		}
 		//nextBlock matches what we expect

@@ -26,11 +26,15 @@ public class Sh2Helper {
     public static final Sh2Disassembler disasm = new Sh2Disassembler();
     private static final String simpleFormat = "%s %08x\t%04x\t%s";
 
-
+    private static final Sh2PcInfoWrapper[] EMPTY_WRAPPER = new Sh2PcInfoWrapper[0];
     public static final Sh2PcInfoWrapper SH2_NOT_VISITED = new Sh2PcInfoWrapper(0, 0);
-    private static Sh2PcInfoWrapper[][] piwArr;
-    private static final Sh2PcInfoWrapper[] empty = new Sh2PcInfoWrapper[0];
+    private static Sh2PcInfoWrapper[][] piwArr = createPcInfoWrapper();
 
+
+    /**
+     * Even indexes -> MASTER pc
+     * Odd indexes  -> SLAVE pc, actual PC is pc & ~1
+     */
     public final static class Sh2PcInfoWrapper extends CpuFastDebug.PcInfoWrapper {
 
         public Sh2Block block = Sh2Block.INVALID_BLOCK;
@@ -76,19 +80,25 @@ public class Sh2Helper {
      * Even indexes -> MASTER pc
      * Odd indexes  -> SLAVE pc, actual PC is pc & ~1
      */
-    public static Sh2PcInfoWrapper[][] getPcInfoWrapper() {
+    private static Sh2PcInfoWrapper[][] createPcInfoWrapper() {
         if (piwArr == null) {
             piwArr = createWrapper(createContext());
         }
         return piwArr;
     }
 
+    public static Sh2PcInfoWrapper[][] getPcInfoWrapper() {
+        assert piwArr != null;
+        return piwArr;
+    }
+
     private static Sh2PcInfoWrapper[][] createWrapper(CpuFastDebug.CpuDebugContext ctx) {
         Sh2PcInfoWrapper[][] pcInfoWrapper = new Sh2PcInfoWrapper[ctx.pcAreasNumber][0];
+        assert EMPTY_WRAPPER != null;
+        Arrays.fill(pcInfoWrapper, EMPTY_WRAPPER);
 
         for (int i = 0; i < ctx.pcAreasMaskMap.length; ++i) {
             int pcAreaSize = ctx.pcAreasMaskMap[i] + 1;
-            pcInfoWrapper[i] = empty;
             if (pcAreaSize > 1) {
                 pcInfoWrapper[i] = new Sh2PcInfoWrapper[pcAreaSize];
                 Arrays.fill(pcInfoWrapper[i], SH2_NOT_VISITED);
@@ -98,14 +108,12 @@ public class Sh2Helper {
     }
 
     public static boolean isValidPc(int pc, CpuDeviceAccess cpu) {
-        getPcInfoWrapper();
         assert (pc & 1) == 0 : th(pc);
         final int piwPc = pc | cpu.ordinal();
         return piwArr[piwPc >>> SH2_PC_AREA_SHIFT].length > 0;
     }
 
     public static Sh2PcInfoWrapper getOrDefault(int pc, CpuDeviceAccess cpu) {
-        getPcInfoWrapper();
         assert (pc & 1) == 0 : th(pc);
         final int piwPc = pc | cpu.ordinal();
         final Sh2PcInfoWrapper[] piwSubArr = piwArr[piwPc >>> SH2_PC_AREA_SHIFT];
@@ -124,7 +132,6 @@ public class Sh2Helper {
      * pcMasked = pc & pcAreaMaskMap[area]
      */
     public static Sh2PcInfoWrapper get(int pc, CpuDeviceAccess cpu) {
-        getPcInfoWrapper();
         assert (pc & 1) == 0 : th(pc);
         final int piwPc = pc | cpu.ordinal();
         //TODO cache-through vs cached
