@@ -247,6 +247,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             assert fetchResult.pc == piw.block.prefetchPc : th(fetchResult.pc);
             piw.block.addHit();
             fetchResult.block = piw.block;
+            assert piw.block.isCacheFetch() ? cache[cpu.ordinal()].getCacheContext().cacheEn > 0 : true;
             return;
         }
         Sh2Block block = doPrefetch(piw, pc, cpu);

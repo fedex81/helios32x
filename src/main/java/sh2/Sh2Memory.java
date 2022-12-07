@@ -208,7 +208,7 @@ public final class Sh2Memory implements IMemory {
 				if (true) throw new RuntimeException();
 				break;
 		}
-		if (hasMemoryChanged) {
+		if (true || hasMemoryChanged) { //TODO this breaks Metal Head, after burner smoke
 			prefetch.dataWrite(cpuAccess, address, val, size);
 		}
 		if (config.pollDetectEn) {

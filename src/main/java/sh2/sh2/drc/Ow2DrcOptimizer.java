@@ -35,6 +35,12 @@ import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.*;
  */
 public class Ow2DrcOptimizer {
 
+    /**
+     * vf - sequence to optimize -> R1 = 0x80
+     * 00000538	e180	mov H'ffffff80, R1 (MOVI)
+     * 0000053a	611c	extu.b R1, R1
+     */
+
     private final static Logger LOG = LogHelper.getLogger(Ow2DrcOptimizer.class.getSimpleName());
 
     //toggle poll detection but keep busyLoop detection enabled
@@ -72,6 +78,7 @@ public class Ow2DrcOptimizer {
             this.supported = supported;
         }
     }
+
     private static final Predicate<Integer> isCmpTstOpcode = Sh2Debug.isTstOpcode.or(Sh2Debug.isCmpOpcode);
 
     public static final Predicate<Integer> isTasOpcode = op -> (op & 0xF0FF) == 0x401b;
@@ -429,6 +436,26 @@ public class Ow2DrcOptimizer {
                 LOG.error("{} Unexpected {} access type for polling: {}", Md32xRuntimeData.getAccessTypeExt(), NONE
                         , th(address));
                 return NONE;
+        }
+    }
+
+    /**
+     * e142	mov H'42, R1
+     * 611c	extu.b R1, R1
+     */
+    static Predicate<Integer> isMoviuExtu = op -> isMoviOpcode.test(op >> 16) && isExtOpcode.test(op & 0xFFFF) &&
+            ((op >> 24) & 0xF) == ((op >> 4) & 0xF) && ((op >> 8) & 0xF) == ((op >> 4) & 0xF);
+
+
+    public static void checkOptBlock(Sh2Block block) {
+        final int[] ops = block.prefetchWords;
+        boolean match;
+        for (int i = 0; i < block.prefetchLenWords - 1; i += 2) {
+            if (isMoviuExtu.test(ops[i] << 16 | ops[i + 1])) {
+                System.out.println(Sh2Helper.toListOfInst(block.prefetchPc, ops[i], ops[i + 1]));
+            } else if (isExtOpcode.test(ops[i + 1]) && ((ops[i + 1] >> 8) & 0xF) == ((ops[i + 1] >> 4) & 0xF)) {
+                System.out.println("Check:\n" + Sh2Helper.toListOfInst(block.prefetchPc, ops[i], ops[i + 1]));
+            }
         }
     }
 }

@@ -54,6 +54,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     //NOTE vr helios.32x.sh2.cycles = 12
     //TODO vr breaks with poll1, also it keep re-analyzing the same block,
     //TODO is it continuosly recreated or do we just keep calling polling detect on it?
+    //TODO after burner smoke was fixed and then broken again
 
     static {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));

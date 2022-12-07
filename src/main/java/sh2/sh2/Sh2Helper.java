@@ -171,6 +171,14 @@ public class Sh2Helper {
         System.out.println(toDebuggingString(ctx));
     }
 
+    public static StringBuilder toListOfInst(int pc, int... opcodes) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < opcodes.length; i++) {
+            sb.append(Sh2Helper.getInstString("", pc + (i << 1), opcodes[i])).append("\n");
+        }
+        return sb;
+    }
+
     public static StringBuilder toListOfInst(Sh2Block ctx) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < ctx.prefetchWords.length; i++) {
