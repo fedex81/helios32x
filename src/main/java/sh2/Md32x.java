@@ -52,11 +52,11 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     public static final int SH2_SLEEP_VALUE = -10000;
 
     //NOTE vr helios.32x.sh2.cycles = 12
-    //TODO chaotix,kolibri break with poll1
+    //TODO chaotix,kolibri,metal head, break with poll1
     static {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
         boolean drcEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
-        boolean pollEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "true"));
+        boolean pollEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "false"));
         boolean ignoreDelays = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.ignore.delays", "false"));
         sh2Config = new Sh2Config(prefEn, drcEn, pollEn, ignoreDelays);
 
@@ -74,7 +74,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         for (int i = 0; i < sh2CycleTable.length; i++) {
             sh2CycleTable[i] = Math.max(1, (int) Math.round(i * SH2_CYCLE_DIV));
         }
-        S32xUtil.assertPowerOf2Minus1("CYCLE_TABLE_LEN_MASK", CYCLE_TABLE_LEN_MASK + 1);
+        S32xUtil.assertPowerOf2Minus1("CYCLE_TABLE_LEN_MASK", CYCLE_TABLE_LEN_MASK);
     }
 
     public int nextMSh2Cycle = 0, nextSSh2Cycle = 0;
@@ -192,7 +192,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         ctx.mDevCtx.sh2MMREG.newFrame();
         ctx.sDevCtx.sh2MMREG.newFrame();
         ctx.memory.newFrame();
-        if (verbose) LOG.info("New frame");
+        if (verbose) LOG.info("New frame: {}", telemetry.getFrameCounter());
     }
 
     @Override
@@ -215,6 +215,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         switch (event) {
             case START_POLLING -> {
                 //TODO this should keep running DMA, SCI, see Chaotix
+//                Sh2Context sh2Context = cpu == MASTER ? masterCtx : slaveCtx;
 //                DmaHelper.DmaChannelSetup ch0 = sh2Context.devices.dmaC.getDmaChannelSetup()[0];
 //                DmaHelper.DmaChannelSetup ch1 = sh2Context.devices.dmaC.getDmaChannelSetup()[1];
 //                while (ch0.dmaInProgress || ch1.dmaInProgress){

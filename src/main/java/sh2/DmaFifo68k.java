@@ -56,10 +56,6 @@ public class DmaFifo68k {
 
     public void write(RegSpecS32x regSpec, CpuDeviceAccess cpu, int address, int value, Size size) {
         if (verbose) LOG.info("{} DMA write {}: {} {}", cpu, regSpec.name, th(value), size);
-        if (size == Size.LONG) {
-            LOG.error("{} DMA write {}: {} {}", cpu, regSpec.name, th(value), size);
-            throw new RuntimeException();
-        }
         switch (cpu.regSide) {
             case MD:
                 writeMd(regSpec, address, value, size);
@@ -110,9 +106,10 @@ public class DmaFifo68k {
             //sync sh2 reg
             writeBuffer(sysRegsSh2, SH2_DREQ_CTRL.addr + 1, res & 7, Size.BYTE);
             //TODO bit 1 is unused? picodrive calls it DMA
-            if (verbose) LOG.info("{} write DREQ_CTL, dmaOn: {} , RV: {}", M68K, m68S, rv);
+            if (verbose)
+                LOG.info("{} write DREQ_CTL, dmaOn: {} , RV: {}", Md32xRuntimeData.getAccessTypeExt(), m68S, rv);
             if (wasDmaOn && !m68S) {
-                LOG.info("{} Setting 68S = 0, stops DMA while running", M68K);
+                LOG.info("{} Setting 68S = 0, stops DMA while running", Md32xRuntimeData.getAccessTypeExt());
                 dmaEnd();
             }
             updateFifoState();

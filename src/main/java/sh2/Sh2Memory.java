@@ -88,11 +88,15 @@ public final class Sh2Memory implements IMemory {
 				if (address >= SH2_START_ROM && address < SH2_END_ROM) {
 					//TODO RV bit, sh2 should stall
 					if (DmaFifo68k.rv) {
-						LOG.warn("{} sh2 access to ROM when RV={}, addr: {} {}", cpuAccess, DmaFifo68k.rv, th(address), size);
+						LOG.warn("{} sh2 read access to ROM when RV={}, addr: {} {}", cpuAccess, DmaFifo68k.rv, th(address), size);
 					}
 					res = readBuffer(rom, address & romMask, size);
 					S32xMemAccessDelay.addReadCpuDelay(ROM);
 				} else if (address >= S32xDict.START_32X_SYSREG && address < S32xDict.END_32X_COLPAL) {
+					if (s32XMMREG.fm == 0 && address >= START_32X_VDPREG) {
+						LOG.warn("{} sh2 ignoring read to VDP regs when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
+						return 0xFF;
+					}
 					res = s32XMMREG.read(address, size);
 				} else if (address >= SH2_START_SDRAM && address < SH2_END_SDRAM) {
 					res = readBuffer(sdram, address & SH2_SDRAM_MASK, size);
@@ -101,9 +105,17 @@ public final class Sh2Memory implements IMemory {
 						readSyncCheck(cpuAccess, address, size);
 					}
 				} else if (address >= S32xDict.START_DRAM && address < S32xDict.END_DRAM) {
+					if (s32XMMREG.fm == 0) {
+						LOG.warn("{} sh2 ignoring read to FB when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
+						return 0xFF;
+					}
 					res = s32XMMREG.read(address, size);
 					S32xMemAccessDelay.addReadCpuDelay(FRAME_BUFFER);
 				} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
+					if (s32XMMREG.fm == 0) {
+						LOG.warn("{} sh2 ignoring read to overwrite FB when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
+						return 0xFF;
+					}
 					res = s32XMMREG.read(address, size);
 					S32xMemAccessDelay.addReadCpuDelay(FRAME_BUFFER);
 				} else if (address >= SH2_START_BOOT_ROM && address < SH2_END_BOOT_ROM) {
@@ -170,7 +182,7 @@ public final class Sh2Memory implements IMemory {
 					if (s32XMMREG.fm > 0) {
 						s32XMMREG.write(address, val, size);
 					} else {
-						LOG.warn("{} sh2 ignoring access to FB when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
+						LOG.warn("{} sh2 ignoring write to FB when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
 					}
 				} else if (address >= SH2_START_SDRAM && address < SH2_END_SDRAM) {
 					if (SDRAM_SYNC_TESTER) {
@@ -182,7 +194,7 @@ public final class Sh2Memory implements IMemory {
 					if (s32XMMREG.fm > 0) {
 						s32XMMREG.write(address, val, size);
 					} else {
-						LOG.warn("{} sh2 ignoring access to overwrite FB when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
+						LOG.warn("{} sh2 ignoring write to overwrite FB when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
 					}
 				} else if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
 					s32XMMREG.write(address, val, size);
@@ -190,7 +202,7 @@ public final class Sh2Memory implements IMemory {
 					if (s32XMMREG.fm > 0) {
 						s32XMMREG.write(address, val, size);
 					} else {
-						LOG.warn("{} sh2 ignoring access to VDP regs when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
+						LOG.warn("{} sh2 ignoring write to VDP regs when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
 					}
 				}
 				break;

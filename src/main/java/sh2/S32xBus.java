@@ -9,7 +9,6 @@ import omegadrive.util.Size;
 import omegadrive.util.VideoMode;
 import omegadrive.vdp.model.BaseVdpAdapterEventSupport;
 import org.slf4j.Logger;
-import sh2.S32xUtil.*;
 import sh2.dict.S32xDict;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
@@ -92,16 +91,15 @@ public class S32xBus extends GenesisBus {
             }
         } else if (address >= M68K_START_ROM_MIRROR && address < M68K_END_ROM_MIRROR) {
             if (!DmaFifo68k.rv) {
-                address &= M68K_ROM_WINDOW_MASK;
                 res = super.read(address & M68K_ROM_WINDOW_MASK, size);
             } else {
-                LOG.warn("Ignoring access to ROM mirror when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
+                LOG.warn("Ignoring read access to ROM mirror when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
             }
         } else if (address >= M68K_START_ROM_MIRROR_BANK && address < M68K_END_ROM_MIRROR_BANK) {
             if (!DmaFifo68k.rv) {
                 res = super.read(bankSetShift | (address & M68K_ROM_MIRROR_MASK), size);
             } else {
-                LOG.warn("Ignoring access to ROM mirror bank when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
+                LOG.warn("Ignoring read access to ROM mirror bank when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
             }
         } else if (address >= M68K_START_FRAME_BUFFER && address < M68K_END_FRAME_BUFFER) {
             res = read32xWord((address & DRAM_MASK) | START_DRAM, size);
@@ -118,7 +116,7 @@ public class S32xBus extends GenesisBus {
             res = 0x4d415253; //'MARS'
         } else {
             if (!DmaFifo68k.rv && address <= GenesisBus.DEFAULT_ROM_END_ADDRESS) {
-                LOG.warn("Ignoring access to ROM when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
+                LOG.warn("Ignoring read access to ROM when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
                 return size.getMask();
             }
             res = super.read(address, size);
@@ -160,16 +158,34 @@ public class S32xBus extends GenesisBus {
         } else if (address >= M68K_START_32X_COLPAL && address < M68K_END_32X_COLPAL) {
             write32xWord((address & M68K_MASK_32X_COLPAL) | SH2_COLPAL_32X_OFFSET, data, size);
         } else if (address >= M68K_START_ROM_MIRROR_BANK && address < M68K_END_ROM_MIRROR_BANK) {
-            //NOTE it could be writing to SRAM via the rom mirror
-            super.write((address & M68K_ROM_MIRROR_MASK) | bankSetShift, data, size);
+            if (!DmaFifo68k.rv) {
+                //NOTE it could be writing to SRAM via the rom mirror
+                super.write((address & M68K_ROM_MIRROR_MASK) | bankSetShift, data, size);
+            } else {
+                LOG.warn("Ignoring write access to ROM mirror bank when RV={}, addr: {}, addr68k: {}, val: {} {}",
+                        DmaFifo68k.rv, th(address), th(address & M68K_ROM_WINDOW_MASK), th(data), size);
+            }
         } else if (address >= M68K_START_ROM_MIRROR && address < M68K_END_ROM_MIRROR) {
             //TODO should not happen, SoulStar
-            super.write(address & M68K_ROM_WINDOW_MASK, data, size);
+            if (!DmaFifo68k.rv) {
+                super.write(address & M68K_ROM_WINDOW_MASK, data, size);
+            } else {
+                LOG.warn("Ignoring write access to ROM mirror when RV={}, addr: {}, addr68k: {}, val: {} {}",
+                        DmaFifo68k.rv, th(address), th(address & M68K_ROM_WINDOW_MASK), th(data), size);
+            }
         } else if (address >= M68K_START_HINT_VECTOR_WRITEABLE && address < M68K_END_HINT_VECTOR_WRITEABLE) {
             if (verboseMd) LOG.info("HINT vector write, address: {}, data: {}, size: {}", Long.toHexString(address),
                     Integer.toHexString(data), size);
             writeBuffer(writeableHintRom, address & 3, data, size);
         } else {
+            if (address < M68K_END_VECTOR_ROM) {
+                LOG.warn("Ignoring write access to vector rom, RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
+                return;
+            }
+            if (!DmaFifo68k.rv && address <= GenesisBus.DEFAULT_ROM_END_ADDRESS) {
+                LOG.warn("Ignoring write access to ROM when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
+                return;
+            }
             super.write(address, data, size);
         }
     }

@@ -11,7 +11,7 @@ import sh2.event.SysEventManager.SysEvent;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Helper;
-import sh2.sh2.drc.Ow2DrcOptimizer.PollType;
+import sh2.sh2.drc.Ow2DrcOptimizer.*;
 import sh2.sh2.prefetch.Sh2Prefetch;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
@@ -21,9 +21,8 @@ import java.util.StringJoiner;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
-import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
+import static sh2.sh2.drc.Ow2DrcOptimizer.*;
 import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.*;
-import static sh2.sh2.drc.Ow2DrcOptimizer.UNKNOWN_POLLER;
 
 /**
  * Federico Berti
@@ -62,7 +61,7 @@ public class Sh2Block {
     private static final boolean verbose = false;
 
     static {
-        S32xUtil.assertPowerOf2Minus1("OPT_THRESHOLD2", OPT_THRESHOLD2 + 1);
+        S32xUtil.assertPowerOf2Minus1("OPT_THRESHOLD2", OPT_THRESHOLD2);
         sh2Config = Sh2.Sh2Config.get();
         INVALID_BLOCK.setFlag(VALID_FLAG, false);
     }
@@ -119,8 +118,10 @@ public class Sh2Block {
             if (blockPoller != NO_POLLER) {
                 SysEventManager.instance.setPoller(cpu, blockPoller);
             } else {
-                //DMA and PWM are not supported -> poller = NO_POLLER
-                assert pollType == DMA || pollType == PWM : this + "\n" + blockPoller;
+                if (ENABLE_POLL_DETECT) {
+                    //DMA and PWM are not supported -> poller = NO_POLLER
+                    assert pollType == DMA || pollType == PWM : this + "\n" + blockPoller;
+                }
                 if (verbose)
                     LOG.info("{} ignoring {} poll at PC {}, on address: {}", cpu, pollType,
                             th(this.prefetchPc), th(blockPoller.blockPollData.memLoadTarget));

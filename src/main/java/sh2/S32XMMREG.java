@@ -221,6 +221,7 @@ public class S32XMMREG implements Device {
                 regChanged = true;
                 break;
             case MD_SEGA_TV:
+                LOG.warn("{} {} unexpected write, addr: {}, {} {}", cpu, regSpec, th(reg), th(value), size);
                 writeBufferReg(regContext, regSpec, reg, value, size);
                 break;
             default:
@@ -273,8 +274,15 @@ public class S32XMMREG implements Device {
 
     private boolean handleReg4Write(CpuDeviceAccess cpu, int reg, int value, Size size) {
         return switch (cpu.regSide) {
-            case MD -> writeBufferHasChangedWithMask(MD_BANK_SET, sysRegsMd, reg, value, size);
-            case SH2 -> writeBufferHasChangedWithMask(SH2_HCOUNT_REG, sysRegsSh2, reg, value, size);
+            case MD -> {
+                if (size == Size.BYTE && (reg & 1) == 0) {
+                    LOG.warn("Ignore bank set write on byte {}, {} {}", th(reg), th(value), size);
+                    yield false;
+                } else {
+                    yield writeBufferHasChangedWithMask(MD_BANK_SET, sysRegsMd, reg, value & 3, size);
+                }
+            }
+            case SH2 -> writeBufferHasChangedWithMask(SH2_HCOUNT_REG, sysRegsSh2, reg, value & 0xFF, size);
         };
     }
 

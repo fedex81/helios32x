@@ -26,6 +26,8 @@ import static sh2.dict.S32xDict.SH2_PC_AREA_SHIFT;
 import static sh2.sh2.Sh2Debug.isBranchOpcode;
 import static sh2.sh2.Sh2Debug.isMovOpcode;
 import static sh2.sh2.Sh2Disassembler.NOP;
+import static sh2.sh2.Sh2Impl.RM;
+import static sh2.sh2.Sh2Impl.RN;
 import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.*;
 
 /**
@@ -44,7 +46,7 @@ public class Ow2DrcOptimizer {
     private final static Logger LOG = LogHelper.getLogger(Ow2DrcOptimizer.class.getSimpleName());
 
     //toggle poll detection but keep busyLoop detection enabled
-    private final static boolean ENABLE_POLL_DETECT = true;
+    public final static boolean ENABLE_POLL_DETECT = true;
     private final static boolean LOG_POLL_DETECT = false;
     public static final Map<S32xRegType, PollType> ptMap = ImmutableMap.of(
             S32xRegType.DMA, DMA,
@@ -346,8 +348,8 @@ public class Ow2DrcOptimizer {
     private static void parseMemLoad(BlockPollData bpd, Sh2Context sh2Context, int memReadOpcode) {
         final int[] r = sh2Context.registers;
         if ((memReadOpcode & 0xF000) == 0x5000) {
-            //MOVLL4 MOV.L@(disp,Rm),  Rn(disp × 4 + Rm) → Rn    0101nnnnmmmmdddd
-            bpd.memLoadTarget = ((memReadOpcode & 0xF) << 2) + r[(memReadOpcode & 0xF0) >> 4];
+//            MOVLL4 MOV.L@(disp,Rm),  Rn(disp × 4 + Rm) → Rn    0101nnnnmmmmdddd
+            bpd.memLoadTarget = ((memReadOpcode & 0xF) << 2) + r[RM(memReadOpcode)];
             bpd.memLoadTargetSize = Size.LONG;
         } else if (((memReadOpcode & 0xF000) == 0xC000) && ((((memReadOpcode >> 8) & 0xF) == 4) || (((memReadOpcode >> 8) & 0xF) == 5) || (((memReadOpcode >> 8) & 0xF) == 6))) {
             //MOVBLG MOV.B@(disp,GBR),     R0(disp + GBR) → sign extension → R0    11000100dddddddd
@@ -355,19 +357,19 @@ public class Ow2DrcOptimizer {
             bpd.memLoadTarget = ((memReadOpcode & 0xFF) << bpd.memLoadTargetSize.ordinal()) + sh2Context.GBR;
         } else if (((memReadOpcode & 0xF000) == 0x6000) && ((memReadOpcode & 0xF) < 3)) {
             //MOVXL, MOV.X @Rm,Rn
-            bpd.memLoadTarget = r[(memReadOpcode & 0xF0) >> 4];
+            bpd.memLoadTarget = r[RM(memReadOpcode)];
             bpd.memLoadTargetSize = Size.vals[memReadOpcode & 0xF];
         } else if (((memReadOpcode & 0xF000) == 0x8000) && (((memReadOpcode & 0xF00) == 0x400) || ((memReadOpcode & 0xF00) == 0x500))) {
             //MOVBL4, MOV.B @(disp,Rm),R0
             //MOVWL4, MOV.W @(disp,Rm),R0
             bpd.memLoadTargetSize = Size.vals[(memReadOpcode >> 8) & 1];
-            bpd.memLoadTarget = r[(memReadOpcode & 0xF0) >> 4] + ((memReadOpcode & 0xF) << bpd.memLoadTargetSize.ordinal());
+            bpd.memLoadTarget = r[RM(memReadOpcode)] + ((memReadOpcode & 0xF) << bpd.memLoadTargetSize.ordinal());
         } else if (((memReadOpcode & 0xFF00) == 0xCC00)) {
             //TSTM TST.B #imm,@(R0,GBR) 11001100iiiiiiii     (R0 + GBR) & imm;if the result is 0, 1→T
             bpd.memLoadTarget = r[0] + sh2Context.GBR;
             bpd.memLoadTargetSize = Size.BYTE;
         } else if ((memReadOpcode & 0xF0FF) == 0x401b) { //TAS.B @Rn
-            bpd.memLoadTarget = r[(memReadOpcode >> 8) & 0xF];
+            bpd.memLoadTarget = r[RN(memReadOpcode)];
             bpd.memLoadTargetSize = Size.BYTE;
         }
         if (bpd.memLoadTargetSize != null) {
