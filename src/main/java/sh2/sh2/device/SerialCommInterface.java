@@ -60,7 +60,7 @@ public class SerialCommInterface implements Sh2Device {
     public int read(RegSpec regSpec, int pos, Size size) {
         if (size != Size.BYTE) {
             LOG.error("{} SCI read {}: {}", cpu, regSpec.name, size);
-            throw new RuntimeException();
+//            throw new RuntimeException();
         }
         assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
         int res = readBuffer(regs, regSpec.addr, Size.BYTE);
@@ -74,7 +74,7 @@ public class SerialCommInterface implements Sh2Device {
         if (size != Size.BYTE) {
             LOG.error("{} SCI write {}: {} {}", cpu, regSpec.name,
                     Integer.toHexString(value), size);
-            throw new RuntimeException();
+//            throw new RuntimeException();
         }
         if (verbose) LOG.info("{} SCI write {}: {} {}", cpu, regSpec.name,
                 Integer.toHexString(value), size);

@@ -17,6 +17,7 @@ import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.dict.S32xDict.RegSpecS32x.SH2_INT_MASK;
 import static sh2.dict.Sh2Dict.RegSpec.*;
+import static sh2.dict.Sh2Dict.writeBufferWithMask;
 import static sh2.event.SysEventManager.SysEvent.INT;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
 import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
@@ -66,24 +67,22 @@ public class IntControlImplOld implements IntControl {
 
     @Override
     public void write(RegSpec regSpec, int pos, int value, Size size) {
-        int val = 0;
         writeBuffer(regs, pos, value, size);
+        int val = writeBufferWithMask(regs, regSpec);
         switch (regSpec) {
             case INTC_IPRA:
-                val = readBuffer(regs, regSpec.addr, Size.WORD);
                 onChipDevicePriority.put(Sh2DeviceType.DIV, val >> 12);
                 onChipDevicePriority.put(Sh2DeviceType.DMA, (val >> 8) & 0xF);
                 onChipDevicePriority.put(Sh2DeviceType.WDT, (val >> 4) & 0xF);
                 logExternalIntLevel(regSpec, val);
                 break;
             case INTC_IPRB:
-                val = readBuffer(regs, regSpec.addr, Size.WORD);
                 onChipDevicePriority.put(Sh2DeviceType.SCI, val >> 12);
                 onChipDevicePriority.put(Sh2DeviceType.FRT, (val >> 8) & 0xF);
                 logExternalIntLevel(regSpec, val);
                 break;
             case INTC_ICR:
-                val = readBuffer(regs, regSpec.addr, Size.WORD);
+                //TODO do not overwrite bit#15
                 if ((val & 1) > 0) {
                     LOG.error("{} Not supported: IRL Interrupt vector mode: External Vector", cpu);
                 }

@@ -263,26 +263,26 @@ public class IntCTest {
         val = 0xffff;
         s.write(INTC_IPRA.addr, val, Size.WORD);
         res = s.read(INTC_IPRA.addr, Size.WORD);
-        Assertions.assertEquals(val, res);
+        Assertions.assertEquals(val & 0xfff0, res);
 
         val = 0xAA;
         s.write(INTC_IPRA.addr, 0, Size.WORD);
         s.write(INTC_IPRA.addr + 1, val, Size.BYTE);
         res = s.read(INTC_IPRA.addr, Size.WORD);
-        Assertions.assertEquals(val, res);
+        Assertions.assertEquals(val & 0xf0, res);
         res = s.read(INTC_IPRA.addr, Size.BYTE);
         Assertions.assertEquals(0, res);
         res = s.read(INTC_IPRA.addr + 1, Size.BYTE);
-        Assertions.assertEquals(val, res);
+        Assertions.assertEquals(val & 0xf0, res);
 
         val = 0xBB;
         s.write(INTC_IPRA.addr, val, Size.BYTE);
         res = s.read(INTC_IPRA.addr, Size.WORD);
-        Assertions.assertEquals(0xBBAA, res);
+        Assertions.assertEquals(0xBBA0, res);
         res = s.read(INTC_IPRA.addr, Size.BYTE);
         Assertions.assertEquals(val, res);
         res = s.read(INTC_IPRA.addr + 1, Size.BYTE);
-        Assertions.assertEquals(0xAA, res);
+        Assertions.assertEquals(0xA0, res);
     }
 
     private void setSh2SysReg(S32xUtil.CpuDeviceAccess cpu, int addr, int value, Size size) {

@@ -7,9 +7,12 @@ import org.slf4j.Logger;
 import sh2.Md32xRuntimeData;
 import sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 
+import java.nio.ByteBuffer;
 import java.util.Map;
 
 import static omegadrive.util.Util.th;
+import static sh2.S32xUtil.readBuffer;
+import static sh2.S32xUtil.writeBuffer;
 import static sh2.Sh2MMREG.SH2_REG_MASK;
 import static sh2.Sh2MMREG.SH2_REG_SIZE;
 
@@ -55,17 +58,17 @@ public class Sh2Dict {
         WDT_RSTCSR(0xFE82, "WDT_RSTCSR", Size.WORD), //Reset control/status register
 
         //interrupt controller
-        INTC_IPRA(0xFEE2, "INTC_IPRA", Size.WORD), //Interrupt priority level setting register A
-        INTC_IPRB(0xFE60, "INTC_IPRB", Size.WORD), //Interrupt priority level setting register B
-        INTC_VCRA(0xFE62, "INTC_VCRA", Size.WORD), //Vector number setting register A
-        INTC_VCRB(0xFE64, "INTC_VCRB", Size.WORD), //Vector number setting register B
-        INTC_VCRC(0xFE66, "INTC_VCRC", Size.WORD), //Vector number setting register C
-        INTC_VCRD(0xFE68, "INTC_VCRD", Size.WORD), //Vector number setting register D
-        INTC_VCRWDT(0xFEE4, "INTC_VCRWDT", Size.WORD), //Vector number setting register WDT
-        INTC_VCRDIV(0xFF0C, "INTC_VCRDIV", Size.LONG), //Vector number setting register DIV
-        INTC_VCRDMA0(0xFFA0, "INTC_VCRDMA0", Size.LONG), //Vector number setting register DMAC0
-        INTC_VCRDMA1(0xFFA8, "INTC_VCRDMA1", Size.LONG), //Vector number setting register DMAC1
-        INTC_ICR(0xFEE0, "INTC_ICR", Size.WORD), //Interrupt control register
+        INTC_IPRA(0xFEE2, "INTC_IPRA", Size.WORD, 0xFFF0), //Interrupt priority level setting register A
+        INTC_IPRB(0xFE60, "INTC_IPRB", Size.WORD, 0xFF00), //Interrupt priority level setting register B
+        INTC_VCRA(0xFE62, "INTC_VCRA", Size.WORD, 0x7F7F), //Vector number setting register A
+        INTC_VCRB(0xFE64, "INTC_VCRB", Size.WORD, 0x7F7F), //Vector number setting register B
+        INTC_VCRC(0xFE66, "INTC_VCRC", Size.WORD, 0x7F7F), //Vector number setting register C
+        INTC_VCRD(0xFE68, "INTC_VCRD", Size.WORD, 0x7f00), //Vector number setting register D
+        INTC_VCRWDT(0xFEE4, "INTC_VCRWDT", Size.WORD, 0x7F7F), //Vector number setting register WDT
+        INTC_VCRDIV(0xFF0C, "INTC_VCRDIV", Size.LONG, 0xFFFF_0000), //Vector number setting register DIV
+        INTC_VCRDMA0(0xFFA0, "INTC_VCRDMA0", Size.LONG, 0xFFFF_FF00), //Vector number setting register DMAC0
+        INTC_VCRDMA1(0xFFA8, "INTC_VCRDMA1", Size.LONG, 0xFFFF_FF00), //Vector number setting register DMAC1
+        INTC_ICR(0xFEE0, "INTC_ICR", Size.WORD, 0x8101), //Interrupt control register
 
         //bus state controller
         BSC_BCR1(0xFFE0, "BSC_BCR1", Size.LONG, 0x9ff7), //Bus Control Register 1
@@ -79,7 +82,7 @@ public class Sh2Dict {
         //div unit
         DIV_DVSR(0xFF00, "DIV_DVSR", Size.LONG),
         DIV_DVDNT(0xFF04, "DIV_DVDNT", Size.LONG),
-        DIV_DVCR(0xFF08, "DIV_DVCR", Size.LONG),
+        DIV_DVCR(0xFF08, "DIV_DVCR", Size.LONG, 3),
         DIV_DVDNTH(0xFF10, "DIV_DVDNTH", Size.LONG),
         DIV_DVDNTL(0xFF14, "DIV_DVDNTL", Size.LONG),
         /* Quotient long-term register */
@@ -172,5 +175,11 @@ public class Sh2Dict {
         String s = Md32xRuntimeData.getAccessTypeExt() + " SH2 reg " + type + " " +
                 size + ", (" + sh2RegMapping[reg & SH2_REG_MASK] + ") " + th(reg) + ": " + th(value);
         LOG.info(s);
+    }
+
+    public static int writeBufferWithMask(ByteBuffer regs, RegSpec regSpec) {
+        int val = readBuffer(regs, regSpec.addr, regSpec.size) & regSpec.writeMask;
+        writeBuffer(regs, regSpec.addr, val, regSpec.size);
+        return val;
     }
 }

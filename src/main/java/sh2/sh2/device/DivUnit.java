@@ -11,6 +11,7 @@ import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.dict.Sh2Dict.RegSpec;
 import static sh2.dict.Sh2Dict.RegSpec.*;
+import static sh2.dict.Sh2Dict.writeBufferWithMask;
 import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DIV;
 
 /**
@@ -41,16 +42,13 @@ public class DivUnit implements Sh2Device {
 
     @Override
     public void write(RegSpec reg, int pos, int value, Size size) {
+        assert size == Size.LONG;
         writeBuffer(regs, pos, value, size);
+        writeBufferWithMask(regs, reg);
         if (verbose) LOG.info("{} Write {} value: {} {}", cpu, reg.name, th(value), size);
         switch (reg) {
-            case DIV_DVDNTL:
-                assert size == Size.LONG;
-                div64Dsp();
-                break;
-            case DIV_DVDNT:
-                div32Dsp(value, size);
-                break;
+            case DIV_DVDNTL -> div64Dsp();
+            case DIV_DVDNT -> div32Dsp(value, size);
         }
     }
 
