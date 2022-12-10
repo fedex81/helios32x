@@ -186,12 +186,8 @@ public class Sh2Impl implements Sh2 {
 		Sh2Block prevBlock = fr.block;
 		fr.pc = ctx.PC;
 		memory.fetch(fr, ctx.cpuAccess);
-		//jump in the middle of a block
-		if (prevBlock == fr.block && fr.pc != fr.block.prefetchPc) {
-//						LOG.info("{} Jump in the middle of a block: {}, startPc: {}", ctx.cpuAccess,
-//								th(fr.pc), th(fr.block.prefetchPc));
-			fr.block = INVALID_BLOCK;
-		}
+		//jump in the middle of a block, doesnt happen anymore?
+		assert prevBlock == fr.block ? fr.pc == fr.block.prefetchPc : true;
 		prevBlock.nextBlock = fr.block;
 	}
 

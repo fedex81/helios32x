@@ -11,7 +11,6 @@ import sh2.event.SysEventManager.SysEvent;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Helper;
-import sh2.sh2.drc.Ow2DrcOptimizer.*;
 import sh2.sh2.prefetch.Sh2Prefetch;
 import sh2.sh2.prefetch.Sh2Prefetcher;
 
@@ -36,7 +35,9 @@ public class Sh2Block {
     private static final int OPT_THRESHOLD2 = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.stage2.hits", "31"));
 
     public static final Sh2Block INVALID_BLOCK = new Sh2Block(-1, MASTER);
-    public static final int MAX_INST_LEN = (Sh2Prefetch.SH2_DRC_MAX_BLOCK_LEN >> 1);
+    public static final int SH2_DRC_MAX_BLOCK_LEN_BYTES =
+            Integer.parseInt(System.getProperty("helios.32x.sh2.drc.maxBlockLen", "32"));
+    public static final int MAX_INST_LEN = SH2_DRC_MAX_BLOCK_LEN_BYTES >> 1;
 
     //0 - Master, 1 - Slave
     public static final int CPU_FLAG = 1 << 0;
@@ -184,9 +185,10 @@ public class Sh2Block {
         sbu.pc = prefetchPc + (lastIdx << 1);
         curr = inst[0];
         assert sbu.pc != 0;
-        assert inst.length == MAX_INST_LEN ||
+        //TODO fix prefetch
+        assert inst.length >= (MAX_INST_LEN - 1) ||
                 (sbu.inst.isBranch || (inst[lastIdx - 1].inst.isBranchDelaySlot && !sbu.inst.isBranch)) :
-                th(sbu.pc) + "," + inst.length;
+                th(sbu.pc) + "," + inst.length + "\n" + this;
     }
 
     public void stage2() {

@@ -26,7 +26,7 @@ import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.*;
 import static sh2.sh2.cache.Sh2Cache.CACHE_BYTES_PER_LINE;
 import static sh2.sh2.cache.Sh2CacheImpl.PARANOID_ON_CACHE_ENABLED_TOGGLE;
-import static sh2.sh2.prefetch.Sh2Prefetch.SH2_DRC_MAX_BLOCK_LEN;
+import static sh2.sh2.drc.Sh2Block.SH2_DRC_MAX_BLOCK_LEN_BYTES;
 import static sh2.sh2.prefetch.Sh2Prefetch.rangeIntersect;
 import static sh2.sh2.prefetch.Sh2PrefetchSimple.prefetchContexts;
 
@@ -445,7 +445,7 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
     public static Collection<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int address) {
         Set<Sh2Block> l = new HashSet<>();
         if (Sh2Config.get().drcEn) {
-            for (int i = address - SH2_DRC_MAX_BLOCK_LEN; i <= address; i += 2) {
+            for (int i = address - SH2_DRC_MAX_BLOCK_LEN_BYTES; i <= address; i += 2) {
                 Sh2Block b = Sh2Helper.getOrDefault(i, cpu).block;
                 if (b != Sh2Block.INVALID_BLOCK) {
                     int end = b.prefetchPc + (b.end - b.start);

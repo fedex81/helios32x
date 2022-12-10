@@ -37,6 +37,8 @@ import static sh2.sh2.Sh2Helper.SH2_NOT_VISITED;
 import static sh2.sh2.Sh2Instructions.generateInst;
 import static sh2.sh2.cache.Sh2Cache.CACHE_BYTES_PER_LINE;
 import static sh2.sh2.drc.Ow2DrcOptimizer.PollerCtx;
+import static sh2.sh2.drc.Sh2Block.MAX_INST_LEN;
+import static sh2.sh2.drc.Sh2Block.SH2_DRC_MAX_BLOCK_LEN_BYTES;
 
 /**
  * Federico Berti
@@ -47,9 +49,6 @@ import static sh2.sh2.drc.Ow2DrcOptimizer.PollerCtx;
 public class Sh2Prefetch implements Sh2Prefetcher {
 
     private static final Logger LOG = LogHelper.getLogger(Sh2Prefetch.class.getSimpleName());
-
-    public static final int SH2_DRC_MAX_BLOCK_LEN = Integer.parseInt(System.getProperty("helios.32x.sh2.drc.maxBlockLen", "32"));
-
     private final static boolean ENABLE_BLOCK_RECYCLING = true;
     private static final boolean SH2_LOG_PC_HITS = false;
     public static final int PC_CACHE_AREA_SHIFT = 28;
@@ -96,7 +95,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         sdram = mdc.sdram;
         rom = mdc.rom;
         bios = mdc.bios;
-        opcodeWords = new int[SH2_DRC_MAX_BLOCK_LEN];
+        opcodeWords = new int[MAX_INST_LEN];
         sh2Config = Sh2.Sh2Config.get();
     }
 
@@ -159,7 +158,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private int fillOpcodes(CpuDeviceAccess cpu, int pc, int blockStart, ByteBuffer fetchBuffer,
                             Sh2Block block, int[] opcodeWords) {
         final Sh2Cache sh2Cache = cache[cpu.ordinal()];
-        final int pcLimit = pc + SH2_DRC_MAX_BLOCK_LEN;
+        final int pcLimit = pc + SH2_DRC_MAX_BLOCK_LEN_BYTES - 2;
         final boolean isCache = (pc >>> PC_CACHE_AREA_SHIFT) == 0 && sh2Cache.getCacheContext().cacheEn > 0;
         final Sh2InstructionWrapper[] op = Sh2Instructions.instOpcodeMap;
         boolean breakOnJump = false;
@@ -274,16 +273,15 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         boolean isPrevInvalid = !prev.isValid();
         assert fetchResult.pc != fetchResult.block.prefetchPc;
         checkBlock(fetchResult, cpu);
-        final int pcPosWords = 0;
         final Sh2Block block = fetchResult.block;
         //block recycled, was invalid before
         assert (block == prev ? isPrevInvalid : true) : "\n" + block;
         block.poller.spinCount = 0;
-        cacheOnFetch(pc, block.prefetchWords[pcPosWords], cpu);
+        cacheOnFetch(pc, block.prefetchWords[0], cpu);
         if (collectStats) stats[cpu.ordinal()].pfTotal++;
         S32xMemAccessDelay.addReadCpuDelay(block.fetchMemAccessDelay);
         assert block != Sh2Block.INVALID_BLOCK && block.prefetchWords != null && block.prefetchWords.length > 0;
-        fetchResult.opcode = block.prefetchWords[pcPosWords];
+        fetchResult.opcode = block.prefetchWords[0];
         assert fetchResult.block != null;
         return;
     }
@@ -389,9 +387,10 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
         final int addrEven = (addr & ~1);
         //find closest block
-        for (int i = addrEven; i > addrEven - SH2_DRC_MAX_BLOCK_LEN; i -= 2) {
+        for (int i = addrEven; i > addrEven - SH2_DRC_MAX_BLOCK_LEN_BYTES; i -= 2) {
             Sh2PcInfoWrapper piw = Sh2Helper.getOrDefault(i, blockOwner);
-            if (piw == null || piw == SH2_NOT_VISITED || piw.block == Sh2Block.INVALID_BLOCK) {
+            assert piw != null;
+            if (piw == SH2_NOT_VISITED || !piw.block.isValid()) {
                 continue;
             }
             final Sh2Block b = piw.block;
@@ -479,9 +478,10 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             return;
         }
         final int addrEven = end;
-        for (int i = addrEven; i > addr - SH2_DRC_MAX_BLOCK_LEN; i -= 2) {
+        for (int i = addrEven; i > addr - SH2_DRC_MAX_BLOCK_LEN_BYTES; i -= 2) {
             Sh2PcInfoWrapper piw = Sh2Helper.getOrDefault(i, ctx.cpu);
-            if (piw == null || piw == SH2_NOT_VISITED || piw.block == Sh2Block.INVALID_BLOCK) {
+            assert piw != null;
+            if (piw == SH2_NOT_VISITED || !piw.block.isValid()) {
                 continue;
             }
             invalidateWrapper(i, piw, true, -1);
