@@ -1,18 +1,18 @@
 package sh2.pwm;
 
 import omegadrive.sound.PwmProvider;
-import omegadrive.sound.SoundProvider;
 import omegadrive.sound.fm.GenericAudioProvider;
 import omegadrive.util.LogHelper;
 import omegadrive.util.RegionDetector;
 import org.slf4j.Logger;
+import sh2.pwm.PwmUtil.*;
 
-import javax.sound.sampled.AudioFormat;
 import java.util.Arrays;
 
 import static omegadrive.util.Util.th;
 import static sh2.pwm.Pwm.CYCLE_LIMIT;
-import static sh2.pwm.S32xPwmProvider.PwmStats.NO_STATS;
+import static sh2.pwm.PwmUtil.*;
+import static sh2.pwm.PwmUtil.PwmStats.NO_STATS;
 
 /**
  * Federico Berti
@@ -25,10 +25,6 @@ import static sh2.pwm.S32xPwmProvider.PwmStats.NO_STATS;
 public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider {
 
     private static final Logger LOG = LogHelper.getLogger(S32xPwmProvider.class.getSimpleName());
-    private static final Warmup NO_WARMUP = new Warmup();
-    private static final Warmup WARMUP = new Warmup();
-    public static AudioFormat pwmAudioFormat = new AudioFormat(SoundProvider.SAMPLE_RATE_HZ,
-            16, 2, true, false);
     private static final boolean collectStats = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.stats", "false"));
 
     private float sh2ClockMhz, scale = 0;
@@ -38,41 +34,6 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
     private boolean shouldPlay;
     private Warmup warmup = NO_WARMUP;
     private PwmStats stats = NO_STATS;
-
-    static class Warmup {
-        static final int stepSamples = 5_000;
-        static final double stepFactor = 0.02;
-        boolean isWarmup;
-        int currentSamples;
-        double currentFactor = 0.0;
-
-        public void reset() {
-            isWarmup = false;
-            currentSamples = 0;
-            currentFactor = 0.0;
-        }
-    }
-
-    static class PwmStats {
-
-        public static final PwmStats NO_STATS = new PwmStats();
-        public int monoSamplesFiller = 0, monoSamplesPull = 0, monoSamplesPush = 0, monoSamplesDiscard = 0,
-                monoSamplesDiscardHalf = 0;
-
-        public void print(int monoLen) {
-            if (!collectStats) {
-                return;
-            }
-            LOG.info("Pwm frame monoSamples, push: {} (discard: {}, discardHalf: {}), pop: {}, filler: {}, " +
-                            "tot: {}, monoQLen: {}",
-                    monoSamplesPush, monoSamplesDiscard, monoSamplesDiscardHalf, monoSamplesPull, monoSamplesFiller,
-                    monoSamplesPull + monoSamplesFiller, monoLen);
-        }
-
-        public void reset() {
-            monoSamplesFiller = monoSamplesPull = monoSamplesPush = monoSamplesDiscard = monoSamplesDiscardHalf = 0;
-        }
-    }
 
     public S32xPwmProvider(RegionDetector.Region region) {
         super(pwmAudioFormat);
@@ -144,7 +105,6 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
 
     int[] preFilter = new int[0];
     int[] prev = new int[2];
-    static final double alpha = 0.995;
 
     @Override
     public int updateStereo16(int[] buf_lr, int offset, int countMono) {
@@ -171,42 +131,8 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
             if (collectStats) stats.monoSamplesFiller += (stereoSamples - actualStereo) >> 1;
         }
         dcBlockerLpf(preFilter, buf_lr, prev, stereoSamples);
-        doWarmup(buf_lr, stereoSamples);
+        warmup.doWarmup(buf_lr, stereoSamples);
         return stereoSamples;
-    }
-
-    /**
-     * DC blocker + low pass filter
-     */
-    public static void dcBlockerLpf(int[] in, int[] out, int[] prevLR, int len) {
-        out[0] = prevLR[0];
-        out[1] = prevLR[1];
-        for (int i = 2; i < len; i += 2) {
-            out[i] = (int) (in[i] - in[i - 2] + out[i - 2] * alpha); //left
-            out[i + 1] = (int) (in[i + 1] - in[i - 1] + out[i - 1] * alpha); //right
-            out[i] = (out[i] + out[i - 2]) >> 1; //lpf
-            out[i + 1] = (out[i + 1] + out[i - 1]) >> 1;
-        }
-        prevLR[0] = out[len - 2];
-        prevLR[1] = out[len - 1];
-    }
-
-    private void doWarmup(int[] out, int len) {
-        if (warmup.isWarmup) {
-            int start = warmup.currentSamples % Warmup.stepSamples;
-            for (int i = 2; i < len; i += 2) {
-                out[i] *= warmup.currentFactor;
-                out[i + 1] *= warmup.currentFactor;
-            }
-            warmup.currentSamples += len;
-            if (warmup.currentSamples % Warmup.stepSamples < start) {
-                warmup.currentFactor += Warmup.stepFactor;
-                if (warmup.currentFactor >= 1.0) {
-                    warmup = NO_WARMUP;
-                    LOG.info("PWM warmup done");
-                }
-            }
-        }
     }
 
     @Override
