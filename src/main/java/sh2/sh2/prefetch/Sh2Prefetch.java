@@ -345,18 +345,23 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             return;
         }
         if ((res & 1) > 0) {
-            checkPollerInternal(SysEventManager.instance.getPoller(MASTER), cpuWrite, type, addr, val, size);
+            PollerCtx c = SysEventManager.instance.getPoller(MASTER);
+            if (c.isPollingBusyLoop() || type != c.event) {
+                return;
+            }
+            checkPollerInternal(c, cpuWrite, type, addr, val, size);
         }
         if ((res & 2) > 0) {
+            PollerCtx c = SysEventManager.instance.getPoller(SLAVE);
+            if (c.isPollingBusyLoop() || type != c.event) {
+                return;
+            }
             checkPollerInternal(SysEventManager.instance.getPoller(SLAVE), cpuWrite, type, addr, val, size);
         }
     }
 
-    public static void checkPollerInternal(PollerCtx c, CpuDeviceAccess cpuWrite, SysEvent type,
-                                           int addr, int val, Size size) {
-        if (c.isPollingBusyLoop() || type != c.event) {
-            return;
-        }
+    private static void checkPollerInternal(PollerCtx c, CpuDeviceAccess cpuWrite, SysEvent type,
+                                            int addr, int val, Size size) {
         final Ow2DrcOptimizer.BlockPollData bpd = c.blockPollData;
         //TODO check, cache vs cache-through
         addr = addr & 0xFFF_FFFF;

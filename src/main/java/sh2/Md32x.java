@@ -8,6 +8,7 @@ import omegadrive.system.Genesis;
 import omegadrive.system.SystemProvider;
 import omegadrive.ui.DisplayWindow;
 import omegadrive.util.LogHelper;
+import omegadrive.util.Sleeper;
 import omegadrive.vdp.md.GenesisVdp;
 import org.slf4j.Logger;
 import sh2.MarsLauncherHelper.Sh2LaunchContext;
@@ -193,6 +194,31 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         ctx.sDevCtx.sh2MMREG.newFrame();
         ctx.memory.newFrame();
         if (verbose) LOG.info("New frame: {}", telemetry.getFrameCounter());
+        if (telemetry.getFrameCounter() % getRegion().getFps() == 0) { //reset every second
+            slowFramesAcc = 0;
+        }
+    }
+
+    private long slowFramesAcc;
+
+    @Override
+    protected long syncCycle(long startCycle) {
+        long now = System.nanoTime();
+        if (fullThrottle) {
+            return now;
+        }
+        long baseRemainingNs = startCycle + targetNs;
+        long remainingNs = baseRemainingNs - now;
+        slowFramesAcc += remainingNs;
+        if (slowFramesAcc > 0) {
+            remainingNs = slowFramesAcc;
+            slowFramesAcc = 0;
+        }
+        if (remainingNs > 0) { //too fast
+            Sleeper.parkFuzzy(remainingNs);
+            remainingNs = baseRemainingNs - System.nanoTime();
+        }
+        return System.nanoTime();
     }
 
     @Override

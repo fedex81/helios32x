@@ -64,7 +64,7 @@ public class Ow2DrcOptimizer {
         NONE,
         BUSY_LOOP(true),
         SDRAM(true),
-        FRAMEBUFFER,
+        FRAMEBUFFER, //TODO DoomRes, is it worth it?
         COMM(true),
         DMA,
         PWM,
