@@ -52,6 +52,7 @@ public class Ow2DrcOptimizer {
             S32xRegType.DMA, DMA,
             S32xRegType.PWM, PWM,
             S32xRegType.VDP, VDP,
+            S32xRegType.SYS, SYS,
             S32xRegType.NONE, NONE,
             S32xRegType.COMM, COMM
     );
