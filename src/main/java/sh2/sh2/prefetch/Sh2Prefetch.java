@@ -346,17 +346,15 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
         if ((res & 1) > 0) {
             PollerCtx c = SysEventManager.instance.getPoller(MASTER);
-            if (c.isPollingBusyLoop() || type != c.event) {
-                return;
+            if (!c.isPollingBusyLoop() && type == c.event) {
+                checkPollerInternal(c, cpuWrite, type, addr, val, size);
             }
-            checkPollerInternal(c, cpuWrite, type, addr, val, size);
         }
         if ((res & 2) > 0) {
             PollerCtx c = SysEventManager.instance.getPoller(SLAVE);
-            if (c.isPollingBusyLoop() || type != c.event) {
-                return;
+            if (!c.isPollingBusyLoop() && type == c.event) {
+                checkPollerInternal(c, cpuWrite, type, addr, val, size);
             }
-            checkPollerInternal(SysEventManager.instance.getPoller(SLAVE), cpuWrite, type, addr, val, size);
         }
     }
 
@@ -430,7 +428,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 //        }
         if (verbose) {
             String s = LogHelper.formatMessage(
-                    "{} write at addr: {} val: {} {}, {} invalidate block with start: {} blockLen: {}",
+                    "{} write at addr: {} val: {}, {} invalidate block with start: {} blockLen: {}",
                     Md32xRuntimeData.getAccessTypeExt(), th(addr), th(val),
                     pcInfoWrapper.block.drcContext.cpu, th(pcInfoWrapper.block.prefetchPc),
                     pcInfoWrapper.block.prefetchLenWords);

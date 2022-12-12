@@ -175,7 +175,11 @@ public final class Sh2Memory implements IMemory {
 			case CACHE_PURGE_H3:
 			case CACHE_ADDRESS_ARRAY_H3:
 				//NOTE: vf slave writes to sysReg 0x401c, 0x4038 via cache
-				hasMemoryChanged = cache[cpuAccess.ordinal()].cacheMemoryWrite(address, val, size);
+				cache[cpuAccess.ordinal()].cacheMemoryWrite(address, val, size);
+				//NOTE if not in cache we need to invalidate any block containing it,
+				//NOTE as the next cache access will reload the data from MEM
+				//TODO can this be improved?
+				hasMemoryChanged = true;
 				break;
 			case CACHE_THROUGH_H3:
 				if (address >= START_DRAM && address < END_DRAM) {
@@ -220,7 +224,7 @@ public final class Sh2Memory implements IMemory {
 				if (true) throw new RuntimeException();
 				break;
 		}
-		if (true || hasMemoryChanged) { //TODO this breaks Metal Head, after burner smoke
+		if (hasMemoryChanged) {
 			prefetch.dataWrite(cpuAccess, address, val, size);
 		}
 		if (config.pollDetectEn) {
