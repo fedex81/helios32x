@@ -4,10 +4,12 @@ import com.google.common.collect.Range;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import sh2.IMemory;
 import sh2.Md32xRuntimeData;
+import sh2.S32xUtil;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Helper;
@@ -18,8 +20,7 @@ import java.util.Arrays;
 import java.util.stream.Stream;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
-import static sh2.dict.S32xDict.SH2_SDRAM_MASK;
-import static sh2.dict.S32xDict.SH2_START_SDRAM;
+import static sh2.dict.S32xDict.*;
 import static sh2.sh2.drc.Sh2Block.INVALID_BLOCK;
 import static sh2.sh2.drc.Sh2DrcDecodeTest.*;
 
@@ -54,6 +55,88 @@ public class Sh2BlockInvalidateTest extends Sh2MultiTestBase {
         testDrcTrace(trace3, trace3Ranges);
     }
 
+    @ParameterizedTest
+    @MethodSource("fileProvider")
+    public void testInstructionRewrite(Sh2.Sh2Config c) {
+        resetCacheConfig(c);
+        testAfterBurner(c);
+    }
+
+    /**
+     * 00006bd2	339c	add R9, R3
+     * 00006bd4	e420	mov H'20, R4
+     * 00006be6	8fa5	bf/s H'00006b34
+     * 00006be8	0009	nop
+     * <p>
+     * <p>
+     * 00006b24	2020	mov.b R2, @R0 //writes to 00006bd5, R2 = 0x20 or 0x40
+     * 00006b28	a7fe	bra 00006b06
+     * 00006b2a	0009	nop
+     * <p>
+     * TODO test cache disabled, test both wt and cache blocks
+     */
+    @Test
+    public void testAfterBurner(Sh2.Sh2Config c) {
+        int[] trace1 = {0x339c, 0xe420, 0xbfa5, 0x9};
+        int[] trace2 = {0x2020, 0xa054, 0x9};
+
+        int t1Start = 0x06006bd2;
+        int t2Start = 0x06006b24;
+        int overwriteRam = 0x06006bd5;
+        int expectedRamByte = 0x20;
+
+        memory.getMemoryDataCtx().bios[0].buffer.putInt(0, t1Start);
+        masterCtx.registers[0] = overwriteRam;
+        masterCtx.registers[2] = expectedRamByte;
+        setTrace(t1Start & 0xFFFF, trace1, masterCtx);
+        setTrace(t2Start & 0xFFFF, trace2, masterCtx);
+        Md32xRuntimeData.resetCpuDelayExt();
+
+        masterCtx.cycles = 1;
+        triggerDrcBlocks(sh2, masterCtx);
+        Sh2Helper.Sh2PcInfoWrapper w1 = Sh2Helper.get(t1Start, MASTER);
+        Sh2Helper.Sh2PcInfoWrapper w2 = Sh2Helper.get(t2Start, MASTER);
+        Assertions.assertNotEquals(Sh2Helper.SH2_NOT_VISITED, w1);
+        Assertions.assertNotEquals(Sh2Helper.SH2_NOT_VISITED, w2);
+        Assertions.assertNotEquals(INVALID_BLOCK, w1.block);
+        Assertions.assertNotEquals(INVALID_BLOCK, w2.block);
+
+        Assertions.assertArrayEquals(trace1, w1.block.prefetchWords);
+        Assertions.assertEquals(expectedRamByte, memory.read8(SH2_CACHE_THROUGH_OFFSET | overwriteRam));
+        Assertions.assertEquals(expectedRamByte, readCache(MASTER, overwriteRam, Size.BYTE));
+
+        //remove block1 from cache, then write 0x40 to cache address
+        memory.cache[0].cacheClear();
+        expectedRamByte = 0x40;
+        masterCtx.registers[2] = expectedRamByte;
+        sh2.run(masterCtx);
+        sh2.run(masterCtx);
+        Assertions.assertNotEquals(INVALID_BLOCK, w1.block);
+        Assertions.assertNotEquals(INVALID_BLOCK, w2.block);
+
+        Assertions.assertNotEquals(trace1[1], w1.block.prefetchWords[1]);
+        Assertions.assertEquals(expectedRamByte, w1.block.prefetchWords[1] & 0xFF);
+        Assertions.assertEquals(expectedRamByte, memory.read8(SH2_CACHE_THROUGH_OFFSET | overwriteRam));
+        Assertions.assertEquals(expectedRamByte, readCache(MASTER, overwriteRam, Size.BYTE));
+
+        //block1 is back in cache showing 0x40, write 0x20 directly to SDRAM,
+        //block1 stays valid as it is reading from cache
+        expectedRamByte = 0x20;
+        memory.write8(SH2_CACHE_THROUGH_OFFSET | overwriteRam, (byte) expectedRamByte);
+
+        Assertions.assertNotEquals(INVALID_BLOCK, w1.block);
+        Assertions.assertNotEquals(INVALID_BLOCK, w2.block);
+
+        //now write 0x20 via cache, block1 becomes invalid
+        memory.write8(overwriteRam, (byte) expectedRamByte);
+        Assertions.assertEquals(INVALID_BLOCK, w1.block);
+        Assertions.assertNotEquals(INVALID_BLOCK, w2.block);
+    }
+
+    private int readCache(S32xUtil.CpuDeviceAccess cpu, int address, Size size) {
+        return memory.cache[cpu.ordinal()].readDirect(address, Size.BYTE);
+    }
+
     private int cnt = 0;
 
     private void testDrcTrace(int[] trace, Range<Integer>[] blockRanges) {
@@ -72,7 +155,7 @@ public class Sh2BlockInvalidateTest extends Sh2MultiTestBase {
                         continue;
                     }
                     Range writeRange = Range.closed(writeAddr, writeAddr + (size.getByteSize() - 1));
-                    setTrace(trace, masterCtx);
+                    setTrace(pc, trace, masterCtx);
                     sh2.run(masterCtx);
                     sh2.run(masterCtx);
                     sh2.run(masterCtx);
@@ -137,7 +220,7 @@ public class Sh2BlockInvalidateTest extends Sh2MultiTestBase {
         return noOverlap;
     }
 
-    private void setTrace(int[] trace, Sh2Context context) {
+    private void setTrace(int pc, int[] trace, Sh2Context context) {
         ByteBuffer ram = memory.getMemoryDataCtx().sdram;
         for (int i = 0; i < trace.length; i++) {
             ram.putShort(pc + (i << 1), (short) trace[i]);

@@ -138,7 +138,7 @@ public class Sh2DrcDecodeTest extends Sh2MultiTestBase {
 
     private void testTrace(int[] trace) {
         setTrace(trace, masterCtx);
-        triggerDrcBlocks();
+        triggerDrcBlocks(sh2, masterCtx);
         sh2.run(masterCtx);
     }
 
@@ -166,14 +166,15 @@ public class Sh2DrcDecodeTest extends Sh2MultiTestBase {
         Assertions.assertTrue(wrapper.block.isValid());
     }
 
-    private void triggerDrcBlocks() {
+    public static void triggerDrcBlocks(Sh2 sh2, Sh2Context context) {
+        blockTable.clear();
         boolean stop = false;
         int maxSpin = 0x1000;
         int spin = 0;
         do {
-            sh2.run(masterCtx);
+            sh2.run(context);
             spin++;
-            stop = allBlocksDrc(masterCtx) || spin > maxSpin;
+            stop = allBlocksDrc(context) || spin > maxSpin;
         } while (!stop);
         Assertions.assertFalse(spin > maxSpin);
     }
@@ -185,18 +186,19 @@ public class Sh2DrcDecodeTest extends Sh2MultiTestBase {
         sh2.reset(context);
     }
 
-    private Table<CpuDeviceAccess, Integer, Sh2Block> blockTable = HashBasedTable.create();
+    private static Table<CpuDeviceAccess, Integer, Sh2Block> blockTable = HashBasedTable.create();
 
-    private boolean allBlocksDrc(Sh2Context sh2Context) {
+    private static boolean allBlocksDrc(Sh2Context sh2Context) {
         int pc = sh2Context.PC;
         CpuDeviceAccess cpu = sh2Context.cpuAccess;
         if (!blockTable.contains(cpu, pc)) {
             Collection<Sh2Block> l = Sh2PrefetchTest.getPrefetchBlocksAt(cpu, pc);
-            Sh2Block b = l.stream().findFirst().orElse(Sh2Block.INVALID_BLOCK);
-            if (b != Sh2Block.INVALID_BLOCK) {
-                blockTable.put(cpu, pc, b);
-                System.out.println(cpu + " Detected block: " + th(pc));
-            }
+            l.forEach(b -> {
+                if (b != Sh2Block.INVALID_BLOCK) {
+                    blockTable.put(cpu, pc, b);
+                    System.out.println(cpu + " Detected block: " + th(pc));
+                }
+            });
         }
         boolean atLeastOneNoDrc = blockTable.row(cpu).values().stream().anyMatch(b -> b.stage2Drc == null);
         return !atLeastOneNoDrc;

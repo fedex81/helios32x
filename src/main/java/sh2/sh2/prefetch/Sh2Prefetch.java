@@ -30,7 +30,8 @@ import java.util.Arrays;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
-import static sh2.dict.S32xDict.*;
+import static sh2.dict.S32xDict.SH2_PC_AREA_SHIFT;
+import static sh2.dict.S32xDict.SH2_SDRAM_MASK;
 import static sh2.dict.S32xMemAccessDelay.SDRAM;
 import static sh2.sh2.Sh2Debug.pcAreaMaskMap;
 import static sh2.sh2.Sh2Helper.SH2_NOT_VISITED;
@@ -247,7 +248,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             assert fetchResult.pc == piw.block.prefetchPc : th(fetchResult.pc);
             piw.block.addHit();
             fetchResult.block = piw.block;
-            assert piw.block.isCacheFetch() ? cache[cpu.ordinal()].getCacheContext().cacheEn > 0 : true;
+//            assert piw.block.isCacheFetch() ? cache[cpu.ordinal()].getCacheContext().cacheEn > 0 : true;
             return;
         }
         Sh2Block block = doPrefetch(piw, pc, cpu);
@@ -315,18 +316,11 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
         boolean isCacheArray = addr >>> SH2_PC_AREA_SHIFT == 0xC0;
         boolean isWriteThrough = addr >>> PC_CACHE_AREA_SHIFT == 2;
-
-        for (int i = 0; i <= SLAVE.ordinal(); i++) {
-            //sh2 cacheArrays are not shared!
-            if (isCacheArray && i != cpuWrite.ordinal()) {
-                continue;
-            }
-            invalidateMemoryRegion(addr, CpuDeviceAccess.cdaValues[i], addr + size.getByteSize() - 1, val);
-            boolean isCacheEnabled = cache[i].getCacheContext().cacheEn > 0;
-            if (!isCacheEnabled && !isCacheArray) {
-                int otherAddr = isWriteThrough ? addr & 0xFFF_FFFF : addr | SH2_CACHE_THROUGH_OFFSET;
-                invalidateMemoryRegion(otherAddr, CpuDeviceAccess.cdaValues[i], otherAddr + size.getByteSize() - 1, val);
-            }
+        invalidateMemoryRegion(addr, cpuWrite, addr + size.getByteSize() - 1, val);
+        //sh2 cacheArrays are not shared!
+        if (!isCacheArray && isWriteThrough) {
+            CpuDeviceAccess otherCpu = CpuDeviceAccess.cdaValues[(cpuWrite.ordinal() + 1) & 1];
+            invalidateMemoryRegion(addr, otherCpu, addr + size.getByteSize() - 1, val);
         }
     }
 
