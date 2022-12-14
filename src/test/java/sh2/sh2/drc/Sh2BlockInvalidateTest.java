@@ -4,7 +4,6 @@ import com.google.common.collect.Range;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import sh2.IMemory;
@@ -75,8 +74,7 @@ public class Sh2BlockInvalidateTest extends Sh2MultiTestBase {
      * <p>
      * TODO test cache disabled, test both wt and cache blocks
      */
-    @Test
-    public void testAfterBurner(Sh2.Sh2Config c) {
+    private void testAfterBurner(Sh2.Sh2Config c) {
         int[] trace1 = {0x339c, 0xe420, 0xbfa5, 0x9};
         int[] trace2 = {0x2020, 0xa054, 0x9};
 

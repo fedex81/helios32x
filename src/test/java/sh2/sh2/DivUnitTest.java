@@ -8,6 +8,7 @@ import s32x.MarsRegTestUtil;
 import sh2.MarsLauncherHelper;
 import sh2.sh2.device.DivUnit;
 
+import static omegadrive.util.Util.th;
 import static sh2.dict.Sh2Dict.RegSpec.*;
 
 /**
@@ -15,7 +16,7 @@ import static sh2.dict.Sh2Dict.RegSpec.*;
  * <p>
  * Copyright 2022
  * <p>
- * Taken from yabause, see: void div_operation_test(void)
+ * Some tests taken from yabause, see: void div_operation_test(void)
  */
 public class DivUnitTest {
 
@@ -78,27 +79,62 @@ public class DivUnitTest {
     }
 
     @Test
-    public void testDivOverflow() {
-        //64 bit overflow
+    public void testDiv64Overflow() {
+        //64 bit overflow positive
         divUnit.write(DIV_DVSR, 0x1, Size.LONG);
         divUnit.write(DIV_DVCR, 0, Size.LONG);
         divUnit.write(DIV_DVDNTH, 0x1, Size.LONG);
         divUnit.write(DIV_DVDNTL, 0, Size.LONG);
 
-        Assertions.assertEquals(0x7FFFFFFF, divUnit.read(DIV_DVDNTL, Size.LONG));
+        Assertions.assertEquals(Integer.MAX_VALUE, divUnit.read(DIV_DVDNTL, Size.LONG));
         //TODO according to yabause it should be 0xFFFFFFFE
 //        Assertions.assertEquals(quot, divUnit.read(DIV_DVDNTH, Size.LONG));
         Assertions.assertEquals(1, divUnit.read(DIV_DVCR, Size.LONG));
+
+        //64 bit overflow negative
+        divUnit.write(DIV_DVSR, -0x1, Size.LONG);
+        divUnit.write(DIV_DVCR, 0, Size.LONG);
+        divUnit.write(DIV_DVDNTH, 0x1, Size.LONG);
+        divUnit.write(DIV_DVDNTL, 0, Size.LONG);
+
+        Assertions.assertEquals(Integer.MIN_VALUE, divUnit.read(DIV_DVDNTL, Size.LONG));
+        Assertions.assertEquals(1, divUnit.read(DIV_DVCR, Size.LONG));
     }
 
-    //TODO not very accurate
     @Test
-    public void testDivByZero() {
+    public void testDiv64Overflow2() {
+        for (long i = -2; i < 3; i++) {
+            //values around 0x7fffffff
+            long v = i + Integer.MAX_VALUE;
+            divUnit.write(DIV_DVSR, 0x1, Size.LONG);
+            divUnit.write(DIV_DVCR, 0, Size.LONG);
+            divUnit.write(DIV_DVDNTH, (int) ((v >> 32) & 0xFFFF_FFFFL), Size.LONG);
+            divUnit.write(DIV_DVDNTL, (int) (v & 0xFFFF_FFFFL), Size.LONG);
+
+            int expected = (int) Math.min(v, Integer.MAX_VALUE);
+            Assertions.assertEquals(expected, divUnit.read(DIV_DVDNTL, Size.LONG));
+            System.out.println(th(v) + "," + th(expected));
+
+            //values around 0x80000000
+            v = i + Integer.MIN_VALUE;
+            divUnit.write(DIV_DVSR, 0x1, Size.LONG);
+            divUnit.write(DIV_DVCR, 0, Size.LONG);
+            divUnit.write(DIV_DVDNTH, (int) ((v >> 32) & 0xFFFF_FFFFL), Size.LONG);
+            divUnit.write(DIV_DVDNTL, (int) (v & 0xFFFF_FFFFL), Size.LONG);
+
+            expected = (int) Math.max(v, Integer.MIN_VALUE);
+            Assertions.assertEquals(expected, divUnit.read(DIV_DVDNTL, Size.LONG));
+            System.out.println(th(v) + "," + th(expected));
+        }
+    }
+
+    @Test
+    public void testDiv32ByZero() {
         divUnit.write(DIV_DVSR, 0, Size.LONG);
         divUnit.write(DIV_DVCR, 0, Size.LONG);
         divUnit.write(DIV_DVDNT, 0, Size.LONG);
 
-//        Assertions.assertEquals(0x7FFFFFFF, divUnit.read(DIV_DVDNT, Size.LONG));
+        Assertions.assertEquals(Integer.MAX_VALUE, divUnit.read(DIV_DVDNTL, Size.LONG));
         Assertions.assertEquals(0, divUnit.read(DIV_DVDNTH, Size.LONG));
         Assertions.assertEquals(1, divUnit.read(DIV_DVCR, Size.LONG));
 
@@ -106,7 +142,27 @@ public class DivUnitTest {
         divUnit.write(DIV_DVCR, 0, Size.LONG);
         divUnit.write(DIV_DVDNT, 0xD0000000, Size.LONG);
 
-//        Assertions.assertEquals(0x80000000, divUnit.read(DIV_DVDNT, Size.LONG));
+        Assertions.assertEquals(Integer.MAX_VALUE, divUnit.read(DIV_DVDNTL, Size.LONG));
+//        Assertions.assertEquals(0xFFFFFFFE, divUnit.read(DIV_DVDNTH, Size.LONG));
+        Assertions.assertEquals(1, divUnit.read(DIV_DVCR, Size.LONG));
+
+    }
+
+    @Test
+    public void testDiv64ByZero() {
+        divUnit.write(DIV_DVSR, 0, Size.LONG);
+        divUnit.write(DIV_DVCR, 0, Size.LONG);
+        divUnit.write(DIV_DVDNTL, 0, Size.LONG);
+
+        Assertions.assertEquals(Integer.MAX_VALUE, divUnit.read(DIV_DVDNTL, Size.LONG));
+        Assertions.assertEquals(0, divUnit.read(DIV_DVDNTH, Size.LONG));
+        Assertions.assertEquals(1, divUnit.read(DIV_DVCR, Size.LONG));
+
+        divUnit.write(DIV_DVSR, 0, Size.LONG);
+        divUnit.write(DIV_DVCR, 0, Size.LONG);
+        divUnit.write(DIV_DVDNTL, 0xD0000000, Size.LONG);
+
+        Assertions.assertEquals(Integer.MAX_VALUE, divUnit.read(DIV_DVDNTL, Size.LONG));
 //        Assertions.assertEquals(0xFFFFFFFE, divUnit.read(DIV_DVDNTH, Size.LONG));
         Assertions.assertEquals(1, divUnit.read(DIV_DVCR, Size.LONG));
 
