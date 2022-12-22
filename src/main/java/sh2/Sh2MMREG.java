@@ -65,6 +65,7 @@ public class Sh2MMREG {
     private void regWrite(int reg, int value, Size size) {
         final int pos = reg & SH2_REG_MASK;
         RegSpec regSpec = sh2RegMapping[pos];
+        //RegAccessLogger.regAccess(regSpec.toString(), reg, value, size, false);
         if (regSpec == null) {
             LOG.error("{} unknown reg write {}: {} {}", cpu, th(reg), th(value), size);
             tryWriteBuffer(reg, value, size);
@@ -162,6 +163,7 @@ public class Sh2MMREG {
         if (verbose) {
             logAccess("read", reg, res, size);
         }
+        //RegAccessLogger.regAccess(regSpec.toString(), reg, res, size, true);
         return res;
     }
 

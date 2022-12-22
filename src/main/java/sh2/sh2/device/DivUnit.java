@@ -88,7 +88,7 @@ public class DivUnit implements Sh2Device {
 
     //32/32 -> 32
     private void div32Dsp(int value) {
-        writeBufferLong(regs, DIV_DVDNTH, (int) (value >> 32)); //sign extend MSB into DVDNTH
+        writeBufferLong(regs, DIV_DVDNTH, (int) (value >> 31)); //sign extend MSB into DVDNTH
         writeBufferLong(regs, DIV_DVDNTL, value);
         int dvd = readBufferLong(regs, DIV_DVDNT);
         int dvsr = readBufferLong(regs, DIV_DVSR);

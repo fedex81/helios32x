@@ -150,6 +150,7 @@ public class S32XMMREG implements Device {
                 }
                 break;
         }
+        //RegAccessLogger.regAccess(regSpec.toString(), address, res, size, true);
         return res;
     }
 
@@ -157,6 +158,7 @@ public class S32XMMREG implements Device {
         final int reg = address & S32X_MMREG_MASK;
         final CpuDeviceAccess cpu = Md32xRuntimeData.getAccessTypeExt();
         final RegSpecS32x regSpec = S32xDict.getRegSpec(cpu, address);
+        //RegAccessLogger.regAccess(regSpec.toString(), reg, value, size, false);
         boolean regChanged = false;
 
         if (verbose) checkWriteLongAccess(regSpec, reg, size);
