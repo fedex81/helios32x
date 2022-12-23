@@ -30,8 +30,7 @@ import java.util.Arrays;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
-import static sh2.dict.S32xDict.SH2_PC_AREA_SHIFT;
-import static sh2.dict.S32xDict.SH2_SDRAM_MASK;
+import static sh2.dict.S32xDict.*;
 import static sh2.dict.S32xMemAccessDelay.SDRAM;
 import static sh2.sh2.Sh2Debug.pcAreaMaskMap;
 import static sh2.sh2.Sh2Helper.SH2_NOT_VISITED;
@@ -308,8 +307,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         return res;
     }
 
-    @Override
-    public void dataWrite(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
+    @Deprecated
+    public void dataWriteOld(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
         if (pcAreaMaskMap[addr >>> SH2_PC_AREA_SHIFT] == 0) return;
         if (addr >= 0 && addr < 0x100) { //Doom res 2.2
             return;
@@ -322,6 +321,15 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             CpuDeviceAccess otherCpu = CpuDeviceAccess.cdaValues[(cpuWrite.ordinal() + 1) & 1];
             invalidateMemoryRegion(addr, otherCpu, addr + size.getByteSize() - 1, val);
         }
+    }
+
+    @Override
+    public void dataWrite(CpuDeviceAccess cpuWrite, int addr, int val, Size size) {
+        if (pcAreaMaskMap[addr >>> SH2_PC_AREA_SHIFT] == 0) return;
+        if (addr >= 0 && addr < 0x100) { //Doom res 2.2
+            return;
+        }
+        invalidateMemoryRegion(addr, cpuWrite, addr + size.getByteSize() - 1, val);
     }
 
     public static void checkPoller(CpuDeviceAccess cpuWrite, S32xDict.S32xRegType type, int addr, int val, Size size) {
@@ -356,9 +364,9 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                                             int addr, int val, Size size) {
         final Ow2DrcOptimizer.BlockPollData bpd = c.blockPollData;
         //TODO check, cache vs cache-through
-        addr = addr & 0xFFF_FFFF;
-        if (rangeIntersect(bpd.memLoadTarget & 0xFFF_FFFF,
-                bpd.memLoadTargetEnd & 0xFFF_FFFF, addr, addr + size.getByteSize() - 1)) {
+        addr = addr & SH2_CACHE_THROUGH_MASK;
+        if (rangeIntersect(bpd.memLoadTarget & SH2_CACHE_THROUGH_MASK,
+                bpd.memLoadTargetEnd & SH2_CACHE_THROUGH_MASK, addr, addr + size.getByteSize() - 1)) {
             if (verbose)
                 LOG.info("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
                         th(addr), size, c.cpu, th(c.blockPollData.memLoadTarget),
@@ -368,6 +376,35 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     private void invalidateMemoryRegion(final int addr, final CpuDeviceAccess blockOwner, final int wend, final int val) {
+        boolean ignore = addr >>> SH2_PC_AREA_SHIFT > 0xC0;
+        if (ignore) {
+            return;
+        }
+        final CpuDeviceAccess otherCpu = CpuDeviceAccess.cdaValues[(blockOwner.ordinal() + 1) & 1];
+        final boolean isWriteThrough = addr >>> PC_CACHE_AREA_SHIFT == 2;
+        final int addrEven = (addr & ~1);
+        //find closest block, long requires starting at +2
+        for (int i = addrEven + 2; i > addrEven - SH2_DRC_MAX_BLOCK_LEN_BYTES; i -= 2) {
+            Sh2PcInfoWrapper piw = Sh2Helper.getOrDefault(i, blockOwner);
+            assert piw != null;
+            if (piw == SH2_NOT_VISITED || !piw.block.isValid()) {
+                continue;
+            }
+            final Sh2Block b = piw.block;
+            final int bend = b.prefetchPc + ((b.prefetchLenWords - 1) << 1); //inclusive
+            if (rangeIntersect(b.prefetchPc, bend, addr, wend)) {
+                invalidateMemoryLocationForCpu(blockOwner, piw, addr, i, val);
+                if (isWriteThrough) {
+                    invalidateMemoryLocationForCpu(otherCpu, addr, i, val);
+                }
+            }
+            //TODO slow, enabling this needs the nested block attribute implemented
+//            break;
+        }
+    }
+
+    @Deprecated
+    private void invalidateMemoryRegionOld(final int addr, final CpuDeviceAccess blockOwner, final int wend, final int val) {
         boolean ignore = addr >>> SH2_PC_AREA_SHIFT > 0xC0;
         if (ignore) {
             return;
@@ -385,11 +422,25 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             if (rangeIntersect(b.prefetchPc, bend, addr, wend)) {
                 invalidateWrapper(addr, piw, false, val);
             }
-            //TODO slow, enabling this needs the nested block attribute implemented
-//            break;
         }
     }
 
+    private void invalidateMemoryLocationForCpu(CpuDeviceAccess cpu, Sh2PcInfoWrapper piw, int addr, int i, int val) {
+        final boolean isCpuCacheOff = cache[cpu.ordinal()].getCacheContext().cacheEn == 0;
+        if (piw != SH2_NOT_VISITED && piw.block.isValid()) {
+            invalidateWrapper(addr, piw, false, val);
+        }
+        if (isCpuCacheOff) {
+            piw = Sh2Helper.getOrDefault(i & SH2_CACHE_THROUGH_MASK, cpu);
+            if (piw != SH2_NOT_VISITED && piw.block.isValid()) {
+                invalidateWrapper(addr, piw, false, val);
+            }
+        }
+    }
+
+    private void invalidateMemoryLocationForCpu(CpuDeviceAccess cpu, int addr, int i, int val) {
+        invalidateMemoryLocationForCpu(cpu, Sh2Helper.getOrDefault(i, cpu), addr, i, val);
+    }
 
     static final int RANGE_MASK = 0xFFF_FFFF;
 

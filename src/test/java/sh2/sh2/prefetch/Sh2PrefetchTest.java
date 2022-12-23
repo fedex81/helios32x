@@ -76,6 +76,8 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         for (int i = 0; i < RAM_SIZE; i += 2) {
             Sh2Helper.get(SH2_START_SDRAM_CACHE | i, MASTER).invalidateBlock();
             Sh2Helper.get(SH2_START_SDRAM | i, MASTER).invalidateBlock();
+            Sh2Helper.get(SH2_START_SDRAM_CACHE | i, SLAVE).invalidateBlock();
+            Sh2Helper.get(SH2_START_SDRAM | i, SLAVE).invalidateBlock();
         }
         //invalidate prefetch for drcEn=false
         Optional.ofNullable(prefetchContexts[0]).map(pf -> pf.dirty = true);
@@ -439,7 +441,8 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         Md32xRuntimeData.setAccessTypeExt(cpu);
         Sh2.FetchResult ft = doCacheFetch(cpu, addr);
         int opcode = ft.opcode;
-        Assertions.assertEquals(val, opcode, cpu + "," + th(addr));
+        Assertions.assertEquals(val, opcode, cpu + "," + th(addr) + ",\n" + ft.block
+                + "," + ft.block.isValid());
     }
 
     public static Collection<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int address) {

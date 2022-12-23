@@ -98,7 +98,7 @@ public class S32XMMREG implements Device {
     }
 
     public void write(int address, int value, Size size) {
-        address &= 0xFFF_FFFF;
+        address &= SH2_CACHE_THROUGH_MASK;
         if (address >= START_32X_SYSREG_CACHE && address < END_32X_VDPREG_CACHE) {
             handleRegWrite(address, value, size);
             S32xMemAccessDelay.addWriteCpuDelay(deviceAccessType);
@@ -108,7 +108,7 @@ public class S32XMMREG implements Device {
     }
 
     public int read(int address, Size size) {
-        address &= 0xFFF_FFFF;
+        address &= SH2_CACHE_THROUGH_MASK;
         int res = 0;
         if (address >= START_32X_SYSREG_CACHE && address < END_32X_VDPREG_CACHE) {
             res = handleRegRead(address, size);

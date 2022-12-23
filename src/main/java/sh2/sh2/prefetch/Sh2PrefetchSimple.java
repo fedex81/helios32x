@@ -97,9 +97,9 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
     public void doPrefetch(final PrefetchContext pctx, int pc, CpuDeviceAccess cpu) {
         if (!sh2Config.prefetchEn) return;
         final Sh2Cache sh2Cache = cache[cpu.ordinal()];
-        final boolean isCache = (pc >>> PC_CACHE_AREA_SHIFT) == 0 && sh2Cache.getCacheContext().cacheEn > 0;
-        pctx.start = (pc & 0xFF_FFFF);
-        pctx.end = (pc & 0xFF_FFFF) + (DEFAULT_PREFETCH_LOOKAHEAD << 1);
+        final boolean isCache = (pc >>> PC_CACHE_AREA_SHIFT) == 0;
+        pctx.start = (pc & SH2_CACHE_THROUGH_MASK);
+        pctx.end = (pc & SH2_CACHE_THROUGH_MASK) + (DEFAULT_PREFETCH_LOOKAHEAD << 1);
 
         switch (pc >> SH2_PC_AREA_SHIFT) {
             case 6:
@@ -143,7 +143,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         }
         pctx.prefetchPc = pc;
         boolean outNext = false;
-        int cpc = (pc & 0xFFF_FFFF) - (pctx.pcMasked - pctx.start);
+        int cpc = (pc & SH2_CACHE_THROUGH_MASK) - (pctx.pcMasked - pctx.start);
         for (int bytePos = pctx.start; bytePos < pctx.end; bytePos += 2, cpc += 2) {
             int w = ((bytePos - pctx.pcMasked) >> 1);
             int opc = isCache ? sh2Cache.readDirect(cpc, Size.WORD) : pctx.buf.getShort(bytePos) & 0xFFFF;

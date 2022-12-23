@@ -184,6 +184,8 @@ public class S32xDict {
 
     public static final int SH2_CACHE_THROUGH_OFFSET = 0x2000_0000;
 
+    public static final int SH2_CACHE_THROUGH_MASK = 0xFFF_FFFF;
+
     public static final int SH2_START_BOOT_ROM = SH2_CACHE_THROUGH_OFFSET;
     public static final int SH2_END_BOOT_ROM = SH2_START_BOOT_ROM + SH2_BOOT_ROM_SIZE;
 
