@@ -154,22 +154,6 @@ public final class Sh2Memory implements IMemory {
 		//flag to check if code memory has been changed
 		boolean hasMemoryChanged = false;
 		switch ((address >>> CACHE_ADDRESS_BITS) & 0xFF) {
-			/**
-			 * TODO check
-			 * write to 2600_0000
-			 * invalidate block 2600_0000
-			 * invalidate block 600_0000
-			 *
-			 * write to 600_0000
-			 * invalidate block 600_0000
-			 * invalidate block 2600_0000
-			 *
-			 * this works because how the cache performs write-through:
-			 * 1. writing to 600_0000
-			 * 2. write to 2600_0000
-			 * 3. check mem @2600_0000
-			 * 4. check mem @600_0000
-			 */
 			case CACHE_USE_H3:
 			case CACHE_DATA_ARRAY_H3: //vr
 			case CACHE_PURGE_H3:
@@ -178,8 +162,6 @@ public final class Sh2Memory implements IMemory {
 				hasMemoryChanged = cache[cpuAccess.ordinal()].cacheMemoryWrite(address, val, size);
 				//NOTE if not in cache we need to invalidate any block containing it,
 				//NOTE as the next cache access will reload the data from MEM
-				//TODO Metal Head breaks
-				hasMemoryChanged = true;
 				break;
 			case CACHE_THROUGH_H3:
 				if (address >= START_DRAM && address < END_DRAM) {

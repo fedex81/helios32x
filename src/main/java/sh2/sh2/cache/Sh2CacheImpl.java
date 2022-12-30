@@ -407,13 +407,16 @@ public class Sh2CacheImpl implements Sh2Cache {
             boolean force = addr < 0;
             invalidCtx.line = line;
             invalidCtx.prevCacheAddr = line.tag | (entry << ENTRY_SHIFT);
-            boolean invalidate = force;
+            boolean invalidate = true;
             invalidCtx.cacheReadAddr = force ? invalidCtx.prevCacheAddr : addr;
-            if (!invalidate) {
-                int nonCached = readMemoryUncachedNoDelay(memory, invalidCtx.prevCacheAddr, Size.WORD);
-                int cached = getCachedData(line.data, invalidCtx.prevCacheAddr & LINE_MASK, Size.WORD);
-                invalidate |= nonCached != cached;
-            }
+            //TODO test, Metal Head 0x600e3a0, the cached block should be invalidated even if currently matches
+            //TODO memory, as memory could then be changed and a following access to the cached block would
+            //TODO show wrong data.
+//            if (!invalidate) {
+//                int nonCached = readMemoryUncachedNoDelay(memory, invalidCtx.prevCacheAddr, Size.WORD);
+//                int cached = getCachedData(line.data, invalidCtx.prevCacheAddr & LINE_MASK, Size.WORD);
+//                invalidate |= nonCached != cached;
+//            }
             if (invalidate) {
                 if (verbose)
                     LOG.info("{} {} on addr {}, cache line {}", force ? "Force invalidate" :
