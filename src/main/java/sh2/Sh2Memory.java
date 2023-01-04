@@ -259,7 +259,7 @@ public final class Sh2Memory implements IMemory {
 	private static final int SLAVE_READ = 4;
 	private static final int SLAVE_WRITE = 8;
 
-	private static String[] names = {"EMPTY", "MAST_READ", "MAST_WRITE", "EMPTY", "SLAVE_READ", "EMPTY", "EMPTY",
+	private static final String[] names = {"EMPTY", "MAST_READ", "MAST_WRITE", "EMPTY", "SLAVE_READ", "EMPTY", "EMPTY",
 			"EMPTY", "SLAVE_WRITE"};
 
 	static class SdramSync {
@@ -267,7 +267,7 @@ public final class Sh2Memory implements IMemory {
 		int[] cycleAccess = new int[SLAVE_WRITE + 1];
 	}
 
-	private SdramSync[] sdramAccess = new SdramSync[SH2_SDRAM_SIZE];
+	private final SdramSync[] sdramAccess = new SdramSync[SH2_SDRAM_SIZE];
 	private Runnable valToWrite;
 	private int clockDiffMin = 100;
 

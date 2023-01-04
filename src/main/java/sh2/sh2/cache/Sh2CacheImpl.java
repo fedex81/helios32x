@@ -129,7 +129,8 @@ public class Sh2CacheImpl implements Sh2Cache {
             case CACHE_DATA_ARRAY:
                 return readDataArray(addr, size);
             case CACHE_PURGE:
-                LOG.warn("{} CACHE_PURGE read: {}, {}", cpu, th(addr), size);
+                //fifa
+                if (verbose) LOG.warn("{} CACHE_PURGE read: {}, {}", cpu, th(addr), size);
                 break;
             case CACHE_ADDRESS_ARRAY:
 //                assert size == Size.LONG; //TODO pwm sound demo != LONG
@@ -147,18 +148,15 @@ public class Sh2CacheImpl implements Sh2Cache {
     public boolean cacheMemoryWrite(int addr, int val, Size size) {
         boolean change = false;
         switch (addr & AREA_MASK) {
-            case CACHE_USE: {
+            case CACHE_USE -> {
                 if (ca.enable == 0) {
                     writeMemoryUncached(memory, addr, val, size);
                     return false; //TODO check this
                 }
                 change = writeCache(addr, val, size);
             }
-            break;
-            case CACHE_DATA_ARRAY:
-                change = writeDataArray(addr, val, size);
-                break;
-            case CACHE_PURGE://associative purge
+            case CACHE_DATA_ARRAY -> change = writeDataArray(addr, val, size);
+            case CACHE_PURGE ->//associative purge
             {
                 final int tagaddr = (addr & TAG_MASK);
                 final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
@@ -175,17 +173,16 @@ public class Sh2CacheImpl implements Sh2Cache {
                 if (verbose) LOG.info("{} Cache purge: {}", cpu, th(addr));
                 assert addr < 0x4800_0000;
             }
-            break;
-            case CACHE_ADDRESS_ARRAY:
+            case CACHE_ADDRESS_ARRAY -> {
                 //doomRes 1.4, vf
                 assert size == Size.LONG;
                 if (verbose) LOG.info("{} CACHE_ADDRESS_ARRAY write: {}, {} {}", cpu, th(addr), th(val), size);
                 writeAddressArray(addr, val);
-                break;
-            default:
+            }
+            default -> {
                 LOG.error("{} Unexpected cache write: {}, {} {}", cpu, th(addr), th(val), size);
                 if (true) throw new RuntimeException();
-                break;
+            }
         }
         return change;
     }

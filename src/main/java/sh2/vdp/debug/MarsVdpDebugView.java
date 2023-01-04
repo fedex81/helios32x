@@ -21,7 +21,7 @@ import static sh2.vdp.debug.MarsVdpDebugView.ImageType.*;
  */
 public interface MarsVdpDebugView extends Device {
 
-    static MarsVdpDebugView NO_OP = new MarsVdpDebugView() {
+    MarsVdpDebugView NO_OP = new MarsVdpDebugView() {
         @Override
         public void update(MarsVdp.MarsVdpContext context, int[] buffer) {
         }
@@ -31,7 +31,7 @@ public interface MarsVdpDebugView extends Device {
         }
     };
 
-    public enum ImageType {BUFF_0, BUFF_1, FULL, MDp32X}
+    enum ImageType {BUFF_0, BUFF_1, FULL, MDp32X}
 
     void update(MarsVdp.MarsVdpContext context, int[] buffer);
 
@@ -41,7 +41,7 @@ public interface MarsVdpDebugView extends Device {
         return null;
     }
 
-    public static MarsVdpDebugView createInstance() {
+    static MarsVdpDebugView createInstance() {
         return MarsVdpDebugViewImpl.DEBUG_VIEWER_ENABLED ? new MarsVdpDebugViewImpl() : NO_OP;
     }
 

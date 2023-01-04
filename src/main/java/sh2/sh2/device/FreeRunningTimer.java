@@ -73,13 +73,15 @@ public class FreeRunningTimer implements Sh2Device {
         assert address == regSpec.addr : th(address) + ", " + th(regSpec.addr);
         if (verbose) LOG.info("{} FRT read {}: {}", cpu, regSpec.name, size);
         switch (regSpec) {
-            case FRT_OCRAB_H:
+            case FRT_OCRAB_H -> {
                 int ref = isOcra ? ocra : ocrb;
                 return size == Size.WORD ? ref : ref >> 8;
-            case FRT_OCRAB_L:
+            }
+            case FRT_OCRAB_L -> {
                 assert size == Size.BYTE;
                 int refl = isOcra ? ocra : ocrb;
                 return refl & 0XFF;
+            }
         }
         return readBuffer(regs, address, size);
     }
@@ -89,34 +91,30 @@ public class FreeRunningTimer implements Sh2Device {
         if (verbose) LOG.info("{} FRT write {}: {} {}", cpu, regSpec.name, th(value), size);
         writeBuffer(regs, pos, value, size);
         switch (regSpec) {
-            case FRT_TOCR:
+            case FRT_TOCR -> {
                 assert size == Size.BYTE;
                 isOcra = (value & TOCR_OCRS_MASK) == 0;
                 writeBuffer(regs, pos, value | TOCR_DEFAULT, size);
-                break;
-            case FRT_OCRAB_H:
-            case FRT_OCRAB_L:
+            }
+            case FRT_OCRAB_H, FRT_OCRAB_L -> {
                 int val = readBuffer(regs, FRT_OCRAB_H.addr, Size.WORD);
                 if (isOcra) {
                     ocra = val;
                 } else {
                     ocrb = val;
                 }
-                break;
-            case FRT_FRCH:
-            case FRT_FRCL:
-                count = readBuffer(regs, FRT_FRCH.addr, Size.WORD);
-                break;
-            case FRT_TCR:
+            }
+            case FRT_FRCH, FRT_FRCL -> count = readBuffer(regs, FRT_FRCH.addr, Size.WORD);
+            case FRT_TCR -> {
                 assert size == Size.BYTE;
                 clockDivider = clockDivs[value & 3];
                 sh2TicksToNextFrtClock = clockDivider;
-                break;
-            case FRT_TIER:
+            }
+            case FRT_TIER -> {
                 assert size == Size.BYTE;
                 //x000xxx1
                 writeBuffer(regs, pos, (value & 0x8e) | 1, size);
-                break;
+            }
         }
     }
 

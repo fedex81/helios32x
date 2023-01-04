@@ -345,12 +345,8 @@ public class Ow2Sh2Helper {
      */
     public static void emitCastIntToSize(Sh2Prefetch.BytecodeContext ctx, Size size) {
         switch (size) {
-            case BYTE:
-                ctx.mv.visitInsn(I2B);
-                break;
-            case WORD:
-                ctx.mv.visitInsn(I2S);
-                break;
+            case BYTE -> ctx.mv.visitInsn(I2B);
+            case WORD -> ctx.mv.visitInsn(I2S);
         }
     }
 }

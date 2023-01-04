@@ -135,29 +135,21 @@ public class Sh2MMREG {
         int res = 0;
         if (regSpec != null) {
             switch (sh2RegDeviceMapping[reg & SH2_REG_MASK]) {
-                case WDT:
-                    res = wdt.read(regSpec, pos, size);
-                    break;
-                case SCI:
-                    res = sci.read(regSpec, pos, size);
-                    break;
-                case DIV:
-                    res = divUnit.read(regSpec, pos, size);
-                    break;
-                case FRT:
+                case WDT -> res = wdt.read(regSpec, pos, size);
+                case SCI -> res = sci.read(regSpec, pos, size);
+                case DIV -> res = divUnit.read(regSpec, pos, size);
+                case FRT -> {
                     res = readBuffer(regs, pos, size);
                     if (regSpec != RegSpec.FRT_TIER && regSpec != RegSpec.FRT_TOCR) {
                         LOG.error("{} Unexpected FRT reg {} read: {} {}", cpu, regSpec, th(res), size);
                     }
-                    break;
-                case BSC:
+                }
+                case BSC -> {
                     assert size != Size.BYTE;
                     res = readBuffer(regs, pos, size);
                     LOG.info("{} BSC reg {} read: {} {}", cpu, regSpec, th(res), size);
-                    break;
-                default:
-                    res = readBuffer(regs, pos, size);
-                    break;
+                }
+                default -> res = readBuffer(regs, pos, size);
             }
         }
         if (verbose) {
@@ -175,7 +167,7 @@ public class Sh2MMREG {
         assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
         if (verbose) LOG.info("{} BSC reg {} write: {} {}", cpu, regSpec, th(value), size);
         if (size != Size.LONG || (value & 0xFFFF_0000) != BSC_LONG_WRITE_MASK) {
-            LOG.error("Invalid BSC reg {} write: {} {}", cpu, regSpec, th(value), size);
+            LOG.error("{} Invalid BSC reg {} write: {} {}", cpu, regSpec, th(value), size);
             return;
         }
         value &= 0xFFFF;

@@ -57,12 +57,8 @@ public class DmaFifo68k {
     public void write(RegSpecS32x regSpec, CpuDeviceAccess cpu, int address, int value, Size size) {
         if (verbose) LOG.info("{} DMA write {}: {} {}", cpu, regSpec.name, th(value), size);
         switch (cpu.regSide) {
-            case MD:
-                writeMd(regSpec, address, value, size);
-                break;
-            default:
-                LOG.error("Invalid {} DMA write {}: {} {}", cpu, regSpec.name, th(value), size);
-                break;
+            case MD -> writeMd(regSpec, address, value, size);
+            default -> LOG.error("Invalid {} DMA write {}: {} {}", cpu, regSpec.name, th(value), size);
         }
     }
 

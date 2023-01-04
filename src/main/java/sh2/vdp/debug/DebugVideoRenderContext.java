@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import sh2.vdp.MarsVdp;
 
 import java.io.IOException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,8 +21,9 @@ import java.nio.file.attribute.FileAttribute;
 //NOTE, do not move or change, tests depend on it
 public class DebugVideoRenderContext implements Serializable {
 
-    private static final transient Logger LOG = LogHelper.getLogger(DebugVideoRenderContext.class.getSimpleName());
+    private static final Logger LOG = LogHelper.getLogger(DebugVideoRenderContext.class.getSimpleName());
 
+    @Serial
     private static final long serialVersionUID = -2583260195705611811L;
     public MarsVdp.MarsVdpContext marsVdpContext;
     public int[] mdData;

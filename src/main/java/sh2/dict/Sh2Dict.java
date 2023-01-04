@@ -125,11 +125,11 @@ public class Sh2Dict {
 
         public static final int REG_MASK = SH2_REG_MASK;
 
-        private RegSpec(int addr, String name, Size size) {
+        RegSpec(int addr, String name, Size size) {
             this(addr, name, size, (int) size.getMask());
         }
 
-        private RegSpec(int addr, String name, Size size, int writeMask) {
+        RegSpec(int addr, String name, Size size, int writeMask) {
             this.fullAddress = addr;
             this.addr = addr & SH2_REG_MASK;
             this.name = name;

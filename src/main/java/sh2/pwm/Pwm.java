@@ -57,17 +57,19 @@ public class Pwm implements StepDevice {
 
     private static final PwmChannelSetup[] chanVals = PwmChannelSetup.values();
 
-    private ByteBuffer sysRegsMd, sysRegsSh2;
+    private final ByteBuffer sysRegsMd;
+    private final ByteBuffer sysRegsSh2;
     private IntControl[] intControls;
     private DmaC[] dmac;
 
-    private PwmChannelSetup[] channelMap = {OFF, OFF};
+    private final PwmChannelSetup[] channelMap = {OFF, OFF};
     private boolean pwmEnable, dreqEn;
     private int cycle = 0, interruptInterval;
     private int sh2TicksToNextPwmSample, sh2ticksToNextPwmInterrupt, sh2TicksToNext22khzSample = CYCLE_22khz;
     private int pwmSamplesPerFrame = 0, stepsPerFrame = 0, dreqPerFrame = 0;
 
-    private Fifo<Integer> fifoLeft, fifoRight;
+    private final Fifo<Integer> fifoLeft;
+    private final Fifo<Integer> fifoRight;
 
     private final int[] latestPwmValue = new int[PwmChannel.values().length];
     private static final boolean verbose = false;
@@ -91,25 +93,19 @@ public class Pwm implements StepDevice {
     public void write(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value, Size size) {
         if (verbose) LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), size);
         switch (size) {
-            case BYTE:
-                writeByte(cpu, regSpec, reg, value);
-                break;
-            case WORD:
-                writeWord(cpu, regSpec, reg, value);
-                break;
-            case LONG:
+            case BYTE -> writeByte(cpu, regSpec, reg, value);
+            case WORD -> writeWord(cpu, regSpec, reg, value);
+            case LONG -> {
                 writeWord(cpu, regSpec, reg, value >> 16);
                 writeWord(cpu, S32xDict.getRegSpec(cpu, regSpec.addr + 2), reg + 2, value & 0xFFFF);
-                break;
+            }
         }
     }
 
     public void writeByte(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value) {
         switch (regSpec) {
-            case PWM_CTRL:
-                handlePwmControl(cpu, reg, value, Size.BYTE);
-                break;
-            case PWM_CYCLE: {
+            case PWM_CTRL -> handlePwmControl(cpu, reg, value, Size.BYTE);
+            case PWM_CYCLE -> {
                 assert cpu.regSide == S32xRegSide.MD : regSpec;
                 handlePartialByteWrite(reg, value);
                 if (regSpec == PWM_CYCLE) {
@@ -117,10 +113,7 @@ public class Pwm implements StepDevice {
                     handlePwmCycleWord(cpu, val);
                 }
             }
-            break;
-            case PWM_RCH_PW:
-            case PWM_LCH_PW:
-            case PWM_MONO:
+            case PWM_RCH_PW, PWM_LCH_PW, PWM_MONO -> {
                 //Mars check test1
                 //NOTE: z80 writes MSB then LSB, we trigger a wordWrite when setting the LSB
                 handlePartialByteWrite(reg, value);
@@ -128,10 +121,8 @@ public class Pwm implements StepDevice {
                     int val = readBuffer(sysRegsMd, regSpec.addr, Size.WORD);
                     writeWord(cpu, regSpec, regSpec.addr, val);
                 }
-                break;
-            default:
-                LOG.error("{} PWM write {} {}: {} {}", cpu, regSpec.name, th(reg), th(value), Size.BYTE);
-                break;
+            }
+            default -> LOG.error("{} PWM write {} {}: {} {}", cpu, regSpec.name, th(reg), th(value), Size.BYTE);
         }
     }
 
@@ -171,12 +162,8 @@ public class Pwm implements StepDevice {
 
     private void handlePwmControl(CpuDeviceAccess cpu, int reg, int value, Size size) {
         switch (cpu.regSide) {
-            case MD:
-                handlePwmControlMd(cpu, reg, value, size);
-                break;
-            default:
-                handlePwmControlSh2(cpu, reg, value, size);
-                break;
+            case MD -> handlePwmControlMd(cpu, reg, value, size);
+            default -> handlePwmControlSh2(cpu, reg, value, size);
         }
         handlePwmEnable(false);
     }

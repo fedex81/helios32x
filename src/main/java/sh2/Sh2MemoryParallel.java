@@ -19,7 +19,7 @@ import static sh2.dict.S32xDict.SH2_PC_AREA_SHIFT;
  */
 public final class Sh2MemoryParallel implements IMemory {
     private boolean replayMode = false, active, dmaRunning;
-    private IMemory memory;
+    private final IMemory memory;
 
     public void setActive(boolean active) {
         this.active = active;
@@ -46,7 +46,7 @@ public final class Sh2MemoryParallel implements IMemory {
         }
     }
 
-    private Map<Integer, RwCtx> map = new HashMap<>();
+    private final Map<Integer, RwCtx> map = new HashMap<>();
     private int position = 0;
 
     public Sh2MemoryParallel(IMemory memory) {

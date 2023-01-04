@@ -88,12 +88,8 @@ public class WatchdogTimer implements Sh2Device {
         }
         assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
         switch (regSpec.addr) {
-            case ADDR_WRITE_80:
-                handleWrite80(value);
-                break;
-            case ADDR_WRITE_82:
-                handleWrite82(value);
-                break;
+            case ADDR_WRITE_80 -> handleWrite80(value);
+            case ADDR_WRITE_82 -> handleWrite82(value);
         }
     }
 
@@ -124,21 +120,19 @@ public class WatchdogTimer implements Sh2Device {
     private void handleWrite80(int value) {
         int msb = value >> 8;
         switch (msb) {
-            case WRITE_MSB_A5:
+            case WRITE_MSB_A5 -> {
                 if (verbose) LOG.info("{} WDT write {}: {} {}", cpu, WDT_WTCSR.name,
                         th(value), Size.WORD);
                 writeBuffer(regs, WTCSR_ADDR_READ, value & 0xFF, Size.BYTE);
                 handleTimerEnable(value);
-                break;
-            case WRITE_MSB_5A:
+            }
+            case WRITE_MSB_5A -> {
                 if (verbose) LOG.info("{} WDT write {}: {} {}", cpu, WDT_WTCNT.name,
                         th(value), Size.WORD);
                 writeBuffer(regs, WTCNT_ADDR_READ, value & 0xFF, Size.BYTE);
                 count = value & 0xFF;
-                break;
-            default:
-                LOG.error("{} WDT write, addr {}, unexpected MSB: {}", cpu, ADDR_WRITE_80, msb);
-                break;
+            }
+            default -> LOG.error("{} WDT write, addr {}, unexpected MSB: {}", cpu, ADDR_WRITE_80, msb);
         }
     }
 

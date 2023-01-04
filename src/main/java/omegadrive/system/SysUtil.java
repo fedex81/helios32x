@@ -83,11 +83,10 @@ public class SysUtil {
     }
 
     public static SoundDevice getPwmProvider(SystemType systemType, Region region) {
-        switch (systemType) {
-            case S32X:
-                return new S32xPwmProvider(region);
-        }
-        return PwmProvider.NO_SOUND;
+        return switch (systemType) {
+            case S32X -> new S32xPwmProvider(region);
+            default -> PwmProvider.NO_SOUND;
+        };
     }
 
     public static SoundDevice getPsgProvider(SystemType systemType, Region region) {

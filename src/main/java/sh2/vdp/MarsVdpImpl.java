@@ -109,13 +109,9 @@ public class MarsVdpImpl implements MarsVdp {
         if (address >= START_32X_COLPAL_CACHE && address < END_32X_COLPAL_CACHE) {
             assert Md32xRuntimeData.getAccessTypeExt() != CpuDeviceAccess.Z80;
             switch (size) {
-                case WORD:
-                case LONG:
-                    writeBuffer(colorPalette, address & S32X_COLPAL_MASK, value, size);
-                    break;
-                default:
-                    LOG.error(Md32xRuntimeData.getAccessTypeExt() + " write, unable to access colorPalette as " + size);
-                    break;
+                case WORD, LONG -> writeBuffer(colorPalette, address & S32X_COLPAL_MASK, value, size);
+                default ->
+                        LOG.error(Md32xRuntimeData.getAccessTypeExt() + " write, unable to access colorPalette as " + size);
             }
             S32xMemAccessDelay.addWriteCpuDelay(S32xMemAccessDelay.PALETTE);
         } else if (address >= START_DRAM_CACHE && address < END_DRAM_CACHE) {
@@ -356,21 +352,20 @@ public class MarsVdpImpl implements MarsVdp {
             return;
         }
         switch (size) {
-            case WORD:
+            case WORD -> {
                 writeFrameBufferByte(address, (value >> 8) & 0xFF);
                 writeFrameBufferByte(address + 1, value & 0xFF);
-                break;
-            case BYTE:
+            }
+            case BYTE ->
                 //guaranteed not be zero
-                writeFrameBufferByte(address, value);
-                break;
-            case LONG:
+                    writeFrameBufferByte(address, value);
+            case LONG -> {
 //                LOG.error("Unexpected writeFrameBufferOver: {}", size);
                 writeFrameBufferByte(address, (value >> 24) & 0xFF);
                 writeFrameBufferByte(address + 1, (value >> 16) & 0xFF);
                 writeFrameBufferByte(address + 2, (value >> 8) & 0xFF);
                 writeFrameBufferByte(address + 3, (value >> 0) & 0xFF);
-                break;
+            }
         }
     }
 
@@ -383,18 +378,10 @@ public class MarsVdpImpl implements MarsVdp {
     @Override
     public void draw(MarsVdpContext context) {
         switch (context.bitmapMode) {
-            case BLANK:
-                drawBlank();
-                break;
-            case PACKED_PX:
-                drawPackedPixel(context);
-                break;
-            case RUN_LEN:
-                drawRunLen(context);
-                break;
-            case DIRECT_COL:
-                drawDirectColor(context);
-                break;
+            case BLANK -> drawBlank();
+            case PACKED_PX -> drawPackedPixel(context);
+            case RUN_LEN -> drawRunLen(context);
+            case DIRECT_COL -> drawDirectColor(context);
         }
         view.update(context, buffer);
     }

@@ -20,13 +20,13 @@ import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.*;
  */
 public interface IntControl extends S32xUtil.Sh2Device {
 
-    static final Logger LOG = LogHelper.getLogger(IntControl.class.getSimpleName());
+    Logger LOG = LogHelper.getLogger(IntControl.class.getSimpleName());
 
-    public enum OnChipSubType {
+    enum OnChipSubType {
         S_NONE, RIE, TIE, DMA_C0, DMA_C1, D_OVFI, ERI, RXI, TXI, TEI, ICI, OCI, OVI;
     }
 
-    public enum Sh2InterruptSource {
+    enum Sh2InterruptSource {
         NMI, USER_BREAK, IRL15, VRES14(VRES_14), IRL13, VINT12(VINT_12), IRL11, HINT10(HINT_10), IRL09,
         CMD08(CMD_8), IRL07, PWM06(PWM_6), IRL05, IRL04,
         IRL03, IRL02, IRL01, DIVU(DIV), DMAC0(DMA, DMA_C0), DMAC1(DMA, DMA_C1), WDTS(WDT),
@@ -39,23 +39,23 @@ public interface IntControl extends S32xUtil.Sh2Device {
 
         public static final Sh2InterruptSource[] vals = Sh2InterruptSource.values();
 
-        private Sh2InterruptSource(Sh2Interrupt externalInterrupt) {
+        Sh2InterruptSource(Sh2Interrupt externalInterrupt) {
             this(NONE, S_NONE, externalInterrupt);
         }
 
-        private Sh2InterruptSource() {
+        Sh2InterruptSource() {
             this(NONE, S_NONE, NONE_0);
         }
 
-        private Sh2InterruptSource(Sh2DeviceType deviceType) {
+        Sh2InterruptSource(Sh2DeviceType deviceType) {
             this(deviceType, S_NONE, NONE_0);
         }
 
-        private Sh2InterruptSource(Sh2DeviceType t, OnChipSubType s) {
+        Sh2InterruptSource(Sh2DeviceType t, OnChipSubType s) {
             this(t, s, NONE_0);
         }
 
-        private Sh2InterruptSource(Sh2DeviceType t, OnChipSubType s, Sh2Interrupt externalInterrupt) {
+        Sh2InterruptSource(Sh2DeviceType t, OnChipSubType s, Sh2Interrupt externalInterrupt) {
             this.deviceType = t;
             this.subType = s;
             this.externalInterrupt = externalInterrupt;
@@ -72,19 +72,19 @@ public interface IntControl extends S32xUtil.Sh2Device {
         }
     }
 
-    public enum Sh2Interrupt {
+    enum Sh2Interrupt {
         NONE_0(0), NONE_1(0), NONE_2(0), NONE_3(0), NONE_4(0), NONE_5(0),
         PWM_6(1), NONE_7(1), CMD_8(1), NONE_9(0), HINT_10(1), NONE_11(0), VINT_12(1),
         NONE_13(0), VRES_14(1), NONE_15(0), NMI_16(1);
 
-        public int internal;
+        public final int internal;
 
-        private Sh2Interrupt(int i) {
+        Sh2Interrupt(int i) {
             this.internal = i;
         }
     }
 
-    static class InterruptContext {
+    class InterruptContext {
         public Sh2InterruptSource source;
         public Sh2Interrupt interrupt;
         public int level = 0;
@@ -102,16 +102,16 @@ public interface IntControl extends S32xUtil.Sh2Device {
     }
 
 
-    public static final Sh2Interrupt[] intVals = Sh2Interrupt.values();
-    public static final InterruptContext LEV_0 = new InterruptContext();
+    Sh2Interrupt[] intVals = Sh2Interrupt.values();
+    InterruptContext LEV_0 = new InterruptContext();
 
-    public static final int MAX_LEVEL = 17; //[0-16]
+    int MAX_LEVEL = 17; //[0-16]
 
-    public default void setOnChipDeviceIntPending(Sh2DeviceType deviceType) {
+    default void setOnChipDeviceIntPending(Sh2DeviceType deviceType) {
         setOnChipDeviceIntPending(deviceType, S_NONE);
     }
 
-    public void setOnChipDeviceIntPending(Sh2DeviceType deviceType, OnChipSubType subType);
+    void setOnChipDeviceIntPending(Sh2DeviceType deviceType, OnChipSubType subType);
 
     void setIntPending(Sh2Interrupt interrupt, boolean isPending);
 

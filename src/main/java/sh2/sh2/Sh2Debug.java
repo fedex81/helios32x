@@ -94,7 +94,7 @@ public class Sh2Debug extends Sh2Impl implements CpuFastDebug.CpuDebugInfoProvid
             op -> (op & 0xF0FF) == 0x4010 //dt
             ;
 
-    private CpuFastDebug[] fastDebug = new CpuFastDebug[2];
+    private final CpuFastDebug[] fastDebug = new CpuFastDebug[2];
 
     private static PcInfoWrapper[][] piw;
 

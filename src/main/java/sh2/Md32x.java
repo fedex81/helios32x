@@ -52,8 +52,8 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
 
     public static final int SH2_SLEEP_VALUE = -10000;
 
-    //NOTE vr helios.32x.sh2.cycles = 18
-    //TODO chaotix,kolibri,metal head, break with poll1
+    //NOTE vr,fifa helios.32x.sh2.cycles = 18
+    //TODO chaotix,kolibri,metal head, fifa break with poll1
     static {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
         boolean drcEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));

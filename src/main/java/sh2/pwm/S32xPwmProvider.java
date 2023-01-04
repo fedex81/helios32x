@@ -5,7 +5,6 @@ import omegadrive.sound.fm.GenericAudioProvider;
 import omegadrive.util.LogHelper;
 import omegadrive.util.RegionDetector;
 import org.slf4j.Logger;
-import sh2.pwm.PwmUtil.*;
 
 import java.util.Arrays;
 
@@ -27,9 +26,10 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
     private static final Logger LOG = LogHelper.getLogger(S32xPwmProvider.class.getSimpleName());
     private static final boolean collectStats = Boolean.parseBoolean(System.getProperty("helios.32x.pwm.stats", "false"));
 
-    private float sh2ClockMhz, scale = 0;
+    private final float sh2ClockMhz;
+    private float scale = 0;
     private int cycle;
-    private int fps;
+    private final int fps;
 
     private boolean shouldPlay;
     private Warmup warmup = NO_WARMUP;

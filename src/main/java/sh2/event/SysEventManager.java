@@ -88,8 +88,8 @@ public interface SysEventManager extends Device {
 
     class SysEventManagerImpl implements SysEventManager {
 
-        private Map<String, SysEventListener> listenerMapMaster = new HashMap<>();
-        private Map<String, SysEventListener> listenerMapSlave = new HashMap<>();
+        private final Map<String, SysEventListener> listenerMapMaster = new HashMap<>();
+        private final Map<String, SysEventListener> listenerMapSlave = new HashMap<>();
 
         @Override
         public boolean addSysEventListener(CpuDeviceAccess cpu, String name, SysEventListener l) {

@@ -20,7 +20,7 @@ public class RegAccessLogger {
 
     private static final boolean ENABLE = false;
 
-    private static Map<String, Integer> log = new HashMap<>();
+    private static final Map<String, Integer> log = new HashMap<>();
 
     public static void regAccess(String regSpec, int address, int val, Size size, boolean read) {
         if (!ENABLE) {

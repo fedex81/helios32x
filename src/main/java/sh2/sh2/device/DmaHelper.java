@@ -23,9 +23,9 @@ public class DmaHelper {
     enum DmaTransferSize {
         BYTE(1), WORD(2), LONG(4), BYTE_16(4); //4 transfers of 4 bytes
 
-        public int byteSize;
+        public final int byteSize;
 
-        private DmaTransferSize(int s) {
+        DmaTransferSize(int s) {
             this.byteSize = s;
         }
     }
@@ -34,9 +34,9 @@ public class DmaHelper {
         FIXED(0),
         INCREMENT(1), DECREMENT(-1), ILLEGAL(0);
 
-        public int signMult;
+        public final int signMult;
 
-        private DmaSrcDestMode(int s) {
+        DmaSrcDestMode(int s) {
             this.signMult = s;
         }
     }

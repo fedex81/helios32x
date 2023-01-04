@@ -11,6 +11,7 @@ import sh2.dict.S32xDict;
 
 import java.awt.*;
 import java.io.IOException;
+import java.io.Serial;
 import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,18 +25,18 @@ import java.nio.file.attribute.FileAttribute;
  */
 public interface MarsVdp extends Device {
 
-    static final Logger LOG = LogHelper.getLogger(MarsVdp.class.getSimpleName());
+    Logger LOG = LogHelper.getLogger(MarsVdp.class.getSimpleName());
 
-    static final int PANEL_TEXT_HEIGHT = 20;
-    static final int PANEL_HEIGHT = 256 + PANEL_TEXT_HEIGHT;
-    static final int PANEL_WIDTH = 320;
-    static final Dimension layerDim = new Dimension(PANEL_WIDTH, PANEL_HEIGHT);
-    static final int DIRECT_COLOR_LINES = 204; // ~(65536 - 256)/320
-    static final int LINE_TABLE_WORDS = 256;
-    static final int LINE_TABLE_BYTES = LINE_TABLE_WORDS << 1;
+    int PANEL_TEXT_HEIGHT = 20;
+    int PANEL_HEIGHT = 256 + PANEL_TEXT_HEIGHT;
+    int PANEL_WIDTH = 320;
+    Dimension layerDim = new Dimension(PANEL_WIDTH, PANEL_HEIGHT);
+    int DIRECT_COLOR_LINES = 204; // ~(65536 - 256)/320
+    int LINE_TABLE_WORDS = 256;
+    int LINE_TABLE_BYTES = LINE_TABLE_WORDS << 1;
 
-    static final int[] bgr5toRgb8Mapper = new int[0x10000];
-    static final int NUM_FB = 2;
+    int[] bgr5toRgb8Mapper = new int[0x10000];
+    int NUM_FB = 2;
 
     void write(int address, int value, Size size);
 
@@ -61,16 +62,17 @@ public interface MarsVdp extends Device {
 
     void setVBlank(boolean vBlankOn);
 
-    public enum VdpPriority {MD, S32X}
+    enum VdpPriority {MD, S32X}
 
-    public enum BitmapMode {
+    enum BitmapMode {
         BLANK, PACKED_PX, DIRECT_COL, RUN_LEN;
 
         public static BitmapMode[] vals = BitmapMode.values();
     }
 
     //NOTE, do not move or change, tests depend on it
-    public class MarsVdpContext implements Serializable {
+    class MarsVdpContext implements Serializable {
+        @Serial
         private static final long serialVersionUID = -5808119960311023889L;
 
         public BitmapMode bitmapMode = BitmapMode.BLANK;
@@ -99,7 +101,8 @@ public interface MarsVdp extends Device {
     }
 
     //NOTE, do not move or change, tests depend on it
-    public class MarsVdpRenderContext implements Serializable {
+    class MarsVdpRenderContext implements Serializable {
+        @Serial
         private static final long serialVersionUID = 6079468834587022465L;
 
         public int[] screen;
@@ -107,7 +110,8 @@ public interface MarsVdp extends Device {
     }
 
     //NOTE, do not move or change, tests depend on it
-    public class DebugMarsVdpRenderContext implements Serializable {
+    class DebugMarsVdpRenderContext implements Serializable {
+        @Serial
         private static final long serialVersionUID = 6600715540292231809L;
 
         public MarsVdpRenderContext renderContext;

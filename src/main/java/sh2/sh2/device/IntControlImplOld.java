@@ -19,7 +19,8 @@ import static sh2.dict.S32xDict.RegSpecS32x.SH2_INT_MASK;
 import static sh2.dict.Sh2Dict.RegSpec.*;
 import static sh2.dict.Sh2Dict.writeBufferWithMask;
 import static sh2.event.SysEventManager.SysEvent.INT;
-import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
+import static sh2.sh2.device.IntControl.Sh2Interrupt.CMD_8;
+import static sh2.sh2.device.IntControl.Sh2Interrupt.NMI_16;
 import static sh2.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 
 /**
@@ -181,7 +182,6 @@ public class IntControlImplOld implements IntControl {
             }
         }
         interruptLevel = newLevel;
-        assert interruptLevel != VRES_14.ordinal();
         if (interruptLevel != prev && interruptLevel > 0) {
             Ow2DrcOptimizer.PollerCtx ctx = SysEventManager.instance.getPoller(cpu);
             if (ctx != NO_POLLER && (ctx.isPollingActive() || ctx.isPollingBusyLoop())) {

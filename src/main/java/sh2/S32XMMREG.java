@@ -132,23 +132,19 @@ public class S32XMMREG implements Device {
         }
         int res = 0;
         switch (regSpec.deviceType) {
-            case DMA:
+            case DMA -> {
                 assert (regSpec != MD_DMAC_CTRL ? cpu != Z80 : true) : regSpec;
                 res = dmaFifoControl.read(regSpec, cpu, address & S32X_REG_MASK, size);
-                break;
-            case PWM:
-                res = pwm.read(cpu, regSpec, address & S32X_MMREG_MASK, size);
-                break;
-            case COMM:
-                res = readBufferReg(regContext, regSpec, address, size);
-                break;
-            default:
+            }
+            case PWM -> res = pwm.read(cpu, regSpec, address & S32X_MMREG_MASK, size);
+            case COMM -> res = readBufferReg(regContext, regSpec, address, size);
+            default -> {
                 assert (regSpec.addr >= MD_DREQ_SRC_ADDR_H.addr ? cpu != Z80 : true) : regSpec;
                 res = readBufferReg(regContext, regSpec, address, size);
                 if (regSpec == SH2_INT_MASK) {
                     res = interruptControls[cpu.ordinal()].readSh2IntMaskReg(address & S32X_REG_MASK, size);
                 }
-                break;
+            }
         }
         //RegAccessLogger.regAccess(regSpec.toString(), address, res, size, true);
         return res;
@@ -165,29 +161,25 @@ public class S32XMMREG implements Device {
         deviceAccessType = regSpec.deviceAccessTypeDelay;
 
         switch (regSpec.deviceType) {
-            case VDP:
+            case VDP -> {
                 assert cpu != Z80 : regSpec;
                 regChanged = vdp.vdpRegWrite(regSpec, reg, value, size);
-                break;
-            case PWM:
-                pwm.write(cpu, regSpec, reg, value, size);
-                break;
-            case COMM:
-                regChanged = handleCommRegWrite(regSpec, reg, value, size);
-                break;
-            case SYS:
+            }
+            case PWM -> pwm.write(cpu, regSpec, reg, value, size);
+            case COMM -> regChanged = handleCommRegWrite(regSpec, reg, value, size);
+            case SYS -> {
                 assert (regSpec.addr >= MD_DREQ_SRC_ADDR_H.addr ? cpu != Z80 : true) : regSpec;
                 regChanged = handleSysRegWrite(cpu, regSpec, reg, value, size);
-                break;
-            case DMA:
+            }
+            case DMA -> {
                 assert (regSpec != MD_DMAC_CTRL ? cpu != Z80 : true) : regSpec;
                 dmaFifoControl.write(regSpec, cpu, reg, value, size);
-                break;
-            default:
+            }
+            default -> {
                 LOG.error("{} unexpected reg write, addr: {}, {} {}", cpu, th(address), th(value), size);
                 writeBufferReg(regContext, regSpec, reg, value, size);
                 regChanged = true;
-                break;
+            }
         }
         if (verbose && regChanged) {
             doLog(cpu, regSpec, address, value, size, false);
@@ -202,34 +194,21 @@ public class S32XMMREG implements Device {
         assert size != Size.LONG;
         boolean regChanged = false;
         switch (regSpec) {
-            case SH2_INT_MASK:
-            case MD_ADAPTER_CTRL:
-                regChanged = handleReg0Write(cpu, reg, value, size);
-                break;
-            case SH2_STBY_CHANGE:
-            case MD_INT_CTRL:
-                regChanged = handleReg2Write(cpu, reg, value, size);
-                break;
-            case SH2_HCOUNT_REG:
-            case MD_BANK_SET:
-                regChanged = handleReg4Write(cpu, reg, value, size);
-                break;
-            case SH2_VINT_CLEAR:
-            case SH2_HINT_CLEAR:
-            case SH2_PWM_INT_CLEAR:
-            case SH2_CMD_INT_CLEAR:
-            case SH2_VRES_INT_CLEAR:
+            case SH2_INT_MASK, MD_ADAPTER_CTRL -> regChanged = handleReg0Write(cpu, reg, value, size);
+            case SH2_STBY_CHANGE, MD_INT_CTRL -> regChanged = handleReg2Write(cpu, reg, value, size);
+            case SH2_HCOUNT_REG, MD_BANK_SET -> regChanged = handleReg4Write(cpu, reg, value, size);
+            case SH2_VINT_CLEAR, SH2_HINT_CLEAR, SH2_PWM_INT_CLEAR, SH2_CMD_INT_CLEAR, SH2_VRES_INT_CLEAR -> {
                 handleIntClearWrite(cpu, regSpec.addr, value, size);
                 regChanged = true;
-                break;
-            case MD_SEGA_TV:
+            }
+            case MD_SEGA_TV -> {
                 LOG.warn("{} {} unexpected write, addr: {}, {} {}", cpu, regSpec, th(reg), th(value), size);
                 writeBufferReg(regContext, regSpec, reg, value, size);
-                break;
-            default:
+            }
+            default -> {
                 LOG.error("{} sysReg unexpected write, addr: {}, {} {}", cpu, th(reg), th(value), size);
                 writeBufferReg(regContext, regSpec, reg, value, size);
-                break;
+            }
         }
         return regChanged;
     }
@@ -289,15 +268,10 @@ public class S32XMMREG implements Device {
     }
 
     private boolean handleReg2Write(CpuDeviceAccess cpu, int reg, int value, Size size) {
-        boolean res = false;
-        switch (cpu.regSide) {
-            case MD:
-                res = handleIntControlWriteMd(reg, value, size);
-                break;
-            case SH2:
-                res = writeBuffer(sysRegsSh2, reg, value, size);
-                break;
-        }
+        boolean res = switch (cpu.regSide) {
+            case MD -> handleIntControlWriteMd(reg, value, size);
+            case SH2 -> writeBuffer(sysRegsSh2, reg, value, size);
+        };
         return res;
     }
 
@@ -315,15 +289,10 @@ public class S32XMMREG implements Device {
     }
 
     private boolean handleReg0Write(CpuDeviceAccess cpu, int reg, int value, Size size) {
-        boolean res = false;
-        switch (cpu.regSide) {
-            case MD:
-                res = handleAdapterControlRegWriteMd(reg, value, size);
-                break;
-            case SH2:
-                res = handleIntMaskRegWriteSh2(cpu, reg, value, size);
-                break;
-        }
+        boolean res = switch (cpu.regSide) {
+            case MD -> handleAdapterControlRegWriteMd(reg, value, size);
+            case SH2 -> handleIntMaskRegWriteSh2(cpu, reg, value, size);
+        };
         return res;
     }
 

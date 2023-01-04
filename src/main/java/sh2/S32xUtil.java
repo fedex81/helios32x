@@ -34,21 +34,21 @@ public class S32xUtil {
         assertionsEnabled = res;
     }
 
-    public static interface StepDevice extends Device {
-        public default void step(int cycles) {
+    public interface StepDevice extends Device {
+        default void step(int cycles) {
         } //DO NOTHING
     }
 
-    public static interface Sh2Device extends StepDevice {
+    public interface Sh2Device extends StepDevice {
         void write(RegSpec regSpec, int pos, int value, Size size);
 
         int read(RegSpec regSpec, int reg, Size size);
 
-        public default void write(RegSpec regSpec, int value, Size size) {
+        default void write(RegSpec regSpec, int value, Size size) {
             write(regSpec, regSpec.addr, value, size);
         }
 
-        public default int read(RegSpec regSpec, Size size) {
+        default int read(RegSpec regSpec, Size size) {
             return read(regSpec, regSpec.addr, size);
         }
     }
@@ -77,7 +77,7 @@ public class S32xUtil {
         writeBuffer(b, r1.addr & RegSpec.REG_MASK, value, Size.LONG);
     }
 
-    private static Set<S32xDict.RegSpecS32x> s = new HashSet<>();
+    private static final Set<S32xDict.RegSpecS32x> s = new HashSet<>();
     public static boolean writeBufferHasChangedWithMask(S32xDict.RegSpecS32x regSpec, ByteBuffer b, int reg, int value, Size size) {
         //TODO slower, esp. Metal Head
         if (assertionsEnabled) {
@@ -111,14 +111,14 @@ public class S32xUtil {
                 }
                 break;
             case WORD:
-                assert (pos & 1) == 0;
+                assert (pos & 1) == 0 : size + "," + th(pos);
                 if (b.getShort(pos) != value) {
                     b.putShort(pos, (short) value);
                     changed = true;
                 }
                 break;
             case LONG:
-                assert (pos & 1) == 0;
+                assert (pos & 1) == 0 : size + "," + th(pos);
                 if (b.getInt(pos) != value) {
                     b.putInt(pos, value);
                     changed = true;
@@ -212,15 +212,18 @@ public class S32xUtil {
             return;
         }
         switch (reg.regCpuType) {
-            case REG_BOTH:
+            case REG_BOTH -> {
                 S32xUtil.setBit(rc.sysRegsMd, rc.sysRegsSh2, address, pos, value, size);
                 return;
-            case REG_MD:
+            }
+            case REG_MD -> {
                 S32xUtil.setBit(rc.sysRegsMd, address, pos, value, size);
                 return;
-            case REG_SH2:
+            }
+            case REG_SH2 -> {
                 S32xUtil.setBit(rc.sysRegsSh2, address, pos, value, size);
                 return;
+            }
         }
         LOG.error("Unable to setBit: {}, addr: {}, value: {} {}", reg.name, th(address), th(value), size);
     }
@@ -232,16 +235,19 @@ public class S32xUtil {
             return;
         }
         switch (reg.regCpuType) {
-            case REG_BOTH:
+            case REG_BOTH -> {
                 writeBuffer(rc.sysRegsMd, address, value, size);
                 writeBuffer(rc.sysRegsSh2, address, value, size);
                 return;
-            case REG_MD:
+            }
+            case REG_MD -> {
                 writeBuffer(rc.sysRegsMd, address, value, size);
                 return;
-            case REG_SH2:
+            }
+            case REG_SH2 -> {
                 writeBuffer(rc.sysRegsSh2, address, value, size);
                 return;
+            }
         }
         LOG.error("Unable to write buffer: {}, addr: {}, value: {} {}", reg.name, th(address), th(value), size);
     }

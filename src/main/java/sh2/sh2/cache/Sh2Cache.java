@@ -54,19 +54,19 @@ public interface Sh2Cache {
     int DATA_ARRAY_SIZE = 0x1000;
     int DATA_ARRAY_MASK = DATA_ARRAY_SIZE - 1;
 
-    static class Sh2CacheLine {
+    class Sh2CacheLine {
         public int tag; //u32
         public int v;
         public int[] data = new int[CACHE_BYTES_PER_LINE]; //u8
     }
 
-    static class Sh2CacheEntry {
+    class Sh2CacheEntry {
         int enable; //u32
         int[] lru = new int[CACHE_LINES]; //u32
         Sh2CacheLine[][] way = new Sh2CacheLine[CACHE_WAYS][CACHE_LINES];
     }
 
-    static class CacheInvalidateContext {
+    class CacheInvalidateContext {
         public S32xUtil.CpuDeviceAccess cpu;
         public Sh2CacheLine line;
         public int cacheReadAddr, prevCacheAddr;
@@ -103,7 +103,7 @@ public interface Sh2Cache {
         memory.write(address | CACHE_THROUGH, value, size);
     }
 
-    public static Sh2Cache createNoCacheInstance(S32xUtil.CpuDeviceAccess cpu, final IMemory memory) {
+    static Sh2Cache createNoCacheInstance(S32xUtil.CpuDeviceAccess cpu, final IMemory memory) {
         return new Sh2CacheImpl(cpu, memory) {
             @Override
             public CacheContext updateState(int value) {
@@ -122,7 +122,7 @@ public interface Sh2Cache {
         };
     }
 
-    public static class CacheContext {
+    class CacheContext {
         public int ccr;
         public int way;
         public int cachePurge;

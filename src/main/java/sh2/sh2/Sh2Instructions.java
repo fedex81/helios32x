@@ -950,7 +950,7 @@ public class Sh2Instructions {
         return new Sh2InstructionWrapper(opcode, sh2Inst, r);
     }
 
-    public static enum Sh2BaseInstruction {
+    public enum Sh2BaseInstruction {
         ADD(0, 0, 0, 1),
         ADDC(0, 0, 0, 1),
         ADDI(0, 0, 0, 1),
@@ -1098,11 +1098,11 @@ public class Sh2Instructions {
         public final int cycles, cyclesBranch;
         public final boolean isBranch, isBranchDelaySlot, isIllegal;
 
-        private Sh2BaseInstruction(int isBranch, int isBranchDelaySlot, int isIllegal, int cycles) {
+        Sh2BaseInstruction(int isBranch, int isBranchDelaySlot, int isIllegal, int cycles) {
             this(isBranch, isBranchDelaySlot, isIllegal, cycles, 0);
         }
 
-        private Sh2BaseInstruction(int isBranch, int isBranchDelaySlot, int isIllegal, int cycles, int cyclesBranch) {
+        Sh2BaseInstruction(int isBranch, int isBranchDelaySlot, int isIllegal, int cycles, int cyclesBranch) {
             this.isBranch = isBranch > 0;
             this.isBranchDelaySlot = isBranchDelaySlot > 0;
             this.isIllegal = isIllegal > 0;

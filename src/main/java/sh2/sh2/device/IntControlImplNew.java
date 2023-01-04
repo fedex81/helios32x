@@ -86,31 +86,27 @@ public class IntControlImplNew implements IntControl {
         int val = 0;
         writeBuffer(regs, pos, value, size);
         switch (regSpec) {
-            case INTC_IPRA:
+            case INTC_IPRA -> {
                 val = readBuffer(regs, regSpec.addr, Size.WORD);
                 onChipDevicePriority.put(DIV, val >> 12);
                 onChipDevicePriority.put(DMA, (val >> 8) & 0xF);
                 onChipDevicePriority.put(WDT, (val >> 4) & 0xF);
                 logExternalIntLevel(regSpec, val);
-                break;
-            case INTC_IPRB:
+            }
+            case INTC_IPRB -> {
                 val = readBuffer(regs, regSpec.addr, Size.WORD);
                 onChipDevicePriority.put(SCI, val >> 12);
                 onChipDevicePriority.put(FRT, (val >> 8) & 0xF);
                 logExternalIntLevel(regSpec, val);
-                break;
-            case INTC_ICR:
+            }
+            case INTC_ICR -> {
                 val = readBuffer(regs, regSpec.addr, Size.WORD);
                 if ((val & 1) > 0) {
                     LOG.error("{} Not supported: IRL Interrupt vector mode: External Vector", cpu);
                 }
-                break;
-            case INTC_VCRA:
-            case INTC_VCRB:
-            case INTC_VCRC:
-            case INTC_VCRD:
-                LOG.error("{} Not supported: {}, val {} {}", cpu, regSpec.name, th(value), size);
-                break;
+            }
+            case INTC_VCRA, INTC_VCRB, INTC_VCRC, INTC_VCRD ->
+                    LOG.error("{} Not supported: {}, val {} {}", cpu, regSpec.name, th(value), size);
         }
     }
 

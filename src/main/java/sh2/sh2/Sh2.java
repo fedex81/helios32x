@@ -73,7 +73,7 @@ public interface Sh2 extends Device {
         private Sh2Config() {
             tasQuirk = true;
             prefetchEn = drcEn = pollDetectEn = ignoreDelays = false;
-            LOG.info("Default config: {}", toString());
+            LOG.info("Default config: {}", this);
         }
 
         public Sh2Config(boolean prefetchEn, boolean drcEn, boolean pollDetectEn, boolean ignoreDelays) {
