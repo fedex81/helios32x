@@ -125,7 +125,8 @@ public class Sh2CacheImpl implements Sh2Cache {
             case CACHE_DATA_ARRAY:
                 return readDataArray(addr, size);
             case CACHE_PURGE:
-                LOG.warn("{} CACHE_PURGE read: {}, {}", cpu, th(addr), size);
+                //fifa
+                if (verbose) LOG.warn("{} CACHE_PURGE read: {}, {}", cpu, th(addr), size);
                 break;
             case CACHE_ADDRESS_ARRAY:
 //                assert size == Size.LONG; //TODO pwm sound demo != LONG
