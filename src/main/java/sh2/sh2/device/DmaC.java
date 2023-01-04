@@ -203,7 +203,9 @@ public class DmaC implements Sh2Device {
             c.dmaInProgress = false;
             c.dreqLevel = false;
             updateOneDmaInProgress();
-            dma68k.dmaEnd();
+            if (!c.chcr_autoReq) { //TODO test
+                dma68k.dmaEnd();
+            }
             //transfer ended normally, ie. TCR = 0
             if (normal) {
                 int chcr = setDmaChannelBitVal(c.channel, DMA_CHCR0.addr + 2, SH2_CHCR_TRANSFER_END_BIT, 1, Size.WORD);
