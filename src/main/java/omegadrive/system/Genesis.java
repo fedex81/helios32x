@@ -206,7 +206,7 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
     }
 
     @Override
-    protected RomContext createRomContext(IMemoryProvider memoryProvider, Path rom) {
+    protected RomContext createRomContext(Path rom) {
         RomContext rc = new RomContext();
         rc.romPath = rom;
         MdCartInfoProvider mcip = MdCartInfoProvider.createInstance(memory, rc.romPath);

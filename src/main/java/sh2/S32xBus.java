@@ -16,6 +16,7 @@ import sh2.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
 
+import static m68k.cpu.Cpu.PC_MASK;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.*;
 import static sh2.dict.S32xDict.*;
@@ -57,33 +58,32 @@ public class S32xBus extends GenesisBus {
     }
 
     @Override
-    public long read(long address, Size size) {
-        address &= 0xFF_FFFF;
-        long res = 0;
+    public int read(int address, Size size) {
+        int res = 0;
         if (s32XMMREG.aden > 0) {
-            res = readAdapterEnOn((int) address, size);
+            res = readAdapterEnOn(address & PC_MASK, size);
         } else {
-            res = readAdapterEnOff((int) address, size);
+            res = readAdapterEnOff(address & PC_MASK, size);
         }
-        return res & size.getMask();
+        return (int) (res & size.getMask());
     }
 
     @Override
-    public void write(long address, long data, Size size) {
+    public void write(int address, int data, Size size) {
         data &= size.getMask();
-        address &= 0xFF_FFFF;
+        address &= PC_MASK;
         if (verboseMd) {
             LOG.info("Write address: {}, data: {}, size: {}", th(address), th(data), size);
         }
         if (s32XMMREG.aden > 0) {
-            writeAdapterEnOn((int) address, (int) data, size);
+            writeAdapterEnOn(address, data, size);
         } else {
-            writeAdapterEnOff((int) address, (int) data, size);
+            writeAdapterEnOff(address, data, size);
         }
     }
 
-    private long readAdapterEnOn(int address, Size size) {
-        long res = 0;
+    private int readAdapterEnOn(int address, Size size) {
+        int res = 0;
         if (address < M68K_END_VECTOR_ROM) {
             res = bios68k.readBuffer(address, size);
             if (address >= M68K_START_HINT_VECTOR_WRITEABLE && address < M68K_END_HINT_VECTOR_WRITEABLE) {
@@ -117,7 +117,7 @@ public class S32xBus extends GenesisBus {
         } else {
             if (!DmaFifo68k.rv && address <= GenesisBus.DEFAULT_ROM_END_ADDRESS) {
                 LOG.warn("Ignoring read access to ROM when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
-                return size.getMask();
+                return (int) size.getMask();
             }
             res = super.read(address, size);
         }
@@ -128,8 +128,8 @@ public class S32xBus extends GenesisBus {
         return res;
     }
 
-    private long readAdapterEnOff(int address, Size size) {
-        long res = 0;
+    private int readAdapterEnOff(int address, Size size) {
+        int res = 0;
         if (address >= M68K_START_MARS_ID && address < M68K_END_MARS_ID) {
             res = 0x4d415253; //'MARS'
         } else if (address >= M68K_START_32X_SYSREG && address < M68K_END_32X_SYSREG) {
@@ -237,8 +237,8 @@ public class S32xBus extends GenesisBus {
         }
     }
 
-    private long readHIntVector(int address, Size size) {
-        long res = writeableHintRom.getInt(0);
+    private int readHIntVector(int address, Size size) {
+        int res = writeableHintRom.getInt(0);
         if (res != -1) {
 //            LOG.info("HINT vector read, address: {}, size: {}", Long.toHexString(address), size);
             res = readBuffer(writeableHintRom, address & 3, size);
