@@ -75,12 +75,12 @@ public class IntControlImplOld implements IntControl {
                 onChipDevicePriority.put(Sh2DeviceType.DIV, val >> 12);
                 onChipDevicePriority.put(Sh2DeviceType.DMA, (val >> 8) & 0xF);
                 onChipDevicePriority.put(Sh2DeviceType.WDT, (val >> 4) & 0xF);
-                logExternalIntLevel(regSpec, val);
+                logOnChipIntLevel(regSpec, val);
                 break;
             case INTC_IPRB:
                 onChipDevicePriority.put(Sh2DeviceType.SCI, val >> 12);
                 onChipDevicePriority.put(Sh2DeviceType.FRT, (val >> 8) & 0xF);
-                logExternalIntLevel(regSpec, val);
+                logOnChipIntLevel(regSpec, val);
                 break;
             case INTC_ICR:
                 //TODO do not overwrite bit#15
@@ -216,7 +216,12 @@ public class IntControlImplOld implements IntControl {
 
     public int getVectorNumber() {
         Sh2Interrupt intType = intVals[interruptLevel];
-        if (intType.internal == 0) {
+        //TODO perf
+        boolean onDev = onChipDevicePriority.values().stream().anyMatch(v -> v.intValue() == interruptLevel);
+        if (onDev && intType.internal != 0) { //sopwith32x
+            LOG.warn("OnChipDevice interrupt using the same level as an internal interrupt: {]", interruptLevel);
+        }
+        if (onDev || intType.internal == 0) {
             return getExternalDeviceVectorNumber();
         } else if (intType == NMI_16) {
             return 11;
@@ -242,18 +247,21 @@ public class IntControlImplOld implements IntControl {
         //TODO the vector number should be coming from the device itself
         switch (deviceType) {
             case DMA:
-                vn = readBuffer(regs, INTC_VCRDMA0.addr + (additionalIntData << 3), Size.LONG) & 0xFF;
+                vn = readBuffer(regs, INTC_VCRDMA0.addr + (additionalIntData << 3), Size.LONG) & 0x7F;
                 break;
             case WDT:
-                vn = readBuffer(regs, INTC_VCRWDT.addr, Size.BYTE) & 0xFF;
+                vn = readBuffer(regs, INTC_VCRWDT.addr, Size.BYTE) & 0x7F;
                 break;
             case DIV:
-                vn = readBuffer(regs, INTC_VCRDIV.addr, Size.BYTE) & 0xFF;
+                vn = readBuffer(regs, INTC_VCRDIV.addr, Size.BYTE) & 0x7F;
                 break;
             case SCI:
                 //RIE vs TIE
                 int pos = additionalIntData == 1 ? INTC_VCRA.addr + 1 : INTC_VCRB.addr;
-                vn = readBuffer(regs, pos, Size.BYTE) & 0xFF;
+                vn = readBuffer(regs, pos, Size.BYTE) & 0x7F;
+                break;
+            case FRT:
+                vn = readBuffer(regs, INTC_VCRD.addr, Size.BYTE) & 0x7F; //TODO
                 break;
             case NONE:
                 break;
@@ -275,7 +283,7 @@ public class IntControlImplOld implements IntControl {
         }
     }
 
-    private void logExternalIntLevel(RegSpec regSpec, int val) {
+    private void logOnChipIntLevel(RegSpec regSpec, int val) {
         if (regSpec == INTC_IPRA) {
             LOG.info("{} set IPRA levels, {}:{}, {}:{}, {}:{}", cpu, Sh2DeviceType.DIV, val >> 12,
                     Sh2DeviceType.DMA, (val >> 8) & 0xF, Sh2DeviceType.WDT, (val >> 4) & 0xF);
