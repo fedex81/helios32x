@@ -134,7 +134,7 @@ public final class Sh2Memory implements IMemory {
 				}
 				break;
 			default:
-				res = (int) size.getMask();
+				res = size.getMask();
 				LOG.error("{} read from addr: {}, {}", cpuAccess, th(address), size);
 				if (true) throw new RuntimeException();
 				break;

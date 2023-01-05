@@ -65,7 +65,7 @@ public class S32xBus extends GenesisBus {
         } else {
             res = readAdapterEnOff(address & PC_MASK, size);
         }
-        return (int) (res & size.getMask());
+        return (res & size.getMask());
     }
 
     @Override
@@ -117,7 +117,7 @@ public class S32xBus extends GenesisBus {
         } else {
             if (!DmaFifo68k.rv && address <= GenesisBus.DEFAULT_ROM_END_ADDRESS) {
                 LOG.warn("Ignoring read access to ROM when RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
-                return (int) size.getMask();
+                return size.getMask();
             }
             res = super.read(address, size);
         }

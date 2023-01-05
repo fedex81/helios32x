@@ -202,7 +202,7 @@ public class S32xUtil {
                 return readBuffer(ctx.sysRegsSh2, address, size);
         }
         LOG.error("Unable to read buffer: {}, addr: {} {}", reg.name, th(address), size);
-        return (int) size.getMask();
+        return size.getMask();
     }
 
     public static void setBitReg(S32XMMREG.RegContext rc, S32xDict.RegSpecS32x reg, int address, int pos, int value, Size size) {

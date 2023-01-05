@@ -124,7 +124,7 @@ public class S32XMMREG implements Device {
         RegSpecS32x regSpec = S32xDict.getRegSpec(cpu, address);
         if (regSpec == INVALID) {
             LOG.error("{} unable to handle read, addr: {} {}", cpu, th(address), size);
-            return (int) size.getMask();
+            return size.getMask();
         }
         deviceAccessType = regSpec.deviceAccessTypeDelay;
         if (verboseRead) {

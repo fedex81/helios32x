@@ -113,7 +113,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                 if (true) throw new RuntimeException();
                 break;
         }
-        return (int) size.getMask();
+        return size.getMask();
     }
 
     @Override
@@ -141,7 +141,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                 if (true) throw new RuntimeException();
                 break;
         }
-        return (int) size.getMask();
+        return size.getMask();
     }
 
     @Override
@@ -272,7 +272,7 @@ public class Sh2CacheImpl implements Sh2Cache {
             LOG.error("{} Error Cache data array read: {}({}) {}, val: {}", cpu, th(addr),
                     th(addr & dataArrayMask), size,
                     th(readBuffer(data_array, address, size)));
-            return (int) size.getMask();
+            return size.getMask();
         }
         return readBuffer(data_array, address, size);
     }
@@ -434,6 +434,6 @@ public class Sh2CacheImpl implements Sh2Cache {
     }
 
     private static int getCachedData(final int[] data, int addr, Size size) {
-        return (int) Util.readDataMask(data, size, addr, CACHE_BYTES_PER_LINE_MASK);
+        return Util.readDataMask(data, size, addr, CACHE_BYTES_PER_LINE_MASK);
     }
 }

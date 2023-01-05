@@ -2175,7 +2175,7 @@ public class Ow2Sh2Bytecode {
         pushRegStack(ctx, n);
         pushRegStack(ctx, m);
         ctx.mv.visitInsn(IALOAD);
-        ctx.mv.visitLdcInsn((int) size.getMask());
+        ctx.mv.visitLdcInsn(size.getMask());
         ctx.mv.visitInsn(IAND);
         ctx.mv.visitInsn(IASTORE);
 
