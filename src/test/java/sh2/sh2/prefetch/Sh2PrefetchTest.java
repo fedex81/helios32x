@@ -16,9 +16,7 @@ import sh2.sh2.Sh2Helper;
 import sh2.sh2.drc.Sh2Block;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Optional;
-import java.util.Set;
 
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
@@ -26,7 +24,7 @@ import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 import static sh2.dict.S32xDict.*;
 import static sh2.sh2.cache.Sh2Cache.CACHE_BYTES_PER_LINE;
 import static sh2.sh2.cache.Sh2CacheImpl.PARANOID_ON_CACHE_ENABLED_TOGGLE;
-import static sh2.sh2.drc.Sh2Block.SH2_DRC_MAX_BLOCK_LEN_BYTES;
+import static sh2.sh2.drc.DrcUtil.getPrefetchBlocksAt;
 import static sh2.sh2.prefetch.Sh2Prefetch.rangeIntersect;
 import static sh2.sh2.prefetch.Sh2PrefetchSimple.prefetchContexts;
 
@@ -443,32 +441,5 @@ public class Sh2PrefetchTest extends Sh2CacheTest {
         int opcode = ft.opcode;
         Assertions.assertEquals(val, opcode, cpu + "," + th(addr) + ",\n" + ft.block
                 + "," + ft.block.isValid());
-    }
-
-    public static Collection<Sh2Block> getPrefetchBlocksAt(CpuDeviceAccess cpu, int address) {
-        Set<Sh2Block> l = new HashSet<>();
-        if (Sh2Config.get().drcEn) {
-            for (int i = address - SH2_DRC_MAX_BLOCK_LEN_BYTES; i <= address; i += 2) {
-                Sh2Block b = Sh2Helper.getOrDefault(i, cpu).block;
-                if (b != Sh2Block.INVALID_BLOCK) {
-                    int end = b.prefetchPc + (b.end - b.start);
-                    boolean include = b.prefetchPc <= address && end > address;
-                    if (include) {
-                        l.add(b);
-                    }
-                }
-            }
-        } else {
-            assert Sh2Config.get().prefetchEn;
-            if (prefetchContexts[cpu.ordinal()].prefetchPc == address) {
-                Sh2Block block = new Sh2Block(address, cpu);
-                block.start = address;
-                //TODO mismatch between block.end and prefetch.end
-                block.end = prefetchContexts[cpu.ordinal()].end - 2;
-                block.prefetchWords = prefetchContexts[cpu.ordinal()].prefetchWords;
-                l.add(block);
-            }
-        }
-        return l;
     }
 }
