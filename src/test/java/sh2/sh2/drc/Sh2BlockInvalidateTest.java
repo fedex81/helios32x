@@ -32,7 +32,7 @@ import static sh2.sh2.drc.Sh2DrcDecodeTest.*;
 public class Sh2BlockInvalidateTest extends Sh2MultiTestBase {
 
     private int pc = 0x100;
-    private final boolean verbose = true;
+    private final boolean verbose = false;
 
 
     static {
