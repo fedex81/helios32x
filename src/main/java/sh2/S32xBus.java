@@ -213,7 +213,7 @@ public class S32xBus extends GenesisBus {
 
     private void write32xWord(int address, int data, Size size) {
         if (s32XMMREG.fm > 0) {
-            LOG.warn("Ignoring access to ROM when FM={}, addr: {} {}", s32XMMREG.fm, th(address), size);
+            LOG.warn("Ignoring access to S32X memory from MD when FM={}, addr: {} {}", s32XMMREG.fm, th(address), size);
             return;
         }
         write32xWordDirect(address, data, size);
@@ -229,6 +229,11 @@ public class S32xBus extends GenesisBus {
     }
 
     private int read32xWord(int address, Size size) {
+        //TODO needs to be more granular, ie. md can access sysRegs when fm = 1
+//        if (ENFORCE_FM_BIT_ON_READS && s32XMMREG.fm > 0) {
+//            LOG.warn("Ignoring access to S32X memory from MD when FM={}, addr: {} {}", s32XMMREG.fm, th(address), size);
+//            return size.getMask();
+//        }
         if (size != Size.LONG) {
             return s32XMMREG.read(address, size);
         } else {
@@ -240,7 +245,7 @@ public class S32xBus extends GenesisBus {
     private int readHIntVector(int address, Size size) {
         int res = writeableHintRom.getInt(0);
         if (res != -1) {
-//            LOG.info("HINT vector read, address: {}, size: {}", Long.toHexString(address), size);
+            if (verboseMd) LOG.info("HINT vector read, address: {}, size: {}", Long.toHexString(address), size);
             res = readBuffer(writeableHintRom, address & 3, size);
         } else {
             res = bios68k.readBuffer(address, size);

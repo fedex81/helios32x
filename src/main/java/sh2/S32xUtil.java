@@ -34,6 +34,8 @@ public class S32xUtil {
         assertionsEnabled = res;
     }
 
+    public static final boolean ENFORCE_FM_BIT_ON_READS = assertionsEnabled;
+
     public interface StepDevice extends Device {
         default void step(int cycles) {
         } //DO NOTHING
