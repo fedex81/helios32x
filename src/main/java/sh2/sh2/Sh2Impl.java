@@ -17,6 +17,7 @@ import java.util.Arrays;
 
 import static omegadrive.util.Util.th;
 import static sh2.dict.S32xDict.SH2_CACHE_THROUGH_OFFSET;
+import static sh2.sh2.drc.Ow2DrcOptimizer.handlePoll;
 import static sh2.sh2.drc.Sh2Block.INVALID_BLOCK;
 
 /*
@@ -160,7 +161,7 @@ public class Sh2Impl implements Sh2 {
 			block.nextBlock = fr.block;
 			block.poller.spinCount++;
 			if (sh2Config.pollDetectEn) {
-				block.handlePoll();
+				handlePoll(block);
 			}
 			return;
 		}

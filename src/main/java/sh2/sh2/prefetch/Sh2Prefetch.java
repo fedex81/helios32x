@@ -371,7 +371,9 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                 LOG.info("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
                         th(addr), size, c.cpu, th(c.blockPollData.memLoadTarget),
                         c.blockPollData.memLoadTargetSize, th(val));
+//            if(c.pollValue != val) {
             SysEventManager.instance.fireSysEvent(c.cpu, type);
+//            }
         }
     }
 

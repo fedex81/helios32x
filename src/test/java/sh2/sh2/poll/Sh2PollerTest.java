@@ -22,7 +22,7 @@ import static sh2.dict.S32xDict.SH2_START_ROM;
 import static sh2.dict.S32xDict.SH2_START_SDRAM;
 import static sh2.sh2.Sh2Disassembler.NOP;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.PWM_6;
-import static sh2.sh2.drc.Sh2Block.POLLER_ACTIVATE_LIMIT;
+import static sh2.sh2.drc.Ow2DrcOptimizer.POLLER_ACTIVATE_LIMIT;
 
 /**
  * Federico Berti

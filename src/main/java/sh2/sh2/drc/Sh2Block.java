@@ -6,8 +6,6 @@ import sh2.Md32xRuntimeData;
 import sh2.S32xUtil;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.Sh2MMREG;
-import sh2.event.SysEventManager;
-import sh2.event.SysEventManager.SysEvent;
 import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Helper;
@@ -21,7 +19,7 @@ import java.util.StringJoiner;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.sh2.drc.Ow2DrcOptimizer.*;
-import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.*;
+import static sh2.sh2.drc.Ow2DrcOptimizer.PollType.NONE;
 
 /**
  * Federico Berti
@@ -65,6 +63,7 @@ public class Sh2Block {
         S32xUtil.assertPowerOf2Minus1("OPT_THRESHOLD2", OPT_THRESHOLD2);
         sh2Config = Sh2.Sh2Config.get();
         INVALID_BLOCK.setFlag(VALID_FLAG, false);
+        assert POLLER_ACTIVATE_LIMIT >= 3;
     }
 
     public Sh2Block(int pc, CpuDeviceAccess cpu) {
@@ -97,66 +96,6 @@ public class Sh2Block {
         } while (true);
         cyclesConsumed = (startCycle - ctx.cycles) + Md32xRuntimeData.getCpuDelayExt();
         curr = prev;
-    }
-
-    public static final int POLLER_ACTIVATE_LIMIT = 2;
-
-    public final void handlePoll() {
-        final CpuDeviceAccess cpu = getCpu();
-        if (!isPollingBlock()) {
-            final Ow2DrcOptimizer.PollerCtx current = SysEventManager.instance.getPoller(cpu);
-            assert current != UNKNOWN_POLLER;
-            if (current != NO_POLLER && pollType == BUSY_LOOP) { //TODO check
-                SysEventManager.instance.resetPoller(current.cpu);
-            }
-            return;
-        }
-        final Ow2DrcOptimizer.PollerCtx currentPoller = SysEventManager.instance.getPoller(cpu);
-        final Ow2DrcOptimizer.PollerCtx blockPoller = poller;
-        assert poller == Sh2Helper.get(prefetchPc, cpu).block.poller;
-        if (currentPoller == NO_POLLER) {
-            assert blockPoller != UNKNOWN_POLLER;
-            if (blockPoller != NO_POLLER) {
-                SysEventManager.instance.setPoller(cpu, blockPoller);
-            } else {
-                if (ENABLE_POLL_DETECT) {
-                    //DMA and PWM are not supported -> poller = NO_POLLER
-                    assert pollType == DMA || pollType == PWM : this + "\n" + blockPoller;
-                }
-                if (verbose)
-                    LOG.info("{} ignoring {} poll at PC {}, on address: {}", cpu, pollType,
-                            th(this.prefetchPc), th(blockPoller.blockPollData.memLoadTarget));
-                pollType = PollType.NONE;
-            }
-        } else if (!currentPoller.isPollingActive()) {
-            if (blockPoller != currentPoller) {
-                SysEventManager.instance.resetPoller(cpu);
-                return;
-            }
-            startPollingMaybe(blockPoller);
-        } else if (currentPoller.isPollingActive()) {
-            if (verbose) LOG.info("Polling active: {}", currentPoller);
-            assert blockPoller == currentPoller;
-        } else {
-            throw new RuntimeException("Unexpected, poller: " + currentPoller);
-        }
-    }
-
-    private void startPollingMaybe(Ow2DrcOptimizer.PollerCtx blockPoller) {
-        if (blockPoller.spinCount < POLLER_ACTIVATE_LIMIT) {
-            if (verbose)
-                LOG.info("{} avoid re-entering {} poll at PC {}, on address: {}", blockPoller.cpu, pollType,
-                        th(this.prefetchPc), th(blockPoller.blockPollData.memLoadTarget));
-            return;
-        }
-        blockPoller.pollState = Ow2DrcOptimizer.PollState.ACTIVE_POLL;
-        Ow2DrcOptimizer.parseMemLoad(blockPoller.blockPollData);
-        //TODO
-        int val = 0; //drcContext.memory.read(blockPoller.blockPollData.memLoadTarget, blockPoller.blockPollData.memLoadTargetSize);
-        if (verbose)
-            LOG.info("{} entering {} poll at PC {}, on address: {}, currentVal: {}", blockPoller.cpu, pollType,
-                    th(this.prefetchPc), th(blockPoller.blockPollData.memLoadTarget), th(val));
-        SysEventManager.instance.fireSysEvent(blockPoller.cpu, SysEvent.START_POLLING);
     }
 
     public void addHit() {

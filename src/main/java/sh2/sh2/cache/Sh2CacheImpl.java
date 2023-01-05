@@ -151,7 +151,8 @@ public class Sh2CacheImpl implements Sh2Cache {
             case CACHE_USE -> {
                 if (ca.enable == 0) {
                     writeMemoryUncached(memory, addr, val, size);
-                    return false; //TODO check this
+                    //needs to be true, see testInstructionRewrite
+                    return true;
                 }
                 change = writeCache(addr, val, size);
             }

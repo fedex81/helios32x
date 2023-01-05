@@ -9,6 +9,7 @@ import sh2.Md32xRuntimeData;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xDict.S32xRegType;
+import sh2.event.SysEventManager;
 import sh2.event.SysEventManager.SysEvent;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Debug;
@@ -48,6 +49,10 @@ public class Ow2DrcOptimizer {
     //toggle poll detection but keep busyLoop detection enabled
     public final static boolean ENABLE_POLL_DETECT = true;
     private final static boolean LOG_POLL_DETECT = false;
+
+    public static final int POLLER_ACTIVATE_LIMIT = 3;
+
+    private static final boolean verbose = false;
     public static final Map<S32xRegType, PollType> ptMap = ImmutableMap.of(
             S32xRegType.DMA, DMA,
             S32xRegType.PWM, PWM,
@@ -242,7 +247,7 @@ public class Ow2DrcOptimizer {
         public int pc;
         public SysEvent event;
         public PollState pollState = PollState.NO_POLL;
-        public int spinCount = 0;
+        public int spinCount = 0, pollValue = 0;
         public BlockPollData blockPollData;
         private Sh2PcInfoWrapper piw;
 
@@ -443,6 +448,72 @@ public class Ow2DrcOptimizer {
                         , th(address));
                 return NONE;
         }
+    }
+
+    public final static void handlePoll(Sh2Block block) {
+        final CpuDeviceAccess cpu = block.getCpu();
+        if (!block.isPollingBlock()) {
+            final Ow2DrcOptimizer.PollerCtx current = SysEventManager.instance.getPoller(cpu);
+            assert current != UNKNOWN_POLLER;
+            if (current != NO_POLLER && block.pollType == BUSY_LOOP) { //TODO check
+                SysEventManager.instance.resetPoller(current.cpu);
+            }
+            return;
+        }
+        final Ow2DrcOptimizer.PollerCtx currentPoller = SysEventManager.instance.getPoller(cpu);
+        final Ow2DrcOptimizer.PollerCtx blockPoller = block.poller;
+        assert blockPoller == Sh2Helper.get(block.prefetchPc, cpu).block.poller;
+        if (currentPoller == NO_POLLER) {
+            PollType pollType = block.pollType;
+            assert blockPoller != UNKNOWN_POLLER;
+            if (blockPoller != NO_POLLER) {
+                SysEventManager.instance.setPoller(cpu, blockPoller);
+            } else {
+                if (ENABLE_POLL_DETECT) {
+                    //DMA and PWM are not supported -> poller = NO_POLLER
+                    assert pollType == DMA || pollType == PWM : block + "\n" + blockPoller;
+                }
+                if (verbose)
+                    LOG.info("{} ignoring {} poll at PC {}, on address: {}", cpu, pollType,
+                            th(block.prefetchPc), th(blockPoller.blockPollData.memLoadTarget));
+                pollType = PollType.NONE;
+            }
+        } else if (!currentPoller.isPollingActive()) {
+            if (blockPoller != currentPoller) {
+                SysEventManager.instance.resetPoller(cpu);
+                return;
+            }
+            startPollingMaybe(blockPoller, block.pollType);
+        } else if (currentPoller.isPollingActive()) {
+            if (verbose) LOG.info("Polling active: {}", currentPoller);
+            assert blockPoller == currentPoller;
+        } else {
+            throw new RuntimeException("Unexpected, poller: " + currentPoller);
+        }
+    }
+
+    private static void startPollingMaybe(Ow2DrcOptimizer.PollerCtx blockPoller, PollType pollType) {
+        if (blockPoller.spinCount < POLLER_ACTIVATE_LIMIT) {
+            if (verbose)
+                LOG.info("{} avoid re-entering {} poll at PC {}, on address: {}", blockPoller.cpu, pollType,
+                        th(blockPoller.pc), th(blockPoller.blockPollData.memLoadTarget));
+//            if(blockPoller.spinCount == POLLER_ACTIVATE_LIMIT - 1){
+//                Ow2DrcOptimizer.parseMemLoad(blockPoller.blockPollData);
+//                blockPoller.pollValue = drcContext.memory.read(blockPoller.blockPollData.memLoadTarget, blockPoller.blockPollData.memLoadTargetSize);
+//            }
+            return;
+        }
+//        int pollValue = drcContext.memory.read(blockPoller.blockPollData.memLoadTarget, blockPoller.blockPollData.memLoadTargetSize);
+//        if(pollValue != blockPoller.pollValue){
+//            LOG.info("Poll value has changed: {} -> {}", th(blockPoller.pollValue), pollValue);
+//            blockPoller.pollValue = blockPoller.spinCount = 0;
+//            return;
+//        }
+        blockPoller.pollState = Ow2DrcOptimizer.PollState.ACTIVE_POLL;
+        if (verbose)
+            LOG.info("{} entering {} poll at PC {}, on address: {}, currentVal: {}", blockPoller.cpu, pollType,
+                    th(blockPoller.pc), th(blockPoller.blockPollData.memLoadTarget), th(blockPoller.pollValue));
+        SysEventManager.instance.fireSysEvent(blockPoller.cpu, SysEvent.START_POLLING);
     }
 
     /**

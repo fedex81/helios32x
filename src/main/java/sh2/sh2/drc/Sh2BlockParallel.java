@@ -14,6 +14,7 @@ import java.util.Arrays;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
+import static sh2.sh2.drc.Ow2DrcOptimizer.handlePoll;
 
 /**
  * Test only
@@ -42,7 +43,7 @@ public class Sh2BlockParallel extends Sh2Block {
         assert (blockFlags & VALID_FLAG) > 0;
         if (stage2Drc != null) {
             if (sh2Config.pollDetectEn) {
-                handlePoll();
+                handlePoll(this);
             }
             prepareInterpreterParallel();
             stage2Drc.run();
