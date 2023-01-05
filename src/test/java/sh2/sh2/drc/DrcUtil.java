@@ -8,6 +8,9 @@ import sh2.sh2.Sh2;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Helper;
 
+import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
@@ -22,6 +25,26 @@ import static sh2.sh2.prefetch.Sh2PrefetchSimple.prefetchContexts;
  * Copyright 2023
  */
 public class DrcUtil {
+
+    private static final String sentinelPath = "src/test/resources/sentinel";
+
+    public static final boolean RUNNING_IN_GITHUB;
+
+    static {
+        System.out.println(new File(".").getAbsolutePath());
+        Path p = Paths.get(".", sentinelPath);
+        RUNNING_IN_GITHUB = !p.toFile().exists();
+        System.err.println("Ignore tests failing in GitHub: " + RUNNING_IN_GITHUB);
+    }
+
+    public static void loopUntilDrc(Sh2 sh2, Sh2Context sh2Context, Sh2Helper.Sh2PcInfoWrapper wrapper) {
+        int cnt = 0;
+        do {
+            sh2.run(sh2Context);
+            cnt++;
+        } while (wrapper.block.stage2Drc == null && cnt < 1_000);
+        Assertions.assertNotEquals(1_000, cnt);
+    }
 
     private static Table<S32xUtil.CpuDeviceAccess, Integer, Sh2Block> blockTable = HashBasedTable.create();
 
