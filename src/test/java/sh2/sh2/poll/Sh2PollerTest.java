@@ -22,6 +22,8 @@ import static sh2.dict.S32xDict.SH2_START_ROM;
 import static sh2.dict.S32xDict.SH2_START_SDRAM;
 import static sh2.sh2.Sh2Disassembler.NOP;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.PWM_6;
+import static sh2.sh2.drc.DrcUtil.RUNNING_IN_GITHUB;
+import static sh2.sh2.drc.DrcUtil.loopUntilDrc;
 import static sh2.sh2.drc.Ow2DrcOptimizer.POLLER_ACTIVATE_LIMIT;
 
 /**
@@ -29,7 +31,6 @@ import static sh2.sh2.drc.Ow2DrcOptimizer.POLLER_ACTIVATE_LIMIT;
  * <p>
  * Copyright 2022
  */
-@Disabled("fails in github")
 public class Sh2PollerTest implements SysEventManager.SysEventListener {
     private static MarsLauncherHelper.Sh2LaunchContext lc;
     protected static Sh2.Sh2Config configDrcEn = new Sh2.Sh2Config(true, true, true, true);
@@ -59,7 +60,7 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
         SysEventManager.instance.reset();
         SysEventManager.instance.addSysEventListener(CpuDeviceAccess.MASTER, "Sh2PollerTest", this);
         Sh2Helper.clear();
-
+        Assumptions.assumeFalse(RUNNING_IN_GITHUB);
     }
 
     /**
@@ -299,7 +300,7 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
         Sh2Helper.Sh2PcInfoWrapper wrapper = Sh2Helper.get(startRom, CpuDeviceAccess.MASTER);
         Assertions.assertNotNull(wrapper);
         Assertions.assertNotEquals(Sh2Helper.SH2_NOT_VISITED, wrapper);
-        loopUntilDrc(sh2Context, wrapper);
+        loopUntilDrc(lc.sh2, sh2Context, wrapper);
         Assertions.assertEquals(PollType.SDRAM, wrapper.block.pollType);
         System.out.println(th(wrapper.block.poller.blockPollData.memLoadTarget));
 
@@ -336,7 +337,7 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
         Sh2Helper.Sh2PcInfoWrapper wrapper = Sh2Helper.get(startRom, CpuDeviceAccess.MASTER);
         Assertions.assertNotNull(wrapper);
         Assertions.assertNotEquals(Sh2Helper.SH2_NOT_VISITED, wrapper);
-        loopUntilDrc(sh2Context, wrapper);
+        loopUntilDrc(lc.sh2, sh2Context, wrapper);
         Assertions.assertEquals(PollType.SDRAM, wrapper.block.pollType);
         System.out.println(th(wrapper.block.poller.blockPollData.memLoadTarget));
 
@@ -393,7 +394,7 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
         Sh2Helper.Sh2PcInfoWrapper wrapper = Sh2Helper.get(start, CpuDeviceAccess.MASTER);
         Assertions.assertNotNull(wrapper);
         Assertions.assertNotEquals(Sh2Helper.SH2_NOT_VISITED, wrapper);
-        loopUntilDrc(sh2Context, wrapper);
+        loopUntilDrc(lc.sh2, sh2Context, wrapper);
         Assertions.assertEquals(isPoll ? PollType.SDRAM : PollType.BUSY_LOOP, wrapper.block.pollType);
         loopUntilPollingActive(sh2Context);
         Assertions.assertTrue(wrapper.block.poller.isPollingActive());
@@ -423,15 +424,6 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
         Assertions.assertEquals(CpuDeviceAccess.MASTER, lastCpuEvent);
         Assertions.assertEquals(SysEventManager.SysEvent.START_POLLING, lastEvent);
         Assertions.assertTrue(isPollerActive());
-    }
-
-    private void loopUntilDrc(Sh2Context sh2Context, Sh2Helper.Sh2PcInfoWrapper wrapper) {
-        int cnt = 0;
-        do {
-            lc.sh2.run(sh2Context);
-            cnt++;
-        } while (wrapper.block.stage2Drc == null && cnt < 100_000);
-        Assertions.assertNotEquals(100_000, cnt);
     }
 
     private int[] getEmptyRegs() {

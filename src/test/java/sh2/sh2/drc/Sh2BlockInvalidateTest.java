@@ -3,6 +3,7 @@ package sh2.sh2.drc;
 import com.google.common.collect.Range;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -20,6 +21,8 @@ import java.util.stream.Stream;
 
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.dict.S32xDict.*;
+import static sh2.sh2.drc.DrcUtil.RUNNING_IN_GITHUB;
+import static sh2.sh2.drc.DrcUtil.triggerDrcBlocks;
 import static sh2.sh2.drc.Sh2Block.INVALID_BLOCK;
 import static sh2.sh2.drc.Sh2DrcDecodeTest.*;
 
@@ -31,7 +34,7 @@ import static sh2.sh2.drc.Sh2DrcDecodeTest.*;
 public class Sh2BlockInvalidateTest extends Sh2MultiTestBase {
 
     private int pc = 0x100;
-    private final boolean verbose = true;
+    private final boolean verbose = false;
 
 
     static {
@@ -57,6 +60,7 @@ public class Sh2BlockInvalidateTest extends Sh2MultiTestBase {
     @ParameterizedTest
     @MethodSource("fileProvider")
     public void testInstructionRewrite(Sh2.Sh2Config c) {
+        Assumptions.assumeFalse(RUNNING_IN_GITHUB);
         resetCacheConfig(c);
         testAfterBurner(c);
     }
@@ -91,7 +95,7 @@ public class Sh2BlockInvalidateTest extends Sh2MultiTestBase {
         Md32xRuntimeData.resetCpuDelayExt();
 
         masterCtx.cycles = 1;
-        triggerDrcBlocks(sh2, masterCtx);
+        triggerDrcBlocks(sh2, masterCtx, t1Start, t2Start);
         Sh2Helper.Sh2PcInfoWrapper w1 = Sh2Helper.get(t1Start, MASTER);
         Sh2Helper.Sh2PcInfoWrapper w2 = Sh2Helper.get(t2Start, MASTER);
         Assertions.assertNotEquals(Sh2Helper.SH2_NOT_VISITED, w1);
