@@ -170,8 +170,6 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             final Sh2Instructions.Sh2BaseInstruction inst = op[val].inst;
             if (inst.isIllegal) {
                 LOG.error("{} Invalid fetch, start PC: {}, current: {} opcode: {}", cpu, th(pc), th(bytePos), th(val));
-                throw new RuntimeException("Fatal! " + inst + "," + th(val) + "\n" + block);
-//                return -1;
             }
             opcodeWords[wordsCount++] = val;
             if (inst.isBranch) {

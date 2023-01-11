@@ -246,7 +246,6 @@ public class Sh2Impl implements Sh2 {
 				Sh2Helper.toDebuggingString(ctx));
 		ctx.PC = memory.read32(ctx.VBR + (ILLEGAL_INST_VN << 2));
 		ctx.cycles -= 5;
-		if (true) throw new RuntimeException();
 	}
 
 	protected final void MOVI(int code) {

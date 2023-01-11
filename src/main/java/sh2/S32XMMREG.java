@@ -198,7 +198,7 @@ public class S32XMMREG implements Device {
             case SH2_STBY_CHANGE, MD_INT_CTRL -> regChanged = handleReg2Write(cpu, reg, value, size);
             case SH2_HCOUNT_REG, MD_BANK_SET -> regChanged = handleReg4Write(cpu, reg, value, size);
             case SH2_VINT_CLEAR, SH2_HINT_CLEAR, SH2_PWM_INT_CLEAR, SH2_CMD_INT_CLEAR, SH2_VRES_INT_CLEAR -> {
-                handleIntClearWrite(cpu, regSpec.addr, value, size);
+                handleIntClearWrite(cpu, regSpec, reg, value, size);
                 regChanged = true;
             }
             case MD_SEGA_TV -> {
@@ -238,9 +238,9 @@ public class S32XMMREG implements Device {
         logZ80Access(cpu, regSpec, address, size, read);
     }
 
-    private void handleIntClearWrite(CpuDeviceAccess cpu, int regEven, int value, Size size) {
+    private void handleIntClearWrite(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value, Size size) {
         assert cpu == MASTER || cpu == SLAVE;
-        int intIdx = VRES_14.ordinal() - (regEven - 0x14);
+        int intIdx = VRES_14.ordinal() - ((reg & ~1) - 0x14); //regEven
         IntControl.Sh2Interrupt intType = IntControl.intVals[intIdx];
         interruptControls[cpu.ordinal()].clearInterrupt(intType);
         //autoclear Int_control_reg too
@@ -251,6 +251,9 @@ public class S32XMMREG implements Device {
                 LOG.info("{} auto clear {}", cpu, intType);
             }
         }
+        //TODO xmen reads the write-only reg but ignores the value
+        //TODO other sw doing it?
+//        writeBufferReg(regContext, regSpec, reg, value, size);
     }
 
     private boolean handleReg4Write(CpuDeviceAccess cpu, int reg, int value, Size size) {
