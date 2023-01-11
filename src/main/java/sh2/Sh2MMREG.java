@@ -191,8 +191,13 @@ public class Sh2MMREG {
     }
 
     private int handleWriteCCR(RegSpec r, int pos, int v, Size size) {
+        assert size != Size.LONG;
+        if (size == Size.WORD) { //xmen
+            LOG.warn("{} {} word write @ {}, val: {}, setting CCR to {}", cpu, r, th(pos), th(v), th(v >>> 8));
+            v >>>= 8;
+        }
         assert pos == r.addr : th(pos) + ", " + th(r.addr);
-        int prev = readBuffer(regs, r.addr, size);
+        int prev = readBuffer(regs, r.addr, Size.BYTE);
         if (prev != v) {
             Sh2Cache.CacheContext ctx = cache.updateState(v);
             //purge always reverts to 0
