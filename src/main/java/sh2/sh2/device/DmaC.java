@@ -203,7 +203,7 @@ public class DmaC implements Sh2Device {
             c.dmaInProgress = false;
             c.dreqLevel = false;
             updateOneDmaInProgress();
-            if (!c.chcr_autoReq) { //TODO test
+            if (!c.chcr_autoReq) {
                 dma68k.dmaEnd();
             }
             //transfer ended normally, ie. TCR = 0
