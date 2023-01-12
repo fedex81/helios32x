@@ -117,7 +117,7 @@ public interface IntControl extends S32xUtil.Sh2Device {
 
     int readSh2IntMaskReg(int pos, Size size);
 
-    void writeSh2IntMaskReg(int reg, int value, Size size);
+    void reloadSh2IntMask();
 
     ByteBuffer getSh2_int_mask_regs();
 

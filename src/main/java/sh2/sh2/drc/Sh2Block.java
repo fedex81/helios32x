@@ -126,7 +126,8 @@ public class Sh2Block {
         assert sbu.pc != 0;
         //TODO fix prefetch
         assert inst.length >= (MAX_INST_LEN - 1) ||
-                (sbu.inst.isBranch || (inst[lastIdx - 1].inst.isBranchDelaySlot && !sbu.inst.isBranch)) :
+                (sbu.inst.isBranch || (inst[Math.max(0, lastIdx - 1)].inst.isBranchDelaySlot && !sbu.inst.isBranch))
+                || sbu.inst.isIllegal :
                 th(sbu.pc) + "," + inst.length + "\n" + this;
     }
 

@@ -229,7 +229,8 @@ public class MarsVdpImpl implements MarsVdp {
     private boolean handleFBCRWrite(int reg, int value, Size size) {
         int val = readWordFromBuffer(FBCR);
         writeBufferReg(regContext, FBCR, reg, value, size);
-        int val1 = readWordFromBuffer(FBCR);
+        //vblank, hblank, pen -> readonly
+        int val1 = (val & 0xE000) | (readWordFromBuffer(FBCR) & 3);
         int regVal = 0;
         if (vdpContext.vBlankOn || vdpContext.bitmapMode == BitmapMode.BLANK) {
             regVal = (val & 0xFFFC) | (val1 & 3);
@@ -240,6 +241,7 @@ public class MarsVdpImpl implements MarsVdp {
         }
         writeBufferWord(FBCR, regVal);
         vdpContext.fsLatch = val1 & 1;
+        assert (regVal & 0x1FFC) == 0;
 //            System.out.println("###### FBCR write: D" + frameBufferDisplay + "W" + frameBufferWritable + ", fsLatch: " + fsLatch + ", VB: " + vBlankOn);
         return val != regVal;
     }

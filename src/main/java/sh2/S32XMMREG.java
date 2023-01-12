@@ -353,9 +353,13 @@ public class S32XMMREG implements Device {
         int baseReg = reg & ~1;
         final IntControl ic = interruptControls[cpu.ordinal()];
         int prevW = ic.readSh2IntMaskReg(baseReg, Size.WORD);
-        ic.writeSh2IntMaskReg(reg, value, size);
-        int newVal = ic.readSh2IntMaskReg(baseReg, Size.WORD) | (cart << 8);
-        ic.writeSh2IntMaskReg(baseReg, newVal & SH2_INT_MASK.writeAndMask, Size.WORD);
+        writeBuffer(ic.getSh2_int_mask_regs(), reg, value, size);
+        //reset cart and aden bits
+        int newVal = (ic.readSh2IntMaskReg(baseReg, Size.WORD) & 0x808F) | (cart << 8 | aden << 9);
+        assert (newVal & 0x7c70) == 0; //unused bits
+        writeBuffer(ic.getSh2_int_mask_regs(), baseReg, newVal, Size.WORD);
+//        assert (newVal & P32XS2_ADEN) > 0 && (newVal & P32XS_nCART) == CART_INSERTED;
+        ic.reloadSh2IntMask();
         updateFmShared(newVal); //68k side r/w too
         updateHenShared(newVal); //M,S share the same value
         return newVal != prevW;
@@ -406,11 +410,12 @@ public class S32XMMREG implements Device {
         setBitReg(regContext, reg, reg.addr, pos, value, Size.WORD);
     }
 
-    private void checkWriteLongAccess(RegSpecS32x regSpec, int reg, Size size) {
+    private boolean checkWriteLongAccess(RegSpecS32x regSpec, int reg, Size size) {
         if (regSpec.deviceType != COMM && regSpec.deviceType != VDP && regSpec.deviceType != PWM && size == Size.LONG) {
             LOG.error("unsupported 32 bit access, reg: {} {}", regSpec.name, th(reg));
-//            throw new RuntimeException("unsupported 32 bit access, reg: " + th(reg));
+            return false;
         }
+        return true;
     }
 
     public void updateVideoMode(VideoMode value) {

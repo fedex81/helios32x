@@ -148,11 +148,12 @@ public class S32xDict {
     }
 
     public static final int P32XS_FM = (1 << 15);
-    public static final int P32XS_nCART = (1 << 8);
+    public static final int SH2_nCART_WORD = (1 << 8);
+    public static final int SH2_nCART_BYTE = (1 << 0);
     public static final int P32XS_REN = (1 << 7);
     public static final int P32XS_nRES = (1 << 1);
-    public static final int P32XS_ADEN = (1 << 0);
-    public static final int P32XS2_ADEN = (1 << 9);
+    public static final int SH2_ADEN_BYTE = (1 << 1);
+    public static final int SH2_ADEN_WORD = (1 << 9);
     public static final int P32XS_FULL = (1 << 7); // DREQ FIFO full
     public static final int P32XS_68S = (1 << 2);
     public static final int P32XS_DMA = (1 << 1);

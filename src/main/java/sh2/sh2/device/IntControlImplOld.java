@@ -123,8 +123,7 @@ public class IntControlImplOld implements IntControl {
     }
 
     @Override
-    public void writeSh2IntMaskReg(int reg, int value, Size size) {
-        writeBuffer(sh2_int_mask, reg, value, size);
+    public void reloadSh2IntMask() {
         int newVal = readBuffer(sh2_int_mask, SH2_INT_MASK.addr, Size.WORD);
         setIntsMasked(newVal & 0xF);
     }

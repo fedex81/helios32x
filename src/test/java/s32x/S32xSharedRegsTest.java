@@ -2,7 +2,6 @@ package s32x;
 
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import sh2.MarsLauncherHelper;
@@ -14,7 +13,7 @@ import static s32x.MarsRegTestUtil.*;
 import static sh2.S32XMMREG.CART_INSERTED;
 import static sh2.S32XMMREG.CART_NOT_INSERTED;
 import static sh2.S32xUtil.CpuDeviceAccess.*;
-import static sh2.dict.S32xDict.INTMASK_HEN_BIT_POS;
+import static sh2.dict.S32xDict.*;
 import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
 
 /**
@@ -108,13 +107,13 @@ public class S32xSharedRegsTest {
 
         //cart inserted
         lc.s32XMMREG.setCart(cartSize);
-        int exp = CART_INSERTED << 8;
+        int exp = CART_INSERTED;
 
         checkCart(lc, exp);
 
         //cart removed, size = 0
         lc.s32XMMREG.setCart(0);
-        checkCart(lc, CART_NOT_INSERTED << 8);
+        checkCart(lc, CART_NOT_INSERTED);
     }
 
     @Test
@@ -159,19 +158,51 @@ public class S32xSharedRegsTest {
         checkAden(lc, expAden);
     }
 
-    //TODO fix
     @Test
     public void testSh2SetAden() {
-        Assumptions.assumeTrue(false);
-        //defaults to 0
-        checkAden(lc, 0);
+        testSh2SetAdenInternal(0);
+        testSh2SetAdenInternal(1);
+    }
 
-        //sh2 sets Aden, not supported, read only
-        int aden = 1;
-        int expAden = 0;
-        writeBus(lc, MASTER, SH2_INT_MASK, aden << 1, Size.BYTE);
-        writeBus(lc, SLAVE, SH2_INT_MASK, aden << 1, Size.BYTE);
-        checkAden(lc, expAden);
+    @Test
+    public void testSh2SetCart() {
+        testSh2SetCartInternal(0);
+        testSh2SetCartInternal(0x100);
+    }
+
+    private void testSh2SetCartInternal(int cartSize) {
+        int expCartBit = cartSize > 0 ? CART_INSERTED : CART_NOT_INSERTED;
+        lc.s32XMMREG.setCart(cartSize);
+        checkCart(lc, expCartBit);
+
+        //sh2 cannot set Cart
+        for (int cart = 0; cart < 2; cart++) {
+            writeBus(lc, MASTER, SH2_INT_MASK, cart * SH2_nCART_BYTE, Size.BYTE);
+            checkCart(lc, expCartBit);
+            writeBus(lc, SLAVE, SH2_INT_MASK, cart * SH2_nCART_BYTE, Size.BYTE);
+            checkCart(lc, expCartBit);
+            writeBus(lc, MASTER, SH2_INT_MASK, SH2_nCART_WORD * cart, Size.WORD);
+            checkCart(lc, expCartBit);
+            writeBus(lc, SLAVE, SH2_INT_MASK, SH2_nCART_WORD * cart, Size.WORD);
+        }
+    }
+
+    private void testSh2SetAdenInternal(int adenInit) {
+        MarsRegTestUtil.setAdenMdSide(lc, adenInit);
+        checkAden(lc, adenInit);
+        int expAden = adenInit;
+        System.out.println(adenInit);
+
+        //sh2 cannot set Aden
+        for (int aden = 0; aden < 2; aden++) {
+            writeBus(lc, MASTER, SH2_INT_MASK, aden * SH2_ADEN_BYTE, Size.BYTE);
+            checkAden(lc, expAden);
+            writeBus(lc, SLAVE, SH2_INT_MASK, aden * SH2_ADEN_BYTE, Size.BYTE);
+            checkAden(lc, expAden);
+            writeBus(lc, MASTER, SH2_INT_MASK, SH2_ADEN_WORD * aden, Size.WORD);
+            checkAden(lc, expAden);
+            writeBus(lc, SLAVE, SH2_INT_MASK, SH2_ADEN_WORD * aden, Size.WORD);
+        }
     }
 
     @Test

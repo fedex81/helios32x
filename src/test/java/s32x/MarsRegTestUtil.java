@@ -147,6 +147,17 @@ public class MarsRegTestUtil {
         checkRv(lc, rv);
     }
 
+    public static void setAdenMdSide(Sh2LaunchContext lc, boolean enable) {
+        setAdenMdSide(lc, enable ? 1 : 0);
+    }
+
+    public static void setAdenMdSide(Sh2LaunchContext lc, int val) {
+        val &= 1;
+        int md0 = readBus(lc, M68K, MD_ADAPTER_CTRL_REG, Size.WORD);
+        writeBus(lc, M68K, MD_ADAPTER_CTRL_REG, md0 | val, Size.WORD);
+        checkAden(lc, val);
+    }
+
     public static void checkFm(Sh2LaunchContext lc, int exp) {
         Assertions.assertEquals(exp, (readBus(lc, Z80, MD_ADAPTER_CTRL_REG, Size.BYTE) >> 7) & 1);
         Assertions.assertEquals(exp, (readBus(lc, M68K, MD_ADAPTER_CTRL_REG, Size.WORD) >> 15) & 1);
@@ -175,13 +186,14 @@ public class MarsRegTestUtil {
         Assertions.assertEquals(expAden, (readBus(lc, MASTER, SH2_INT_MASK, Size.BYTE) >> 1) & 1);
         Assertions.assertEquals(expAden, (readBus(lc, SLAVE, SH2_INT_MASK, Size.WORD) >> 9) & 1);
         Assertions.assertEquals(expAden, (readBus(lc, SLAVE, SH2_INT_MASK, Size.BYTE) >> 1) & 1);
+        Assertions.assertEquals(expAden, lc.s32XMMREG.aden);
     }
 
     public static void checkCart(Sh2LaunchContext lc, int exp) {
-        Assertions.assertEquals(exp, readBus(lc, MASTER, SH2_INT_MASK, Size.WORD));
-        Assertions.assertEquals(exp, readBus(lc, SLAVE, SH2_INT_MASK, Size.WORD));
-        Assertions.assertEquals(exp >> 8, readBus(lc, MASTER, SH2_INT_MASK, Size.BYTE));
-        Assertions.assertEquals(exp >> 8, readBus(lc, SLAVE, SH2_INT_MASK, Size.BYTE));
+        Assertions.assertEquals(exp, (readBus(lc, MASTER, SH2_INT_MASK, Size.WORD) >> 8) & 1);
+        Assertions.assertEquals(exp, (readBus(lc, SLAVE, SH2_INT_MASK, Size.WORD) >> 8) & 1);
+        Assertions.assertEquals(exp, readBus(lc, MASTER, SH2_INT_MASK, Size.BYTE) & 1);
+        Assertions.assertEquals(exp, readBus(lc, SLAVE, SH2_INT_MASK, Size.BYTE) & 1);
     }
 
     public static void checkHen(Sh2LaunchContext lc, int exp) {

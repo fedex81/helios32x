@@ -143,7 +143,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             sh2Cache.cacheMemoryRead(pc, Size.WORD);
         }
         int wordsCount = fillOpcodes(cpu, pc, block);
-        assert wordsCount > 0;
+        assert wordsCount > 0 && wordsCount <= opcodeWords.length;
         block.prefetchLenWords = wordsCount;
         block.prefetchWords = Arrays.copyOf(opcodeWords, wordsCount);
         block.hashCodeWords = Arrays.hashCode(block.prefetchWords);
@@ -168,10 +168,11 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         do {
             int val = isCache ? sh2Cache.readDirect(currentPc, Size.WORD) : fetchBuffer.getShort(bytePos) & 0xFFFF;
             final Sh2Instructions.Sh2BaseInstruction inst = op[val].inst;
+            opcodeWords[wordsCount++] = val;
             if (inst.isIllegal) {
                 LOG.error("{} Invalid fetch, start PC: {}, current: {} opcode: {}", cpu, th(pc), th(bytePos), th(val));
+                break;
             }
-            opcodeWords[wordsCount++] = val;
             if (inst.isBranch) {
                 if (inst.isBranchDelaySlot) {
                     int nextVal = isCache ? sh2Cache.readDirect(currentPc + 2, Size.WORD) :

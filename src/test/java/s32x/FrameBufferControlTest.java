@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import sh2.S32XMMREG;
 import sh2.dict.S32xDict;
 
+import static s32x.MarsRegTestUtil.assertHBlank;
 import static sh2.dict.S32xDict.P32XV_240;
 import static sh2.dict.S32xDict.P32XV_PAL;
 
@@ -153,12 +154,65 @@ public class FrameBufferControlTest {
         assert240(false);
 
         //TODO is this used? if yes we need to update the videoMode as well
-        //PAL switch to 240, via register
-//        res = s32XMMREG.read(MarsRegTestUtil.BITMAP_MODE_OFFSET, Size.WORD);
+//        //PAL switch to 240, via register
+//        res = s32XMMREG.read(MarsRegTestUtil.SH2_BITMAP_MODE_OFFSET, Size.WORD);
 //        res |= P32XV_240; //set to 240
-//        s32XMMREG.write(MarsRegTestUtil.BITMAP_MODE_OFFSET, res, Size.WORD);
+//        s32XMMREG.write(MarsRegTestUtil.SH2_BITMAP_MODE_OFFSET, res, Size.WORD);
 //        assertPal(true);
 //        assert240(true);
+    }
+
+    @Test
+    public void testFBCR_Mask() {
+        int exp = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD);
+        int res;
+        for (int i = 0; i < 0x10000; i++) {
+            s32XMMREG.write(MarsRegTestUtil.SH2_FBCR_OFFSET, i, Size.WORD);
+            res = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD);
+            Assertions.assertEquals(exp & ~3, res & ~3);
+            if (i < 0x100) {
+                s32XMMREG.write(MarsRegTestUtil.SH2_FBCR_OFFSET, i, Size.BYTE);
+                res = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD);
+                Assertions.assertEquals(exp & ~3, res & ~3);
+
+                s32XMMREG.write(MarsRegTestUtil.SH2_FBCR_OFFSET + 1, i, Size.BYTE);
+                res = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD);
+                Assertions.assertEquals(exp & ~3, res & ~3);
+            }
+        }
+    }
+
+    @Test
+    public void testSh2ReadOnlyFBCR() {
+        testSh2ReadOnlyFBCRInternal(0);
+        testSh2ReadOnlyFBCRInternal(1);
+        testSh2ReadOnlyFBCRInternal(2);
+        testSh2ReadOnlyFBCRInternal(3);
+    }
+
+    //bit0 = hb, bit1 = vb
+    private void testSh2ReadOnlyFBCRInternal(int startVal) {
+        int combinations = 4;
+        int maskWord = 0xC000;
+        boolean hb = (startVal & 1) > 0;
+        boolean vb = ((startVal >> 1) & 1) > 0;
+        s32XMMREG.setVBlank(vb);
+        s32XMMREG.setHBlank(hb);
+        int res = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD);
+        Assertions.assertEquals(startVal, res >>> 14);
+        for (int i = 0; i < combinations; i++) {
+            s32XMMREG.write(MarsRegTestUtil.SH2_FBCR_OFFSET, i << 14, Size.WORD);
+            assertVBlank(vb);
+            assertHBlank(s32XMMREG, hb);
+            res = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD);
+            Assertions.assertEquals(startVal, res >>> 14);
+
+            s32XMMREG.write(MarsRegTestUtil.SH2_FBCR_OFFSET, i << 6, Size.BYTE);
+            assertVBlank(vb);
+            assertHBlank(s32XMMREG, hb);
+            res = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD);
+            Assertions.assertEquals(startVal, res >>> 14);
+        }
     }
 
     private void assert240(boolean is240) {
