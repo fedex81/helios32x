@@ -88,6 +88,9 @@ public class S32xBus extends GenesisBus {
             res = bios68k.readBuffer(address, size);
             if (address >= M68K_START_HINT_VECTOR_WRITEABLE && address < M68K_END_HINT_VECTOR_WRITEABLE) {
                 res = readHIntVector(address, size);
+            } else if (address >= 0xC0) {
+                //CHECK, probably buggy due to homebrew BIOS
+                LOG.warn("REV," + th(address) + " " + size);
             }
         } else if (address >= M68K_START_ROM_MIRROR && address < M68K_END_ROM_MIRROR) {
             if (!DmaFifo68k.rv) {

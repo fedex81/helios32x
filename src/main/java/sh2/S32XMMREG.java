@@ -157,7 +157,7 @@ public class S32XMMREG implements Device {
         //RegAccessLogger.regAccess(regSpec.toString(), reg, value, size, false);
         boolean regChanged = false;
 
-        if (verbose) checkWriteLongAccess(regSpec, reg, size);
+        assert checkWriteLongAccess(regSpec, reg, size);
         deviceAccessType = regSpec.deviceAccessTypeDelay;
 
         switch (regSpec.deviceType) {
@@ -413,7 +413,7 @@ public class S32XMMREG implements Device {
     private boolean checkWriteLongAccess(RegSpecS32x regSpec, int reg, Size size) {
         if (regSpec.deviceType != COMM && regSpec.deviceType != VDP && regSpec.deviceType != PWM && size == Size.LONG) {
             LOG.error("unsupported 32 bit access, reg: {} {}", regSpec.name, th(reg));
-            return false;
+            return reg == 0x2c; //FIFA
         }
         return true;
     }
