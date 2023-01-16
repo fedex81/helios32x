@@ -88,7 +88,6 @@ public class Sh2Block {
         do {
             sh2.printDebugMaybe(curr.opcode);
             curr.runnable.run();
-            sm.deviceStep();
             if (curr.inst.isBranchDelaySlot || curr.next == null) {
                 break;
             }

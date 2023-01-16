@@ -70,6 +70,7 @@ public class DmaC implements Sh2Device {
 
     @Override
     public void step(int cycles) {
+        //NOTE: dma runs 1/3 speed, but without memory access delays, seems to be close enough
         if (!oneDmaInProgress) {
             return;
         }
@@ -166,11 +167,8 @@ public class DmaC implements Sh2Device {
 //        assert (srcAddress >> Sh2Prefetch.PC_CACHE_AREA_SHIFT) != 0 : th(srcAddress) +"," + th(destAddress);
         destAddress |= SH2_CACHE_THROUGH_OFFSET;
         srcAddress |= SH2_CACHE_THROUGH_OFFSET;
-        int delay = Md32xRuntimeData.getCpuDelayExt();
+
         assert !(memory instanceof Sh2MemoryParallel);
-//        if (memory instanceof Sh2MemoryParallel smp) {
-//            smp.dmaRunning(true);
-//        }
         do {
             int val = memory.read(srcAddress, c.trnSize);
             memory.write(destAddress, val, c.trnSize);
@@ -191,11 +189,6 @@ public class DmaC implements Sh2Device {
             len = 0;
         }
         writeBufferForChannel(c.channel, DMA_TCR0.addr, Math.max(len, 0), Size.LONG);
-//        if (memory instanceof Sh2MemoryParallel smp) {
-//            smp.dmaRunning(false);
-//        }
-        //ignore cpu delays
-        Md32xRuntimeData.resetCpuDelayExt(delay);
     }
 
     private void dmaEnd(DmaChannelSetup c, boolean normal) {

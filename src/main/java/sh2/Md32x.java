@@ -52,12 +52,13 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
 
     public static final int SH2_SLEEP_VALUE = -10000;
 
-    //NOTE vr,fifa helios.32x.sh2.cycles = 18
-    //TODO chaotix,kolibri,metal head, fifa break with poll1
+    //NOTE vr helios.32x.sh2.cycles = 32
+    //TODO chaotix,break with poll1
+    //TODO fifa, kolibri cycles=18 poll0 or cycles 12 poll1
     static {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
         boolean drcEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.drc", "true"));
-        boolean pollEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "false"));
+        boolean pollEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.poll.detect", "true"));
         boolean ignoreDelays = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.ignore.delays", "false"));
         sh2Config = new Sh2Config(prefEn, drcEn, pollEn, ignoreDelays);
 
@@ -153,7 +154,6 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         assert Md32xRuntimeData.getCpuDelayExt() == 0;
         //NOTE if Pwm triggers dreq, the cpuDelay should be assigned to the DMA engine, not to the CPU itself
         ctx.pwm.step(SH2_CYCLE_RATIO);
-        Md32xRuntimeData.resetCpuDelayExt();
         ctx.mDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
         ctx.sDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
         assert Md32xRuntimeData.getCpuDelayExt() == 0;
@@ -240,7 +240,6 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     public void onSysEvent(CpuDeviceAccess cpu, SysEventManager.SysEvent event) {
         switch (event) {
             case START_POLLING -> {
-                //TODO this should keep running DMA, SCI, see Chaotix
                 final Ow2DrcOptimizer.PollerCtx pc = SysEventManager.instance.getPoller(cpu);
                 assert pc.isPollingActive() : event + "," + pc;
                 setNextCycle(cpu, SH2_SLEEP_VALUE);

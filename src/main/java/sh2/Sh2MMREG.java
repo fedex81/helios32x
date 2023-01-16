@@ -243,15 +243,14 @@ public class Sh2MMREG {
         write(RegSpec.NONE_CCR.addr, 0x10, Size.BYTE); //purge and disable
     }
 
-    public void deviceStep() {
-        dmaC.step(0);
-        sci.step(0);
-        if (verbose) ticksPerFrame++;
-    }
-
     //23 Mhz
     public void deviceStepSh2Rate(int cycles) {
+        assert cycles == 3;
+        Md32xRuntimeData.setAccessTypeExt(cpu);
         wdt.step(cycles);
+        dmaC.step(cycles);
+        sci.step(cycles);
+        Md32xRuntimeData.resetCpuDelayExt(cpu, 0);
         if (verbose) sh2TicksPerFrame += cycles;
     }
 }

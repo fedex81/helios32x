@@ -140,6 +140,11 @@ public class SerialCommInterface implements Sh2Device {
 
     @Override
     public void step(int cycles) {
+        //NOTE: timings are not even close, this runs 1/3 speed, and transfers 1 byte per step
+        stepOne();
+    }
+
+    private void stepOne() {
         if (txEn && tdre == 0 && txDataReady) {
             int data = readBuffer(regs, SCI_TDR.addr, Size.BYTE);
             int scr = readBuffer(regs, SCI_SCR.addr, Size.BYTE);

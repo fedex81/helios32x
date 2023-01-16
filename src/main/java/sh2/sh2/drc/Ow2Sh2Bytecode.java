@@ -2459,6 +2459,9 @@ public class Ow2Sh2Bytecode {
      * }
      */
     public static void deviceStepFor(BytecodeContext ctx, int limit) {
+        if (true) {
+            return;
+        }
         int iIdx = ctx.mv.newLocal(Type.INT_TYPE);
         Label topForLbl = new Label();
         Label doneLbl = new Label();
