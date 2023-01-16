@@ -347,13 +347,13 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
         if ((res & 1) > 0) {
             PollerCtx c = SysEventManager.instance.getPoller(MASTER);
-            if (!c.isPollingBusyLoop() && type == c.event) {
+            if (c.isPollingActive() && type == c.event) {
                 checkPollerInternal(c, cpuWrite, type, addr, val, size);
             }
         }
         if ((res & 2) > 0) {
             PollerCtx c = SysEventManager.instance.getPoller(SLAVE);
-            if (!c.isPollingBusyLoop() && type == c.event) {
+            if (c.isPollingActive() && type == c.event) {
                 checkPollerInternal(c, cpuWrite, type, addr, val, size);
             }
         }
