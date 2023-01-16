@@ -79,7 +79,7 @@ public class S32xUtil {
         writeBuffer(b, r1.addr & RegSpec.REG_MASK, value, Size.LONG);
     }
 
-    private static final Set<S32xDict.RegSpecS32x> s = new HashSet<>();
+    private static final Set<String> s = new HashSet<>();
     public static boolean writeBufferHasChangedWithMask(S32xDict.RegSpecS32x regSpec, ByteBuffer b, int reg, int value, Size size) {
         //TODO slower, esp. Metal Head
         if (assertionsEnabled) {
@@ -88,10 +88,11 @@ public class S32xUtil {
             int andMask = size == Size.WORD ? regSpec.writeAndMask : ((reg & 1) == 0) ? regSpec.writeAndMask >> 8 : regSpec.writeAndMask & 0xFF;
             int orMask = size == Size.WORD ? regSpec.writeOrMask : ((reg & 1) == 0) ? regSpec.writeOrMask >> 8 : regSpec.writeOrMask & 0xFF;
             if (((value & andMask) | orMask) != value) {
-                s.add(regSpec);
-                System.out.println(s + " pos: " + reg + " val: " + value + " masked: " + ((value & andMask) | orMask) +
-                        " " + size);
-                LOG.info("{} pos:{} val: {} masked: {} {}", s, reg, value, ((value & andMask) | orMask), size);
+                String str = s + " pos: " + reg + " val: " + value + " masked: " + ((value & andMask) | orMask) +
+                        " " + size;
+                if (s.add(str)) {
+                    System.out.println(s);
+                }
             }
             return writeBuffer(b, reg, (value & andMask) | orMask, size);
         } else {

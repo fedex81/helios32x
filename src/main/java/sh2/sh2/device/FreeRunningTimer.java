@@ -80,7 +80,7 @@ public class FreeRunningTimer implements Sh2Device {
             case FRT_OCRAB_L -> {
                 assert size == Size.BYTE;
                 int refl = isOcra ? ocra : ocrb;
-                return refl & 0XFF;
+                return refl & 0xFF;
             }
         }
         return readBuffer(regs, address, size);
@@ -115,13 +115,19 @@ public class FreeRunningTimer implements Sh2Device {
                 //x000xxx1
                 writeBuffer(regs, pos, (value & 0x8e) | 1, size);
             }
+            case FRT_FTCSR -> {
+                assert size == Size.BYTE && value <= 1;
+                LOG.info("write FTCSR: {} {}", th(value), size);
+            }
         }
     }
 
     @Override
     public void step(int cycles) {
-        while (cycles-- > 0) {
-            stepOne();
+        if (SH2_ENABLE_FRT) {
+            while (cycles-- > 0) {
+                stepOne();
+            }
         }
     }
 
@@ -133,6 +139,7 @@ public class FreeRunningTimer implements Sh2Device {
                 setBit(regs, FRT_FTCSR.addr, FTCSR_OVF_BIT, 1, Size.BYTE);
                 boolean ovie = (read(FRT_TIER, Size.BYTE) & TIER_OVIE_MASK) > 0;
                 if (ovie) {
+                    System.out.println("ovie");
 //                    intControl.setExternalIntPending(FRT, 0, true);
                 }
             }
@@ -141,10 +148,12 @@ public class FreeRunningTimer implements Sh2Device {
                 setBit(regs, FRT_FTCSR.addr, FTCSR_OCFA_BIT, 1, Size.BYTE);
                 boolean ociae = (read(FRT_TIER, Size.BYTE) & TIER_OCIAE_MASK) > 0;
                 if (ociae) {
+                    System.out.println("ociae");
 //                    intControl.setExternalIntPending(FRT, 0, true);
                 }
                 boolean cclra = (read(FRT_FTCSR, Size.BYTE) & FTCSR_CCLRA_MASK) > 0;
                 if (cclra) {
+//                    System.out.println("cclra");
                     write(FRT_FRCH, 0, Size.WORD);
                 }
             }
@@ -153,6 +162,7 @@ public class FreeRunningTimer implements Sh2Device {
                 setBit(regs, FRT_FTCSR.addr, FTCSR_OCFB_BIT, 1, Size.BYTE);
                 boolean ocibe = (read(FRT_TIER, Size.BYTE) & TIER_OCIBE_MASK) > 0;
                 if (ocibe) {
+                    System.out.println("ocibe");
 //                    intControl.setExternalIntPending(FRT, 0, true);
                 }
             }

@@ -417,8 +417,31 @@ public class Ow2DrcOptimizer {
         if (block.pollType == UNKNOWN) {
             block.pollType = NONE;
         }
+//        if(block.pollType == NONE){
+//            detectDelayLoop(bpd);
+//        }
+        assert block.pollType != UNKNOWN;
         assert toSet != null;
         return toSet;
+    }
+
+    private static void detectDelayLoop(BlockPollData bpd) {
+        int decreaseOpPos = -1;
+        for (int i = 0; i < bpd.words.length; i++) {
+            if ((bpd.words[i] & 0xF0FF) == 0x4010) {
+                decreaseOpPos = i;
+            }
+        }
+        if (decreaseOpPos > 0 && bpd.memLoadPos < 0 &&
+                bpd.branchPos >= 0 && bpd.branchDestPc == bpd.pc) { // && bpd.numNops + 1 == bpd.words.length){
+            String instList = Sh2Helper.toListOfInst(bpd.block).toString();
+            boolean match = !instList.contains("mov");
+            if (match) {
+                LOG.error("{} Delay Loop?? at PC {}: {} {}\n{}", bpd.block.drcContext.cpu,
+                        th(bpd.block.prefetchPc),
+                        th(bpd.memLoadTarget), bpd.block.pollType, instList);
+            }
+        }
     }
 
     //TODO poll on cached address??? tas poll is allowed even on cached addresses
