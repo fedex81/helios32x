@@ -130,7 +130,7 @@ public class DmaC implements Sh2Device {
         }
     }
 
-    //TODO unify
+    @Deprecated
     public void dmaReqTriggerPwm(int channel, boolean enable) {
         DmaChannelSetup d = dmaChannelSetup[channel];
         d.dreqLevel = enable;
