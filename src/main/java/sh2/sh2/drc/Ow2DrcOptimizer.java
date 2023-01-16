@@ -5,7 +5,9 @@ import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
 import org.slf4j.event.Level;
+import sh2.IMemory;
 import sh2.Md32xRuntimeData;
+import sh2.S32xUtil;
 import sh2.S32xUtil.CpuDeviceAccess;
 import sh2.dict.S32xDict;
 import sh2.dict.S32xDict.S32xRegType;
@@ -247,7 +249,9 @@ public class Ow2DrcOptimizer {
         public int pc;
         public SysEvent event;
         public PollState pollState = PollState.NO_POLL;
-        public int spinCount = 0, pollValue = 0;
+        public int spinCount = 0;
+        //only used when assertions are enabled
+        public int pollValue = 0;
         public BlockPollData blockPollData;
         private Sh2PcInfoWrapper piw;
 
@@ -520,23 +524,34 @@ public class Ow2DrcOptimizer {
             if (verbose)
                 LOG.info("{} avoid re-entering {} poll at PC {}, on address: {}", blockPoller.cpu, pollType,
                         th(blockPoller.pc), th(blockPoller.blockPollData.memLoadTarget));
-//            if(blockPoller.spinCount == POLLER_ACTIVATE_LIMIT - 1){
-//                Ow2DrcOptimizer.parseMemLoad(blockPoller.blockPollData);
-//                blockPoller.pollValue = drcContext.memory.read(blockPoller.blockPollData.memLoadTarget, blockPoller.blockPollData.memLoadTargetSize);
-//            }
+            if (S32xUtil.assertionsEnabled && blockPoller.spinCount == POLLER_ACTIVATE_LIMIT - 1) {
+                Ow2DrcOptimizer.parseMemLoad(blockPoller.blockPollData);
+                blockPoller.pollValue = readPollValue(blockPoller);
+            }
             return;
         }
-//        int pollValue = drcContext.memory.read(blockPoller.blockPollData.memLoadTarget, blockPoller.blockPollData.memLoadTargetSize);
-//        if(pollValue != blockPoller.pollValue){
-//            LOG.info("Poll value has changed: {} -> {}", th(blockPoller.pollValue), pollValue);
-//            blockPoller.pollValue = blockPoller.spinCount = 0;
-//            return;
-//        }
+        //TODO chaotix needs this
+        if (S32xUtil.assertionsEnabled) {
+            int pollValue = readPollValue(blockPoller);
+            if (pollValue != blockPoller.pollValue) {
+                LOG.info("Poll value has changed: {} -> {}", th(blockPoller.pollValue), pollValue);
+                blockPoller.pollValue = blockPoller.spinCount = 0;
+                return;
+            }
+        }
         blockPoller.pollState = Ow2DrcOptimizer.PollState.ACTIVE_POLL;
         if (verbose)
             LOG.info("{} entering {} poll at PC {}, on address: {}, currentVal: {}", blockPoller.cpu, pollType,
                     th(blockPoller.pc), th(blockPoller.blockPollData.memLoadTarget), th(blockPoller.pollValue));
         SysEventManager.instance.fireSysEvent(blockPoller.cpu, SysEvent.START_POLLING);
+    }
+
+    public static int readPollValue(PollerCtx blockPoller) {
+        IMemory memory = blockPoller.piw.block.drcContext.memory;
+        int delay = Md32xRuntimeData.getCpuDelayExt();
+        int val = memory.read(blockPoller.blockPollData.memLoadTarget, blockPoller.blockPollData.memLoadTargetSize);
+        Md32xRuntimeData.resetCpuDelayExt(delay);
+        return val;
     }
 
     /**

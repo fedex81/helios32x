@@ -116,11 +116,12 @@ public class Sh2Impl implements Sh2 {
 		this.ctx = ctx;
 		final Sh2MMREG sh2MMREG = ctx.devices.sh2MMREG;
 		final IntControl intControl = ctx.devices.intC;
+		final SysEventManager instance = SysEventManager.instance;
 		for (; ctx.cycles >= 0; ) {
 			decode();
 			boolean res = acceptInterrupts(intControl.getInterruptLevel());
 			ctx.cycles -= Md32xRuntimeData.resetCpuDelayExt(); //TODO check perf
-			if (res) {
+			if (res || instance.getPoller(ctx.cpuAccess).isPollingActive()) {
 				break;
 			}
 		}

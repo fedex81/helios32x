@@ -44,6 +44,9 @@ public class Md32xRuntimeData {
     }
 
     public final void addCpuDelay(int delay) {
+        //NOTE in general this doesnt work as various subsystems (ie Dmac) can run while polling
+//        assert accessType.regSide == S32xUtil.S32xRegSide.SH2 ?
+//                !SysEventManager.instance.getPoller(accessType).isPollingActive() : true : accessType;
         cpuDelay[accType] += delay;
     }
 
@@ -91,6 +94,10 @@ public class Md32xRuntimeData {
 
     public static int getCpuDelayExt() {
         return rt.cpuDelay[rt.accType];
+    }
+
+    public static int getCpuDelayExt(CpuDeviceAccess cpu) {
+        return rt.cpuDelay[cpu.ordinal()];
     }
 
 

@@ -26,6 +26,7 @@ import sh2.vdp.debug.DebugVideoRenderContext;
 import java.nio.file.Path;
 import java.util.Optional;
 
+import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
 
@@ -53,7 +54,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     public static final int SH2_SLEEP_VALUE = -10000;
 
     //NOTE vr helios.32x.sh2.cycles = 32
-    //TODO chaotix,break with poll1
+    //TODO chaotix,break with poll1, see startPollingMaybe
     //TODO fifa, kolibri cycles=18 poll0 or cycles 12 poll1
     static {
         boolean prefEn = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.prefetch", "true"));
@@ -263,15 +264,24 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
         }
     }
 
-    private void stopPolling(CpuDeviceAccess cpu, SysEventManager.SysEvent event, Ow2DrcOptimizer.PollerCtx pc) {
+    private void stopPolling(CpuDeviceAccess cpu, SysEventManager.SysEvent event, Ow2DrcOptimizer.PollerCtx pctx) {
 //        assert event == SysEventManager.SysEvent.INT ? pc.isPollingBusyLoop() : true;
-        boolean stopOk = event == pc.event || event == SysEventManager.SysEvent.INT;
+        boolean stopOk = event == pctx.event || event == SysEventManager.SysEvent.INT;
         if (stopOk) {
-            if (verbose) LOG.info("{} stop polling {} {}: {}", cpu, event, cycleCounter, pc);
+            if (verbose) LOG.info("{} stop polling {} {}: {}", cpu, event, cycleCounter, pctx);
             setNextCycle(cpu, cycleCounter + 1);
+            if (S32xUtil.assertionsEnabled) {
+                if (event != SysEventManager.SysEvent.INT) {
+                    assert Md32xRuntimeData.getCpuDelayExt(cpu) == 0;
+                    int value = Ow2DrcOptimizer.readPollValue(pctx);
+                    if (value == pctx.pollValue) {
+                        System.out.println(th(pctx.pollValue) + "," + th(value));
+                    }
+                }
+            }
             SysEventManager.instance.resetPoller(cpu);
         } else {
-            LOG.warn("{} {} ignore stop polling: {}", cpu, event, pc);
+            LOG.warn("{} {} ignore stop polling: {}", cpu, event, pctx);
         }
     }
 
