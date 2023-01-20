@@ -37,8 +37,6 @@ public class Ow2Sh2Helper {
 
     public enum SH2_DEVICE_CTX_CLASS_FIELD {sh2MMREG}
 
-    public enum SH2MMREG_METHOD {deviceStep}
-
     public enum SH2MEMORY_METHOD {read, write}
 
     //@formatter:off

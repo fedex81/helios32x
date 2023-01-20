@@ -6,7 +6,6 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.LocalVariablesSorter;
 import org.slf4j.Logger;
-import sh2.Sh2MMREG;
 import sh2.Sh2Memory;
 import sh2.sh2.*;
 import sh2.sh2.prefetch.Sh2Prefetch.BytecodeContext;
@@ -22,7 +21,6 @@ import static sh2.sh2.Sh2Impl.RM;
 import static sh2.sh2.Sh2Impl.RN;
 import static sh2.sh2.drc.Ow2Sh2BlockRecompiler.*;
 import static sh2.sh2.drc.Ow2Sh2Helper.DRC_CLASS_FIELD.regs;
-import static sh2.sh2.drc.Ow2Sh2Helper.DRC_CLASS_FIELD.sh2MMREG;
 import static sh2.sh2.drc.Ow2Sh2Helper.*;
 import static sh2.sh2.drc.Ow2Sh2Helper.SH2CTX_CLASS_FIELD.*;
 
@@ -2458,6 +2456,7 @@ public class Ow2Sh2Bytecode {
      * }
      * }
      */
+    @Deprecated
     public static void deviceStepFor(BytecodeContext ctx, int limit) {
         if (true) {
             return;
@@ -2483,9 +2482,10 @@ public class Ow2Sh2Bytecode {
      * sh2MMREG.deviceStep();
      * }
      */
+    @Deprecated
     private static void deviceStep(BytecodeContext ctx) {
-        ctx.mv.visitVarInsn(ALOAD, 0); // push `this`
-        ctx.mv.visitFieldInsn(GETFIELD, ctx.classDesc, sh2MMREG.name(), Type.getDescriptor(Sh2MMREG.class));
-        ctx.mv.visitMethodInsn(INVOKEVIRTUAL, Type.getInternalName(Sh2MMREG.class), SH2MMREG_METHOD.deviceStep.name(), noArgsNoRetDesc);
+//        ctx.mv.visitVarInsn(ALOAD, 0); // push `this`
+//        ctx.mv.visitFieldInsn(GETFIELD, ctx.classDesc, sh2MMREG.name(), Type.getDescriptor(Sh2MMREG.class));
+//        ctx.mv.visitMethodInsn(INVOKEVIRTUAL, Type.getInternalName(Sh2MMREG.class), SH2MMREG_METHOD.deviceStep.name(), noArgsNoRetDesc);
     }
 }

@@ -547,6 +547,9 @@ public class Ow2DrcOptimizer {
     }
 
     public static int readPollValue(PollerCtx blockPoller) {
+        if (blockPoller.isPollingBusyLoop()) {
+            return 0;
+        }
         IMemory memory = blockPoller.piw.block.drcContext.memory;
         int delay = Md32xRuntimeData.getCpuDelayExt();
         int val = memory.read(blockPoller.blockPollData.memLoadTarget, blockPoller.blockPollData.memLoadTargetSize);

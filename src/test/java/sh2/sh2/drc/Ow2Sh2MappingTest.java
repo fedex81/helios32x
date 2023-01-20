@@ -46,13 +46,9 @@ public class Ow2Sh2MappingTest {
     @Test
     public void testMethodMapping() {
         Set<String> declMethods = getDeclMethods(Sh2MMREG.class);
-        for (SH2MMREG_METHOD m : SH2MMREG_METHOD.values()) {
-            Assertions.assertTrue(declMethods.contains(m.name()));
-        }
-
         declMethods = getDeclMethods(IMemory.class);
         for (SH2MEMORY_METHOD m : SH2MEMORY_METHOD.values()) {
-            Assertions.assertTrue(declMethods.contains(m.name()));
+            Assertions.assertTrue(declMethods.contains(m.name()), m.name());
         }
     }
 
