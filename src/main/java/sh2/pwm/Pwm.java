@@ -205,6 +205,7 @@ public class Pwm implements StepDevice {
         boolean wasEnabled = pwmEnable;
         pwmEnable = cycle > 0 && (channelMap[chLeft].isValid() || channelMap[chRight].isValid());
         if (!wasEnabled && pwmEnable || cycleChanged) {
+            assert interruptInterval > 0;
             sh2TicksToNextPwmSample = cycle;
             sh2ticksToNextPwmInterrupt = interruptInterval;
             latestPwmValue[0] = latestPwmValue[1] = cycle >> 1; //TODO check
@@ -323,8 +324,8 @@ public class Pwm implements StepDevice {
     private void dreq() {
         if (dreqEn) {
             //NOTE this should trigger on channel one for BOTH sh2s
-            dmac[MASTER.ordinal()].dmaReqTrigger(PWM_DMA_CHANNEL, true);
-            dmac[SLAVE.ordinal()].dmaReqTrigger(PWM_DMA_CHANNEL, true);
+            dmac[MASTER.ordinal()].dmaReqTriggerPwm(PWM_DMA_CHANNEL, true);
+            dmac[SLAVE.ordinal()].dmaReqTriggerPwm(PWM_DMA_CHANNEL, true);
             dreqPerFrame++;
         }
     }
@@ -347,6 +348,7 @@ public class Pwm implements StepDevice {
         writeBuffers(sysRegsMd, sysRegsSh2, PWM_LCH_PW.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
         writeBuffers(sysRegsMd, sysRegsSh2, PWM_RCH_PW.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
         writeBuffers(sysRegsMd, sysRegsSh2, PWM_MONO.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
+        handlePwmControlSh2(MASTER, PWM_CTRL.addr, 0, Size.WORD); //init interruptInterval
     }
 
     @Override
