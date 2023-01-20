@@ -75,7 +75,6 @@ public final class Sh2Memory implements IMemory {
 	@Override
 	public int read(int address, Size size) {
 		CpuDeviceAccess cpuAccess = Md32xRuntimeData.getAccessTypeExt();
-		address &= 0xFFFF_FFFF;
 		assert size == Size.LONG ? (address & 3) == 0 : true;
 		assert size == Size.WORD ? (address & 1) == 0 : true;
 		int res = 0;

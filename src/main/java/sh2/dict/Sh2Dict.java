@@ -165,10 +165,11 @@ public class Sh2Dict {
     );
 
 
-    public static void checkName(int reg) {
+    public static boolean checkName(int reg) {
         if (sh2RegMapping[reg & SH2_REG_MASK] == null) {
             LOG.warn("{} SH2 mmreg unknown reg: {}", Md32xRuntimeData.getAccessTypeExt(), th(reg));
         }
+        return true;
     }
 
     public static void logAccess(String type, int reg, int value, Size size) {
