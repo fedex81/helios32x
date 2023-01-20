@@ -275,7 +275,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
                     assert Md32xRuntimeData.getCpuDelayExt(cpu) == 0;
                     int value = Ow2DrcOptimizer.readPollValue(pctx);
                     if (value == pctx.pollValue) {
-                        System.out.println(th(pctx.pollValue) + "," + th(value));
+                        System.out.println("?? Poll stop but value unchanged: " + th(pctx.pollValue) + "," + th(value));
                     }
                 }
             }

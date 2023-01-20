@@ -147,7 +147,7 @@ public class Sh2MMREG {
                 case BSC -> {
                     assert size != Size.BYTE;
                     res = readBuffer(regs, pos, size);
-                    LOG.info("{} BSC reg {} read: {} {}", cpu, regSpec, th(res), size);
+                    if (verbose) LOG.info("{} BSC reg {} read: {} {}", cpu, regSpec, th(res), size);
                 }
                 default -> res = readBuffer(regs, pos, size);
             }

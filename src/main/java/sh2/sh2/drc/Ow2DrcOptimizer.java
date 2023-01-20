@@ -52,6 +52,8 @@ public class Ow2DrcOptimizer {
     public final static boolean ENABLE_POLL_DETECT = true;
     private final static boolean LOG_POLL_DETECT = false;
 
+    private final static boolean LOG_POLL_DETECT_UNSUPPORTED = false;
+
     public static final int POLLER_ACTIVATE_LIMIT = 3;
 
     private static final boolean verbose = false;
@@ -405,11 +407,7 @@ public class Ow2DrcOptimizer {
             }
             log |= bpd.memLoadTargetSize == null && block.pollType != UNKNOWN;
             if (LOG_POLL_DETECT && log) {
-                LOG.makeLoggingEventBuilder(supported ? Level.INFO : Level.ERROR).log(
-                        "{} Poll {} at PC {}: {} {}\n{}", block.drcContext.cpu,
-                        supported ? "detected" : "ignored", th(block.prefetchPc),
-                        th(bpd.memLoadTarget), block.pollType,
-                        Sh2Helper.toListOfInst(block));
+                logPollBlock(block, bpd, supported);
             }
         } else if (bpd.isBusyLoop) {
             LOG.info("{} BusyLoop detected: {}\n{}", block.drcContext.cpu, th(block.prefetchPc),
@@ -421,12 +419,25 @@ public class Ow2DrcOptimizer {
         if (block.pollType == UNKNOWN) {
             block.pollType = NONE;
         }
+        if (LOG_POLL_DETECT_UNSUPPORTED && !log && bpd.branchDestPc == bpd.pc) {
+            if (bpd.words.length - bpd.numNops < 5) {
+                logPollBlock(block, bpd, false);
+            }
+        }
 //        if(block.pollType == NONE){
 //            detectDelayLoop(bpd);
 //        }
         assert block.pollType != UNKNOWN;
         assert toSet != null;
         return toSet;
+    }
+
+    private static void logPollBlock(Sh2Block block, BlockPollData bpd, boolean supported) {
+            LOG.makeLoggingEventBuilder(supported ? Level.INFO : Level.ERROR).log(
+                    "{} Poll {} at PC {}: {} {}\n{}", block.drcContext.cpu,
+                    supported ? "detected" : "ignored", th(block.prefetchPc),
+                    th(bpd.memLoadTarget), block.pollType,
+                    Sh2Helper.toListOfInst(block));
     }
 
     private static void detectDelayLoop(BlockPollData bpd) {
@@ -548,6 +559,12 @@ public class Ow2DrcOptimizer {
 
     public static int readPollValue(PollerCtx blockPoller) {
         if (blockPoller.isPollingBusyLoop()) {
+            return 0;
+        }
+        //VF (Japan, USA) (Beta) (1995-06-15)
+        //TODO while a block is polling it gets invalidated, when polling ends we access the invalid_block
+        if (blockPoller.piw.block.drcContext == null) {
+            LOG.warn("Unexpected state, block is invalid?\n{}", blockPoller);
             return 0;
         }
         IMemory memory = blockPoller.piw.block.drcContext.memory;

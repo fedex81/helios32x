@@ -716,6 +716,11 @@ public class Sh2BusyLoopTest {
          * S 06000694	c802	tst H'02, R0 [NEW]       // while TE=0 (ie. dma in progress)
          *                                               // (R0 & 2 == 0 -> T = 1)
          * S 06000696	89fb	bt H'06000690 [NEW]
+         *
+         * MASTER Poll ignored at PC 6000742: ffffff8c NONE
+         *  06000742	c802	tst H'02, R0
+         *  00000744	8dfd	bt/s H'00000742
+         *  00000746	5013	mov.l @(3, R1), R0
          */
         /**
          * Spiderman
