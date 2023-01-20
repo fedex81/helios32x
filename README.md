@@ -1,8 +1,12 @@
 # helios32x
 
-An EXPERIMENTAL Sega 32x emulator, written in Java.
-
+A Sega 32x emulator, written in Java.  
 Most of the emulator infrastructure is borrowed from the [helios](https://github.com/fedex81/helios) project.
+
+# Performance
+
+The target is a modern mobile cpu capable of boosting ~4Ghz (ie. [AMD Ryzen 5 PRO 5650U](https://www.amd.com/en/products/apu/amd-ryzen-5-pro-5650u)), this should allow perf close to 60fps for most titles, YMMV.
+
 
 # How to Run
 Requires java 17+ installed.
