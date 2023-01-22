@@ -113,7 +113,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
             case 2:
             case 0x22:
                 pctx.start = Math.max(0, pctx.start) & romMask;
-                pctx.end = Math.min(romSize - 1, pctx.end) & romMask;
+                pctx.end = Math.min(romSize - 1, (pctx.end & romMask));
                 pctx.pcMasked = pc & romMask;
                 pctx.memAccessDelay = S32xMemAccessDelay.ROM;
                 pctx.buf = rom;
@@ -144,6 +144,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         pctx.prefetchPc = pc;
         boolean outNext = false;
         int cpc = (pc & SH2_CACHE_THROUGH_MASK) - (pctx.pcMasked - pctx.start);
+//        LOG.info("{} pc {}, start {}, end {}", cpu, th(pc), th(pctx.start), th(pctx.end));
         for (int bytePos = pctx.start; bytePos < pctx.end; bytePos += 2, cpc += 2) {
             int w = ((bytePos - pctx.pcMasked) >> 1);
             int opc = isCache ? sh2Cache.readDirect(cpc, Size.WORD) : pctx.buf.getShort(bytePos) & 0xFFFF;
