@@ -233,7 +233,6 @@ public class Sh2MMREG {
 
     public void deviceStep() {
         dmaC.step(0);
-        sci.step(0);
         if (verbose) ticksPerFrame++;
     }
 

@@ -43,7 +43,9 @@ public class SerialCommInterface implements Sh2Device {
     private final IntControl intControl;
 
     private int tdre, rdrf;
-    boolean txDataReady, rxDataReady, txEn, rxEn;
+    private boolean txEn, rxEn;
+
+    private SerialCommInterface other;
 
     public static final SciData sciData = new SciData();
 
@@ -52,6 +54,12 @@ public class SerialCommInterface implements Sh2Device {
         this.regs = regs;
         this.intControl = intControl;
         reset();
+    }
+
+    public void setOther(SerialCommInterface other) {
+        this.other = other;
+        other.other = this;
+        assert other.cpu != cpu;
     }
 
     @Override
@@ -81,14 +89,16 @@ public class SerialCommInterface implements Sh2Device {
 
         switch (regSpec) {
             case SCI_SCR:
+                boolean prevTxEn = txEn;
                 rxEn = (value & 0x10) > 0;
                 txEn = (value & 0x20) > 0;
                 if (verbose)
                     LOG.info("{} {}, rxEn {}, txEn {}, TIE {}, RIE: {}, TEIE(tx) {}, MPIE: {}", cpu, regSpec, rxEn, txEn,
                             (value & 0x80) > 0, (value & 0x40) > 0, (value & 4) > 0, (value & 8) > 0);
-                if (!txEn) {
+                if (prevTxEn && !txEn) {
                     setTdre(1);
-                    setBit(regs, SCI_SSR.addr, SCI_SSR_TEND_BIT_POS, 0, Size.BYTE);
+                } else if (txEn && !prevTxEn) {
+                    step(1);
                 }
                 break;
             case SCI_SSR:
@@ -102,13 +112,11 @@ public class SerialCommInterface implements Sh2Device {
             case SCI_TDR:
                 if (verbose) LOG.info("{} {} Data written TDR: {}", cpu, regSpec.name, th(value));
                 setTdre(0);
-                txDataReady = true;
                 break;
             case SCI_RDR:
-                if (verbose) LOG.info("{} {} Data written RDR: {}", cpu, regSpec.name, th(value));
-                setRdrf(1);
+                LOG.warn("{} {} Data written RDR: {}", cpu, regSpec.name, th(value));
+                write = true;
                 break;
-
         }
         if (write) {
             writeBuffer(regs, pos, value, size);
@@ -118,10 +126,12 @@ public class SerialCommInterface implements Sh2Device {
     //most bits should be reset only when writing 0
     private void handleSsrWrite(int value) {
         //txDisabled locks TDRE to 1
-        int tdreVal = (value & 0x80) > 0 || !txEn || !txDataReady ? tdre : 0;
+        int wasTdre = tdre;
+        int tdreVal = (value & 0x80) > 0 || !txEn ? tdre : 0;
         setTdre(tdreVal);
-        if (tdreVal > 0) {
+        if (wasTdre > 0 && (value & 0x80) == 0) {
             setBit(regs, SCI_SSR.addr, SCI_SSR_TEND_BIT_POS, 0, Size.BYTE);
+            step(1);
         }
         int rdrfVal = (value & 0x40) == 0 ? 0 : rdrf;
         setRdrf(rdrfVal);
@@ -131,26 +141,27 @@ public class SerialCommInterface implements Sh2Device {
             }
         }
         setBit(regs, SCI_SSR.addr, 0, value & 1, Size.BYTE);
-        int val = readBuffer(regs, SCI_SSR.addr, Size.BYTE);
-        if (verbose) LOG.info("{} SSR write: {}, state: {}", cpu, th(value), th(val));
+        if (verbose)
+            LOG.info("{} SSR write: {}, state: {}", cpu, th(value), th(readBuffer(regs, SCI_SSR.addr, Size.BYTE)));
     }
 
     @Override
     public void step(int cycles) {
-        if (txEn && tdre == 0 && txDataReady) {
+        if (txEn && tdre == 0) {// && txDataReady) {
             int data = readBuffer(regs, SCI_TDR.addr, Size.BYTE);
             int scr = readBuffer(regs, SCI_SCR.addr, Size.BYTE);
-            sendData(data);
-            txDataReady = false;
             setTdre(1);
             setBit(regs, SCI_SSR.addr, SCI_SSR_TEND_BIT_POS, 1, Size.BYTE);
+            sendData(data);
             if ((scr & 0x80) > 0) { //TIE
                 intControl.setExternalIntPending(SCI, TIE, true);
             }
+            other.step(1);
             return;
         } else if (rxEn && sciData.isDataInTransit && sciData.sender != cpu) {
             if (verbose) LOG.info("{} receiving data: {}", cpu, th(sciData.dataInTransit));
-            write(SCI_RDR, sciData.dataInTransit, Size.BYTE);
+            writeBuffer(regs, SCI_RDR.addr, sciData.dataInTransit, Size.BYTE);
+            setRdrf(1);
             int scr = readBuffer(regs, SCI_SCR.addr, Size.BYTE);
             sciData.isDataInTransit = false;
             if ((scr & 0x40) > 0) { //RIE
@@ -188,7 +199,7 @@ public class SerialCommInterface implements Sh2Device {
 
         tdre = 1;
         rdrf = 0;
-        txDataReady = rxDataReady = txEn = rxEn = false;
+        txEn = rxEn = false;
         if (verbose) LOG.info("{} SCI reset end", cpu);
     }
 }
