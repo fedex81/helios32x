@@ -298,7 +298,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             blockPc &= ~1;
         }
         final int pcDeltaWords = (pc - blockPc) >> 1;
-        assert pcDeltaWords < block.prefetchLenWords && pcDeltaWords >= 0;
+        assert pcDeltaWords < block.prefetchLenWords && pcDeltaWords >= 0 : th(pc) + "," + th(pcDeltaWords);
         if (collectStats) stats[cpu.ordinal()].pfTotal++;
         S32xMemAccessDelay.addReadCpuDelay(block.fetchMemAccessDelay);
         int res = block.prefetchWords[pcDeltaWords];

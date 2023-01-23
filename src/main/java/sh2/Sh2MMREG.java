@@ -249,7 +249,6 @@ public class Sh2MMREG {
         Md32xRuntimeData.setAccessTypeExt(cpu);
         wdt.step(cycles);
         dmaC.step(cycles);
-        sci.step(cycles);
         Md32xRuntimeData.resetCpuDelayExt(cpu, 0);
         if (verbose) sh2TicksPerFrame += cycles;
     }

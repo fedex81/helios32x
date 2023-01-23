@@ -102,6 +102,7 @@ public class MarsLauncherHelper {
         ctx.memory = Md32x.SH2_DEBUG_DRC ? new Sh2MemoryParallel(memory) : memory;
         ctx.mDevCtx = Sh2DeviceHelper.createDevices(MASTER, ctx);
         ctx.sDevCtx = Sh2DeviceHelper.createDevices(SLAVE, ctx);
+        ctx.mDevCtx.sci.setOther(ctx.sDevCtx.sci);
         ctx.sh2 = (ctx.masterCtx.debug || ctx.slaveCtx.debug) ?
                 new Sh2Debug(ctx.memory) : new Sh2Impl(ctx.memory);
         mDrcCtx.sh2 = sDrcCtx.sh2 = (Sh2Impl) ctx.sh2;

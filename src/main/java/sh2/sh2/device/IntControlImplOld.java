@@ -68,8 +68,11 @@ public class IntControlImplOld implements IntControl {
 
     @Override
     public void write(RegSpec regSpec, int pos, int value, Size size) {
-        writeBuffer(regs, pos, value, size);
+        boolean changed = writeBuffer(regs, pos, value, size);
         int val = writeBufferWithMask(regs, regSpec);
+        if (!changed) {
+            return;
+        }
         switch (regSpec) {
             case INTC_IPRA:
                 onChipDevicePriority.put(Sh2DeviceType.DIV, val >> 12);
@@ -131,7 +134,7 @@ public class IntControlImplOld implements IntControl {
     @Override
     public void setOnChipDeviceIntPending(Sh2DeviceType deviceType, OnChipSubType subType) {
         int data = subType == OnChipSubType.DMA_C1 ? 1 : 0;
-        data = subType == OnChipSubType.RIE ? 1 : data;
+        data = subType == OnChipSubType.RXI ? 1 : data;
         setExternalIntPending(deviceType, data, true);
     }
 
