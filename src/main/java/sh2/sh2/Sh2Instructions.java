@@ -1086,7 +1086,7 @@ public class Sh2Instructions {
         SWAPB(0, 0, 0, 1),
         SWAPW(0, 0, 0, 1),
         TAS(0, 0, 0, 1),
-        TRAPA(0, 0, 0, 8),
+        TRAPA(1, 0, 0, 8),
         TST(0, 0, 0, 1),
         TSTI(0, 0, 0, 1),
         TSTM(0, 0, 0, 3),

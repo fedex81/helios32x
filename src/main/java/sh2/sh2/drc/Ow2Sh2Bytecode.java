@@ -1770,23 +1770,21 @@ public class Ow2Sh2Bytecode {
         writeMem(ctx, Size.BYTE);
     }
 
-    //TODO test
     public static void TRAPA(BytecodeContext ctx) {
         int imm = (0xFF & ctx.opcode);
-
         pushSh2Context(ctx);
         pushSR(ctx);
         sh2PushReg15(ctx);
         emitPushConstToStack(ctx, ctx.pc + 2);
         sh2PushReg15(ctx);
         //ctx.PC = memory.read32(ctx.VBR + (imm << 2));
+        pushSh2Context(ctx);
         pushMemory(ctx);
         pushSh2ContextIntField(ctx, VBR.name());
         emitPushConstToStack(ctx, imm << 2);
         ctx.mv.visitInsn(IADD);
         readMem(ctx, Size.LONG);
         popSh2ContextIntField(ctx, PC.name());
-        System.out.println("TRAPA");
     }
 
     public static void TST(BytecodeContext ctx) {
