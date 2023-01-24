@@ -1,5 +1,6 @@
 package sh2;
 
+import omegadrive.memory.ReadableByteMemory;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
@@ -23,7 +24,7 @@ import static sh2.dict.S32xDict.SH2_PC_AREA_SHIFT;
  * <p>
  * Copyright 2021
  */
-public interface IMemory extends Sh2Prefetcher {
+public interface IMemory extends Sh2Prefetcher, ReadableByteMemory {
 
     boolean SH2_MEM_ACCESS_STATS = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.memAccess.stats", "false"));
 

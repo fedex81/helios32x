@@ -10,6 +10,7 @@ import omegadrive.ui.DisplayWindow;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Sleeper;
 import omegadrive.vdp.md.GenesisVdp;
+import omegadrive.vdp.util.UpdatableViewer;
 import org.slf4j.Logger;
 import sh2.MarsLauncherHelper.Sh2LaunchContext;
 import sh2.S32xUtil.CpuDeviceAccess;
@@ -19,6 +20,7 @@ import sh2.sh2.Sh2.Sh2Config;
 import sh2.sh2.Sh2Context;
 import sh2.sh2.Sh2Helper;
 import sh2.sh2.drc.Ow2DrcOptimizer;
+import sh2.util.S32xMemView;
 import sh2.vdp.MarsVdp;
 import sh2.vdp.MarsVdp.MarsVdpRenderContext;
 import sh2.vdp.debug.DebugVideoRenderContext;
@@ -220,6 +222,10 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
             remainingNs = baseRemainingNs - System.nanoTime();
         }
         return System.nanoTime();
+    }
+
+    protected UpdatableViewer createMemView() {
+        return S32xMemView.createInstance(bus, ctx.memory, vdp.getVdpMemory());
     }
 
     @Override
