@@ -507,10 +507,7 @@ public class Ow2DrcOptimizer {
             if (blockPoller != NO_POLLER) {
                 SysEventManager.instance.setPoller(cpu, blockPoller);
             } else {
-                if (ENABLE_POLL_DETECT) {
-                    //DMA and PWM are not supported -> poller = NO_POLLER
-                    assert pollType == DMA || pollType == PWM : block + "\n" + blockPoller;
-                }
+                assert ENABLE_POLL_DETECT ? !pollType.supported : true : block + "\n" + blockPoller;
                 if (verbose)
                     LOG.info("{} ignoring {} poll at PC {}, on address: {}", cpu, pollType,
                             th(block.prefetchPc), th(blockPoller.blockPollData.memLoadTarget));

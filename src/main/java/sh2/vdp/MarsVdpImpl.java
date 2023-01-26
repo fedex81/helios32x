@@ -267,6 +267,8 @@ public class MarsVdpImpl implements MarsVdp {
         int afsarEnd = wordAddrFixed + (len & 0xFF);
 //        assert ((startAddrWord + len) & 0xFF) >= wordAddrVariable;
         do {
+            //TODO this should trigger an invalidate on framebuf mem?
+            //TODO anyone executing code from the framebuffer?
             writeBuffer(buffer, (wordAddrFixed + wordAddrVariable) << 1, dataWord, Size.WORD);
             if (verbose) LOG.info("AutoFill addr(word): {}, addr(byte): {}, len(word) {}, data(word) {}",
                     th(wordAddrFixed + wordAddrVariable), th((wordAddrFixed + wordAddrVariable) << 1), th(len), th(dataWord));
@@ -332,8 +334,9 @@ public class MarsVdpImpl implements MarsVdp {
 
     private void vdpRegChange(RegSpecS32x regSpec) {
         assert regSpec.size == Size.WORD;
-        int val = readWordFromBuffer(FBCR); //TODO avoid the read?
+        int val = readWordFromBuffer(regSpec); //TODO avoid the read?
         int addr = SH2_CACHE_THROUGH_OFFSET | START_32X_SYSREG_CACHE | regSpec.fullAddress;
+        assert getRegSpec(S32xRegCpuType.REG_MD, addr) == getRegSpec(S32xRegCpuType.REG_SH2, addr);
         Sh2Prefetch.checkPollersVdp(regSpec.deviceType, addr, val, Size.WORD);
     }
 
