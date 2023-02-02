@@ -4,6 +4,7 @@ import omegadrive.sound.PwmProvider;
 import omegadrive.util.Fifo;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
+import omegadrive.util.Util;
 import org.slf4j.Logger;
 import sh2.S32XMMREG;
 import sh2.dict.S32xDict;
@@ -109,7 +110,7 @@ public class Pwm implements StepDevice {
                 assert cpu.regSide == S32xRegSide.MD : regSpec;
                 handlePartialByteWrite(reg, value);
                 if (regSpec == PWM_CYCLE) {
-                    int val = readBuffer(sysRegsMd, regSpec.addr, Size.WORD);
+                    int val = Util.readBufferWord(sysRegsMd, regSpec.addr);
                     handlePwmCycleWord(cpu, val);
                 }
             }
@@ -118,7 +119,7 @@ public class Pwm implements StepDevice {
                 //NOTE: z80 writes MSB then LSB, we trigger a wordWrite when setting the LSB
                 handlePartialByteWrite(reg, value);
                 if ((reg & 1) == 1) {
-                    int val = readBuffer(sysRegsMd, regSpec.addr, Size.WORD);
+                    int val = Util.readBufferWord(sysRegsMd, regSpec.addr);
                     writeWord(cpu, regSpec, regSpec.addr, val);
                 }
             }
@@ -174,11 +175,11 @@ public class Pwm implements StepDevice {
             LOG.info("{} ignored write to {} {}, read only byte: val {} {}", cpu, PWM_CTRL, th(reg), th(value), size);
             return;
         }
-        int val = readBuffer(sysRegsMd, PWM_CTRL.addr, Size.WORD) & 0xFFF0;
+        int val = Util.readBufferWord(sysRegsMd, PWM_CTRL.addr) & 0xFFF0;
         val |= value & 0xF;
         writeBuffers(sysRegsMd, sysRegsSh2, reg, val, size);
 
-        value = readBuffer(sysRegsMd, PWM_CTRL.addr, Size.WORD);
+        value = readBufferWord(sysRegsMd, PWM_CTRL.addr);
         channelMap[chLeft] = chanVals[value & 3];
         channelMap[chRight] = chanVals[(value >> 2) & 3];
     }
@@ -193,7 +194,7 @@ public class Pwm implements StepDevice {
         //Primal Rage, Sh2 write bytes
         assert size != Size.LONG;
         writeBuffers(sysRegsMd, sysRegsSh2, reg, val & mask, size);
-        int value = readBuffer(sysRegsMd, PWM_CTRL.addr, Size.WORD);
+        int value = readBufferWord(sysRegsMd, PWM_CTRL.addr);
         dreqEn = ((value >> 7) & 1) > 0;
         int ival = (value >> 8) & 0xF;
         interruptInterval = ival == 0 ? 0x10 : ival;

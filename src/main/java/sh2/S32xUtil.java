@@ -7,7 +7,10 @@ import omegadrive.util.Size;
 import org.slf4j.Logger;
 import sh2.dict.S32xDict;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -104,50 +107,58 @@ public class S32xUtil {
         writeBuffer(b, r.addr, value & r.writeMask, size);
     }
 
+    public static final VarHandle INT_BYTEBUF_HANDLE = MethodHandles.byteBufferViewVarHandle(int[].class, ByteOrder.BIG_ENDIAN);
+    public static final VarHandle SHORT_BYTEBUF_HANDLE = MethodHandles.byteBufferViewVarHandle(short[].class, ByteOrder.BIG_ENDIAN);
+
     public static boolean writeBuffer(ByteBuffer b, int pos, int value, Size size) {
         boolean changed = false;
-        switch (size) {
-            case BYTE:
-                if (b.get(pos) != value) {
-                    b.put(pos, (byte) value);
-                    changed = true;
-                }
-                break;
-            case WORD:
-                assert (pos & 1) == 0 : size + "," + th(pos);
-                if (b.getShort(pos) != value) {
-                    b.putShort(pos, (short) value);
-                    changed = true;
-                }
-                break;
-            case LONG:
-                assert (pos & 1) == 0 : size + "," + th(pos);
-                if (b.getInt(pos) != value) {
-                    b.putInt(pos, value);
-                    changed = true;
-                }
-                break;
-            default:
-                System.err.println("Unsupported size: " + size);
-                break;
+        if (size == Size.WORD) {
+            if ((short) SHORT_BYTEBUF_HANDLE.get(b, pos) != value) {
+                SHORT_BYTEBUF_HANDLE.set(b, pos, (short) value);
+                changed = true;
+            }
+        } else if (size == Size.LONG) {
+            if ((int) INT_BYTEBUF_HANDLE.get(b, pos) != value) {
+                INT_BYTEBUF_HANDLE.set(b, pos, value);
+                changed = true;
+            }
+        } else if (size == Size.BYTE) {
+            if (b.get(pos) != value) {
+                b.put(pos, (byte) value);
+                changed = true;
+            }
         }
         return changed;
     }
 
     public static int readBuffer(ByteBuffer b, int pos, Size size) {
         switch (size) {
-            case BYTE:
-                return b.get(pos) & 0xFF;
             case WORD:
                 assert (pos & 1) == 0;
-                return b.getShort(pos) & 0xFFFF;
+                return (int) SHORT_BYTEBUF_HANDLE.get(b, pos);
             case LONG:
                 assert (pos & 1) == 0;
-                return b.getInt(pos);
+                return (int) INT_BYTEBUF_HANDLE.get(b, pos);
+            case BYTE:
+                return b.get(pos);
             default:
                 System.err.println("Unsupported size: " + size);
                 return 0xFF;
         }
+    }
+
+    public static int readBufferByte(ByteBuffer b, int pos) {
+        return b.get(pos);
+    }
+
+    public static int readBufferWord(ByteBuffer b, int pos) {
+        assert (pos & 1) == 0;
+        return (int) SHORT_BYTEBUF_HANDLE.get(b, pos);
+    }
+
+    public static int readBufferLong(ByteBuffer b, int pos) {
+        assert (pos & 1) == 0;
+        return (int) INT_BYTEBUF_HANDLE.get(b, pos);
     }
 
     public static void setBit(ByteBuffer b1, ByteBuffer b2, int pos, int bitPos, int bitValue, Size size) {

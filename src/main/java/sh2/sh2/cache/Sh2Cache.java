@@ -57,7 +57,7 @@ public interface Sh2Cache {
     class Sh2CacheLine {
         public int tag; //u32
         public int v;
-        public int[] data = new int[CACHE_BYTES_PER_LINE]; //u8
+        public byte[] data = new byte[CACHE_BYTES_PER_LINE]; //u8
     }
 
     class Sh2CacheEntry {

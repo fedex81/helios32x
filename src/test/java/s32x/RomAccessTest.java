@@ -8,7 +8,6 @@ import sh2.MarsLauncherHelper;
 import sh2.S32xUtil;
 
 import static omegadrive.util.Util.th;
-import static omegadrive.util.Util.toUnsignedIntArray;
 import static s32x.MarsRegTestUtil.readBus;
 import static s32x.MarsRegTestUtil.setRv;
 import static sh2.S32xUtil.CpuDeviceAccess.*;
@@ -27,7 +26,7 @@ public class RomAccessTest {
     public void before() {
         byte[] rom = new byte[0x1000];
         MarsRegTestUtil.fillAsMdRom(rom, true);
-        lc = MarsRegTestUtil.createTestInstance(toUnsignedIntArray(rom));
+        lc = MarsRegTestUtil.createTestInstance(rom);
         lc.s32XMMREG.aden = 1;
     }
 

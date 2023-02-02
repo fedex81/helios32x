@@ -121,7 +121,7 @@ public class DivUnit implements Sh2Device {
     private void handleOverflow(long quot, boolean divBy0, String msg) {
         if (verbose) LOG.info(msg);
         setBit(regs, DIV_DVCR.addr, DIV_OVERFLOW_BIT, 1, Size.LONG);
-        int dvcr = readBuffer(regs, DIV_DVCR.addr, Size.WORD);
+        int dvcr = readBufferWord(regs, DIV_DVCR.addr);
         int val = quot >= 0 ? Integer.MAX_VALUE : Integer.MIN_VALUE;
         writeBuffersLong(regs, DIV_DVDNT, DIV_DVDNTL, DIV_DVDNTUL, val);
         addCpuDelay(DIV_OVF_CYCLES);

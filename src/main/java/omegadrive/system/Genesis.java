@@ -233,7 +233,7 @@ public class Genesis extends BaseSystem<GenesisBusProvider> {
     }
 
     protected UpdatableViewer createMemView() {
-        return MemView.createInstance(bus, null, vdp.getVdpMemory());
+        return MemView.createInstance(bus, vdp.getVdpMemory());
     }
 
     /**

@@ -147,14 +147,15 @@ public class J2CoreTest {
             @Override
             public int read(int address, Size size) {
                 long laddr = address & 0xFFFF_FFFFL;
+                int res = size.getMask();
                 if (laddr < romSize) {
-                    return readBuffer(rom, (int) laddr, size);
+                    res = readBuffer(rom, (int) laddr, size);
                 } else if (laddr < ramSize) {
-                    return readBuffer(ram, (int) laddr, size);
+                    res = readBuffer(ram, (int) laddr, size);
                 } else {
                     System.out.println("read32: " + th(address));
                 }
-                return (int) size.getMask();
+                return res & size.getMask();
             }
 
             @Override

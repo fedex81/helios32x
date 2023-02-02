@@ -238,7 +238,7 @@ public class DmaC implements Sh2Device {
     }
 
     private int readVcrDma(int channel) {
-        return readBuffer(regs, (DMA_VRCDMA0.addr + (channel << 3)) & Sh2MMREG.SH2_REG_MASK, Size.LONG) & 0xFF;
+        return readBufferLong(regs, (DMA_VRCDMA0.addr + (channel << 3)) & Sh2MMREG.SH2_REG_MASK) & 0xFF;
     }
 
     //channel1 = +0x10

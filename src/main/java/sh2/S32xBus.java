@@ -65,7 +65,7 @@ public class S32xBus extends GenesisBus {
         } else {
             res = readAdapterEnOff(address & PC_MASK, size);
         }
-        return (res & size.getMask());
+        return res & size.getMask();
     }
 
     @Override

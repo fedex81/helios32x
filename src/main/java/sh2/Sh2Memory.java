@@ -144,7 +144,7 @@ public final class Sh2Memory implements IMemory {
 				if (true) throw new RuntimeException();
 				break;
 		}
-		return (int) (res & size.getMask());
+		return res & size.getMask();
 	}
 
 	@Override

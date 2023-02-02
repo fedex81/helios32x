@@ -284,7 +284,7 @@ public class MarsVdpImpl implements MarsVdp {
 
     private void setPen(int pen) {
         this.pen = pen;
-        int val = (pen << 5) | (readBuffer(vdpRegs, FBCR.addr, Size.BYTE) & 0xDF);
+        int val = (pen << 5) | (readBufferByte(vdpRegs, FBCR.addr) & 0xDF);
         writeBuffer(vdpRegs, FBCR.addr, val, Size.BYTE);
     }
 

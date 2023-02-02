@@ -70,7 +70,7 @@ public class SerialCommInterface implements Sh2Device {
             LOG.error("{} SCI read {}: {}", cpu, regSpec.name, size);
         }
         assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
-        int res = readBuffer(regs, regSpec.addr, Size.BYTE);
+        int res = readBufferByte(regs, regSpec.addr);
         if (verbose) LOG.info("{} SCI read {}: {} {}", cpu, regSpec.name,
                 Integer.toHexString(res), size);
         return res;
@@ -148,8 +148,8 @@ public class SerialCommInterface implements Sh2Device {
     @Override
     public void step(int cycles) {
         if (txEn && tdre == 0) {
-            int data = readBuffer(regs, SCI_TDR.addr, Size.BYTE);
-            int scr = readBuffer(regs, SCI_SCR.addr, Size.BYTE);
+            int data = readBufferByte(regs, SCI_TDR.addr);
+            int scr = readBufferByte(regs, SCI_SCR.addr);
             setTdre(1);
             setBit(regs, SCI_SSR.addr, SCI_SSR_TEND_BIT_POS, 1, Size.BYTE);
             sendData(data);
@@ -162,7 +162,7 @@ public class SerialCommInterface implements Sh2Device {
             if (verbose) LOG.info("{} receiving data: {}", cpu, th(sciData.dataInTransit));
             writeBuffer(regs, SCI_RDR.addr, sciData.dataInTransit, Size.BYTE);
             setRdrf(1);
-            int scr = readBuffer(regs, SCI_SCR.addr, Size.BYTE);
+            int scr = readBufferByte(regs, SCI_SCR.addr);
             sciData.isDataInTransit = false;
             if ((scr & 0x40) > 0) { //RIE
                 intControl.setOnChipDeviceIntPending(SCI, RXI);

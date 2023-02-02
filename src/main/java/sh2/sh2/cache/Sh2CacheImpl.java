@@ -100,7 +100,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                     for (int i = 0; i < 4; i++) {
                         Sh2CacheLine line = ca.way[i][entry];
                         if ((line.v > 0) && (line.tag == tagaddr)) {
-                            return getCachedData(line.data, addr & LINE_MASK, size);
+                            return getCachedData(line.data, addr & LINE_MASK, size) & 0xFFFF;
                         }
                     }
                 }
@@ -391,7 +391,7 @@ public class Sh2CacheImpl implements Sh2Cache {
         throw new RuntimeException();
     }
 
-    private void refillCache(int[] data, int addr) {
+    private void refillCache(byte[] data, int addr) {
         Md32xRuntimeData.addCpuDelayExt(4);
         assert cpu == Md32xRuntimeData.getAccessTypeExt();
         for (int i = 0; i < CACHE_BYTES_PER_LINE; i += 4) {
@@ -430,11 +430,11 @@ public class Sh2CacheImpl implements Sh2Cache {
         return ctx;
     }
 
-    private void setCachedData(final int[] data, int addr, int val, Size size) {
+    private void setCachedData(final byte[] data, int addr, int val, Size size) {
         Util.writeDataMask(data, size, addr, val, CACHE_BYTES_PER_LINE_MASK);
     }
 
-    private static int getCachedData(final int[] data, int addr, Size size) {
+    private static int getCachedData(final byte[] data, int addr, Size size) {
         return Util.readDataMask(data, size, addr, CACHE_BYTES_PER_LINE_MASK);
     }
 }

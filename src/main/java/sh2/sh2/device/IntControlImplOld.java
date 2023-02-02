@@ -127,7 +127,7 @@ public class IntControlImplOld implements IntControl {
 
     @Override
     public void reloadSh2IntMask() {
-        int newVal = readBuffer(sh2_int_mask, SH2_INT_MASK.addr, Size.WORD);
+        int newVal = readBufferWord(sh2_int_mask, SH2_INT_MASK.addr);
         setIntsMasked(newVal & 0xF);
     }
 
@@ -249,21 +249,21 @@ public class IntControlImplOld implements IntControl {
         //TODO the vector number should be coming from the device itself
         switch (deviceType) {
             case DMA:
-                vn = readBuffer(regs, INTC_VCRDMA0.addr + (additionalIntData << 3), Size.LONG) & 0x7F;
+                vn = readBufferLong(regs, INTC_VCRDMA0.addr + (additionalIntData << 3)) & 0x7F;
                 break;
             case WDT:
-                vn = readBuffer(regs, INTC_VCRWDT.addr, Size.BYTE) & 0x7F;
+                vn = readBufferByte(regs, INTC_VCRWDT.addr) & 0x7F;
                 break;
             case DIV:
-                vn = readBuffer(regs, INTC_VCRDIV.addr, Size.BYTE) & 0x7F;
+                vn = readBufferByte(regs, INTC_VCRDIV.addr) & 0x7F;
                 break;
             case SCI:
                 //RIE vs TIE
                 int pos = additionalIntData == 1 ? INTC_VCRA.addr + 1 : INTC_VCRB.addr;
-                vn = readBuffer(regs, pos, Size.BYTE) & 0x7F;
+                vn = readBufferByte(regs, pos) & 0x7F;
                 break;
             case FRT:
-                vn = readBuffer(regs, INTC_VCRD.addr, Size.BYTE) & 0x7F; //TODO
+                vn = readBufferByte(regs, INTC_VCRD.addr) & 0x7F; //TODO
                 break;
             case NONE:
                 break;

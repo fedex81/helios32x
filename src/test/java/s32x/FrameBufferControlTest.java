@@ -198,19 +198,19 @@ public class FrameBufferControlTest {
         boolean vb = ((startVal >> 1) & 1) > 0;
         s32XMMREG.setVBlank(vb);
         s32XMMREG.setHBlank(hb);
-        int res = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD);
+        int res = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD) & 0xFFFF;
         Assertions.assertEquals(startVal, res >>> 14);
         for (int i = 0; i < combinations; i++) {
             s32XMMREG.write(MarsRegTestUtil.SH2_FBCR_OFFSET, i << 14, Size.WORD);
             assertVBlank(vb);
             assertHBlank(s32XMMREG, hb);
-            res = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD);
+            res = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD) & 0xFFFF;
             Assertions.assertEquals(startVal, res >>> 14);
 
             s32XMMREG.write(MarsRegTestUtil.SH2_FBCR_OFFSET, i << 6, Size.BYTE);
             assertVBlank(vb);
             assertHBlank(s32XMMREG, hb);
-            res = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD);
+            res = s32XMMREG.read(MarsRegTestUtil.SH2_FBCR_OFFSET, Size.WORD) & 0xFFFF;
             Assertions.assertEquals(startVal, res >>> 14);
         }
     }

@@ -2,7 +2,6 @@ package sh2;
 
 import omegadrive.util.LogHelper;
 import omegadrive.util.RomHolder;
-import omegadrive.util.Util;
 import org.slf4j.Logger;
 import sh2.pwm.Pwm;
 import sh2.sh2.Sh2;
@@ -88,7 +87,7 @@ public class MarsLauncherHelper {
         ctx.slaveCtx = new Sh2Context(SLAVE, slaveDebug);
         ctx.biosHolder = biosHolder;
         ctx.bus = bus;
-        ctx.rom = ByteBuffer.wrap(Util.unsignedToByteArray(romHolder.data));
+        ctx.rom = ByteBuffer.wrap(romHolder.data);
         ctx.s32XMMREG = new S32XMMREG();
         ctx.dmaFifo68k = new DmaFifo68k(ctx.s32XMMREG.regContext);
         Sh2Prefetch.Sh2DrcContext mDrcCtx = new Sh2Prefetch.Sh2DrcContext();

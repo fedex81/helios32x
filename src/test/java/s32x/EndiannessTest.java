@@ -64,11 +64,11 @@ public class EndiannessTest {
 
         actW = S32xUtil.readBuffer(b, 0, Size.WORD);
         valW = (valL >> 16) & 0xFFFF;
-        Assertions.assertEquals(valW, actW);
+        Assertions.assertEquals((short) valW, (short) actW);
 
         actW = S32xUtil.readBuffer(b, 2, Size.WORD);
         valW = valL & 0xFFFF;
-        Assertions.assertEquals(valW, actW);
+        Assertions.assertEquals((short) valW, (short) actW);
 
         actB = (byte) S32xUtil.readBuffer(b, 0, Size.BYTE);
         byte expB = (byte) ((valL >> 24) & 0xFF);
@@ -124,7 +124,7 @@ public class EndiannessTest {
 
         actW = S32xUtil.readBuffer(b, 0, Size.WORD);
         valW = (valB << 8) & 0xFFFF;
-        Assertions.assertEquals(valW, actW);
+        Assertions.assertEquals((short) valW, (short) actW);
 
         actL = S32xUtil.readBuffer(b, 0, Size.LONG);
         valL = valB << 24;
@@ -196,7 +196,7 @@ public class EndiannessTest {
         valW = -0x3344;
         S32xUtil.writeBuffer(b, 0, valW, Size.WORD);
         actW = S32xUtil.readBuffer(b, 0, Size.WORD);
-        Assertions.assertEquals(valW & 0xFFFF, actW);
+        Assertions.assertEquals((short) valW, (short) actW);
 
         actB = (byte) S32xUtil.readBuffer(b, 0, Size.BYTE);
         Assertions.assertEquals((valW & 0xFFFF) >> 8, actB & 0xFF);

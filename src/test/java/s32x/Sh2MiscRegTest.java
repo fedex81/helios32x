@@ -110,6 +110,6 @@ public class Sh2MiscRegTest {
 
     private int readLowWord(Sh2MMREG s, Sh2Dict.RegSpec r) {
         assert r.size == Size.LONG;
-        return s.read(r.addr + 2, Size.WORD);
+        return s.read(r.addr + 2, Size.WORD) & 0xFFFF;
     }
 }

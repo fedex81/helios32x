@@ -27,6 +27,7 @@ import sh2.sh2.drc.Sh2Block;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import static omegadrive.util.Util.readBufferWord;
 import static omegadrive.util.Util.th;
 import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
 import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
@@ -166,7 +167,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         int bytePos = blockStart;
         int currentPc = pc;
         do {
-            int val = isCache ? sh2Cache.readDirect(currentPc, Size.WORD) : fetchBuffer.getShort(bytePos) & 0xFFFF;
+            int val = isCache ? sh2Cache.readDirect(currentPc, Size.WORD) : readBufferWord(fetchBuffer, bytePos) & 0xFFFF;
             final Sh2Instructions.Sh2BaseInstruction inst = op[val].inst;
             opcodeWords[wordsCount++] = val;
             if (inst.isIllegal) {
@@ -176,7 +177,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
             if (inst.isBranch) {
                 if (inst.isBranchDelaySlot) {
                     int nextVal = isCache ? sh2Cache.readDirect(currentPc + 2, Size.WORD) :
-                            block.fetchBuffer.getShort(bytePos + 2) & 0xFFFF;
+                            readBufferWord(fetchBuffer, bytePos + 2) & 0xFFFF;
                     opcodeWords[wordsCount++] = nextVal;
                     assert Arrays.binarySearch(Sh2Instructions.illegalSlotOpcodes,
                             Sh2Instructions.instOpcodeMap[nextVal].inst) < 0;
@@ -500,7 +501,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         if (isCache && cache[cpu.ordinal()].getCacheContext().cacheEn > 0) {
             //NOTE necessary to trigger the cache hit on fetch
             int cached = cache[cpu.ordinal()].cacheMemoryRead(pc, Size.WORD);
-            assert cached == expOpcode : th(pc) + "," + th(expOpcode) + "," + th(cached);
+            assert (cached & 0xFFFF) == expOpcode : th(pc) + "," + th(expOpcode) + "," + th(cached);
         }
     }
 

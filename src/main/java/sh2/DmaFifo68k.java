@@ -95,7 +95,7 @@ public class DmaFifo68k {
         assert size != Size.LONG;
         boolean changed = writeBufferHasChangedWithMask(MD_DMAC_CTRL, sysRegsMd, reg, value, size);
         if (changed) {
-            int res = readBuffer(sysRegsMd, MD_DMAC_CTRL.addr, Size.WORD);
+            int res = readBufferWord(sysRegsMd, MD_DMAC_CTRL.addr);
             boolean wasDmaOn = m68S;
             m68S = (res & 4) > 0;
             rv = (res & 1) > 0;

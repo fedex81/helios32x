@@ -281,7 +281,7 @@ public class S32XMMREG implements Device {
     private boolean handleIntControlWriteMd(int reg, int value, Size size) {
         boolean changed = writeBufferHasChangedWithMask(MD_INT_CTRL, sysRegsMd, reg, value, size);
         if (changed) {
-            int newVal = readBuffer(sysRegsMd, MD_INT_CTRL.addr, Size.WORD) & MD_INT_CTRL.writeAndMask;
+            int newVal = readBufferWord(sysRegsMd, MD_INT_CTRL.addr) & MD_INT_CTRL.writeAndMask;
             boolean intm = (newVal & 1) > 0;
             boolean ints = (newVal & 2) > 0;
             interruptControls[0].setIntPending(CMD_8, intm);

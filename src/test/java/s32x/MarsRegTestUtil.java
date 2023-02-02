@@ -64,7 +64,7 @@ public class MarsRegTestUtil {
     /**
      * NOTE: any array modification after this point, will be ignored by the emulated system
      */
-    public static Sh2LaunchContext createTestInstance(int[] irom) {
+    public static Sh2LaunchContext createTestInstance(byte[] irom) {
         Md32xRuntimeData.releaseInstance();
         Md32xRuntimeData.newInstance();
         RomHolder romHolder = new RomHolder(irom);
@@ -77,7 +77,7 @@ public class MarsRegTestUtil {
     }
 
     public static Sh2LaunchContext createTestInstance(int romSize) {
-        return createTestInstance(new int[romSize]);
+        return createTestInstance(new byte[romSize]);
     }
 
     private static BiosHolder createTestBiosHolder() {
@@ -126,12 +126,12 @@ public class MarsRegTestUtil {
     }
 
     public static void assertVBlank(S32XMMREG s32XMMREG, boolean on) {
-        int res = s32XMMREG.read(SH2_FBCR_OFFSET, Size.WORD);
-        Assertions.assertEquals(on ? 1 : 0, res >> 15);
+        int res = s32XMMREG.read(SH2_FBCR_OFFSET, Size.WORD) & 0xFFFF;
+        Assertions.assertEquals(on ? 1 : 0, res >>> 15);
     }
 
     public static void assertHBlank(S32XMMREG s32XMMREG, boolean on) {
-        int res = s32XMMREG.read(SH2_FBCR_OFFSET, Size.WORD);
+        int res = s32XMMREG.read(SH2_FBCR_OFFSET, Size.WORD) & 0xFFFF;
         Assertions.assertEquals(on ? 1 : 0, (res >> 14) & 1);
     }
 

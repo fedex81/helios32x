@@ -197,7 +197,7 @@ public class Sh2MMREG {
             v >>>= 8;
         }
         assert pos == r.addr : th(pos) + ", " + th(r.addr);
-        int prev = readBuffer(regs, r.addr, Size.BYTE);
+        int prev = readBufferByte(regs, r.addr);
         if (prev != v) {
             Sh2Cache.CacheContext ctx = cache.updateState(v);
             //purge always reverts to 0
