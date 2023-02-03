@@ -49,7 +49,7 @@ public interface IMemory extends Sh2Prefetcher, ReadableByteMemory {
     }
 
     default int fetchDelaySlot(int pc, Sh2.FetchResult ft, CpuDeviceAccess cpu) {
-        return read16(pc);
+        return read16(pc) & 0xFFFF;
     }
 
     default void write8(int addr, byte val) {

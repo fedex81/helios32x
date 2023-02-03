@@ -101,7 +101,8 @@ public class DmaFifo68k {
             rv = (res & 1) > 0;
             //sync sh2 reg
             writeBuffer(sysRegsSh2, SH2_DREQ_CTRL.addr + 1, res & 7, Size.BYTE);
-            //TODO bit 1 is unused? picodrive calls it DMA
+            //NOTE bit 1 is called DMA, only relevant when using SEGA CD (see picodrive)
+            assert (res & 2) == 0;
             if (verbose)
                 LOG.info("{} write DREQ_CTL, dmaOn: {} , RV: {}", Md32xRuntimeData.getAccessTypeExt(), m68S, rv);
             if (wasDmaOn && !m68S) {

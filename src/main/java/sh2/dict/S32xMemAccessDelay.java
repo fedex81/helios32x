@@ -9,7 +9,6 @@ import static sh2.S32xUtil.CpuDeviceAccess.*;
  * <p>
  * Copyright 2021
  * <p>
- * TODO z80 delays? Blackthorne z80 writes to s32x sysRegs
  */
 public class S32xMemAccessDelay {
 
@@ -64,6 +63,12 @@ public class S32xMemAccessDelay {
                 readDelays[MASTER.ordinal()].length);
         System.arraycopy(writeDelays[MASTER.ordinal()], 0, writeDelays[SLAVE.ordinal()], 0,
                 writeDelays[MASTER.ordinal()].length);
+        //Z80 uses M68k delays/2, for lack of a better idea
+        //Blackthorne z80 writes to s32x sysRegs
+        for (int i = 0; i < readDelays[0].length; i++) {
+            readDelays[Z80.ordinal()][i] = readDelays[M68K.ordinal()][i] >> 1;
+            writeDelays[Z80.ordinal()][i] = writeDelays[M68K.ordinal()][i] >> 1;
+        }
     }
 
     public static void addReadCpuDelay(int deviceType) {

@@ -245,8 +245,9 @@ public class S32xBus extends GenesisBus {
     private int readHIntVector(int address, Size size) {
         int res = writeableHintRom.getInt(0);
         if (res != -1) {
-            if (verboseMd) LOG.info("HINT vector read, address: {}, size: {}", Long.toHexString(address), size);
             res = readBuffer(writeableHintRom, address & 3, size);
+            if (verboseMd) LOG.info("HINT vector read, rv {}, address: {}, {} {}", DmaFifo68k.rv,
+                    th(address), th(res), size);
         } else {
             res = bios68k.readBuffer(address, size);
         }

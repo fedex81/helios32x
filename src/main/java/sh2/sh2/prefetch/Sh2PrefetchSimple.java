@@ -104,8 +104,8 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
         switch (pc >> SH2_PC_AREA_SHIFT) {
             case 6:
             case 0x26:
-                pctx.start = Math.max(0, pctx.start) & SH2_SDRAM_MASK;
-                pctx.end = Math.min(SH2_SDRAM_SIZE - 1, pctx.end) & SH2_SDRAM_MASK;
+                pctx.start = Math.max(0, pctx.start & SH2_SDRAM_MASK);
+                pctx.end = Math.min(SH2_SDRAM_SIZE - 1, pctx.end & SH2_SDRAM_MASK);
                 pctx.pcMasked = pc & SH2_SDRAM_MASK;
                 pctx.memAccessDelay = SDRAM;
                 pctx.buf = sdram;
@@ -218,7 +218,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
     public int fetchDelaySlot(int pc, Sh2.FetchResult ft, CpuDeviceAccess cpu) {
         if (!sh2Config.prefetchEn) {
             assert cpu == Md32xRuntimeData.getAccessTypeExt();
-            return memory.read(pc, Size.WORD);
+            return memory.read(pc, Size.WORD) & 0xFFFF;
         }
         final PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
         int pcDeltaWords = (pc - pctx.prefetchPc) >> 1;
@@ -228,7 +228,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
             S32xMemAccessDelay.addReadCpuDelay(pctx.memAccessDelay);
             res = pctx.prefetchWords[pcDeltaWords];
         } else {
-            res = memory.read(pc, Size.WORD);
+            res = memory.read(pc, Size.WORD) & 0xFFFF;
 //			if ((pfMiss++ & 0x7F_FFFF) == 0) {
 //				LOG.info("pfTot: {}, pfMiss%: {}", pfTotal, 1.0 * pfMiss / pfTotal);
 //			}
@@ -262,8 +262,6 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
             }
         }
     }
-
-    //TODO fix
     public void invalidateAllPrefetch(CpuDeviceAccess cpu) {
         prefetchContexts[cpu.ordinal()].dirty = true;
     }
