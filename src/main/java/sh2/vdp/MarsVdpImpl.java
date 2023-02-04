@@ -214,6 +214,9 @@ public class MarsVdpImpl implements MarsVdp {
         newVal = (newVal & 0xC3) | (pal * P32XV_PAL) | (v240 * P32XV_240);
         writeBufferWord(VDP_BITMAP_MODE, newVal);
         vdpContext.bitmapMode = BitmapMode.vals[newVal & 3];
+        if (BitmapMode.vals[val & 3] != vdpContext.bitmapMode) {
+            if (verbose) LOG.info("Mode {}->{}", BitmapMode.vals[val & 3], vdpContext.bitmapMode);
+        }
         int prio = (newVal >> 7) & 1;
         if (prevPrio != prio) {
             vdpContext.priority = prio == 0 ? MD : S32X;
@@ -376,7 +379,7 @@ public class MarsVdpImpl implements MarsVdp {
 
     private void writeFrameBufferByte(int address, int value) {
         if (value != 0) {
-            writeBuffer(dramBanks[vdpContext.frameBufferWritable], address & DRAM_MASK, value, Size.BYTE);
+            dramBanks[vdpContext.frameBufferWritable].put(address & DRAM_MASK, (byte) value);
         }
     }
 
@@ -395,7 +398,7 @@ public class MarsVdpImpl implements MarsVdp {
         if (wasBlankScreen) {
             return;
         }
-        Arrays.fill(buffer, 0, buffer.length, 0);
+        Arrays.fill(buffer, 0, buffer.length, vdpContext.priority.ordinal());
         wasBlankScreen = true;
     }
 
@@ -442,14 +445,14 @@ public class MarsVdpImpl implements MarsVdp {
             final int basePos = row * w;
             final int linePos = lineTableWords[row];
             int nextWord = linePos;
-            if (basePos >= fbDataWords.length) {
+            if (basePos >= imgData.length) {
                 break;
             }
             do {
                 int rl = fbDataWords[nextWord++];
                 int dotColorIdx = rl & 0xFF;
-                int dotLen = ((rl & 0xFF00) >> 8) + 1;
-                int nextLimit = col + dotLen;
+                int dotLen = ((rl >> 8) & 0xFF) + 1;
+                int nextLimit = Math.min(col + dotLen, imgData.length - basePos);
                 int color = getColorWithPriority(dotColorIdx);
                 for (; col < nextLimit; col++) {
                     imgData[basePos + col] = color;
