@@ -90,6 +90,13 @@ public class VdpMarsRenderCompareFileTest extends VdpRenderCompareTest {
     protected boolean testCompareOne(Path datFile) {
         DebugMarsVdpRenderContext d = toMarsContext(datFile);
         System.out.println(datFile.getFileName().toString() + ": " + d.renderContext.vdpContext);
+        String fileName = Files.getNameWithoutExtension(datFile.getFileName().toString());
+        BufferedImage actual = renderToImage(datFile);
+        return testCompareOne(fileName + "_" + S32xRenderType.S32X, actual);
+    }
+
+    protected BufferedImage renderToImage(Path datFile) {
+        DebugMarsVdpRenderContext d = toMarsContext(datFile);
         VideoMode vm = d.renderContext.vdpContext.videoMode;
         MarsVdp.MarsVdpContext vdpContext = d.renderContext.vdpContext;
         MarsVdp vdp = MarsVdpImpl.createInstance(vdpContext, ShortBuffer.wrap(d.frameBuffer0),
@@ -98,8 +105,7 @@ public class VdpMarsRenderCompareFileTest extends VdpRenderCompareTest {
         vdp.draw(vdpContext);
         Image i = TestRenderUtil.saveRenderToImage(vdp.getMarsVdpRenderContext().screen, vm);
         String fileName = Files.getNameWithoutExtension(datFile.getFileName().toString());
-        BufferedImage actual = convertToBufferedImage(i);
-        return testCompareOne(fileName + "_" + S32xRenderType.S32X, actual);
+        return convertToBufferedImage(i);
     }
 
     private DebugMarsVdpRenderContext toMarsContext(Path datFile) {
@@ -111,8 +117,7 @@ public class VdpMarsRenderCompareFileTest extends VdpRenderCompareTest {
 
     @Override
     protected void testOverwriteBaselineImage(Path datFile) {
-        DebugMarsVdpRenderContext mvrc = toMarsContext(datFile);
-        Image i = saveRenderToImage(mvrc.renderContext.screen, mvrc.renderContext.vdpContext.videoMode);
+        Image i = renderToImage(datFile);
         String fileName = Files.getNameWithoutExtension(datFile.getFileName().toString());
         saveToFile(compareFolder, fileName, S32xRenderType.S32X, IMG_EXT, i);
     }

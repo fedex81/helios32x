@@ -403,18 +403,24 @@ public class MarsVdpImpl implements MarsVdp {
     //space harrier intro screen
     private void drawDirectColor(MarsVdpContext context) {
         final int w = context.videoMode.getDimension().width;
+        final int h = context.videoMode.getDimension().height;
         final ShortBuffer b = frameBuffersWord[context.frameBufferDisplay];
         final int[] imgData = buffer;
         populateLineTable(b);
         b.position(0);
         b.get(fbDataWords);
         final short[] fb = fbDataWords;
-//        final int centerDcHalfShift = w * ((256 - context.videoMode.getDimension().height) >> 1);
 
-        for (int row = 0; row < DIRECT_COLOR_LINES; row++) {
+        for (int row = 0; row < h; row++) {
             final int linePos = lineTableWords[row] + context.screenShift;
             final int fbBasePos = row * w;
             for (int col = 0; col < w; col++) {
+                if (assertionsEnabled) {
+                    if (fbBasePos + col >= imgData.length) {
+                        LOG.warn("row: {}, base: {}, col: {}", row, th(fbBasePos), th(col));
+                        continue;
+                    }
+                }
                 imgData[fbBasePos + col] = getDirectColorWithPriority(fb[linePos + col] & 0xFFFF);
             }
         }
