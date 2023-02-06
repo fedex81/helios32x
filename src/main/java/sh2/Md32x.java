@@ -9,6 +9,7 @@ import omegadrive.system.SystemProvider;
 import omegadrive.ui.DisplayWindow;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Sleeper;
+import omegadrive.util.VideoMode;
 import omegadrive.vdp.md.GenesisVdp;
 import omegadrive.vdp.util.UpdatableViewer;
 import org.slf4j.Logger;
@@ -168,17 +169,17 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     }
 
     @Override
-    protected void doRendering(int[] data, Optional<String> stats) {
+    protected void doRendering(VideoMode mdVideoMode, int[] data, Optional<String> stats) {
         MarsVdpRenderContext ctx = marsVdp.getMarsVdpRenderContext();
         boolean dumpComposite = false, dumpMars = false;
         if (dumpComposite) {
-            DebugVideoRenderContext.dumpCompositeData(ctx, data);
+            DebugVideoRenderContext.dumpCompositeData(ctx, data, mdVideoMode);
         }
         if (dumpMars) {
             marsVdp.dumpMarsData();
         }
-        int[] fg = marsVdp.doCompositeRendering(data, ctx);
-        super.doRendering(fg, stats);
+        int[] fg = marsVdp.doCompositeRendering(mdVideoMode, data, ctx);
+        super.doRendering(ctx.vdpContext.videoMode, fg, stats);
     }
 
     @Override

@@ -4,6 +4,7 @@ import com.google.common.math.IntMath;
 import omegadrive.Device;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
+import omegadrive.util.VideoMode;
 import org.slf4j.Logger;
 import sh2.dict.S32xDict;
 
@@ -15,6 +16,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static omegadrive.util.Util.th;
+import static omegadrive.vdp.model.BaseVdpProvider.H40;
 import static sh2.dict.S32xDict.S32xRegType.VDP;
 import static sh2.dict.Sh2Dict.RegSpec;
 
@@ -276,6 +278,26 @@ public class S32xUtil {
         }
         assert IntMath.isPowerOfTwo(value + 1) :
                 name + " should be a (powerOf2 - 1), ie. 0xFF, actual: " + th(value - 1);
+    }
+
+    //duplicate every 4th pixel, 5*256/4 = 320
+    public static void vidH32StretchToH40(VideoMode srcv, int[] src, int[] dest) {
+        assert dest.length > src.length;
+        assert srcv.getDimension().height * srcv.getDimension().width == src.length;
+        assert srcv.getDimension().height * H40 == dest.length;
+        int k = 0;
+        final int h = srcv.getDimension().height;
+        final int w = srcv.getDimension().width;
+        for (int i = 0; i < h; i++) {
+            int base = i * w;
+            for (int j = 0; j < w; j += 4) {
+                dest[k++] = src[base + j];
+                dest[k++] = src[base + j + 1];
+                dest[k++] = src[base + j + 2];
+                dest[k++] = src[base + j + 3];
+                dest[k++] = src[base + j + 3];
+            }
+        }
     }
 
     public static int hashCode(int a[], int len) {

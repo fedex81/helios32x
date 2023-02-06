@@ -34,7 +34,6 @@ import static sh2.vdp.MarsVdp.VdpPriority.S32X;
  * <p>
  * Copyright 2021
  * <p>
- * TODO H32 is broken, S32x should keep drawing as H40, while the md layer's H32 should be stretched to H40
  */
 public class MarsVdpImpl implements MarsVdp {
 
@@ -488,17 +487,26 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     @Override
-    public int[] doCompositeRendering(int[] mdData, MarsVdpRenderContext ctx) {
-        int[] out = doCompositeRenderingExt(mdData, ctx);
+    public int[] doCompositeRendering(VideoMode mdVideoMode, int[] mdData, MarsVdpRenderContext ctx) {
+        int[] out = doCompositeRenderingExt(mdVideoMode, mdData, ctx);
         view.updateFinalImage(out);
         return out;
     }
 
-    public static int[] doCompositeRenderingExt(int[] mdData, MarsVdpRenderContext ctx) {
-        int mdDataLen = mdData.length;
+    private static int[] mdStretchH40 = new int[0];
+
+    public static int[] doCompositeRenderingExt(VideoMode mdVideoMode, int[] mdData, MarsVdpRenderContext ctx) {
         final int[] marsData = Optional.ofNullable(ctx.screen).orElse(EMPTY_INT_ARRAY);
         int[] out = mdData;
-        if (mdDataLen == marsData.length) {
+        boolean md_h32 = ctx.vdpContext.videoMode.isH40() && mdVideoMode.isH32();
+        if (md_h32) {
+            if (mdStretchH40.length != marsData.length) {
+                mdStretchH40 = new int[marsData.length];
+            }
+            vidH32StretchToH40(mdVideoMode, mdData, mdStretchH40);
+            mdData = mdStretchH40;
+        }
+        if (mdData.length == marsData.length) {
             final boolean prio32x = ctx.vdpContext.priority == S32X;
             final boolean s32xRegBlank = ctx.vdpContext.bitmapMode == BitmapMode.BLANK;
             final boolean s32xBgBlank = !prio32x && s32xRegBlank;
@@ -544,13 +552,18 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     @Override
-    public void updateVideoMode(VideoMode videoMode) {
-        if (videoMode.equals(vdpContext.videoMode)) {
+    public void updateVideoMode(VideoMode v) {
+        if (v.equals(vdpContext.videoMode)) {
             return;
         }
-        updateVdpBitmapMode(videoMode);
-        updateVideoModeInternal(videoMode);
-        vdpContext.videoMode = videoMode;
+        if (!v.isH40()) {
+            VideoMode prev = v;
+            v = VideoMode.getVideoMode(v.getRegion(), true, v.isV30(), prev);
+            if (verbose) LOG.info("MD set to H32: {}, s32x using {}", prev, v);
+        }
+        updateVdpBitmapMode(v);
+        updateVideoModeInternal(v);
+        vdpContext.videoMode = v;
     }
 
     private void updateVideoModeInternal(VideoMode videoMode) {

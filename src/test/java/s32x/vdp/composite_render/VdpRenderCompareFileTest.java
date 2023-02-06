@@ -114,9 +114,9 @@ public class VdpRenderCompareFileTest extends VdpRenderCompareTest {
         DebugVideoRenderContext dvrc = (DebugVideoRenderContext) o;
         MarsVdp.MarsVdpRenderContext vrc = DebugVideoRenderContext.toMarsVdpRenderContext(dvrc);
         VideoMode vm = vrc.vdpContext.videoMode;
-        img[MD.ordinal()] = saveRenderToImage(dvrc.mdData, vm);
+        img[MD.ordinal()] = saveRenderToImage(dvrc.mdData, dvrc.mdVideoMode);
         img[S32X.ordinal()] = saveRenderToImage(dvrc.s32xData, vm);
-        int[] screen = MarsVdpImpl.doCompositeRenderingExt(dvrc.mdData, vrc);
+        int[] screen = MarsVdpImpl.doCompositeRenderingExt(dvrc.mdVideoMode, dvrc.mdData, vrc);
         img[FULL.ordinal()] = saveRenderToImage(screen, vm);
         return img;
     }

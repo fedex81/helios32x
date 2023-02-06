@@ -2,6 +2,7 @@ package sh2.vdp.debug;
 
 import omegadrive.util.LogHelper;
 import omegadrive.util.Util;
+import omegadrive.util.VideoMode;
 import org.slf4j.Logger;
 import sh2.vdp.MarsVdp;
 
@@ -26,15 +27,18 @@ public class DebugVideoRenderContext implements Serializable {
     @Serial
     private static final long serialVersionUID = -2583260195705611811L;
     public MarsVdp.MarsVdpContext marsVdpContext;
+
+    public VideoMode mdVideoMode;
     public int[] mdData;
     public int[] s32xData;
 
     //dumpCompositeData, ie Md + 32x
-    public static void dumpCompositeData(MarsVdp.MarsVdpRenderContext ctx, int[] mdData) {
+    public static void dumpCompositeData(MarsVdp.MarsVdpRenderContext ctx, int[] mdData, VideoMode mdVideoMode) {
         DebugVideoRenderContext vrc = new DebugVideoRenderContext();
         vrc.marsVdpContext = ctx.vdpContext;
         vrc.mdData = mdData;
         vrc.s32xData = ctx.screen;
+        vrc.mdVideoMode = mdVideoMode;
         try {
             Path f = Files.createTempFile("vrc_", ".dat", new FileAttribute[0]);
             Files.write(f, Util.serializeObject(vrc), StandardOpenOption.WRITE);
