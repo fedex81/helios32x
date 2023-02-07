@@ -71,19 +71,16 @@ public class SerialCommInterface implements Sh2Device {
         }
         assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
         int res = readBufferByte(regs, regSpec.addr);
-        if (verbose) LOG.info("{} SCI read {}: {} {}", cpu, regSpec.name,
-                Integer.toHexString(res), size);
+        if (verbose) LOG.info("{} SCI read {}: {} {}", cpu, regSpec.name, th(res), size);
         return res;
     }
 
     @Override
     public void write(RegSpec regSpec, int pos, int value, Size size) {
         if (size != Size.BYTE) {
-            LOG.error("{} SCI write {}: {} {}", cpu, regSpec.name,
-                    Integer.toHexString(value), size);
+            LOG.error("{} SCI write {}: {} {}", cpu, regSpec.name, th(value), size);
         }
-        if (verbose) LOG.info("{} SCI write {}: {} {}", cpu, regSpec.name,
-                Integer.toHexString(value), size);
+        if (verbose) LOG.info("{} SCI write {}: {} {}", cpu, regSpec.name, th(value), size);
         boolean write = true;
         assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
 
@@ -111,7 +108,7 @@ public class SerialCommInterface implements Sh2Device {
                 break;
             case SCI_TDR:
                 if (verbose) LOG.info("{} {} Data written TDR: {}", cpu, regSpec.name, th(value));
-                setTdre(0);
+                setTdre(1);
                 break;
             case SCI_RDR:
                 LOG.warn("{} {} Data written RDR: {}", cpu, regSpec.name, th(value));
@@ -158,7 +155,8 @@ public class SerialCommInterface implements Sh2Device {
             }
             other.step(1);
             return;
-        } else if (rxEn && sciData.isDataInTransit && sciData.sender != cpu) {
+        }
+        if (rxEn && sciData.isDataInTransit && sciData.sender != cpu) {
             if (verbose) LOG.info("{} receiving data: {}", cpu, th(sciData.dataInTransit));
             writeBuffer(regs, SCI_RDR.addr, sciData.dataInTransit, Size.BYTE);
             setRdrf(1);

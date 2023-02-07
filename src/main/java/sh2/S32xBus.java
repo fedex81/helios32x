@@ -122,8 +122,7 @@ public class S32xBus extends GenesisBus {
             res = super.read(address, size);
         }
         if (verboseMd) {
-            LOG.info("Read address: {}, size: {}, result: {}",
-                    Long.toHexString(address), size, Long.toHexString(res));
+            LOG.info("Read address: {}, size: {}, result: {}", th(address), size, th(res));
         }
         return res;
     }
@@ -138,8 +137,7 @@ public class S32xBus extends GenesisBus {
             res = super.read(address, size);
         }
         if (verboseMd) {
-            LOG.info("Read address: {}, size: {}, result: {}",
-                    Long.toHexString(address), size, Long.toHexString(res));
+            LOG.info("Read address: {}, size: {}, result: {}", th(address), size, th(res));
         }
         return res;
     }
@@ -174,8 +172,8 @@ public class S32xBus extends GenesisBus {
                         DmaFifo68k.rv, th(address), th(address & M68K_ROM_WINDOW_MASK), th(data), size);
             }
         } else if (address >= M68K_START_HINT_VECTOR_WRITEABLE && address < M68K_END_HINT_VECTOR_WRITEABLE) {
-            if (verboseMd) LOG.info("HINT vector write, address: {}, data: {}, size: {}", Long.toHexString(address),
-                    Integer.toHexString(data), size);
+            if (verboseMd) LOG.info("HINT vector write, address: {}, data: {}, size: {}", th(address),
+                    th(data), size);
             writeBuffer(writeableHintRom, address & 3, data, size);
         } else {
             if (address < M68K_END_VECTOR_ROM) {

@@ -51,8 +51,7 @@ public class DmaC implements Sh2Device {
 
     @Override
     public void write(RegSpec regSpec, int pos, int value, Size size) {
-        if (verbose) LOG.info("{} DMA write {}: {} {}", cpu, regSpec.name,
-                Integer.toHexString(value), size);
+        if (verbose) LOG.info("{} DMA write {}: {} {}", cpu, regSpec.name, th(value), size);
         writeBuffer(regs, pos, value, size);
         switch (cpu.regSide) {
             case SH2 -> {

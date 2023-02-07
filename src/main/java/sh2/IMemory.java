@@ -45,7 +45,7 @@ public interface IMemory extends Sh2Prefetcher, ReadableByteMemory {
     }
 
     default void fetch(Sh2.FetchResult ft, CpuDeviceAccess cpu) {
-        ft.opcode = read16(ft.pc);
+        ft.opcode = read16(ft.pc) & 0xFFFF;
     }
 
     default int fetchDelaySlot(int pc, Sh2.FetchResult ft, CpuDeviceAccess cpu) {

@@ -181,7 +181,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
     public int fetch(int pc, CpuDeviceAccess cpu) {
         assert cpu == Md32xRuntimeData.getAccessTypeExt();
         if (!sh2Config.prefetchEn) {
-            return memory.read(pc, Size.WORD);
+            return memory.read(pc, Size.WORD) & 0xFFFF;
         }
         PrefetchContext pctx = prefetchContexts[cpu.ordinal()];
         int pcDeltaWords = (pc - pctx.prefetchPc) >> 1;
@@ -196,7 +196,7 @@ public class Sh2PrefetchSimple implements Sh2Prefetcher {
             boolean isCache = pc >>> PC_CACHE_AREA_SHIFT == 0;
             if (isCache && cache[cpu.ordinal()].getCacheContext().cacheEn > 0) {
                 //NOTE necessary to trigger the cache effect on fetch
-                int cached = cache[cpu.ordinal()].cacheMemoryRead(pc, Size.WORD);
+                int cached = cache[cpu.ordinal()].cacheMemoryRead(pc, Size.WORD) & 0xFFFF;
                 assert cached == pctx.prefetchWords[pcDeltaWords] : th(cached) + "," + th(pctx.prefetchWords[pcDeltaWords]);
             }
         }
