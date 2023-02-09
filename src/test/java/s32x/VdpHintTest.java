@@ -6,16 +6,15 @@ import omegadrive.vdp.model.VdpCounterMode;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import sh2.MarsLauncherHelper;
-import sh2.Md32xRuntimeData;
-import sh2.S32XMMREG;
-import sh2.S32xUtil;
-import sh2.sh2.device.IntControl;
-import sh2.sh2.device.IntControl.Sh2Interrupt;
+import s32x.sh2.device.IntControl;
+import s32x.sh2.device.IntControl.Sh2Interrupt;
+import s32x.util.MarsLauncherHelper;
+import s32x.util.Md32xRuntimeData;
+import s32x.util.S32xUtil;
 
 import static omegadrive.util.Util.th;
-import static sh2.dict.S32xDict.RegSpecS32x.SH2_HCOUNT_REG;
-import static sh2.sh2.device.IntControl.Sh2Interrupt.HINT_10;
+import static s32x.dict.S32xDict.RegSpecS32x.SH2_HCOUNT_REG;
+import static s32x.sh2.device.IntControl.Sh2Interrupt.HINT_10;
 
 /**
  * Federico Berti

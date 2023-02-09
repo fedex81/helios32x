@@ -30,9 +30,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import s32x.util.TestRenderUtil;
-import sh2.vdp.MarsVdp;
-import sh2.vdp.MarsVdpImpl;
-import sh2.vdp.debug.DebugVideoRenderContext;
+import s32x.vdp.MarsVdp;
+import s32x.vdp.MarsVdpImpl;
+import s32x.vdp.debug.DebugVideoRenderContext;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;

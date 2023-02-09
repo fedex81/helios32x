@@ -44,13 +44,13 @@ import omegadrive.vdp.model.GenesisVdpProvider;
 import omegadrive.vdp.util.MemView;
 import omegadrive.vdp.util.UpdatableViewer;
 import org.slf4j.Logger;
-import sh2.Md32xRuntimeData;
+import s32x.util.Md32xRuntimeData;
 
 import java.nio.file.Path;
 import java.util.Optional;
 
-import static sh2.S32xUtil.CpuDeviceAccess.M68K;
-import static sh2.S32xUtil.CpuDeviceAccess.Z80;
+import static s32x.util.S32xUtil.CpuDeviceAccess.M68K;
+import static s32x.util.S32xUtil.CpuDeviceAccess.Z80;
 
 /**
  * Genesis emulator main class

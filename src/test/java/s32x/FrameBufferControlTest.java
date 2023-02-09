@@ -5,12 +5,11 @@ import omegadrive.util.VideoMode;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import sh2.S32XMMREG;
-import sh2.dict.S32xDict;
+import s32x.dict.S32xDict;
 
 import static s32x.MarsRegTestUtil.assertHBlank;
-import static sh2.dict.S32xDict.P32XV_240;
-import static sh2.dict.S32xDict.P32XV_PAL;
+import static s32x.dict.S32xDict.P32XV_240;
+import static s32x.dict.S32xDict.P32XV_PAL;
 
 /**
  * Federico Berti

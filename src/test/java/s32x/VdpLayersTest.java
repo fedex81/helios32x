@@ -7,8 +7,8 @@ import omegadrive.vdp.VdpRenderDump;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
-import sh2.vdp.MarsVdp.VdpPriority;
-import sh2.vdp.debug.DebugVideoRenderContext;
+import s32x.vdp.MarsVdp.VdpPriority;
+import s32x.vdp.debug.DebugVideoRenderContext;
 
 import javax.swing.*;
 import java.awt.*;

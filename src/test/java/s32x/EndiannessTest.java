@@ -3,7 +3,7 @@ package s32x;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import sh2.S32xUtil;
+import s32x.util.S32xUtil;
 
 import java.nio.ByteBuffer;
 

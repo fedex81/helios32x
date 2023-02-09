@@ -50,7 +50,7 @@ public abstract class VdpRenderCompareTest {
 
     protected abstract Path getBaseDataFolder();
 
-    protected static Stream<String> getFileProvider(Path baseDataFolder) {
+    public static Stream<String> getFileProvider(Path baseDataFolder) {
         System.out.println(baseDataFolder.toAbsolutePath());
         File[] files = baseDataFolder.toFile().listFiles();
         return Arrays.stream(files).filter(File::isFile).map(f -> f.getName()).sorted();

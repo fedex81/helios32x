@@ -4,7 +4,6 @@ import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import sh2.S32XMMREG;
 
 import static s32x.MarsRegTestUtil.*;
 

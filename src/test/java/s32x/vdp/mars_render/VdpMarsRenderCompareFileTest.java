@@ -30,10 +30,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import s32x.util.TestRenderUtil;
+import s32x.vdp.MarsVdp;
+import s32x.vdp.MarsVdp.DebugMarsVdpRenderContext;
+import s32x.vdp.MarsVdpImpl;
 import s32x.vdp.composite_render.VdpRenderCompareTest;
-import sh2.vdp.MarsVdp;
-import sh2.vdp.MarsVdp.DebugMarsVdpRenderContext;
-import sh2.vdp.MarsVdpImpl;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;

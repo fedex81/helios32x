@@ -18,8 +18,8 @@ import omegadrive.util.Size;
 import omegadrive.vdp.model.BaseVdpAdapter;
 import omegadrive.vdp.model.BaseVdpProvider;
 import org.slf4j.Logger;
-import sh2.Md32x;
-import sh2.pwm.S32xPwmProvider;
+import s32x.Md32x;
+import s32x.pwm.S32xPwmProvider;
 
 import java.nio.file.Path;
 import java.util.*;

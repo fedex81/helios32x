@@ -4,8 +4,7 @@ import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import sh2.S32XMMREG;
-import sh2.vdp.MarsVdpImpl;
+import s32x.vdp.MarsVdpImpl;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;

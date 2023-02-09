@@ -24,7 +24,7 @@ import omegadrive.vdp.md.GenesisVdp;
 import omegadrive.vdp.md.GenesisVdpMemoryInterface;
 import omegadrive.vdp.model.GenesisVdpProvider;
 import omegadrive.vdp.model.VdpMemoryInterface;
-import sh2.S32xBus;
+import s32x.bus.S32xBus;
 
 import java.nio.file.Path;
 

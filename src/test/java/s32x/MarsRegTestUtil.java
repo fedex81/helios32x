@@ -6,20 +6,23 @@ import omegadrive.memory.MemoryProvider;
 import omegadrive.util.RomHolder;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
+import s32x.bus.S32xBus;
+import s32x.dict.S32xDict;
+import s32x.util.BiosHolder;
+import s32x.util.BiosHolder.BiosData;
+import s32x.util.MarsLauncherHelper;
+import s32x.util.MarsLauncherHelper.Sh2LaunchContext;
+import s32x.util.Md32xRuntimeData;
+import s32x.util.S32xUtil.CpuDeviceAccess;
 import s32x.util.SystemTestUtil;
-import sh2.*;
-import sh2.BiosHolder.BiosData;
-import sh2.MarsLauncherHelper.Sh2LaunchContext;
-import sh2.S32xUtil.CpuDeviceAccess;
-import sh2.dict.S32xDict;
 
 import java.nio.ByteBuffer;
 import java.util.Random;
 
-import static sh2.S32xUtil.CpuDeviceAccess.*;
-import static sh2.dict.S32xDict.M68K_START_32X_SYSREG;
-import static sh2.dict.S32xDict.RegSpecS32x.*;
-import static sh2.dict.S32xDict.START_32X_SYSREG_CACHE;
+import static s32x.dict.S32xDict.M68K_START_32X_SYSREG;
+import static s32x.dict.S32xDict.RegSpecS32x.*;
+import static s32x.dict.S32xDict.START_32X_SYSREG_CACHE;
+import static s32x.util.S32xUtil.CpuDeviceAccess.*;
 
 /**
  * Federico Berti

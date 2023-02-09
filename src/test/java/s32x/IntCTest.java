@@ -5,22 +5,21 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import sh2.MarsLauncherHelper;
-import sh2.Md32xRuntimeData;
-import sh2.S32xUtil;
-import sh2.Sh2MMREG;
-import sh2.dict.S32xDict;
-import sh2.sh2.device.IntControl;
-import sh2.sh2.device.IntControl.Sh2Interrupt;
+import s32x.dict.S32xDict;
+import s32x.sh2.device.IntControl;
+import s32x.sh2.device.IntControl.Sh2Interrupt;
+import s32x.util.MarsLauncherHelper;
+import s32x.util.Md32xRuntimeData;
+import s32x.util.S32xUtil;
 
-import static sh2.S32xUtil.CpuDeviceAccess.*;
-import static sh2.dict.S32xDict.RegSpecS32x.MD_INT_CTRL;
-import static sh2.dict.S32xDict.RegSpecS32x.SH2_CMD_INT_CLEAR;
-import static sh2.dict.S32xDict.START_32X_SYSREG_CACHE;
-import static sh2.dict.Sh2Dict.RegSpec.INTC_IPRA;
-import static sh2.sh2.device.IntControl.Sh2Interrupt.*;
-import static sh2.sh2.device.IntControl.Sh2InterruptSource;
-import static sh2.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DIV;
+import static s32x.dict.S32xDict.RegSpecS32x.MD_INT_CTRL;
+import static s32x.dict.S32xDict.RegSpecS32x.SH2_CMD_INT_CLEAR;
+import static s32x.dict.S32xDict.START_32X_SYSREG_CACHE;
+import static s32x.dict.Sh2Dict.RegSpec.INTC_IPRA;
+import static s32x.sh2.device.IntControl.Sh2Interrupt.*;
+import static s32x.sh2.device.IntControl.Sh2InterruptSource;
+import static s32x.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DIV;
+import static s32x.util.S32xUtil.CpuDeviceAccess.*;
 
 /**
  * Federico Berti

@@ -4,16 +4,15 @@ import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import sh2.MarsLauncherHelper;
-import sh2.S32xUtil.CpuDeviceAccess;
-import sh2.Sh2MMREG;
-import sh2.dict.Sh2Dict;
+import s32x.dict.Sh2Dict;
+import s32x.util.MarsLauncherHelper;
+import s32x.util.S32xUtil.CpuDeviceAccess;
 
 import static s32x.MarsRegTestUtil.createTestInstance;
-import static sh2.S32xUtil.CpuDeviceAccess.MASTER;
-import static sh2.S32xUtil.CpuDeviceAccess.SLAVE;
-import static sh2.dict.Sh2Dict.BSC_LONG_WRITE_MASK;
-import static sh2.dict.Sh2Dict.RegSpec.*;
+import static s32x.dict.Sh2Dict.BSC_LONG_WRITE_MASK;
+import static s32x.dict.Sh2Dict.RegSpec.*;
+import static s32x.util.S32xUtil.CpuDeviceAccess.MASTER;
+import static s32x.util.S32xUtil.CpuDeviceAccess.SLAVE;
 
 /**
  * Federico Berti
