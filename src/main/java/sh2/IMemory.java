@@ -83,6 +83,10 @@ public interface IMemory extends Sh2Prefetcher, ReadableByteMemory {
     default void newFrame() {
     }
 
+    interface MdRomAccess {
+        int readRom(int address, Size size);
+    }
+
     class MemoryDataCtx {
         public int romSize, romMask;
         public ByteBuffer rom, sdram;

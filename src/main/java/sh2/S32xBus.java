@@ -26,7 +26,7 @@ import static sh2.dict.S32xDict.*;
  * <p>
  * Copyright 2021
  */
-public class S32xBus extends GenesisBus {
+public class S32xBus extends GenesisBus implements IMemory.MdRomAccess {
 
     private static final Logger LOG = LogHelper.getLogger(S32xBus.class.getSimpleName());
     static final boolean verboseMd = false;
@@ -250,6 +250,13 @@ public class S32xBus extends GenesisBus {
             res = bios68k.readBuffer(address, size);
         }
         return res;
+    }
+
+    //read rom area via the md memory mapper (if any)
+    @Override
+    public int readRom(int address, Size size) {
+        assert address < DEFAULT_ROM_END_ADDRESS;
+        return super.read(address, size);
     }
 
     public MarsVdp getMarsVdp() {

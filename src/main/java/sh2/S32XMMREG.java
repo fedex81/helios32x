@@ -63,7 +63,6 @@ public class S32XMMREG implements Device {
     public Pwm pwm;
     public DmaFifo68k dmaFifoControl;
     private MarsVdp vdp;
-    private S32xBus bus;
     private S32xDictLogContext logCtx;
     private MarsVdpContext vdpContext;
     private int deviceAccessType;
@@ -80,11 +79,6 @@ public class S32XMMREG implements Device {
         logCtx = new S32xDictLogContext();
         z80RegAccess.clear();
     }
-
-    public void setBus(S32xBus bus) {
-        this.bus = bus;
-    }
-
     public MarsVdp getVdp() {
         return vdp;
     }

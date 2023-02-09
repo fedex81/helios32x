@@ -5,7 +5,6 @@ import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.slf4j.Logger;
 import sh2.BiosHolder.BiosData;
-import sh2.dict.S32xDict;
 import sh2.dict.S32xMemAccessDelay;
 import sh2.event.SysEventManager;
 import sh2.sh2.Sh2;
@@ -45,14 +44,16 @@ public final class Sh2Memory implements IMemory {
 
 	private final Sh2MMREG[] sh2MMREGS = new Sh2MMREG[2];
 	private final S32XMMREG s32XMMREG;
+	private final MdRomAccess mdBus;
 	private final MemoryDataCtx memoryDataCtx;
 	private final Sh2.Sh2Config config;
 
 	private final SdramSyncTester sdramSyncTester;
 
-	public Sh2Memory(S32XMMREG s32XMMREG, ByteBuffer rom, BiosHolder biosHolder, Sh2Prefetch.Sh2DrcContext... drcCtx) {
+	public Sh2Memory(S32XMMREG s32XMMREG, ByteBuffer rom, BiosHolder biosHolder, MdRomAccess mdBus, Sh2Prefetch.Sh2DrcContext... drcCtx) {
 		memoryDataCtx = new MemoryDataCtx();
 		this.s32XMMREG = s32XMMREG;
+		this.mdBus = mdBus;
 		memoryDataCtx.rom = this.rom = rom;
 		bios[MASTER.ordinal()] = biosHolder.getBiosData(MASTER);
 		bios[SLAVE.ordinal()] = biosHolder.getBiosData(SLAVE);
@@ -92,7 +93,7 @@ public final class Sh2Memory implements IMemory {
 					//TODO RV bit, sh2 should stall
 					assert DmaFifo68k.rv ? logWarnIllegalAccess(cpuAccess, "read", "ROM", "rv",
 							DmaFifo68k.rv, address, size) : true;
-					res = readBuffer(rom, address & romMask, size);
+					res = mdBus.readRom(address & romMask, size);
 					S32xMemAccessDelay.addReadCpuDelay(ROM);
 				} else if (address >= START_32X_SYSREG && address < END_32X_COLPAL) {
 					if (ENFORCE_FM_BIT_ON_READS && s32XMMREG.fm == 0 && address >= START_32X_VDPREG) {

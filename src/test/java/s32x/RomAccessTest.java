@@ -1,12 +1,19 @@
 package s32x;
 
+import omegadrive.cart.mapper.md.Ssf2Mapper;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import sh2.IMemory;
 import sh2.MarsLauncherHelper;
+import sh2.S32xBus;
 import sh2.S32xUtil;
+import sh2.S32xUtil.CpuDeviceAccess;
 
+import java.util.function.Consumer;
+
+import static omegadrive.bus.model.GenesisBusProvider.SRAM_LOCK;
 import static omegadrive.util.Util.th;
 import static s32x.MarsRegTestUtil.readBus;
 import static s32x.MarsRegTestUtil.setRv;
@@ -36,7 +43,7 @@ public class RomAccessTest {
         testMdAccessInternal(Z80);
     }
 
-    private void testMdAccessInternal(S32xUtil.CpuDeviceAccess cpu) {
+    private void testMdAccessInternal(CpuDeviceAccess cpu) {
         int res;
         setRv(lc, 0);
         res = readBus(lc, cpu, M68K_START_ROM_MIRROR + 0x200, Size.BYTE);
@@ -78,10 +85,60 @@ public class RomAccessTest {
     }
 
     @Test
+    public void testBadAppleSonicAccess() {
+        int oneMbit = 0x100_000; //1Mbit
+        byte[] rom = new byte[5 * oneMbit]; //5Mbit
+        MarsRegTestUtil.fillAsMdRom(rom, true);
+        lc = MarsRegTestUtil.createTestInstance(rom);
+        lc.s32XMMREG.aden = 1;
+        final IMemory sh2Mem = lc.memory;
+        final S32xBus mdBus = lc.bus;
+        final int mdMapperAddress = SRAM_LOCK + 2; //0xA130F3
+
+        int baseAddr = 0x400;
+
+        Consumer<Integer> checkerBank1 = addr -> {
+            int mdVal, sh2Val;
+            int otherAddr = Ssf2Mapper.BANK_SIZE | addr; //bank1
+            for (int i = 0; i < 10; i++) {
+                mdVal = readRomToggleRv(M68K, sh2Mem, mdBus, addr + i);
+                sh2Val = readRomToggleRv(MASTER, sh2Mem, mdBus, addr + i);
+                Assertions.assertEquals(mdVal, sh2Val);
+
+                mdVal = readRomToggleRv(M68K, sh2Mem, mdBus, otherAddr + i);
+                sh2Val = readRomToggleRv(MASTER, sh2Mem, mdBus, otherAddr + i);
+                Assertions.assertEquals(mdVal, sh2Val);
+            }
+        };
+        //create Ssf2Mapper, set bank1=1 ie 0x80400 -> 0x80400
+        mdBus.write(mdMapperAddress, 1, Size.BYTE); //write to bank#1 (bank#0 is fixed)
+        checkerBank1.accept(baseAddr);
+
+        //set bank1=0 ie 0x80400 -> 0x400
+        //BadAppleSonic expects SH2 to read 0x208_0400 -> 0x80_400 -> via ssf2Mapper -> 0x400
+        mdBus.write(mdMapperAddress, 0, Size.BYTE);
+        checkerBank1.accept(baseAddr);
+
+        mdBus.write(mdMapperAddress, 1, Size.BYTE);
+        checkerBank1.accept(baseAddr);
+    }
+
+
+    @Test
     public void testSwitch() {
         testMdAccess();
         testSh2Access();
         testMdAccess();
         testSh2Access();
+    }
+
+    private int readRomToggleRv(CpuDeviceAccess cpu, IMemory sh2Mem, S32xBus mdBus, int addr) {
+        int val;
+        if (cpu.regSide == S32xUtil.S32xRegSide.SH2) {
+            val = sh2Mem.read(SH2_START_ROM | addr, Size.BYTE) & 0xFF;
+        } else {
+            val = mdBus.readRom(addr, Size.BYTE) & 0xFF;
+        }
+        return val;
     }
 }
