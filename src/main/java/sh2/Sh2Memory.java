@@ -94,7 +94,7 @@ public final class Sh2Memory implements IMemory {
 							DmaFifo68k.rv, address, size) : true;
 					res = readBuffer(rom, address & romMask, size);
 					S32xMemAccessDelay.addReadCpuDelay(ROM);
-				} else if (address >= S32xDict.START_32X_SYSREG && address < S32xDict.END_32X_COLPAL) {
+				} else if (address >= START_32X_SYSREG && address < END_32X_COLPAL) {
 					if (ENFORCE_FM_BIT_ON_READS && s32XMMREG.fm == 0 && address >= START_32X_VDPREG) {
 						logWarnIllegalAccess(cpuAccess, "read", "VDP regs", "FM",
 								s32XMMREG.fm, address, size);
@@ -107,25 +107,19 @@ public final class Sh2Memory implements IMemory {
 					if (SDRAM_SYNC_TESTER) {
 						sdramSyncTester.readSyncCheck(cpuAccess, address, size);
 					}
-				} else if (address >= S32xDict.START_DRAM && address < S32xDict.END_DRAM) {
+				} else if (address >= START_DRAM && address < END_DRAM_OVER_MIRROR) {
 					if (ENFORCE_FM_BIT_ON_READS && s32XMMREG.fm == 0) {
-						logWarnIllegalAccess(cpuAccess, "read", "FB", "FM",
+						logWarnIllegalAccess(cpuAccess, "read", "FB/OVER", "FM",
 								s32XMMREG.fm, address, size);
 						return size.getMask();
 					}
-					res = s32XMMREG.read(address, size);
-					S32xMemAccessDelay.addReadCpuDelay(FRAME_BUFFER);
-				} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
-					if (ENFORCE_FM_BIT_ON_READS && s32XMMREG.fm == 0) {
-						logWarnIllegalAccess(cpuAccess, "read", "overw FB", "FM",
-								s32XMMREG.fm, address, size);
-						return size.getMask();
-					}
-					res = s32XMMREG.read(address, size);
+					res = s32XMMREG.read(address & DRAM_OVER_MIRROR_MASK, size);
 					S32xMemAccessDelay.addReadCpuDelay(FRAME_BUFFER);
 				} else if (address >= SH2_START_BOOT_ROM && address < SH2_END_BOOT_ROM) {
 					res = bios[cpuAccess.ordinal()].readBuffer(address, size);
 					S32xMemAccessDelay.addReadCpuDelay(BOOT_ROM);
+				} else {
+					LOG.error("{} read from addr: {}, {}", cpuAccess, th(address), size);
 				}
 				break;
 			case CACHE_IO_H3: //0xF
@@ -169,27 +163,19 @@ public final class Sh2Memory implements IMemory {
 				//NOTE as the next cache access will reload the data from MEM
 				break;
 			case CACHE_THROUGH_H3:
-				if (address >= START_DRAM && address < END_DRAM) {
+				if (address >= START_DRAM && address < END_DRAM_OVER_MIRROR) {
 					if (s32XMMREG.fm == 0) {
-						logWarnIllegalAccess(cpuAccess, "write", "FB", "FM",
+						logWarnIllegalAccess(cpuAccess, "write", "FB/OVER", "FM",
 								s32XMMREG.fm, address, size);
 						return;
 					}
-					s32XMMREG.write(address, val, size);
-
+					s32XMMREG.write(address & DRAM_OVER_MIRROR_MASK, val, size);
 				} else if (address >= SH2_START_SDRAM && address < SH2_END_SDRAM) {
 					if (SDRAM_SYNC_TESTER) {
 						sdramSyncTester.writeSyncCheck(cpuAccess, address, val, size);
 					}
 					hasMemoryChanged = writeBuffer(sdram, address & SH2_SDRAM_MASK, val, size);
 					S32xMemAccessDelay.addWriteCpuDelay(SDRAM);
-				} else if (address >= START_OVER_IMAGE && address < END_OVER_IMAGE) {
-					if (s32XMMREG.fm == 0) {
-						logWarnIllegalAccess(cpuAccess, "write", "overw FB", "FM",
-								s32XMMREG.fm, address, size);
-						return;
-					}
-					s32XMMREG.write(address, val, size);
 				} else if (address >= START_32X_SYSREG && address < END_32X_SYSREG) {
 					s32XMMREG.write(address, val, size);
 				} else if (address >= START_32X_VDPREG && address < END_32X_COLPAL) {
@@ -199,6 +185,8 @@ public final class Sh2Memory implements IMemory {
 						return;
 					}
 					s32XMMREG.write(address, val, size);
+				} else {
+					LOG.error("{} write to addr: {}, {} {}", cpuAccess, th(address), th(val), size);
 				}
 				break;
 			case CACHE_IO_H3: //0xF
@@ -207,7 +195,7 @@ public final class Sh2Memory implements IMemory {
 				} else if (address >= SH2_START_DRAM_MODE && address < SH2_END_DRAM_MODE) {
 					sh2MMREGS[cpuAccess.ordinal()].writeDramMode(address & 0xFFFF, val, size);
 				} else {
-					LOG.error("{} write from addr: {}, {}", cpuAccess, th(address), size);
+					LOG.error("{} write to addr: {}, {} {}", cpuAccess, th(address), th(val), size);
 				}
 				break;
 			default:

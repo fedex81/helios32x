@@ -240,6 +240,15 @@ public class S32xDict {
     public static final int END_OVER_IMAGE = END_OVER_IMAGE_CACHE + SH2_CACHE_THROUGH_OFFSET;
 
     /**
+     * Undocumented mirroring (see soulstar)
+     * 24000000 - 24020000 DRAM
+     * 24020000 - 24040000 OVERIMAGE
+     * 24040000 - 24060000 DRAM MIRROR
+     */
+    public static final int END_DRAM_OVER_MIRROR = END_OVER_IMAGE_CACHE + SH2_CACHE_THROUGH_OFFSET + DRAM_SIZE;
+    public static final int DRAM_OVER_MIRROR_MASK = 0xFFF3_FFFF;
+
+    /**
      * M68K memory map
      **/
     public static final int M68K_START_HINT_VECTOR_WRITEABLE = 0x70;
