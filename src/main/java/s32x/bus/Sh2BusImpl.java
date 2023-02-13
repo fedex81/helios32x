@@ -93,7 +93,7 @@ public final class Sh2BusImpl implements Sh2Bus {
 					//TODO RV bit, sh2 should stall
 					assert DmaFifo68k.rv ? logWarnIllegalAccess(cpuAccess, "read", "ROM", "rv",
 							DmaFifo68k.rv, address, size) : true;
-					res = mdBus.readRom(address & romMask, size);
+					res = mdBus.readRom(address & 0xFF_FFFF, size);
 					S32xMemAccessDelay.addReadCpuDelay(S32xMemAccessDelay.ROM);
 				} else if (address >= S32xDict.START_32X_SYSREG && address < S32xDict.END_32X_COLPAL) {
 					if (S32xUtil.ENFORCE_FM_BIT_ON_READS && s32XMMREG.fm == 0 && address >= S32xDict.START_32X_VDPREG) {
