@@ -157,6 +157,8 @@ public final class Sh2Memory implements IMemory {
 					} else {
 						LOG.warn("{} sh2 ignoring access to VDP regs when FM={}, addr: {} {}", cpuAccess, s32XMMREG.fm, th(address), size);
 					}
+				} else {
+					LOG.error("{} write to addr: {}, {} {}", cpuAccess, th(address), th(val), size);
 				}
 				break;
 			case CACHE_IO_H3: //0xF
