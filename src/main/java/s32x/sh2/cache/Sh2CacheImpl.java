@@ -295,7 +295,7 @@ public class Sh2CacheImpl implements Sh2Cache {
 
     @Override
     public CacheContext updateState(int value) {
-        ctx.way = value >> 6;
+        ctx.way = (value >> 6) & 3;
         ctx.cachePurge = (value >> 4) & 1;
         ctx.twoWay = (value >> 3) & 1;
         ctx.dataReplaceDis = (value >> 2) & 1;

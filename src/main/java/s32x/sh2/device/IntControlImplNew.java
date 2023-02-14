@@ -82,15 +82,15 @@ public class IntControlImplNew implements IntControl {
         switch (regSpec) {
             case INTC_IPRA -> {
                 val = S32xUtil.readBuffer(regs, regSpec.addr, Size.WORD);
-                onChipDevicePriority.put(DIV, val >> 12);
+                onChipDevicePriority.put(DIV, (val >> 12) & 0xF);
                 onChipDevicePriority.put(DMA, (val >> 8) & 0xF);
                 onChipDevicePriority.put(WDT, (val >> 4) & 0xF);
                 logExternalIntLevel(regSpec, val);
             }
             case INTC_IPRB -> {
                 val = S32xUtil.readBuffer(regs, regSpec.addr, Size.WORD);
-                onChipDevicePriority.put(SCI, val >> 12);
-                onChipDevicePriority.put(Sh2DeviceHelper.Sh2DeviceType.FRT, (val >> 8) & 0xF);
+                onChipDevicePriority.put(SCI, (val >> 12) & 0xF);
+                onChipDevicePriority.put(FRT, (val >> 8) & 0xF);
                 logExternalIntLevel(regSpec, val);
             }
             case INTC_ICR -> {
@@ -294,7 +294,7 @@ public class IntControlImplNew implements IntControl {
                     DMA, (val >> 8) & 0xF, WDT, (val >> 4) & 0xF);
         } else if (regSpec == INTC_IPRB) {
             LOG.info("{} set IPRB levels, {}:{}, {}:{}", cpu, SCI, val >> 12,
-                    Sh2DeviceHelper.Sh2DeviceType.FRT, (val >> 8) & 0xF);
+                    FRT, (val >> 8) & 0xF);
         }
     }
 

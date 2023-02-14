@@ -155,7 +155,7 @@ public class MarsVdpImpl implements MarsVdp {
                 return handleVdpRegWriteInternal(regSpec, reg, value, size);
             case LONG:
                 S32xDict.RegSpecS32x regSpec2 = S32xDict.getRegSpec(regSpec.regCpuType, regSpec.fullAddress + 2);
-                boolean res = handleVdpRegWriteInternal(regSpec, reg, value >> 16, Size.WORD);
+                boolean res = handleVdpRegWriteInternal(regSpec, reg, (value >> 16) & 0xFFFF, Size.WORD);
                 res |= handleVdpRegWriteInternal(regSpec2, reg + 2, value & 0xFFFF, Size.WORD);
                 return res;
         }

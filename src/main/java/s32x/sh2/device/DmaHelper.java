@@ -56,7 +56,7 @@ public class DmaHelper {
         c.chcr_tranEndOk = (chcr & 2) > 0;
         c.chcr_intEn = (chcr & 4) > 0;
         c.chcr_autoReq = ((chcr >> 9) & 1) > 0;
-        c.chcr_destMode = modeVals[chcr >> 14];
+        c.chcr_destMode = modeVals[(chcr >> 14) & 0x3];
         c.chcr_srcMode = modeVals[(chcr >> 12) & 0x3];
         c.chcr_transferSize = trnVals[(chcr >> 10) & 0x3];
         c.srcDelta = getAddressDelta(c.chcr_srcMode, c.chcr_transferSize, true);

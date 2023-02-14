@@ -92,7 +92,7 @@ public class Pwm implements S32xUtil.StepDevice {
             case BYTE -> writeByte(cpu, regSpec, reg, value);
             case WORD -> writeWord(cpu, regSpec, reg, value);
             case LONG -> {
-                writeWord(cpu, regSpec, reg, value >> 16);
+                writeWord(cpu, regSpec, reg, (value >> 16) & 0xFFFF);
                 writeWord(cpu, S32xDict.getRegSpec(cpu, regSpec.addr + 2), reg + 2, value & 0xFFFF);
             }
         }
