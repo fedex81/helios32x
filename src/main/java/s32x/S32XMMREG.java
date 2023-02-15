@@ -7,7 +7,7 @@ import omegadrive.util.VideoMode;
 import org.slf4j.Logger;
 import s32x.dict.S32xDict;
 import s32x.dict.S32xMemAccessDelay;
-import s32x.event.SysEventManager;
+import s32x.event.PollSysEventManager;
 import s32x.pwm.Pwm;
 import s32x.sh2.device.IntControl;
 import s32x.sh2.prefetch.Sh2Prefetch;
@@ -314,13 +314,13 @@ public class S32XMMREG implements Device {
         //reset cancel
         if ((val & S32xDict.P32XS_nRES) == 0 && (newVal & S32xDict.P32XS_nRES) > 0) {
             LOG.info("{} unset reset Sh2s (nRes = 0)", Md32xRuntimeData.getAccessTypeExt());
-            SysEventManager.instance.fireSysEvent(S32xUtil.CpuDeviceAccess.M68K, SysEventManager.SysEvent.SH2_RESET_OFF);
+            PollSysEventManager.instance.fireSysEvent(S32xUtil.CpuDeviceAccess.M68K, PollSysEventManager.SysEvent.SH2_RESET_OFF);
 //            bus.resetSh2(); //TODO check
         }
         //reset
         if ((val & S32xDict.P32XS_nRES) > 0 && (newVal & S32xDict.P32XS_nRES) == 0) {
             LOG.info("{} set reset SH2s (nRes = 1)", Md32xRuntimeData.getAccessTypeExt());
-            SysEventManager.instance.fireSysEvent(S32xUtil.CpuDeviceAccess.M68K, SysEventManager.SysEvent.SH2_RESET_ON);
+            PollSysEventManager.instance.fireSysEvent(S32xUtil.CpuDeviceAccess.M68K, PollSysEventManager.SysEvent.SH2_RESET_ON);
         }
     }
 

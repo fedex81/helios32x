@@ -6,7 +6,7 @@ import org.slf4j.Logger;
 import s32x.Sh2MMREG;
 import s32x.bus.Sh2Bus;
 import s32x.dict.S32xDict;
-import s32x.event.SysEventManager;
+import s32x.event.PollSysEventManager;
 import s32x.sh2.device.IntControl;
 import s32x.sh2.drc.Ow2DrcOptimizer;
 import s32x.sh2.drc.Ow2Sh2BlockRecompiler;
@@ -114,7 +114,7 @@ public class Sh2Impl implements Sh2 {
 		this.ctx = ctx;
 		final Sh2MMREG sh2MMREG = ctx.devices.sh2MMREG;
 		final IntControl intControl = ctx.devices.intC;
-		final SysEventManager instance = SysEventManager.instance;
+		final PollSysEventManager instance = PollSysEventManager.instance;
 		for (; ctx.cycles >= 0; ) {
 			decode();
 			boolean res = acceptInterrupts(intControl.getInterruptLevel());
@@ -168,7 +168,7 @@ public class Sh2Impl implements Sh2 {
 		if (nextBlockOk) {
 			setNextBlock(fr, block);
 		} else {
-			SysEventManager.instance.resetPoller(ctx.cpuAccess);
+			PollSysEventManager.instance.resetPoller(ctx.cpuAccess);
 			fetchNextBlock(fr);
 		}
 		assert fr.block.isValid();

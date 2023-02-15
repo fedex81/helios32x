@@ -14,7 +14,7 @@ import omegadrive.vdp.md.GenesisVdp;
 import omegadrive.vdp.util.UpdatableViewer;
 import org.slf4j.Logger;
 import s32x.bus.S32xBus;
-import s32x.event.SysEventManager;
+import s32x.event.PollSysEventManager;
 import s32x.sh2.Sh2;
 import s32x.sh2.Sh2Context;
 import s32x.sh2.Sh2Helper;
@@ -31,14 +31,12 @@ import s32x.vdp.debug.DebugVideoRenderContext;
 import java.nio.file.Path;
 import java.util.Optional;
 
-import static omegadrive.util.Util.th;
-
 /**
  * Federico Berti
  * <p>
  * Copyright 2021
  */
-public class Md32x extends Genesis implements SysEventManager.SysEventListener {
+public class Md32x extends Genesis implements PollSysEventManager.SysEventListener {
 
     private static final Logger LOG = LogHelper.getLogger(Md32x.class.getSimpleName());
 
@@ -93,8 +91,8 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     public Md32x(DisplayWindow emuFrame) {
         super(emuFrame);
         systemType = SystemLoader.SystemType.S32X;
-        SysEventManager.instance.reset();
-        SysEventManager.instance.addSysEventListener(getClass().getSimpleName(), this);
+        PollSysEventManager.instance.reset();
+        PollSysEventManager.instance.addSysEventListener(getClass().getSimpleName(), this);
     }
 
     @Override
@@ -137,7 +135,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     //53/7*burstCycles = if burstCycles = 3 -> 23.01Mhz
     protected final void runSh2() {
         if (nextMSh2Cycle == cycleCounter) {
-            assert !SysEventManager.currentPollers[0].isPollingActive() : SysEventManager.currentPollers[0];
+            assert !PollSysEventManager.currentPollers[0].isPollingActive() : PollSysEventManager.currentPollers[0];
             rt.setAccessType(S32xUtil.CpuDeviceAccess.MASTER);
             sh2.run(masterCtx);
             assert (masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == masterCtx.cycles_ran : masterCtx.cycles_ran;
@@ -145,7 +143,7 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
             nextMSh2Cycle += sh2CycleTable[masterCtx.cycles_ran];
         }
         if (nextSSh2Cycle == cycleCounter) {
-            assert !SysEventManager.currentPollers[1].isPollingActive() : SysEventManager.currentPollers[1];
+            assert !PollSysEventManager.currentPollers[1].isPollingActive() : PollSysEventManager.currentPollers[1];
             rt.setAccessType(S32xUtil.CpuDeviceAccess.SLAVE);
             sh2.run(slaveCtx);
             assert (slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == slaveCtx.cycles_ran : slaveCtx.cycles_ran;
@@ -245,10 +243,10 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
     }
 
     @Override
-    public void onSysEvent(S32xUtil.CpuDeviceAccess cpu, SysEventManager.SysEvent event) {
+    public void onSysEvent(S32xUtil.CpuDeviceAccess cpu, PollSysEventManager.SysEvent event) {
         switch (event) {
             case START_POLLING -> {
-                final Ow2DrcOptimizer.PollerCtx pc = SysEventManager.instance.getPoller(cpu);
+                final Ow2DrcOptimizer.PollerCtx pc = PollSysEventManager.instance.getPoller(cpu);
                 assert pc.isPollingActive() : event + "," + pc;
                 setNextCycle(cpu, SH2_SLEEP_VALUE);
                 Md32xRuntimeData.resetCpuDelayExt(cpu, 0);
@@ -265,28 +263,20 @@ public class Md32x extends Genesis implements SysEventManager.SysEventListener {
                 Md32xRuntimeData.resetCpuDelayExt(S32xUtil.CpuDeviceAccess.SLAVE, 0);
             }
             default -> { //stop polling
-                final Ow2DrcOptimizer.PollerCtx pc = SysEventManager.instance.getPoller(cpu);
+                final Ow2DrcOptimizer.PollerCtx pc = PollSysEventManager.instance.getPoller(cpu);
                 stopPolling(cpu, event, pc);
             }
         }
     }
 
-    private void stopPolling(S32xUtil.CpuDeviceAccess cpu, SysEventManager.SysEvent event, Ow2DrcOptimizer.PollerCtx pctx) {
+    private void stopPolling(S32xUtil.CpuDeviceAccess cpu, PollSysEventManager.SysEvent event, Ow2DrcOptimizer.PollerCtx pctx) {
 //        assert event == SysEventManager.SysEvent.INT ? pc.isPollingBusyLoop() : true;
-        boolean stopOk = event == pctx.event || event == SysEventManager.SysEvent.INT;
+        boolean stopOk = event == pctx.event || event == PollSysEventManager.SysEvent.INT;
         if (stopOk) {
             if (verbose) LOG.info("{} stop polling {} {}: {}", cpu, event, cycleCounter, pctx);
             setNextCycle(cpu, cycleCounter + 1);
-            if (S32xUtil.assertionsEnabled) {
-                if (event != SysEventManager.SysEvent.INT) {
-                    assert Md32xRuntimeData.getCpuDelayExt(cpu) == 0;
-                    int value = Ow2DrcOptimizer.readPollValue(pctx);
-                    if (value == pctx.pollValue) {
-                        System.out.println("?? Poll stop but value unchanged: " + th(pctx.pollValue) + "," + th(value));
-                    }
-                }
-            }
-            SysEventManager.instance.resetPoller(cpu);
+            assert PollSysEventManager.pollValueCheck(cpu, event, pctx);
+            PollSysEventManager.instance.resetPoller(cpu);
         } else {
             LOG.warn("{} {} ignore stop polling: {}", cpu, event, pctx);
         }

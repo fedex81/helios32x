@@ -9,7 +9,7 @@ import s32x.S32XMMREG;
 import s32x.Sh2MMREG;
 import s32x.dict.S32xDict;
 import s32x.dict.S32xMemAccessDelay;
-import s32x.event.SysEventManager;
+import s32x.event.PollSysEventManager;
 import s32x.sh2.Sh2;
 import s32x.sh2.cache.Sh2Cache;
 import s32x.sh2.cache.Sh2CacheImpl;
@@ -208,7 +208,7 @@ public final class Sh2BusImpl implements Sh2Bus {
 			prefetch.dataWrite(cpuAccess, address, val, size);
 		}
 		if (config.pollDetectEn) {
-			Sh2Prefetch.checkPoller(cpuAccess, SysEventManager.SysEvent.SDRAM, address, val, size);
+			Sh2Prefetch.checkPoller(cpuAccess, PollSysEventManager.SysEvent.SDRAM, address, val, size);
 		}
 	}
 

@@ -5,9 +5,8 @@ import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
 import org.slf4j.event.Level;
-import s32x.bus.Sh2Bus;
 import s32x.dict.S32xDict;
-import s32x.event.SysEventManager;
+import s32x.event.PollSysEventManager;
 import s32x.sh2.Sh2Context;
 import s32x.sh2.Sh2Debug;
 import s32x.sh2.Sh2Disassembler;
@@ -241,13 +240,13 @@ public class Ow2DrcOptimizer {
     public static class PollerCtx {
         public S32xUtil.CpuDeviceAccess cpu;
         public int pc;
-        public SysEventManager.SysEvent event;
+        public PollSysEventManager.SysEvent event;
         public PollState pollState = PollState.NO_POLL;
         public int spinCount = 0;
         //only used when assertions are enabled
         public int pollValue = 0;
         public BlockPollData blockPollData;
-        private Sh2Helper.Sh2PcInfoWrapper piw;
+        public Sh2Helper.Sh2PcInfoWrapper piw;
 
         public static PollerCtx create(Sh2Helper.Sh2PcInfoWrapper piw) {
             PollerCtx ctx = new PollerCtx();
@@ -256,7 +255,7 @@ public class Ow2DrcOptimizer {
             ctx.pc = block.prefetchPc;
             assert block.drcContext != null : piw;
             ctx.cpu = block.drcContext.cpu;
-            ctx.event = SysEventManager.SysEvent.NONE;
+            ctx.event = PollSysEventManager.SysEvent.NONE;
             ctx.blockPollData = new BlockPollData(block, block.drcContext.sh2Ctx, ctx.pc, block.prefetchWords);
             return ctx;
         }
@@ -301,7 +300,7 @@ public class Ow2DrcOptimizer {
         }
 
         public void invalidate() {
-            event = SysEventManager.SysEvent.NONE;
+            event = PollSysEventManager.SysEvent.NONE;
         }
     }
 
@@ -389,7 +388,7 @@ public class Ow2DrcOptimizer {
             block.pollType = getAccessType(bpd.memLoadTarget);
             log |= bpd.branchDestPc == bpd.pc;
             if (block.pollType != UNKNOWN) {
-                pctx.event = SysEventManager.SysEvent.valueOf(block.pollType.name());
+                pctx.event = PollSysEventManager.SysEvent.valueOf(block.pollType.name());
                 log = true;
                 if (ENABLE_POLL_DETECT && block.pollType.supported) {
                     supported = true;
@@ -405,7 +404,7 @@ public class Ow2DrcOptimizer {
             LOG.info("{} BusyLoop detected: {}\n{}", block.drcContext.cpu, th(block.prefetchPc),
                     Sh2Helper.toListOfInst(block));
             block.pollType = BUSY_LOOP;
-            pctx.event = SysEventManager.SysEvent.INT;
+            pctx.event = PollSysEventManager.SysEvent.INT;
             toSet = pctx;
         }
         if (block.pollType == UNKNOWN) {
@@ -454,12 +453,6 @@ public class Ow2DrcOptimizer {
     //TODO poll on cached address??? tas poll is allowed even on cached addresses
     //TODO DoomRes polls the framebuffer
     public static PollType getAccessType(int address) {
-        //TODO check, is it necessary/relevant
-        final boolean isCache = false; //(address >>> PC_CACHE_AREA_SHIFT) == 0 && sh2Cache.getCacheContext().cacheEn > 0;
-        if (isCache) {
-            LOG.warn("Polling on a cache address: {}", th(address));
-            System.err.println("Polling on a cache address: " + th(address));
-        }
         switch (address >>> S32xDict.SH2_PC_AREA_SHIFT) {
             case 0x6:
             case 0x26:
@@ -483,21 +476,21 @@ public class Ow2DrcOptimizer {
     public final static void handlePoll(Sh2Block block) {
         final S32xUtil.CpuDeviceAccess cpu = block.getCpu();
         if (!block.isPollingBlock()) {
-            final Ow2DrcOptimizer.PollerCtx current = SysEventManager.instance.getPoller(cpu);
+            final Ow2DrcOptimizer.PollerCtx current = PollSysEventManager.instance.getPoller(cpu);
             assert current != UNKNOWN_POLLER;
             if (current != NO_POLLER && block.pollType == BUSY_LOOP) { //TODO check
-                SysEventManager.instance.resetPoller(current.cpu);
+                PollSysEventManager.instance.resetPoller(current.cpu);
             }
             return;
         }
-        final Ow2DrcOptimizer.PollerCtx currentPoller = SysEventManager.instance.getPoller(cpu);
+        final Ow2DrcOptimizer.PollerCtx currentPoller = PollSysEventManager.instance.getPoller(cpu);
         final Ow2DrcOptimizer.PollerCtx blockPoller = block.poller;
         assert blockPoller == Sh2Helper.get(block.prefetchPc, cpu).block.poller;
         if (currentPoller == NO_POLLER) {
             PollType pollType = block.pollType;
             assert blockPoller != UNKNOWN_POLLER;
             if (blockPoller != NO_POLLER) {
-                SysEventManager.instance.setPoller(cpu, blockPoller);
+                PollSysEventManager.instance.setPoller(cpu, blockPoller);
             } else {
                 assert ENABLE_POLL_DETECT ? !pollType.supported : true : block + "\n" + blockPoller;
                 if (verbose)
@@ -507,7 +500,7 @@ public class Ow2DrcOptimizer {
             }
         } else if (!currentPoller.isPollingActive()) {
             if (blockPoller != currentPoller) {
-                SysEventManager.instance.resetPoller(cpu);
+                PollSysEventManager.instance.resetPoller(cpu);
                 return;
             }
             startPollingMaybe(blockPoller, block.pollType);
@@ -524,43 +517,34 @@ public class Ow2DrcOptimizer {
             if (verbose)
                 LOG.info("{} avoid re-entering {} poll at PC {}, on address: {}", blockPoller.cpu, pollType,
                         th(blockPoller.pc), th(blockPoller.blockPollData.memLoadTarget));
-            if (S32xUtil.assertionsEnabled && blockPoller.spinCount == POLLER_ACTIVATE_LIMIT - 1) {
+            if (blockPoller.spinCount == POLLER_ACTIVATE_LIMIT - 1) {
                 Ow2DrcOptimizer.parseMemLoad(blockPoller.blockPollData);
-                blockPoller.pollValue = readPollValue(blockPoller);
+                blockPoller.pollValue = PollSysEventManager.readPollValue(blockPoller);
             }
             return;
         }
-        //TODO chaotix needs this
-        if (S32xUtil.assertionsEnabled) {
-            int pollValue = readPollValue(blockPoller);
-            if (pollValue != blockPoller.pollValue) {
-                LOG.info("Poll value has changed: {} -> {}", th(blockPoller.pollValue), pollValue);
-                blockPoller.pollValue = blockPoller.spinCount = 0;
-                return;
-            }
+        //chaotix, star trek, needs this
+        if (!checkPollValueStable(blockPoller, pollType)) {
+            return;
         }
         blockPoller.pollState = Ow2DrcOptimizer.PollState.ACTIVE_POLL;
         if (verbose)
             LOG.info("{} entering {} poll at PC {}, on address: {}, currentVal: {}", blockPoller.cpu, pollType,
                     th(blockPoller.pc), th(blockPoller.blockPollData.memLoadTarget), th(blockPoller.pollValue));
-        SysEventManager.instance.fireSysEvent(blockPoller.cpu, SysEventManager.SysEvent.START_POLLING);
+        PollSysEventManager.instance.fireSysEvent(blockPoller.cpu, PollSysEventManager.SysEvent.START_POLLING);
     }
 
-    public static int readPollValue(PollerCtx blockPoller) {
-        if (blockPoller.isPollingBusyLoop()) {
-            return 0;
+    private static boolean checkPollValueStable(Ow2DrcOptimizer.PollerCtx blockPoller, PollType pollType) {
+        int pollValue = PollSysEventManager.readPollValue(blockPoller);
+        boolean res = pollValue == blockPoller.pollValue;
+        if (!res) {
+            if (verbose)
+                LOG.info("{} skipping {} poll at PC {} as poll value has changed, on address: {}, val: {} -> {}",
+                        blockPoller.cpu, pollType, th(blockPoller.pc), th(blockPoller.blockPollData.memLoadTarget),
+                        th(blockPoller.pollValue), th(pollValue));
+            blockPoller.pollValue = blockPoller.spinCount = 0;
         }
-        //VF (Japan, USA) (Beta) (1995-06-15)
-        //TODO while a block is polling it gets invalidated, when polling ends we access the invalid_block
-        if (blockPoller.piw.block.drcContext == null) {
-            LOG.warn("Unexpected state, block is invalid?\n{}", blockPoller);
-            return 0;
-        }
-        Sh2Bus memory = blockPoller.piw.block.drcContext.memory;
-        int delay = Md32xRuntimeData.getCpuDelayExt();
-        int val = memory.read(blockPoller.blockPollData.memLoadTarget, blockPoller.blockPollData.memLoadTargetSize);
-        Md32xRuntimeData.resetCpuDelayExt(delay);
-        return val;
+        return res;
     }
 
     /**

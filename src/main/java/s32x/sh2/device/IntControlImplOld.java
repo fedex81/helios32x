@@ -6,7 +6,7 @@ import omegadrive.util.Util;
 import org.slf4j.Logger;
 import s32x.dict.S32xDict;
 import s32x.dict.Sh2Dict.RegSpec;
-import s32x.event.SysEventManager;
+import s32x.event.PollSysEventManager;
 import s32x.sh2.drc.Ow2DrcOptimizer;
 import s32x.util.S32xUtil;
 
@@ -184,9 +184,9 @@ public class IntControlImplOld implements IntControl {
         }
         interruptLevel = newLevel;
         if (interruptLevel != prev && interruptLevel > 0) {
-            Ow2DrcOptimizer.PollerCtx ctx = SysEventManager.instance.getPoller(cpu);
+            Ow2DrcOptimizer.PollerCtx ctx = PollSysEventManager.instance.getPoller(cpu);
             if (ctx != NO_POLLER && (ctx.isPollingActive() || ctx.isPollingBusyLoop())) {
-                SysEventManager.instance.fireSysEvent(cpu, SysEventManager.SysEvent.INT);
+                PollSysEventManager.instance.fireSysEvent(cpu, PollSysEventManager.SysEvent.INT);
             }
         }
     }

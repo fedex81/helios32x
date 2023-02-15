@@ -8,7 +8,7 @@ import org.slf4j.Logger;
 import s32x.bus.Sh2Bus;
 import s32x.dict.S32xDict;
 import s32x.dict.S32xMemAccessDelay;
-import s32x.event.SysEventManager;
+import s32x.event.PollSysEventManager;
 import s32x.sh2.*;
 import s32x.sh2.cache.Sh2Cache;
 import s32x.sh2.drc.Ow2DrcOptimizer;
@@ -315,34 +315,34 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     }
 
     public static void checkPoller(S32xUtil.CpuDeviceAccess cpuWrite, S32xDict.S32xRegType type, int addr, int val, Size size) {
-        checkPoller(cpuWrite, SysEventManager.SysEvent.valueOf(type.name()), addr, val, size);
+        checkPoller(cpuWrite, PollSysEventManager.SysEvent.valueOf(type.name()), addr, val, size);
     }
 
     public static void checkPollersVdp(S32xDict.S32xRegType type, int addr, int val, Size size) {
         //cpuWrite doesn't apply here...
-        checkPoller(null, SysEventManager.SysEvent.valueOf(type.name()), addr, val, size);
+        checkPoller(null, PollSysEventManager.SysEvent.valueOf(type.name()), addr, val, size);
     }
 
-    public static void checkPoller(S32xUtil.CpuDeviceAccess cpuWrite, SysEventManager.SysEvent type, int addr, int val, Size size) {
-        int res = SysEventManager.instance.anyPollerActive();
+    public static void checkPoller(S32xUtil.CpuDeviceAccess cpuWrite, PollSysEventManager.SysEvent type, int addr, int val, Size size) {
+        int res = PollSysEventManager.instance.anyPollerActive();
         if (res == 0) {
             return;
         }
         if ((res & 1) > 0) {
-            Ow2DrcOptimizer.PollerCtx c = SysEventManager.instance.getPoller(S32xUtil.CpuDeviceAccess.MASTER);
+            Ow2DrcOptimizer.PollerCtx c = PollSysEventManager.instance.getPoller(S32xUtil.CpuDeviceAccess.MASTER);
             if (c.isPollingActive() && type == c.event) {
                 checkPollerInternal(c, cpuWrite, type, addr, val, size);
             }
         }
         if ((res & 2) > 0) {
-            Ow2DrcOptimizer.PollerCtx c = SysEventManager.instance.getPoller(S32xUtil.CpuDeviceAccess.SLAVE);
+            Ow2DrcOptimizer.PollerCtx c = PollSysEventManager.instance.getPoller(S32xUtil.CpuDeviceAccess.SLAVE);
             if (c.isPollingActive() && type == c.event) {
                 checkPollerInternal(c, cpuWrite, type, addr, val, size);
             }
         }
     }
 
-    private static void checkPollerInternal(Ow2DrcOptimizer.PollerCtx c, S32xUtil.CpuDeviceAccess cpuWrite, SysEventManager.SysEvent type,
+    private static void checkPollerInternal(Ow2DrcOptimizer.PollerCtx c, S32xUtil.CpuDeviceAccess cpuWrite, PollSysEventManager.SysEvent type,
                                             int addr, int val, Size size) {
         final Ow2DrcOptimizer.BlockPollData bpd = c.blockPollData;
         //TODO check, cache vs cache-through
@@ -353,9 +353,10 @@ public class Sh2Prefetch implements Sh2Prefetcher {
                 LOG.info("{} Poll write addr: {} {}, target: {} {} {}, val: {}", cpuWrite,
                         th(addr), size, c.cpu, th(c.blockPollData.memLoadTarget),
                         c.blockPollData.memLoadTargetSize, th(val));
-//            if(c.pollValue != val) {
-            SysEventManager.instance.fireSysEvent(c.cpu, type);
-//            }
+            boolean skipVdp = type == PollSysEventManager.SysEvent.VDP && c.pollValue == PollSysEventManager.readPollValue(c);
+            if (!skipVdp) {
+                PollSysEventManager.instance.fireSysEvent(c.cpu, type);
+            }
         }
     }
 
@@ -447,14 +448,6 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         }
         final Sh2Block block = pcInfoWrapper.block;
         assert block != Sh2Block.INVALID_BLOCK;
-        //TODO check not needed anymore
-//        if (!cacheOnly) {
-//            //cosmic carnage
-//            int prev = block.prefetchWords[((addr - block.prefetchPc) >> 1)];
-//            if (prev == val) {
-//                return;
-//            }
-//        }
         if (verbose) {
             String s = LogHelper.formatMessage(
                     "{} write at addr: {} val: {}, {} invalidate block with start: {} blockLen: {}",
@@ -470,8 +463,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     private void invalidateBlock(Sh2Helper.Sh2PcInfoWrapper piw) {
         Sh2Block b = piw.block;
         boolean isCacheArray = b.prefetchPc >>> S32xDict.SH2_PC_AREA_SHIFT == 0xC0;
-        //TODO Blackthorne lots of SDRAM invalidation, does removing (&& isCacheArray) help?
-        if (ENABLE_BLOCK_RECYCLING) {// && isCacheArray) {
+        //Blackthorne lots of SDRAM invalidation
+        if (ENABLE_BLOCK_RECYCLING) {
             assert b.getCpu() != null;
             piw.addToKnownBlocks(b);
         }

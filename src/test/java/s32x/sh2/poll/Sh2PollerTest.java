@@ -2,7 +2,7 @@ package s32x.sh2.poll;
 
 import omegadrive.util.Size;
 import org.junit.jupiter.api.*;
-import s32x.event.SysEventManager;
+import s32x.event.PollSysEventManager;
 import s32x.sh2.Sh2;
 import s32x.sh2.Sh2Context;
 import s32x.sh2.Sh2Helper;
@@ -31,12 +31,12 @@ import static s32x.sh2.drc.Ow2DrcOptimizer.POLLER_ACTIVATE_LIMIT;
  * <p>
  * Copyright 2022
  */
-public class Sh2PollerTest implements SysEventManager.SysEventListener {
+public class Sh2PollerTest implements PollSysEventManager.SysEventListener {
     private static MarsLauncherHelper.Sh2LaunchContext lc;
     protected static Sh2.Sh2Config configDrcEn = new Sh2.Sh2Config(true, true, true, true);
 
     private CpuDeviceAccess lastCpuEvent;
-    private SysEventManager.SysEvent lastEvent;
+    private PollSysEventManager.SysEvent lastEvent;
 
     static class LocalTestCtx {
         public int[] regs, opcodes;
@@ -57,8 +57,8 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
         lastEvent = null;
         lc.sh2.reset(lc.masterCtx);
         Md32xRuntimeData.setAccessTypeExt(CpuDeviceAccess.MASTER);
-        SysEventManager.instance.reset();
-        SysEventManager.instance.addSysEventListener(CpuDeviceAccess.MASTER, "Sh2PollerTest", this);
+        PollSysEventManager.instance.reset();
+        PollSysEventManager.instance.addSysEventListener(CpuDeviceAccess.MASTER, "Sh2PollerTest", this);
         Sh2Helper.clear();
         Assumptions.assumeFalse(RUNNING_IN_GITHUB);
     }
@@ -234,7 +234,7 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
         //disables polling or busyLoop
         runBlock(sh2Context, c.cyclesPerBlock);
         Assertions.assertEquals(CpuDeviceAccess.MASTER, lastCpuEvent);
-        Assertions.assertEquals(SysEventManager.SysEvent.INT, lastEvent);
+        Assertions.assertEquals(PollSysEventManager.SysEvent.INT, lastEvent);
         Assertions.assertFalse(isPollerActive());
 
         //re-enter polling
@@ -258,13 +258,13 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
 
         //write to sdram should NOT trigger an event
         lc.memory.write8(SH2_START_SDRAM | c.memLoadAddress + 4, (byte) c.noMatchVal);
-        Assertions.assertEquals(SysEventManager.SysEvent.START_POLLING, lastEvent);
+        Assertions.assertEquals(PollSysEventManager.SysEvent.START_POLLING, lastEvent);
         Assertions.assertTrue(isPollerActive());
 
         //write to sdram should trigger an event
         lc.memory.write8(SH2_START_SDRAM | c.memLoadAddress, (byte) c.noMatchVal);
         Assertions.assertEquals(CpuDeviceAccess.MASTER, lastCpuEvent);
-        Assertions.assertEquals(SysEventManager.SysEvent.SDRAM, lastEvent);
+        Assertions.assertEquals(PollSysEventManager.SysEvent.SDRAM, lastEvent);
         Assertions.assertFalse(isPollerActive());
 
         //check condition
@@ -274,12 +274,12 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
         runBlock(sh2Context, c.cyclesPerBlock);
         Assertions.assertTrue(isPollerActive());
         Assertions.assertEquals(CpuDeviceAccess.MASTER, lastCpuEvent);
-        Assertions.assertEquals(SysEventManager.SysEvent.START_POLLING, lastEvent);
+        Assertions.assertEquals(PollSysEventManager.SysEvent.START_POLLING, lastEvent);
 
         //write to sdram should trigger an event
         lc.memory.write8(SH2_START_SDRAM | c.memLoadAddress, (byte) (c.noMatchVal | c.matchVal));
         Assertions.assertEquals(CpuDeviceAccess.MASTER, lastCpuEvent);
-        Assertions.assertEquals(SysEventManager.SysEvent.SDRAM, lastEvent);
+        Assertions.assertEquals(PollSysEventManager.SysEvent.SDRAM, lastEvent);
         Assertions.assertFalse(isPollerActive());
 
         //check condition, exit loop
@@ -409,7 +409,7 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
     }
 
     public boolean isPollerActive() {
-        return SysEventManager.currentPollers[CpuDeviceAccess.MASTER.ordinal()].isPollingActive();
+        return PollSysEventManager.currentPollers[CpuDeviceAccess.MASTER.ordinal()].isPollingActive();
     }
 
     private void loopUntilPollingActive(Sh2Context sh2Context) {
@@ -422,7 +422,7 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
         } while (!pollActive && cnt < POLLER_ACTIVATE_LIMIT *20);
         Assertions.assertNotEquals(100, cnt);
         Assertions.assertEquals(CpuDeviceAccess.MASTER, lastCpuEvent);
-        Assertions.assertEquals(SysEventManager.SysEvent.START_POLLING, lastEvent);
+        Assertions.assertEquals(PollSysEventManager.SysEvent.START_POLLING, lastEvent);
         Assertions.assertTrue(isPollerActive());
     }
 
@@ -433,12 +433,12 @@ public class Sh2PollerTest implements SysEventManager.SysEventListener {
     }
 
     @Override
-    public void onSysEvent(CpuDeviceAccess cpu, SysEventManager.SysEvent event) {
+    public void onSysEvent(CpuDeviceAccess cpu, PollSysEventManager.SysEvent event) {
         lastCpuEvent = cpu;
         lastEvent = event;
         System.out.println(cpu + "," + event);
-        if (lastEvent == SysEventManager.SysEvent.SDRAM || lastEvent == SysEventManager.SysEvent.INT) {
-            SysEventManager.instance.resetPoller(cpu);
+        if (lastEvent == PollSysEventManager.SysEvent.SDRAM || lastEvent == PollSysEventManager.SysEvent.INT) {
+            PollSysEventManager.instance.resetPoller(cpu);
         }
     }
 }
