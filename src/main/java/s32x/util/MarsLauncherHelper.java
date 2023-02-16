@@ -16,12 +16,14 @@ import s32x.sh2.Sh2Context;
 import s32x.sh2.Sh2Debug;
 import s32x.sh2.Sh2Impl;
 import s32x.sh2.device.Sh2DeviceHelper;
-import s32x.sh2.prefetch.Sh2Prefetch;
+import s32x.sh2.device.Sh2DeviceHelper.Sh2DeviceContext;
 import s32x.vdp.MarsVdp;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+
+import static s32x.sh2.prefetch.Sh2Prefetch.Sh2DrcContext;
 
 /**
  * Federico Berti
@@ -94,8 +96,8 @@ public class MarsLauncherHelper {
         ctx.rom = ByteBuffer.wrap(romHolder.data);
         ctx.s32XMMREG = new S32XMMREG();
         ctx.dmaFifo68k = new DmaFifo68k(ctx.s32XMMREG.regContext);
-        Sh2Prefetch.Sh2DrcContext mDrcCtx = new Sh2Prefetch.Sh2DrcContext();
-        Sh2Prefetch.Sh2DrcContext sDrcCtx = new Sh2Prefetch.Sh2DrcContext();
+        Sh2DrcContext mDrcCtx = new Sh2DrcContext();
+        Sh2DrcContext sDrcCtx = new Sh2DrcContext();
         mDrcCtx.sh2Ctx = ctx.masterCtx;
         sDrcCtx.sh2Ctx = ctx.slaveCtx;
         mDrcCtx.cpu = ctx.masterCtx.cpuAccess;
@@ -119,7 +121,7 @@ public class MarsLauncherHelper {
 
     public static class Sh2LaunchContext {
         public Sh2Context masterCtx, slaveCtx;
-        public Sh2DeviceHelper.Sh2DeviceContext mDevCtx, sDevCtx;
+        public Sh2DeviceContext mDevCtx, sDevCtx;
         public S32xBus bus;
         public BiosHolder biosHolder;
         public Sh2Bus memory;

@@ -1,12 +1,14 @@
 package s32x.sh2.cache;
 
+import omegadrive.Device;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
 import s32x.bus.Sh2Bus;
 import s32x.util.Md32xRuntimeData;
-import s32x.util.S32xUtil;
+import s32x.util.S32xUtil.CpuDeviceAccess;
 
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 
 /**
@@ -17,7 +19,7 @@ import java.nio.ByteBuffer;
  * Translated from yabause:
  * https://github.com/Yabause/yabause/blob/master/yabause/src/sh2cache.h
  */
-public interface Sh2Cache {
+public interface Sh2Cache extends Device {
 
     Logger LOG = LogHelper.getLogger(Sh2Cache.class.getSimpleName());
 
@@ -54,20 +56,20 @@ public interface Sh2Cache {
     int DATA_ARRAY_SIZE = 0x1000;
     int DATA_ARRAY_MASK = DATA_ARRAY_SIZE - 1;
 
-    class Sh2CacheLine {
+    class Sh2CacheLine implements Serializable {
         public int tag; //u32
         public int v;
         public byte[] data = new byte[CACHE_BYTES_PER_LINE]; //u8
     }
 
-    class Sh2CacheEntry {
+    class Sh2CacheEntry implements Serializable {
         int enable; //u32
         int[] lru = new int[CACHE_LINES]; //u32
         Sh2CacheLine[][] way = new Sh2CacheLine[CACHE_WAYS][CACHE_LINES];
     }
 
     class CacheInvalidateContext {
-        public S32xUtil.CpuDeviceAccess cpu;
+        public CpuDeviceAccess cpu;
         public Sh2CacheLine line;
         public int cacheReadAddr, prevCacheAddr;
         public boolean force;
@@ -84,9 +86,11 @@ public interface Sh2Cache {
 
     ByteBuffer getDataArray();
 
-    CacheContext updateState(int ccrValue);
+    CacheRegContext updateState(int ccrValue);
 
-    CacheContext getCacheContext();
+    CacheRegContext getCacheContext();
+
+    Sh2CacheContext getSh2CacheContext();
 
     default int readMemoryUncached(Sh2Bus memory, int address, Size size) {
         return memory.read(address | CACHE_THROUGH, size);
@@ -103,11 +107,11 @@ public interface Sh2Cache {
         memory.write(address | CACHE_THROUGH, value, size);
     }
 
-    static Sh2Cache createNoCacheInstance(S32xUtil.CpuDeviceAccess cpu, final Sh2Bus memory) {
+    static Sh2Cache createNoCacheInstance(CpuDeviceAccess cpu, final Sh2Bus memory) {
         return new Sh2CacheImpl(cpu, memory) {
             @Override
-            public CacheContext updateState(int value) {
-                CacheContext ctx = super.updateState(value);
+            public CacheRegContext updateState(int value) {
+                CacheRegContext ctx = super.updateState(value);
                 if (ctx.cacheEn > 0) {
 //                    LOG.warn("Ignoring cache enable, as cache emulation is not active");
                 }
@@ -122,7 +126,9 @@ public interface Sh2Cache {
         };
     }
 
-    class CacheContext {
+    class CacheRegContext implements Serializable {
+
+        public CpuDeviceAccess cpu;
         public int ccr;
         public int way;
         public int cachePurge;
@@ -142,5 +148,12 @@ public interface Sh2Cache {
                     ", cacheEn=" + cacheEn +
                     '}';
         }
+    }
+
+    class Sh2CacheContext implements Serializable {
+        public Sh2CacheEntry ca;
+        public CacheRegContext cacheContext;
+
+        public final byte[] dataArray = new byte[DATA_ARRAY_SIZE];
     }
 }
