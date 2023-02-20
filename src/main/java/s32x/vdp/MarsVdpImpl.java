@@ -451,7 +451,7 @@ public class MarsVdpImpl implements MarsVdp {
                 for (; col < nextLimit; col++) {
                     imgData[basePos + col] = color;
                 }
-            } while (col < w);
+            } while (col < w && nextWord < fbDataWords.length);
         }
         wasBlankScreen = false;
     }

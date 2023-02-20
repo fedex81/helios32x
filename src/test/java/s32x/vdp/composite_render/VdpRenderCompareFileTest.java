@@ -44,6 +44,9 @@ import java.util.stream.Stream;
 import static s32x.util.TestRenderUtil.S32xRenderType.*;
 import static s32x.util.TestRenderUtil.*;
 
+/**
+ * Test the creation of a composite image of the MD + S32X screen outputs.
+ */
 public class VdpRenderCompareFileTest extends VdpRenderCompareTest {
 
     public static Path baseDataFolder = Paths.get(new File(".").getAbsolutePath(),
