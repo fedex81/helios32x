@@ -410,8 +410,8 @@ public class Ow2DrcOptimizer {
         if (block.pollType == UNKNOWN) {
             block.pollType = NONE;
         }
-        if (LOG_POLL_DETECT_UNSUPPORTED && !log && bpd.branchDestPc == bpd.pc) {
-            if (bpd.words.length - bpd.numNops < 5) {
+        if (LOG_POLL_DETECT_UNSUPPORTED && !block.pollType.supported && bpd.branchDestPc == bpd.pc) {
+            if (bpd.words.length - bpd.numNops < 10) {
                 logPollBlock(block, bpd, false);
             }
         }
