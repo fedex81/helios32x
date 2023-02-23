@@ -51,7 +51,6 @@ public class Gs32xStateHandler extends GshStateHandler {
         h.type = type;
         h.init(fileName);
         h.setDevicesWithContext(deviceSet);
-        s32xDeviceSet.clear();
         return h;
     }
 
@@ -115,6 +114,7 @@ public class Gs32xStateHandler extends GshStateHandler {
     public void processState() {
         super.processState(); //do MD stuff
         ByteBuffer b = ByteBuffer.allocate(FILE_SIZE << 4);
+        assert !s32xDeviceSet.isEmpty();
         if (type == Type.SAVE) {
             S32xContainer container = new S32xContainer();
             for (int i = 0; i < 2; i++) {

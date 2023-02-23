@@ -8,6 +8,7 @@ import omegadrive.util.Util;
 import org.slf4j.Logger;
 import s32x.S32XMMREG;
 import s32x.dict.S32xDict;
+import s32x.dict.S32xDict.RegSpecS32x;
 import s32x.savestate.Gs32xStateHandler;
 import s32x.sh2.device.DmaC;
 import s32x.sh2.device.IntControl;
@@ -16,10 +17,13 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.th;
+import static s32x.dict.S32xDict.RegSpecS32x.*;
 import static s32x.pwm.Pwm.PwmChannel.LEFT;
 import static s32x.pwm.Pwm.PwmChannel.RIGHT;
 import static s32x.pwm.Pwm.PwmChannelSetup.OFF;
 import static s32x.util.S32xUtil.*;
+import static s32x.util.S32xUtil.CpuDeviceAccess.MASTER;
+import static s32x.util.S32xUtil.CpuDeviceAccess.SLAVE;
 
 /**
  * Federico Berti
@@ -40,6 +44,8 @@ public class Pwm implements StepDevice {
     }
 
     enum PwmChannel {LEFT, RIGHT}
+
+    public static boolean PWM_USE_BLIP = false;
 
     private static final int PWM_DMA_CHANNEL = 1;
     private static final int chLeft = 0, chRight = 1;
@@ -82,14 +88,14 @@ public class Pwm implements StepDevice {
         init();
     }
 
-    public int read(CpuDeviceAccess cpu, S32xDict.RegSpecS32x regSpec, int address, Size size) {
+    public int read(CpuDeviceAccess cpu, RegSpecS32x regSpec, int address, Size size) {
         int res = readBuffer(sysRegsMd, address, size);
         assert res == readBuffer(sysRegsSh2, address, size);
         if (verbose) LOG.info("{} PWM read {}: {} {}", cpu, regSpec.name, th(res), size);
         return res;
     }
 
-    public void write(CpuDeviceAccess cpu, S32xDict.RegSpecS32x regSpec, int reg, int value, Size size) {
+    public void write(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value, Size size) {
         if (verbose) LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), size);
         switch (size) {
             case BYTE -> writeByte(cpu, regSpec, reg, value);
@@ -101,13 +107,13 @@ public class Pwm implements StepDevice {
         }
     }
 
-    public void writeByte(CpuDeviceAccess cpu, S32xDict.RegSpecS32x regSpec, int reg, int value) {
+    public void writeByte(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value) {
         switch (regSpec) {
             case PWM_CTRL -> handlePwmControl(cpu, reg, value, Size.BYTE);
             case PWM_CYCLE -> {
                 assert cpu.regSide == S32xRegSide.MD : regSpec;
                 handlePartialByteWrite(reg, value);
-                if (regSpec == S32xDict.RegSpecS32x.PWM_CYCLE) {
+                if (regSpec == PWM_CYCLE) {
                     int val = Util.readBufferWord(sysRegsMd, regSpec.addr);
                     handlePwmCycleWord(cpu, val);
                 }
@@ -134,7 +140,7 @@ public class Pwm implements StepDevice {
         writeBuffers(sysRegsMd, sysRegsSh2, reg, value & 0xFF, Size.BYTE);
     }
 
-    private void writeWord(CpuDeviceAccess cpu, S32xDict.RegSpecS32x regSpec, int reg, int value) {
+    private void writeWord(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value) {
         switch (regSpec) {
             case PWM_CTRL -> handlePwmControl(cpu, reg, value, Size.WORD);
             case PWM_CYCLE -> handlePwmCycleWord(cpu, value);
@@ -147,8 +153,8 @@ public class Pwm implements StepDevice {
 
     private void handlePwmCycleWord(CpuDeviceAccess cpu, int value) {
         value &= 0xFFF;
-        writeBufferHasChangedWithMask(S32xDict.RegSpecS32x.PWM_CYCLE, sysRegsMd, S32xDict.RegSpecS32x.PWM_CYCLE.addr, value, Size.WORD);
-        writeBufferHasChangedWithMask(S32xDict.RegSpecS32x.PWM_CYCLE, sysRegsSh2, S32xDict.RegSpecS32x.PWM_CYCLE.addr, value, Size.WORD);
+        writeBufferHasChangedWithMask(PWM_CYCLE, sysRegsMd, PWM_CYCLE.addr, value, Size.WORD);
+        writeBufferHasChangedWithMask(PWM_CYCLE, sysRegsSh2, PWM_CYCLE.addr, value, Size.WORD);
         int prevCycle = ctx.cycle;
         ctx.cycle = (value - 1) & 0xFFF;
         if (ctx.cycle < CYCLE_LIMIT) {
@@ -170,14 +176,14 @@ public class Pwm implements StepDevice {
     private void handlePwmControlMd(CpuDeviceAccess cpu, int reg, int value, Size size) {
         assert size != Size.LONG;
         if (size == Size.BYTE && ((reg & 1) == 0)) {
-            LOG.info("{} ignored write to {} {}, read only byte: val {} {}", cpu, S32xDict.RegSpecS32x.PWM_CTRL, th(reg), th(value), size);
+            LOG.info("{} ignored write to {} {}, read only byte: val {} {}", cpu, PWM_CTRL, th(reg), th(value), size);
             return;
         }
-        int val = Util.readBufferWord(sysRegsMd, S32xDict.RegSpecS32x.PWM_CTRL.addr) & 0xFFF0;
+        int val = Util.readBufferWord(sysRegsMd, PWM_CTRL.addr) & 0xFFF0;
         val |= value & 0xF;
         writeBuffers(sysRegsMd, sysRegsSh2, reg, val, size);
 
-        value = readBufferWord(sysRegsMd, S32xDict.RegSpecS32x.PWM_CTRL.addr);
+        value = readBufferWord(sysRegsMd, PWM_CTRL.addr);
         ctx.channelMap[chLeft] = chanVals[value & 3];
         ctx.channelMap[chRight] = chanVals[(value >> 2) & 3];
     }
@@ -192,7 +198,7 @@ public class Pwm implements StepDevice {
         //Primal Rage, Sh2 write bytes
         assert size != Size.LONG;
         writeBuffers(sysRegsMd, sysRegsSh2, reg, val & mask, size);
-        int value = readBufferWord(sysRegsMd, S32xDict.RegSpecS32x.PWM_CTRL.addr);
+        int value = readBufferWord(sysRegsMd, PWM_CTRL.addr);
         ctx.dreqEn = ((value >> 7) & 1) > 0;
         int ival = (value >> 8) & 0xF;
         ctx.interruptInterval = ival == 0 ? 0x10 : ival;
@@ -222,7 +228,7 @@ public class Pwm implements StepDevice {
     private void writeFifo(Fifo<Integer> fifo, int value) {
         if (fifo.isFull()) {
             fifo.pop();
-            if (verbose) LOG.warn("PWM FIFO push when ctx.fifo full: {}", th(value));
+            if (verbose) LOG.warn("PWM FIFO push when fifo full: {}", th(value));
             return;
         }
         fifo.push((value - 1) & 0xFFF);
@@ -230,7 +236,7 @@ public class Pwm implements StepDevice {
     }
 
     //TEST only
-    public int readFifoMono(S32xDict.RegSpecS32x regSpec) {
+    public int readFifoMono(RegSpecS32x regSpec) {
         return switch (regSpec) {
             case PWM_LCH_PW -> readFifo(ctx.fifoLeft, LEFT);
             case PWM_RCH_PW -> readFifo(ctx.fifoRight, RIGHT);
@@ -261,9 +267,9 @@ public class Pwm implements StepDevice {
     //TODO keep the existing value instead of replacing it
     private void updateFifoRegs() {
         int regValue = (ctx.fifoLeft.isFullBit() << PWM_FIFO_FULL_BIT_POS) | (ctx.fifoLeft.isEmptyBit() << PWM_FIFO_EMPTY_BIT_POS);
-        writeBuffers(sysRegsMd, sysRegsSh2, S32xDict.RegSpecS32x.PWM_LCH_PW.addr, regValue, Size.WORD);
+        writeBuffers(sysRegsMd, sysRegsSh2, PWM_LCH_PW.addr, regValue, Size.WORD);
         regValue = (ctx.fifoRight.isFullBit() << PWM_FIFO_FULL_BIT_POS) | (ctx.fifoRight.isEmptyBit() << PWM_FIFO_EMPTY_BIT_POS);
-        writeBuffers(sysRegsMd, sysRegsSh2, S32xDict.RegSpecS32x.PWM_RCH_PW.addr, regValue, Size.WORD);
+        writeBuffers(sysRegsMd, sysRegsSh2, PWM_RCH_PW.addr, regValue, Size.WORD);
         updateMono();
     }
 
@@ -271,7 +277,7 @@ public class Pwm implements StepDevice {
         int fifoFull = ((ctx.fifoLeft.isFullBit() | ctx.fifoRight.isFullBit()) << PWM_FIFO_FULL_BIT_POS);
         int fifoEmpty = ((ctx.fifoLeft.isEmptyBit() & ctx.fifoRight.isEmptyBit()) << PWM_FIFO_EMPTY_BIT_POS);
         int regValue = fifoFull | fifoEmpty;
-        writeBuffers(sysRegsMd, sysRegsSh2, S32xDict.RegSpecS32x.PWM_MONO.addr, regValue, Size.WORD);
+        writeBuffers(sysRegsMd, sysRegsSh2, PWM_MONO.addr, regValue, Size.WORD);
     }
 
     public void writeMono(int value) {
@@ -297,7 +303,7 @@ public class Pwm implements StepDevice {
         }
     }
 
-//    private int rs, ls;
+
 
     private void stepOne() {
         if (--ctx.sh2TicksToNextPwmSample == 0) {
@@ -307,24 +313,29 @@ public class Pwm implements StepDevice {
             ctx.ls = Math.min(ctx.cycle - SAMPLE_LIMIT_DELTA, readFifo(ctx.fifoLeft, LEFT) + SAMPLE_LIMIT_DELTA);
             ctx.rs = Math.min(ctx.cycle - SAMPLE_LIMIT_DELTA, readFifo(ctx.fifoRight, RIGHT) + SAMPLE_LIMIT_DELTA);
             assert ctx.ls >= SAMPLE_LIMIT_DELTA && ctx.rs >= SAMPLE_LIMIT_DELTA;
+            if (PWM_USE_BLIP) {
+                playSupport.playSample(ctx.ls, ctx.rs);
+            }
             if (--ctx.sh2ticksToNextPwmInterrupt == 0) {
-                intControls[CpuDeviceAccess.MASTER.ordinal()].setIntPending(IntControl.Sh2Interrupt.PWM_6, true);
-                intControls[CpuDeviceAccess.SLAVE.ordinal()].setIntPending(IntControl.Sh2Interrupt.PWM_6, true);
+                intControls[MASTER.ordinal()].setIntPending(IntControl.Sh2Interrupt.PWM_6, true);
+                intControls[SLAVE.ordinal()].setIntPending(IntControl.Sh2Interrupt.PWM_6, true);
                 ctx.sh2ticksToNextPwmInterrupt = ctx.interruptInterval;
                 dreq();
             }
         }
-        if (--ctx.sh2TicksToNext22khzSample == 0) {
-            playSupport.playSample(ctx.ls, ctx.rs);
-            ctx.sh2TicksToNext22khzSample = CYCLE_22khz;
+        if (!PWM_USE_BLIP) {
+            if (--ctx.sh2TicksToNext22khzSample == 0) {
+                playSupport.playSample(ctx.ls, ctx.rs);
+                ctx.sh2TicksToNext22khzSample = CYCLE_22khz;
+            }
         }
     }
 
     private void dreq() {
         if (ctx.dreqEn) {
             //NOTE this should trigger on channel one for BOTH sh2s
-            dmac[CpuDeviceAccess.MASTER.ordinal()].dmaReqTriggerPwm(PWM_DMA_CHANNEL, true);
-            dmac[CpuDeviceAccess.SLAVE.ordinal()].dmaReqTriggerPwm(PWM_DMA_CHANNEL, true);
+            dmac[MASTER.ordinal()].dmaReqTriggerPwm(PWM_DMA_CHANNEL, true);
+            dmac[SLAVE.ordinal()].dmaReqTriggerPwm(PWM_DMA_CHANNEL, true);
             dreqPerFrame++;
         }
     }
@@ -358,10 +369,10 @@ public class Pwm implements StepDevice {
 
     @Override
     public void init() {
-        writeBuffers(sysRegsMd, sysRegsSh2, S32xDict.RegSpecS32x.PWM_LCH_PW.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
-        writeBuffers(sysRegsMd, sysRegsSh2, S32xDict.RegSpecS32x.PWM_RCH_PW.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
-        writeBuffers(sysRegsMd, sysRegsSh2, S32xDict.RegSpecS32x.PWM_MONO.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
-        handlePwmControlSh2(CpuDeviceAccess.MASTER, S32xDict.RegSpecS32x.PWM_CTRL.addr, 0, Size.WORD); //init interruptInterval
+        writeBuffers(sysRegsMd, sysRegsSh2, PWM_LCH_PW.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
+        writeBuffers(sysRegsMd, sysRegsSh2, PWM_RCH_PW.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
+        writeBuffers(sysRegsMd, sysRegsSh2, PWM_MONO.addr, (1 << PWM_FIFO_EMPTY_BIT_POS), Size.WORD);
+        handlePwmControlSh2(MASTER, PWM_CTRL.addr, 0, Size.WORD); //init interruptInterval
     }
 
     @Override

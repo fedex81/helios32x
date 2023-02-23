@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import java.util.Arrays;
 
 import static omegadrive.util.Util.th;
+import static s32x.pwm.Pwm.CYCLE_LIMIT;
 import static s32x.pwm.PwmUtil.*;
 import static s32x.pwm.PwmUtil.PwmStats.NO_STATS;
 
@@ -46,16 +47,16 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
         float c = cycle;
         int pwmSamplesPerFrame = (int) (sh2ClockMhz / (fps * cycle));
         scale = (Short.MAX_VALUE << 1) / c;
-        shouldPlay = cycle >= Pwm.CYCLE_LIMIT;
+        shouldPlay = cycle >= CYCLE_LIMIT;
         this.cycle = cycle;
         start();
         if (!shouldPlay) {
             LOG.error("Unsupported cycle setting: {}, limit: {}, pwmSamplesPerFrame: {}",
-                    cycle, Pwm.CYCLE_LIMIT, pwmSamplesPerFrame);
+                    cycle, CYCLE_LIMIT, pwmSamplesPerFrame);
             stop();
         } else {
             LOG.info("PWM cycle setting: {}, limit: {}, pwmSamplesPerFrame: {}",
-                    cycle, Pwm.CYCLE_LIMIT, pwmSamplesPerFrame);
+                    cycle, CYCLE_LIMIT, pwmSamplesPerFrame);
             warmup = WARMUP;
             warmup.reset();
             warmup.isWarmup = true;
@@ -95,11 +96,6 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
             //drop both samples
             if (collectStats) stats.monoSamplesDiscard++;
         }
-    }
-
-    @Override
-    public SoundDeviceType getType() {
-        return SoundDeviceType.PWM;
     }
 
     int[] preFilter = new int[0];
@@ -146,6 +142,11 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
             sampleQueue.clear();
             stereoQueueLen.set(0);
         }
+    }
+
+    @Override
+    public SoundDeviceType getType() {
+        return SoundDeviceType.PWM;
     }
 
     @Override
