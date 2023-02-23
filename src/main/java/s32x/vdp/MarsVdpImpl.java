@@ -2,6 +2,7 @@ package s32x.vdp;
 
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
+import omegadrive.util.Util;
 import omegadrive.util.VideoMode;
 import omegadrive.vdp.util.UpdatableViewer;
 import omegadrive.vdp.util.VdpDebugView;
@@ -9,18 +10,22 @@ import org.slf4j.Logger;
 import s32x.S32XMMREG;
 import s32x.dict.S32xDict;
 import s32x.dict.S32xMemAccessDelay;
+import s32x.savestate.Gs32xStateHandler;
 import s32x.sh2.device.IntControl;
 import s32x.sh2.prefetch.Sh2Prefetch;
 import s32x.util.Md32xRuntimeData;
 import s32x.util.S32xUtil;
 import s32x.vdp.debug.MarsVdpDebugView;
 
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
 import java.util.Arrays;
 import java.util.Optional;
 
 import static omegadrive.util.Util.th;
+import static s32x.dict.S32xDict.DRAM_SIZE;
+import static s32x.dict.S32xDict.SIZE_32X_COLPAL;
 import static s32x.vdp.MarsVdp.VdpPriority.MD;
 import static s32x.vdp.MarsVdp.VdpPriority.S32X;
 
@@ -34,29 +39,35 @@ public class MarsVdpImpl implements MarsVdp {
 
     private static final Logger LOG = LogHelper.getLogger(MarsVdpImpl.class.getSimpleName());
 
-    private final ByteBuffer colorPalette = ByteBuffer.allocateDirect(S32xDict.SIZE_32X_COLPAL);
+    private static class MarsVdpSaveContext implements Serializable {
+        public MarsVdpRenderContext renderContext;
+
+        private byte[] fb0 = new byte[DRAM_SIZE], fb1 = new byte[DRAM_SIZE], palette = new byte[SIZE_32X_COLPAL];
+        //0 - pal, 1 - NTSC
+        private int pal = 1;
+        //0 = palette access disabled, 1 = enabled
+        private int pen = 1;
+
+        private boolean wasBlankScreen = false;
+    }
+
+    private final ByteBuffer colorPalette = ByteBuffer.allocateDirect(SIZE_32X_COLPAL);
     private final ByteBuffer[] dramBanks = new ByteBuffer[2];
 
     private final ShortBuffer[] frameBuffersWord = new ShortBuffer[NUM_FB];
     private final ShortBuffer colorPaletteWords = colorPalette.asShortBuffer();
-    private final short[] fbDataWords = new short[S32xDict.DRAM_SIZE >> 1];
+    private final short[] fbDataWords = new short[DRAM_SIZE >> 1];
     private final int[] lineTableWords = new int[LINE_TABLE_WORDS];
 
     private ByteBuffer vdpRegs;
     private MarsVdpDebugView view;
+
+    private MarsVdpSaveContext ctx;
     private MarsVdpContext vdpContext;
-    private MarsVdpRenderContext renderContext;
     private S32XMMREG s32XMMREG;
     private S32XMMREG.RegContext regContext;
 
     private int[] buffer;
-
-    //0 - pal, 1 - NTSC
-    private int pal = 1;
-    //0 = palette access disabled, 1 = enabled
-    private int pen = 1;
-
-    private boolean wasBlankScreen = false;
     private static final boolean verbose = false, verboseRead = false;
 
     static {
@@ -78,24 +89,26 @@ public class MarsVdpImpl implements MarsVdp {
         v.s32XMMREG = s32XMMREG;
         v.regContext = s32XMMREG.regContext;
         v.vdpRegs = v.regContext.vdpRegs;
-        v.dramBanks[0] = ByteBuffer.allocateDirect(S32xDict.DRAM_SIZE);
-        v.dramBanks[1] = ByteBuffer.allocateDirect(S32xDict.DRAM_SIZE);
+        v.dramBanks[0] = ByteBuffer.allocateDirect(DRAM_SIZE);
+        v.dramBanks[1] = ByteBuffer.allocateDirect(DRAM_SIZE);
         v.frameBuffersWord[0] = v.dramBanks[0].asShortBuffer();
         v.frameBuffersWord[1] = v.dramBanks[1].asShortBuffer();
         v.view = MarsVdpDebugView.createInstance();
-        v.vdpContext = vdpContext;
-        v.renderContext = new MarsVdpRenderContext();
-        v.renderContext.screen = v.buffer;
-        v.renderContext.vdpContext = vdpContext;
+        MarsVdpSaveContext vsc = new MarsVdpSaveContext();
+        v.ctx = vsc;
+        vsc.renderContext = new MarsVdpRenderContext();
+        vsc.renderContext.screen = v.buffer;
+        vsc.renderContext.vdpContext = v.vdpContext = vdpContext;
         v.updateVideoModeInternal(vdpContext.videoMode);
+        Gs32xStateHandler.addDevice(v);
         v.init();
         return v;
     }
 
     @Override
     public void init() {
-        writeBufferWord(S32xDict.RegSpecS32x.VDP_BITMAP_MODE, pal * S32xDict.P32XV_PAL);
-        writeBufferWord(S32xDict.RegSpecS32x.FBCR, (vdpContext.vBlankOn ? 1 : 0) * S32xDict.P32XV_VBLK | (pen * S32xDict.P32XV_PEN));
+        writeBufferWord(S32xDict.RegSpecS32x.VDP_BITMAP_MODE, ctx.pal * S32xDict.P32XV_PAL);
+        writeBufferWord(S32xDict.RegSpecS32x.FBCR, (vdpContext.vBlankOn ? 1 : 0) * S32xDict.P32XV_VBLK | (ctx.pen * S32xDict.P32XV_PEN));
     }
 
     @Override
@@ -204,8 +217,8 @@ public class MarsVdpImpl implements MarsVdp {
         int prevPrio = (val >> 7) & 1;
         S32xUtil.writeBufferReg(regContext, S32xDict.RegSpecS32x.VDP_BITMAP_MODE, reg, value, size);
         int newVal = readWordFromBuffer(S32xDict.RegSpecS32x.VDP_BITMAP_MODE) & ~(S32xDict.P32XV_PAL | S32xDict.P32XV_240);
-        int v240 = pal == 0 && vdpContext.videoMode.isV30() ? 1 : 0;
-        newVal = (newVal & 0xC3) | (pal * S32xDict.P32XV_PAL) | (v240 * S32xDict.P32XV_240);
+        int v240 = ctx.pal == 0 && vdpContext.videoMode.isV30() ? 1 : 0;
+        newVal = (newVal & 0xC3) | (ctx.pal * S32xDict.P32XV_PAL) | (v240 * S32xDict.P32XV_240);
         writeBufferWord(S32xDict.RegSpecS32x.VDP_BITMAP_MODE, newVal);
         vdpContext.bitmapMode = BitmapMode.vals[newVal & 3];
         if (BitmapMode.vals[val & 3] != vdpContext.bitmapMode) {
@@ -280,7 +293,7 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     private void setPen(int pen) {
-        this.pen = pen;
+        ctx.pen = pen;
         int val = (pen << 5) | (S32xUtil.readBufferByte(vdpRegs, S32xDict.RegSpecS32x.FBCR.addr) & 0xDF);
         S32xUtil.writeBuffer(vdpRegs, S32xDict.RegSpecS32x.FBCR.addr, val, Size.BYTE);
     }
@@ -389,11 +402,11 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     private void drawBlank() {
-        if (wasBlankScreen) {
+        if (ctx.wasBlankScreen) {
             return;
         }
         Arrays.fill(buffer, 0, buffer.length, vdpContext.priority.ordinal());
-        wasBlankScreen = true;
+        ctx.wasBlankScreen = true;
     }
 
     //Mars Sample Program - Pharaoh
@@ -421,7 +434,7 @@ public class MarsVdpImpl implements MarsVdp {
                 imgData[fbBasePos + col] = getDirectColorWithPriority(fb[linePos + col] & 0xFFFF);
             }
         }
-        wasBlankScreen = false;
+        ctx.wasBlankScreen = false;
     }
 
     //space harrier sega intro
@@ -453,7 +466,7 @@ public class MarsVdpImpl implements MarsVdp {
                 }
             } while (col < w);
         }
-        wasBlankScreen = false;
+        ctx.wasBlankScreen = false;
     }
 
     //32X Sample Program - Celtic - PWM Test
@@ -478,7 +491,7 @@ public class MarsVdpImpl implements MarsVdp {
                 imgData[basePos + col + 1] = getColorWithPriority(palWordIdx2);
             }
         }
-        wasBlankScreen = false;
+        ctx.wasBlankScreen = false;
     }
 
     @Override
@@ -540,10 +553,10 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     public void updateVdpBitmapMode(VideoMode video) {
-        pal = video.isPal() ? 0 : 1;
+        ctx.pal = video.isPal() ? 0 : 1;
         int v240 = video.isPal() && video.isV30() ? 1 : 0;
         int val = readWordFromBuffer(S32xDict.RegSpecS32x.VDP_BITMAP_MODE) & ~(S32xDict.P32XV_PAL | S32xDict.P32XV_240);
-        writeBufferWord(S32xDict.RegSpecS32x.VDP_BITMAP_MODE, val | (pal * S32xDict.P32XV_PAL) | (v240 * S32xDict.P32XV_240));
+        writeBufferWord(S32xDict.RegSpecS32x.VDP_BITMAP_MODE, val | (ctx.pal * S32xDict.P32XV_PAL) | (v240 * S32xDict.P32XV_240));
     }
 
     @Override
@@ -563,13 +576,13 @@ public class MarsVdpImpl implements MarsVdp {
 
     private void updateVideoModeInternal(VideoMode videoMode) {
         this.buffer = new int[videoMode.getDimension().width * videoMode.getDimension().height];
-        renderContext.screen = buffer;
+        ctx.renderContext.screen = buffer;
         LOG.info("Updating videoMode, {} -> {}", vdpContext.videoMode, videoMode);
     }
 
     @Override
     public MarsVdpRenderContext getMarsVdpRenderContext() {
-        return renderContext;
+        return ctx.renderContext;
     }
 
     @Override
@@ -577,6 +590,29 @@ public class MarsVdpImpl implements MarsVdp {
         if (debugView instanceof VdpDebugView) {
             ((VdpDebugView) debugView).setAdditionalPanel(view.getPanel());
         }
+    }
+
+    @Override
+    public void saveContext(ByteBuffer bb) {
+        MarsVdp.super.saveContext(bb);
+        ctx.renderContext.screen = buffer;
+        dramBanks[0].rewind().get(ctx.fb0);
+        dramBanks[1].rewind().get(ctx.fb1);
+        colorPalette.rewind().get(ctx.palette);
+        bb.put(Util.serializeObject(ctx));
+    }
+
+    @Override
+    public void loadContext(ByteBuffer bb) {
+        MarsVdp.super.loadContext(bb);
+        Serializable s = Util.deserializeObject(bb.array(), 0, bb.capacity());
+        assert s instanceof MarsVdpSaveContext;
+        ctx = (MarsVdpSaveContext) s;
+        buffer = ctx.renderContext.screen;
+        vdpContext = ctx.renderContext.vdpContext;
+        dramBanks[0].rewind().put(ctx.fb0);
+        dramBanks[1].rewind().put(ctx.fb1);
+        colorPalette.rewind().put(ctx.palette);
     }
 
     @Override

@@ -1,14 +1,18 @@
 package s32x;
 
 import com.google.common.collect.Maps;
+import omegadrive.Device;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
+import omegadrive.util.Util;
 import org.slf4j.Logger;
+import s32x.savestate.Gs32xStateHandler;
 import s32x.sh2.cache.Sh2Cache;
 import s32x.sh2.device.*;
 import s32x.util.Md32xRuntimeData;
 import s32x.util.S32xUtil;
 
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.stream.IntStream;
@@ -21,15 +25,19 @@ import static s32x.dict.Sh2Dict.*;
  * <p>
  * Copyright 2021
  */
-public class Sh2MMREG {
+public class Sh2MMREG implements Device {
 
     private static final Logger LOG = LogHelper.getLogger(Sh2MMREG.class.getSimpleName());
     public static final int SH2_REG_SIZE = 0x200;
     public static final int SH2_REG_MASK = SH2_REG_SIZE - 1;
 
-    private final ByteBuffer regs = ByteBuffer.allocateDirect(SH2_REG_SIZE);
-    private final Map<Integer, Integer> dramModeRegs = Maps.newHashMap(dramModeRegsSpec);
+    public static class Sh2MMREGContext implements Serializable {
+        public final byte[] regsByte = new byte[SH2_REG_SIZE];
+        public final Map<Integer, Integer> dramModeRegs = Maps.newHashMap(dramModeRegsSpec);
+    }
 
+    private Sh2MMREGContext ctx;
+    private final ByteBuffer regs;
     private SerialCommInterface sci;
     private DivUnit divUnit;
     private DmaC dmaC;
@@ -44,6 +52,9 @@ public class Sh2MMREG {
     public Sh2MMREG(S32xUtil.CpuDeviceAccess cpu, Sh2Cache sh2Cache) {
         this.cpu = cpu;
         this.cache = sh2Cache;
+        this.ctx = new Sh2MMREGContext();
+        regs = ByteBuffer.allocateDirect(SH2_REG_SIZE).put(ctx.regsByte);
+        Gs32xStateHandler.addDevice(this);
     }
 
     public void init(Sh2DeviceHelper.Sh2DeviceContext ctx) {
@@ -107,7 +118,7 @@ public class Sh2MMREG {
     }
 
     public int readDramMode(int reg, Size size) {
-        int res = dramModeRegs.getOrDefault(reg, -1);
+        int res = ctx.dramModeRegs.getOrDefault(reg, -1);
         if (verbose) {
             logAccess("read", reg, res, size);
         }
@@ -122,8 +133,8 @@ public class Sh2MMREG {
         if (verbose) {
             logAccess("write", reg, value, size);
         }
-        if (dramModeRegs.containsKey(reg)) {
-            dramModeRegs.put(reg, value);
+        if (ctx.dramModeRegs.containsKey(reg)) {
+            ctx.dramModeRegs.put(reg, value);
         } else {
             LOG.error("Unexpected dram mode reg write: {}, {} {}", reg, value, size);
         }
@@ -200,7 +211,7 @@ public class Sh2MMREG {
         assert pos == r.addr : th(pos) + ", " + th(r.addr);
         int prev = S32xUtil.readBufferByte(regs, r.addr);
         if (prev != v) {
-            Sh2Cache.CacheContext ctx = cache.updateState(v);
+            Sh2Cache.CacheRegContext ctx = cache.updateState(v);
             //purge always reverts to 0
             v = ctx.ccr;
         }
@@ -224,6 +235,22 @@ public class Sh2MMREG {
             LOG.info("{} DMA/SCI ticks per frame: {}, sh2 tpf: {}",
                     cpu, ticksPerFrame, sh2TicksPerFrame);
         ticksPerFrame = sh2TicksPerFrame = 0;
+    }
+
+    @Override
+    public void saveContext(ByteBuffer buffer) {
+        Device.super.saveContext(buffer);
+        regs.rewind().get(ctx.regsByte).rewind();
+        buffer.put(Util.serializeObject(ctx));
+    }
+
+    @Override
+    public void loadContext(ByteBuffer buffer) {
+        Device.super.loadContext(buffer);
+        Serializable s = Util.deserializeObject(buffer.array(), 0, buffer.capacity());
+        assert s instanceof Sh2MMREGContext;
+        ctx = (Sh2MMREGContext) s;
+        regs.rewind().put(ctx.regsByte).rewind();
     }
 
     public void reset() {

@@ -232,7 +232,7 @@ public class Sh2CacheTest extends Sh2MultiTestBase {
         initRam(0x100);
         int val = cacheOn ? 1 : 0;
         val |= (twoWayCache ? 1 : 0) << 3;
-        Sh2Cache.CacheContext ctx = memory.cache[MASTER.ordinal()].updateState(val);
+        Sh2Cache.CacheRegContext ctx = memory.cache[MASTER.ordinal()].updateState(val);
         Assertions.assertEquals(cacheOn, ctx.cacheEn > 0);
         Assertions.assertEquals(twoWayCache, ctx.twoWay > 0);
         clearCache(MASTER);

@@ -35,12 +35,21 @@ public class RomAccessTest {
         MarsRegTestUtil.fillAsMdRom(rom, true);
         lc = MarsRegTestUtil.createTestInstance(rom);
         lc.s32XMMREG.aden = 1;
+        DmaFifo68k.rv = false;
     }
 
     @Test
     public void testMdAccess() {
         testMdAccessInternal(M68K);
         testMdAccessInternal(Z80);
+    }
+
+    @Test
+    public void testSwitch() {
+        testMdAccess();
+        testSh2Access();
+        testMdAccess();
+        testSh2Access();
     }
 
     private void testMdAccessInternal(CpuDeviceAccess cpu) {
@@ -123,14 +132,6 @@ public class RomAccessTest {
         checkerBank1.accept(baseAddr);
     }
 
-
-    @Test
-    public void testSwitch() {
-        testMdAccess();
-        testSh2Access();
-        testMdAccess();
-        testSh2Access();
-    }
 
     private int readRomToggleRv(CpuDeviceAccess cpu, Sh2Bus sh2Mem, S32xBus mdBus, int addr) {
         int val;

@@ -17,19 +17,22 @@ import s32x.bus.S32xBus;
 import s32x.event.PollSysEventManager;
 import s32x.sh2.Sh2;
 import s32x.sh2.Sh2Context;
-import s32x.sh2.Sh2Helper;
 import s32x.sh2.drc.Ow2DrcOptimizer;
 import s32x.util.MarsLauncherHelper;
 import s32x.util.MarsLauncherHelper.Sh2LaunchContext;
 import s32x.util.Md32xRuntimeData;
 import s32x.util.S32xMemView;
 import s32x.util.S32xUtil;
+import s32x.util.S32xUtil.CpuDeviceAccess;
 import s32x.vdp.MarsVdp;
 import s32x.vdp.MarsVdp.MarsVdpRenderContext;
 import s32x.vdp.debug.DebugVideoRenderContext;
 
 import java.nio.file.Path;
 import java.util.Optional;
+
+import static s32x.util.S32xUtil.CpuDeviceAccess.MASTER;
+import static s32x.util.S32xUtil.CpuDeviceAccess.SLAVE;
 
 /**
  * Federico Berti
@@ -83,7 +86,7 @@ public class Md32x extends Genesis implements PollSysEventManager.SysEventListen
 
     public int nextMSh2Cycle = 0, nextSSh2Cycle = 0;
     private Md32xRuntimeData rt;
-    private Sh2LaunchContext ctx;
+    private Sh2LaunchContext launchCtx;
     private Sh2 sh2;
     private Sh2Context masterCtx, slaveCtx;
     private MarsVdp marsVdp;
@@ -91,23 +94,21 @@ public class Md32x extends Genesis implements PollSysEventManager.SysEventListen
     public Md32x(DisplayWindow emuFrame) {
         super(emuFrame);
         systemType = SystemLoader.SystemType.S32X;
-        PollSysEventManager.instance.reset();
-        PollSysEventManager.instance.addSysEventListener(getClass().getSimpleName(), this);
     }
 
     @Override
     protected void initAfterRomLoad() {
-        ctx = MarsLauncherHelper.setupRom((S32xBus) bus, memory.getRomHolder());
-        masterCtx = ctx.masterCtx;
-        slaveCtx = ctx.slaveCtx;
-        sh2 = ctx.sh2;
-        marsVdp = ctx.marsVdp;
+        launchCtx = MarsLauncherHelper.setupRom((S32xBus) bus, memory.getRomHolder());
+        masterCtx = launchCtx.masterCtx;
+        slaveCtx = launchCtx.slaveCtx;
+        sh2 = launchCtx.sh2;
+        marsVdp = launchCtx.marsVdp;
         //aden 0 -> cycle = 0 = not running
-        nextSSh2Cycle = nextMSh2Cycle = ctx.s32XMMREG.aden & 1;
+        nextSSh2Cycle = nextMSh2Cycle = launchCtx.s32XMMREG.aden & 1;
         marsVdp.updateDebugView(((GenesisVdp) vdp).getDebugViewer());
         super.initAfterRomLoad(); //needs to be last
         //TODO super inits the soundProvider
-        ctx.pwm.setPwmProvider(ENABLE_PWM ? sound.getPwm() : PwmProvider.NO_SOUND);
+        launchCtx.pwm.setPwmProvider(ENABLE_PWM ? sound.getPwm() : PwmProvider.NO_SOUND);
         sound.setEnabled(sound.getFm(), ENABLE_FM);
     }
 
@@ -136,7 +137,7 @@ public class Md32x extends Genesis implements PollSysEventManager.SysEventListen
     protected final void runSh2() {
         if (nextMSh2Cycle == cycleCounter) {
             assert !PollSysEventManager.currentPollers[0].isPollingActive() : PollSysEventManager.currentPollers[0];
-            rt.setAccessType(S32xUtil.CpuDeviceAccess.MASTER);
+            rt.setAccessType(MASTER);
             sh2.run(masterCtx);
             assert (masterCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == masterCtx.cycles_ran : masterCtx.cycles_ran;
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
@@ -144,7 +145,7 @@ public class Md32x extends Genesis implements PollSysEventManager.SysEventListen
         }
         if (nextSSh2Cycle == cycleCounter) {
             assert !PollSysEventManager.currentPollers[1].isPollingActive() : PollSysEventManager.currentPollers[1];
-            rt.setAccessType(S32xUtil.CpuDeviceAccess.SLAVE);
+            rt.setAccessType(SLAVE);
             sh2.run(slaveCtx);
             assert (slaveCtx.cycles_ran & CYCLE_TABLE_LEN_MASK) == slaveCtx.cycles_ran : slaveCtx.cycles_ran;
             assert Md32xRuntimeData.resetCpuDelayExt() == 0;
@@ -155,9 +156,9 @@ public class Md32x extends Genesis implements PollSysEventManager.SysEventListen
     private void runDevices() {
         assert Md32xRuntimeData.getCpuDelayExt() == 0;
         //NOTE if Pwm triggers dreq, the cpuDelay should be assigned to the DMA engine, not to the CPU itself
-        ctx.pwm.step(SH2_CYCLE_RATIO);
-        ctx.mDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
-        ctx.sDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
+        launchCtx.pwm.step(SH2_CYCLE_RATIO);
+        launchCtx.mDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
+        launchCtx.sDevCtx.sh2MMREG.deviceStepSh2Rate(SH2_CYCLE_RATIO);
         assert Md32xRuntimeData.getCpuDelayExt() == 0;
     }
 
@@ -186,15 +187,15 @@ public class Md32x extends Genesis implements PollSysEventManager.SysEventListen
         assert counter >= 0;
         if (nextMSh2Cycle >= 0) {
             //NOTE Sh2s will only start at the next vblank, not immediately when aden switches
-            nextMSh2Cycle = Math.max(ctx.s32XMMREG.aden & 1, nextMSh2Cycle - counter);
+            nextMSh2Cycle = Math.max(launchCtx.s32XMMREG.aden & 1, nextMSh2Cycle - counter);
         }
         if (nextSSh2Cycle >= 0) {
-            nextSSh2Cycle = Math.max(ctx.s32XMMREG.aden & 1, nextSSh2Cycle - counter);
+            nextSSh2Cycle = Math.max(launchCtx.s32XMMREG.aden & 1, nextSSh2Cycle - counter);
         }
-        ctx.pwm.newFrame();
-        ctx.mDevCtx.sh2MMREG.newFrame();
-        ctx.sDevCtx.sh2MMREG.newFrame();
-        ctx.memory.newFrame();
+        launchCtx.pwm.newFrame();
+        launchCtx.mDevCtx.sh2MMREG.newFrame();
+        launchCtx.sDevCtx.sh2MMREG.newFrame();
+        launchCtx.memory.newFrame();
         if (verbose) LOG.info("New frame: {}", telemetry.getFrameCounter());
         if (telemetry.getFrameCounter() % getRegion().getFps() == 0) { //reset every second
             slowFramesAcc = 0;
@@ -224,14 +225,14 @@ public class Md32x extends Genesis implements PollSysEventManager.SysEventListen
     }
 
     protected UpdatableViewer createMemView() {
-        return S32xMemView.createInstance(bus, ctx.memory, vdp.getVdpMemory());
+        return S32xMemView.createInstance(bus, launchCtx.memory, vdp.getVdpMemory());
     }
 
     @Override
     protected void handleCloseRom() {
         super.handleCloseRom();
         Optional.ofNullable(marsVdp).ifPresent(Device::reset);
-        ctx.pwm.reset();
+        launchCtx.pwm.reset();
         Md32xRuntimeData.releaseInstance();
     }
 
@@ -239,11 +240,11 @@ public class Md32x extends Genesis implements PollSysEventManager.SysEventListen
     public void handleNewRom(Path file) {
         super.handleNewRom(file);
         rt = Md32xRuntimeData.newInstance();
-        Sh2Helper.clear();
+        StaticBootstrapSupport.initStatic(this);
     }
 
     @Override
-    public void onSysEvent(S32xUtil.CpuDeviceAccess cpu, PollSysEventManager.SysEvent event) {
+    public void onSysEvent(CpuDeviceAccess cpu, PollSysEventManager.SysEvent event) {
         switch (event) {
             case START_POLLING -> {
                 final Ow2DrcOptimizer.PollerCtx pc = PollSysEventManager.instance.getPoller(cpu);
@@ -253,14 +254,14 @@ public class Md32x extends Genesis implements PollSysEventManager.SysEventListen
                 if (verbose) LOG.info("{} {} {}: {}", cpu, event, cycleCounter, pc);
             }
             case SH2_RESET_ON -> {
-                setNextCycle(S32xUtil.CpuDeviceAccess.MASTER, SH2_SLEEP_VALUE);
-                setNextCycle(S32xUtil.CpuDeviceAccess.SLAVE, SH2_SLEEP_VALUE);
+                setNextCycle(MASTER, SH2_SLEEP_VALUE);
+                setNextCycle(SLAVE, SH2_SLEEP_VALUE);
             }
             case SH2_RESET_OFF -> {
-                setNextCycle(S32xUtil.CpuDeviceAccess.MASTER, cycleCounter + 1);
-                setNextCycle(S32xUtil.CpuDeviceAccess.SLAVE, cycleCounter + 2);
-                Md32xRuntimeData.resetCpuDelayExt(S32xUtil.CpuDeviceAccess.MASTER, 0);
-                Md32xRuntimeData.resetCpuDelayExt(S32xUtil.CpuDeviceAccess.SLAVE, 0);
+                setNextCycle(MASTER, cycleCounter + 1);
+                setNextCycle(SLAVE, cycleCounter + 2);
+                Md32xRuntimeData.resetCpuDelayExt(MASTER, 0);
+                Md32xRuntimeData.resetCpuDelayExt(SLAVE, 0);
             }
             default -> { //stop polling
                 final Ow2DrcOptimizer.PollerCtx pc = PollSysEventManager.instance.getPoller(cpu);
@@ -269,7 +270,7 @@ public class Md32x extends Genesis implements PollSysEventManager.SysEventListen
         }
     }
 
-    private void stopPolling(S32xUtil.CpuDeviceAccess cpu, PollSysEventManager.SysEvent event, Ow2DrcOptimizer.PollerCtx pctx) {
+    private void stopPolling(CpuDeviceAccess cpu, PollSysEventManager.SysEvent event, Ow2DrcOptimizer.PollerCtx pctx) {
 //        assert event == SysEventManager.SysEvent.INT ? pc.isPollingBusyLoop() : true;
         boolean stopOk = event == pctx.event || event == PollSysEventManager.SysEvent.INT;
         if (stopOk) {
@@ -282,9 +283,9 @@ public class Md32x extends Genesis implements PollSysEventManager.SysEventListen
         }
     }
 
-    private void setNextCycle(S32xUtil.CpuDeviceAccess cpu, int value) {
+    public void setNextCycle(CpuDeviceAccess cpu, int value) {
         if (verbose) LOG.info("{} {} sleeping, nextCycle: {}", cpu, value < 0 ? "START" : "STOP", value);
-        if (cpu == S32xUtil.CpuDeviceAccess.MASTER) {
+        if (cpu == MASTER) {
             nextMSh2Cycle = value;
         } else {
             nextSSh2Cycle = value;
