@@ -42,7 +42,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
 
     private final Sh2Bus memory;
     private final Sh2Cache[] cache;
-    private final Sh2DrcContext[] sh2Context;
+    private final Sh2DrcContext[] drcContext;
     private final Sh2.Sh2Config sh2Config;
     private final int[] opcodeWords;
 
@@ -71,7 +71,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
     public Sh2Prefetch(Sh2Bus memory, Sh2Cache[] cache, Sh2DrcContext[] sh2Ctx) {
         this.cache = cache;
         this.memory = memory;
-        this.sh2Context = sh2Ctx;
+        this.drcContext = sh2Ctx;
         Sh2Bus.MemoryDataCtx mdc = memory.getMemoryDataCtx();
         romMask = mdc.romMask;
         romSize = mdc.romSize;
@@ -118,7 +118,7 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         final Sh2Cache sh2Cache = cache[cpu.ordinal()];
         final boolean isCache = (pc >>> PC_CACHE_AREA_SHIFT) == 0 && sh2Cache.getCacheContext().cacheEn > 0;
         block.setCacheFetch((pc >>> PC_CACHE_AREA_SHIFT) == 0);
-        block.drcContext = this.sh2Context[cpu.ordinal()];
+        block.drcContext = drcContext[cpu.ordinal()];
         setupPrefetch(block, cpu);
         if (verbose) LOG.info("{} prefetch at pc: {}", cpu, th(pc));
         //force a cache effect by fetching the current PC

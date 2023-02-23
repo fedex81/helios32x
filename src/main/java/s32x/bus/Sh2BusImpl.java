@@ -10,6 +10,7 @@ import s32x.Sh2MMREG;
 import s32x.dict.S32xDict;
 import s32x.dict.S32xMemAccessDelay;
 import s32x.event.PollSysEventManager;
+import s32x.savestate.Gs32xStateHandler;
 import s32x.sh2.Sh2;
 import s32x.sh2.cache.Sh2Cache;
 import s32x.sh2.cache.Sh2CacheImpl;
@@ -70,6 +71,7 @@ public final class Sh2BusImpl implements Sh2Bus {
 		prefetch = sh2Config.drcEn ? new Sh2Prefetch(this, cache, drcCtx) : new Sh2PrefetchSimple(this, cache);
 		config = Sh2.Sh2Config.get();
 		sdramSyncTester = SDRAM_SYNC_TESTER ? new SdramSyncTester(sdram) : SdramSyncTester.NO_OP;
+		Gs32xStateHandler.addDevice(this);
 		LOG.info("Rom size: {}, mask: {}", th(romSize), th(romMask));
 	}
 
@@ -248,6 +250,18 @@ public final class Sh2BusImpl implements Sh2Bus {
 	public void resetSh2() {
 		sh2MMREGS[S32xUtil.CpuDeviceAccess.MASTER.ordinal()].reset();
 		sh2MMREGS[S32xUtil.CpuDeviceAccess.SLAVE.ordinal()].reset();
+	}
+
+	@Override
+	public void saveContext(ByteBuffer buffer) {
+		Sh2Bus.super.saveContext(buffer);
+		buffer.put(sdram.rewind());
+	}
+
+	@Override
+	public void loadContext(ByteBuffer buffer) {
+		Sh2Bus.super.loadContext(buffer);
+		sdram.rewind().put(buffer);
 	}
 
 	private static boolean logWarnIllegalAccess(S32xUtil.CpuDeviceAccess cpu, String rw, String memType, String accessType,

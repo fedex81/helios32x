@@ -3,12 +3,14 @@ package s32x;
 import omegadrive.Device;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
+import omegadrive.util.Util;
 import omegadrive.util.VideoMode;
 import org.slf4j.Logger;
 import s32x.dict.S32xDict;
 import s32x.dict.S32xMemAccessDelay;
 import s32x.event.PollSysEventManager;
 import s32x.pwm.Pwm;
+import s32x.savestate.Gs32xStateHandler;
 import s32x.sh2.device.IntControl;
 import s32x.sh2.prefetch.Sh2Prefetch;
 import s32x.util.Md32xRuntimeData;
@@ -17,9 +19,12 @@ import s32x.vdp.MarsVdp;
 import s32x.vdp.MarsVdp.MarsVdpContext;
 import s32x.vdp.MarsVdpImpl;
 
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.th;
+import static s32x.dict.S32xDict.SIZE_32X_SYSREG;
+import static s32x.dict.S32xDict.SIZE_32X_VDPREG;
 import static s32x.sh2.device.IntControl.Sh2Interrupt.CMD_8;
 import static s32x.sh2.device.IntControl.Sh2Interrupt.VRES_14;
 
@@ -36,23 +41,20 @@ public class S32XMMREG implements Device {
 
     public static final int CART_INSERTED = 0;
     public static final int CART_NOT_INSERTED = 1;
-
-    //0 = cart inserted, 1 = otherwise
-    private int cart = CART_NOT_INSERTED;
     //0 = md access, 1 = sh2 access
     public int fm = 0;
     //0 = disabled, 1 = 32x enabled
     public int aden = 0;
-    //0 = Hint disabled during VBlank, 1 = enabled
-    private int hen = 0;
 
     public static class RegContext {
-        public ByteBuffer sysRegsSh2 = ByteBuffer.allocate(S32xDict.SIZE_32X_SYSREG);
-        public ByteBuffer sysRegsMd = ByteBuffer.allocate(S32xDict.SIZE_32X_SYSREG);
-        public ByteBuffer vdpRegs = ByteBuffer.allocate(S32xDict.SIZE_32X_VDPREG);
+        public final ByteBuffer sysRegsSh2 = ByteBuffer.allocateDirect(SIZE_32X_SYSREG);
+        public final ByteBuffer sysRegsMd = ByteBuffer.allocateDirect(SIZE_32X_SYSREG);
+        public final ByteBuffer vdpRegs = ByteBuffer.allocateDirect(SIZE_32X_VDPREG);
     }
 
-    public RegContext regContext = new RegContext();
+    private S32XMMREGContext ctx = new S32XMMREGContext();
+
+    public final RegContext regContext = new RegContext();
     private final ByteBuffer sysRegsSh2 = regContext.sysRegsSh2;
     private final ByteBuffer sysRegsMd = regContext.sysRegsMd;
 
@@ -63,6 +65,17 @@ public class S32XMMREG implements Device {
     private S32xDict.S32xDictLogContext logCtx;
     private MarsVdpContext vdpContext;
     private int deviceAccessType;
+
+    private static class S32XMMREGContext implements Serializable {
+        private int cart = CART_NOT_INSERTED;
+        //0 = md access, 1 = sh2 access
+        public int fm = 0;
+        //0 = disabled, 1 = 32x enabled
+        public int aden = 0;
+        //0 = Hint disabled during VBlank, 1 = enabled
+        private int hen = 0;
+        private byte[] sysRegsSh2 = new byte[SIZE_32X_SYSREG], sysRegsMd = new byte[SIZE_32X_SYSREG], vdpRegs = new byte[SIZE_32X_VDPREG];
+    }
 
     public S32XMMREG() {
         init();
@@ -75,13 +88,14 @@ public class S32XMMREG implements Device {
         vdp = MarsVdpImpl.createInstance(vdpContext, this);
         logCtx = new S32xDict.S32xDictLogContext();
         S32xDict.z80RegAccess.clear();
+        Gs32xStateHandler.addDevice(this);
     }
     public MarsVdp getVdp() {
         return vdp;
     }
 
     public void setHBlank(boolean hBlankOn) {
-        vdp.setHBlank(hBlankOn, hen);
+        vdp.setHBlank(hBlankOn, ctx.hen);
     }
 
     public void setVBlank(boolean vBlankOn) {
@@ -332,12 +346,12 @@ public class S32XMMREG implements Device {
 
     private void updateHenShared(int newVal) {
         int nhen = (newVal >> S32xDict.INTMASK_HEN_BIT_POS) & 1;
-        if (nhen != hen) {
-            hen = nhen;
-            if (verbose) LOG.info("{} HEN: {}", Md32xRuntimeData.getAccessTypeExt(), hen);
+        if (nhen != ctx.hen) {
+            ctx.hen = nhen;
+            if (verbose) LOG.info("{} HEN: {}", Md32xRuntimeData.getAccessTypeExt(), ctx.hen);
         }
         S32xUtil.setBit(interruptControls[0].getSh2_int_mask_regs(),
-                interruptControls[1].getSh2_int_mask_regs(), 1, S32xDict.INTMASK_HEN_BIT_POS, hen, Size.BYTE);
+                interruptControls[1].getSh2_int_mask_regs(), 1, S32xDict.INTMASK_HEN_BIT_POS, ctx.hen, Size.BYTE);
     }
 
     private boolean handleIntMaskRegWriteSh2(S32xUtil.CpuDeviceAccess cpu, int reg, int value, Size size) {
@@ -346,8 +360,8 @@ public class S32XMMREG implements Device {
         final IntControl ic = interruptControls[cpu.ordinal()];
         int prevW = ic.readSh2IntMaskReg(baseReg, Size.WORD);
         S32xUtil.writeBuffer(ic.getSh2_int_mask_regs(), reg, value, size);
-        //reset cart and aden bits
-        int newVal = (ic.readSh2IntMaskReg(baseReg, Size.WORD) & 0x808F) | (cart << 8 | aden << 9);
+        //reset ctx.cart and aden bits
+        int newVal = (ic.readSh2IntMaskReg(baseReg, Size.WORD) & 0x808F) | (ctx.cart << 8 | aden << 9);
         assert (newVal & 0x7c70) == 0; //unused bits
         S32xUtil.writeBuffer(ic.getSh2_int_mask_regs(), baseReg, newVal, Size.WORD);
 //        assert (newVal & P32XS2_ADEN) > 0 && (newVal & P32XS_nCART) == CART_INSERTED;
@@ -358,10 +372,10 @@ public class S32XMMREG implements Device {
     }
 
     public void setCart(int cartSize) {
-        this.cart = (cartSize > 0) ? CART_INSERTED : CART_NOT_INSERTED;
+        ctx.cart = (cartSize > 0) ? CART_INSERTED : CART_NOT_INSERTED;
         S32xUtil.setBit(interruptControls[0].getSh2_int_mask_regs(),
-                interruptControls[1].getSh2_int_mask_regs(), 0, 0, cart, Size.BYTE);
-        LOG.info("Cart set to {}inserted: {}", (cart > 0 ? "not " : ""), cart);
+                interruptControls[1].getSh2_int_mask_regs(), 0, 0, ctx.cart, Size.BYTE);
+        LOG.info("Cart set to {}inserted: {}", (ctx.cart > 0 ? "not " : ""), ctx.cart);
     }
 
     private void setAdenSh2Reg(int aden) {
@@ -412,5 +426,29 @@ public class S32XMMREG implements Device {
 
     public void updateVideoMode(VideoMode value) {
         vdp.updateVideoMode(value);
+    }
+
+    @Override
+    public void saveContext(ByteBuffer buffer) {
+        Device.super.saveContext(buffer);
+        regContext.sysRegsSh2.rewind().get(ctx.sysRegsSh2).rewind();
+        regContext.sysRegsMd.rewind().get(ctx.sysRegsMd).rewind();
+        regContext.vdpRegs.rewind().get(ctx.vdpRegs).rewind();
+        ctx.fm = fm;
+        ctx.aden = aden;
+        buffer.put(Util.serializeObject(ctx));
+    }
+
+    @Override
+    public void loadContext(ByteBuffer buffer) {
+        Device.super.loadContext(buffer);
+        Serializable s = Util.deserializeObject(buffer.array(), 0, buffer.capacity());
+        assert s instanceof S32XMMREGContext;
+        ctx = (S32XMMREGContext) s;
+        regContext.sysRegsMd.rewind().put(ctx.sysRegsMd).rewind();
+        regContext.sysRegsSh2.rewind().put(ctx.sysRegsSh2).rewind();
+        regContext.vdpRegs.rewind().put(ctx.vdpRegs).rewind();
+        fm = ctx.fm;
+        aden = ctx.aden;
     }
 }

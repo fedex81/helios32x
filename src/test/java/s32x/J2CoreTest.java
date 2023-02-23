@@ -46,7 +46,7 @@ public class J2CoreTest {
     final static int ramSize = 0x8000;
     static ByteBuffer rom;
     private static boolean done = false;
-    protected static boolean sh2Debug = true;
+    protected static boolean sh2Debug = false;
 
     public static final Path baseDataFolder = Paths.get(new File(".").getAbsolutePath(),
             "src", "test", "resources");

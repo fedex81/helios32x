@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import s32x.DmaFifo68k;
 import s32x.S32XMMREG;
 import s32x.dict.S32xDict;
+import s32x.savestate.Gs32xStateHandler;
 import s32x.sh2.Sh2;
 import s32x.sh2.Sh2Context;
 import s32x.util.BiosHolder;
@@ -20,6 +21,7 @@ import s32x.util.Md32xRuntimeData;
 import s32x.util.S32xUtil;
 import s32x.vdp.MarsVdp;
 
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 
 import static m68k.cpu.Cpu.PC_MASK;
@@ -35,13 +37,23 @@ public class S32xBus extends GenesisBus implements Sh2Bus.MdRomAccess {
     private static final Logger LOG = LogHelper.getLogger(S32xBus.class.getSimpleName());
     static final boolean verboseMd = false;
     private BiosHolder.BiosData bios68k;
-    private final ByteBuffer writeableHintRom = ByteBuffer.allocate(4).putInt(-1);
-
     private S32XMMREG s32XMMREG;
     public Sh2Context masterCtx, slaveCtx;
     private Sh2 sh2;
-    private int bankSetValue = 0;
-    private int bankSetShift = bankSetValue << 20;
+    private S32xBusContext busContext;
+    private int bankSetShift;
+
+    static class S32xBusContext implements Serializable {
+        public final byte[] writeableHint = new byte[4];
+        public int bankSetValue;
+    }
+
+    public S32xBus() {
+        busContext = new S32xBusContext();
+        bankSetShift = busContext.bankSetValue << 20;
+        Util.writeData(busContext.writeableHint, Size.LONG, 0, -1);
+        Gs32xStateHandler.addDevice(this);
+    }
 
     @Override
     public GenesisBusProvider attachDevice(Device device) {
@@ -58,7 +70,7 @@ public class S32xBus extends GenesisBus implements Sh2Bus.MdRomAccess {
     }
 
     public int getBankSetValue() {
-        return bankSetValue;
+        return busContext.bankSetValue;
     }
 
     @Override
@@ -178,7 +190,7 @@ public class S32xBus extends GenesisBus implements Sh2Bus.MdRomAccess {
         } else if (address >= S32xDict.M68K_START_HINT_VECTOR_WRITEABLE && address < S32xDict.M68K_END_HINT_VECTOR_WRITEABLE) {
             if (verboseMd) LOG.info("HINT vector write, address: {}, data: {}, size: {}", th(address),
                     th(data), size);
-            S32xUtil.writeBuffer(writeableHintRom, address & 3, data, size);
+            Util.writeData(busContext.writeableHint, size, address & 3, data);
         } else {
             if (address < S32xDict.M68K_END_VECTOR_ROM) {
                 LOG.warn("Ignoring write access to vector rom, RV={}, addr: {} {}", DmaFifo68k.rv, th(address), size);
@@ -206,9 +218,9 @@ public class S32xBus extends GenesisBus implements Sh2Bus.MdRomAccess {
         S32xDict.RegSpecS32x r = S32xDict.getRegSpec(S32xUtil.CpuDeviceAccess.M68K, address);
         if (r == S32xDict.RegSpecS32x.MD_BANK_SET) {
             int val = S32xUtil.readWordFromBuffer(s32XMMREG.regContext, r);
-            bankSetValue = (val & 3);
-            bankSetShift = bankSetValue << 20;
-            if (verboseMd) LOG.info("BankSet now: {}", bankSetValue);
+            busContext.bankSetValue = (val & 3);
+            bankSetShift = busContext.bankSetValue << 20;
+            if (verboseMd) LOG.info("BankSet now: {}", busContext.bankSetValue);
         }
         assert r == S32xDict.RegSpecS32x.MD_INT_CTRL ? size != Size.LONG : true;
     }
@@ -245,9 +257,9 @@ public class S32xBus extends GenesisBus implements Sh2Bus.MdRomAccess {
     }
 
     private int readHIntVector(int address, Size size) {
-        int res = writeableHintRom.getInt(0);
+        int res = Util.readData(busContext.writeableHint, Size.LONG, 0);
         if (res != -1) {
-            res = S32xUtil.readBuffer(writeableHintRom, address & 3, size);
+            res = Util.readData(busContext.writeableHint, size, address & 3);
             if (verboseMd) LOG.info("HINT vector read, rv {}, address: {}, {} {}", DmaFifo68k.rv,
                     th(address), th(res), size);
         } else {
@@ -287,6 +299,21 @@ public class S32xBus extends GenesisBus implements Sh2Bus.MdRomAccess {
 
     public PwmProvider getPwm() {
         return soundProvider.getPwm();
+    }
+
+    @Override
+    public void saveContext(ByteBuffer buffer) {
+        super.saveContext(buffer);
+        buffer.put(Util.serializeObject(busContext));
+    }
+
+    @Override
+    public void loadContext(ByteBuffer buffer) {
+        super.loadContext(buffer);
+        Serializable s = Util.deserializeObject(buffer.array(), 0, buffer.capacity());
+        assert s instanceof S32xBusContext;
+        busContext = (S32xBusContext) s;
+        bankSetShift = busContext.bankSetValue << 20;
     }
 
     public void resetSh2() {

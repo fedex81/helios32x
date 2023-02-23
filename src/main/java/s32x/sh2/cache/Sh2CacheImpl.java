@@ -30,9 +30,12 @@ import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.slf4j.Logger;
 import s32x.bus.Sh2Bus;
+import s32x.savestate.Gs32xStateHandler;
 import s32x.util.Md32xRuntimeData;
 import s32x.util.S32xUtil;
+import s32x.util.S32xUtil.CpuDeviceAccess;
 
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.Optional;
 
@@ -52,19 +55,22 @@ public class Sh2CacheImpl implements Sh2Cache {
 
     //NOTE looks like this is NOT needed, ie. it doesn't improve compat
     public static final boolean PARANOID_ON_CACHE_ENABLED_TOGGLE = false;
+    protected final ByteBuffer data_array = ByteBuffer.allocateDirect(DATA_ARRAY_SIZE); // cache (can be used as RAM)
 
+    protected Sh2CacheContext ctx;
+    private CacheRegContext cacheRegCtx;
     protected Sh2CacheEntry ca;
-    private final S32xUtil.CpuDeviceAccess cpu;
+    private final CpuDeviceAccess cpu;
     private final Sh2Bus memory;
-    private final CacheContext ctx;
-    private final ByteBuffer data_array = ByteBuffer.allocate(DATA_ARRAY_SIZE); // cache (can be used as RAM)
     private final CacheInvalidateContext invalidCtx;
 
-    public Sh2CacheImpl(S32xUtil.CpuDeviceAccess cpu, Sh2Bus memory) {
+    public Sh2CacheImpl(CpuDeviceAccess cpu, Sh2Bus memory) {
         this.memory = memory;
         this.cpu = cpu;
-        this.ca = new Sh2CacheEntry();
-        this.ctx = new CacheContext();
+        this.ctx = new Sh2CacheContext();
+        ca = ctx.ca = new Sh2CacheEntry();
+        cacheRegCtx = ctx.cacheContext = new CacheRegContext();
+        cacheRegCtx.cpu = cpu;
         this.invalidCtx = new CacheInvalidateContext();
         invalidCtx.cpu = cpu;
         for (int i = 0; i < ca.way.length; i++) {
@@ -72,6 +78,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                 ca.way[i][j] = new Sh2CacheLine();
             }
         }
+        Gs32xStateHandler.addDevice(this);
     }
 
     @Override
@@ -162,7 +169,7 @@ public class Sh2CacheImpl implements Sh2Cache {
                 //can purge more than one line
                 for (int i = 0; i < CACHE_WAYS; i++) {
                     if (ca.way[i][entry].tag == tagaddr) {
-                        assert ctx.twoWay == 0 || (ctx.twoWay == 1 && i > 1);
+                        assert cacheRegCtx.twoWay == 0 || (cacheRegCtx.twoWay == 1 && i > 1);
                         //only v bit is changed, the rest of the data remains
                         ca.way[i][entry].v = 0;
                         Md32xRuntimeData.addCpuDelayExt(CACHE_PURGE_DELAY);
@@ -197,13 +204,13 @@ public class Sh2CacheImpl implements Sh2Cache {
                 if (verbose) LOG.info("{} Cache hit, read at {} {}, val: {}", cpu, th(addr), size,
                         th(getCachedData(line.data, addr & LINE_MASK, size)));
                 //two way uses ways0,1
-                assert ctx.twoWay == 0 || (ctx.twoWay == 1 && i > 1);
+                assert cacheRegCtx.twoWay == 0 || (cacheRegCtx.twoWay == 1 && i > 1);
                 return getCachedData(line.data, addr & LINE_MASK, size);
             }
         }
         // cache miss
-        int lruway = selectWayToReplace(ctx.twoWay, ca.lru[entry]);
-        assert ctx.twoWay == 0 || (ctx.twoWay == 1 && lruway > 1);
+        int lruway = selectWayToReplace(cacheRegCtx.twoWay, ca.lru[entry]);
+        assert cacheRegCtx.twoWay == 0 || (cacheRegCtx.twoWay == 1 && lruway > 1);
         final Sh2CacheLine line = ca.way[lruway][entry];
         invalidatePrefetcher(line, entry, addr);
         updateLru(lruway, ca.lru, entry);
@@ -225,7 +232,7 @@ public class Sh2CacheImpl implements Sh2Cache {
         for (int i = 0; i < CACHE_WAYS; i++) {
             Sh2CacheLine line = ca.way[i][entry];
             if ((line.v > 0) && (line.tag == tagaddr)) {
-                assert ctx.twoWay == 0 || (ctx.twoWay == 1 && i > 1);
+                assert cacheRegCtx.twoWay == 0 || (cacheRegCtx.twoWay == 1 && i > 1);
                 int prev = getCachedData(line.data, addr & LINE_MASK, size);
                 if (prev != val) {
                     setCachedData(line.data, addr & LINE_MASK, val, size);
@@ -242,8 +249,8 @@ public class Sh2CacheImpl implements Sh2Cache {
     }
 
     private boolean writeDataArray(int addr, int val, Size size) {
-        assert ctx.cacheEn == 0 || ctx.twoWay == 1;
-        int dataArrayMask = DATA_ARRAY_MASK >> (ctx.cacheEn & ctx.twoWay);
+        assert cacheRegCtx.cacheEn == 0 || cacheRegCtx.twoWay == 1;
+        int dataArrayMask = DATA_ARRAY_MASK >> (cacheRegCtx.cacheEn & cacheRegCtx.twoWay);
         int address = addr & dataArrayMask;
         boolean change = false;
         if (verbose)
@@ -259,8 +266,8 @@ public class Sh2CacheImpl implements Sh2Cache {
     }
 
     private int readDataArray(int addr, Size size) {
-        assert ctx.cacheEn == 0 || ctx.twoWay == 1;
-        int dataArrayMask = DATA_ARRAY_MASK >> (ctx.cacheEn & ctx.twoWay);
+        assert cacheRegCtx.cacheEn == 0 || cacheRegCtx.twoWay == 1;
+        int dataArrayMask = DATA_ARRAY_MASK >> (cacheRegCtx.cacheEn & cacheRegCtx.twoWay);
         int address = addr & dataArrayMask;
         if (verbose) LOG.info("{} Cache data array read: {}({}) {}, val: {}", cpu, th(addr),
                 th(addr & dataArrayMask), size,
@@ -280,7 +287,7 @@ public class Sh2CacheImpl implements Sh2Cache {
         final int tagaddr = (addr & TAG_MASK);
         final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
         ca.lru[entry] = (data >> 6) & 63;
-        Sh2CacheLine line = ca.way[ctx.way][entry];
+        Sh2CacheLine line = ca.way[cacheRegCtx.way][entry];
         line.v = (addr >> 2) & 1;
         line.tag = tagaddr;
     }
@@ -288,36 +295,37 @@ public class Sh2CacheImpl implements Sh2Cache {
     //NOTE seems unused
     private int readAddressArray(int addr) {
         final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
-        final int tagaddr = ca.way[ctx.way][entry].tag;
-        return (tagaddr & 0x7ffff << 10) | (ca.lru[entry] << 4) | ctx.cacheEn;
+        final int tagaddr = ca.way[cacheRegCtx.way][entry].tag;
+        return (tagaddr & 0x7ffff << 10) | (ca.lru[entry] << 4) | cacheRegCtx.cacheEn;
     }
 
 
     @Override
-    public CacheContext updateState(int value) {
-        ctx.way = (value >> 6) & 3;
-        ctx.cachePurge = (value >> 4) & 1;
-        ctx.twoWay = (value >> 3) & 1;
-        ctx.dataReplaceDis = (value >> 2) & 1;
-        ctx.instReplaceDis = (value >> 1) & 1;
-        ctx.cacheEn = value & 1;
-        if (verbose) LOG.info("{} CCR update: {}", cpu, ctx);
-        handleCacheEnabled();
-        if (ctx.cachePurge > 0) {
+    public CacheRegContext updateState(int value) {
+        CacheRegContext cacheCtx = ctx.cacheContext;
+        cacheCtx.way = (value >> 6) & 3;
+        cacheCtx.cachePurge = (value >> 4) & 1;
+        cacheCtx.twoWay = (value >> 3) & 1;
+        cacheCtx.dataReplaceDis = (value >> 2) & 1;
+        cacheCtx.instReplaceDis = (value >> 1) & 1;
+        cacheCtx.cacheEn = value & 1;
+        if (verbose) LOG.info("{} CCR update: {}", cpu, cacheCtx);
+        handleCacheEnabled(cacheCtx);
+        if (cacheCtx.cachePurge > 0) {
             cacheClear();
-            ctx.cachePurge = 0; //always reverts to 0
+            cacheCtx.cachePurge = 0; //always reverts to 0
             value &= 0xEF;
         }
-        ctx.ccr = value;
-        return ctx;
+        cacheCtx.ccr = value;
+        return cacheCtx;
     }
 
-    private void handleCacheEnabled() {
+    private void handleCacheEnabled(CacheRegContext cacheCtx) {
         int prevCaEn = ca.enable;
-        ca.enable = ctx.cacheEn;
+        ca.enable = cacheCtx.cacheEn;
         //cache enable does not clear the cache
-        if (prevCaEn != ctx.cacheEn) {
-            if (verbose) LOG.info("{} Cache enable: {}", cpu, ctx.cacheEn);
+        if (prevCaEn != cacheCtx.cacheEn) {
+            if (verbose) LOG.info("{} Cache enable: {}", cpu, cacheCtx.cacheEn);
             if (PARANOID_ON_CACHE_ENABLED_TOGGLE) {
                 //only invalidate prefetch stuff
                 for (int entry = 0; entry < CACHE_LINES; entry++) {
@@ -424,7 +432,32 @@ public class Sh2CacheImpl implements Sh2Cache {
     }
 
     @Override
-    public CacheContext getCacheContext() {
+    public void saveContext(ByteBuffer buffer) {
+        Sh2Cache.super.saveContext(buffer);
+        data_array.rewind().get(ctx.dataArray);
+        ctx.cacheContext = cacheRegCtx;
+        ctx.ca = ca;
+        buffer.put(Util.serializeObject(ctx));
+    }
+
+    @Override
+    public void loadContext(ByteBuffer buffer) {
+        Sh2Cache.super.loadContext(buffer);
+        Serializable s = Util.deserializeObject(buffer.array(), 0, buffer.capacity());
+        assert s instanceof Sh2CacheContext;
+        ctx = (Sh2CacheContext) s;
+        data_array.rewind().put(ctx.dataArray);
+        ca = ctx.ca;
+        cacheRegCtx = ctx.cacheContext;
+    }
+
+    @Override
+    public CacheRegContext getCacheContext() {
+        return cacheRegCtx;
+    }
+
+    @Override
+    public Sh2CacheContext getSh2CacheContext() {
         return ctx;
     }
 

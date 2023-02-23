@@ -5,6 +5,7 @@ import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
 import s32x.sh2.drc.Sh2Block;
 
+import java.io.Serializable;
 import java.util.StringJoiner;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -45,11 +46,11 @@ public interface Sh2 extends Device {
         //NO-OP
     }
 
-    class FetchResult {
+    class FetchResult implements Serializable {
         public int pc, opcode;
-        public Sh2Block block;
+        public transient Sh2Block block;
         //TODO
-        public Sh2Helper.Sh2PcInfoWrapper piw = Sh2Helper.SH2_NOT_VISITED;
+//        public Sh2Helper.Sh2PcInfoWrapper piw = Sh2Helper.SH2_NOT_VISITED;
 
         @Override
         public String toString() {
@@ -57,7 +58,6 @@ public interface Sh2 extends Device {
                     .add("pc=" + pc)
                     .add("opcode=" + opcode)
                     .add("block=" + block)
-                    .add("piw=" + piw)
                     .toString();
         }
     }

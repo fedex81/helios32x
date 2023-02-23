@@ -1,5 +1,6 @@
 package s32x.bus;
 
+import omegadrive.Device;
 import omegadrive.memory.ReadableByteMemory;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
@@ -26,7 +27,7 @@ import static omegadrive.util.Util.th;
  * <p>
  * Copyright 2021
  */
-public interface Sh2Bus extends Sh2Prefetcher, ReadableByteMemory {
+public interface Sh2Bus extends Sh2Prefetcher, ReadableByteMemory, Device {
 
     boolean SH2_MEM_ACCESS_STATS = Boolean.parseBoolean(System.getProperty("helios.32x.sh2.memAccess.stats", "false"));
 
