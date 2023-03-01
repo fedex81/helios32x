@@ -35,12 +35,13 @@ public class SdramSyncTester {
         int[] cycleAccess = new int[SLAVE_WRITE + 1];
     }
 
-    private final SdramSync[] sdramAccess = new SdramSync[S32xDict.SH2_SDRAM_SIZE];
+    private final SdramSync[] sdramAccess;
     private Runnable valToWrite;
     private int clockDiffMin = 100;
     private ByteBuffer sdram;
 
     public SdramSyncTester(ByteBuffer sdram) {
+        sdramAccess = new SdramSync[sdram == null ? 0 : S32xDict.SH2_SDRAM_SIZE];
         for (int i = 0; i < sdramAccess.length; i++) {
             sdramAccess[i] = new SdramSync();
         }

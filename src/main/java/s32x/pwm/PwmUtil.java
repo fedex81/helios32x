@@ -1,6 +1,6 @@
 package s32x.pwm;
 
-import omegadrive.sound.SoundProvider;
+import omegadrive.sound.javasound.AbstractSoundManager;
 import omegadrive.util.Fifo;
 import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
@@ -22,11 +22,10 @@ public class PwmUtil {
     public static final Warmup NO_WARMUP = new Warmup();
     public static final Warmup WARMUP = new Warmup();
 
-    public static AudioFormat pwmAudioFormat = new AudioFormat(SoundProvider.SAMPLE_RATE_HZ,
-            16, 2, true, false);
+    public static AudioFormat pwmAudioFormat = AbstractSoundManager.audioFormat;
 
     //dc blocker alpha
-    private static final double alpha = 0.995;
+    private static final double alpha = 0.95;
 
     public static class Warmup {
         static final int stepSamples = 0x7FF;
@@ -98,6 +97,18 @@ public class PwmUtil {
         }
         prevLR[0] = out[len - 2];
         prevLR[1] = out[len - 1];
+    }
+
+    /**
+     * DC blocker + low pass filter
+     */
+    public static int dcBlockerLpfMono(int[] in, int[] out, int prevSample, int len) {
+        out[0] = prevSample;
+        for (int i = 1; i < len; i++) {
+            out[i] = (int) (in[i] - in[i - 1] + out[i - 1] * alpha);
+            out[i] = (out[i] + out[i - 1]) >> 1; //lpf
+        }
+        return out[len - 1];
     }
 
     static class PwmStats {

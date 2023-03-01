@@ -5,6 +5,7 @@ import omegadrive.sound.fm.GenericAudioProvider;
 import omegadrive.util.LogHelper;
 import omegadrive.util.RegionDetector;
 import org.slf4j.Logger;
+import s32x.util.blipbuffer.BlipBufferHelper;
 
 import java.util.Arrays;
 
@@ -80,8 +81,8 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
             LOG.warn("PWM value out of range (16 bit signed), L/R: {}/{}, scale: {}, " +
                     "pwmVal: {}/{}", th(sleft), th(sright), sc, left, right);
             LOG.warn("Reducing scale: {} -> {}", sc, scale);
-            sleft = (short) Math.min(Math.max(sleft, Short.MIN_VALUE), Short.MAX_VALUE);
-            sright = (short) Math.min(Math.max(sright, Short.MIN_VALUE), Short.MAX_VALUE);
+            sleft = (short) BlipBufferHelper.clampToShort(vleft);
+            sright = (short) BlipBufferHelper.clampToShort(vright);
         }
         final int len = stereoQueueLen.get();
         //very crude adaptive rate control, will break for anything not 22khz

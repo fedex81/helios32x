@@ -41,31 +41,32 @@ public class BlipBufferHelper {
         return countMono;
     }
 
-    public static int readSamples16bitStereo(BlipBuffer blipBuffer, int[] out, int pos, int countMono) {
+    /**
+     * Rebuild the samples as 16 bit signed and store them in the output buffer.
+     */
+    public static int readSamples16bitMono(BlipBuffer blipBuffer, int[] out, int pos, int countMono) {
         final int availMonoSamples = blipBuffer.samplesAvail();
         if (countMono > availMonoSamples)
             countMono = availMonoSamples;
-
+        assert pos == 0;
+        assert out.length >= countMono;
         if (countMono > 0) {
-            // Integrate
             final int[] buf = blipBuffer.buf;
+            // Integrate
             int accum = blipBuffer.accum.get();
             int i = 0;
             do {
                 accum += buf[i] - (accum >> 9);
-                int s = accum >> 15;
+                int sample = accum >> 15;
 
                 // clamp to 16 bits
-                if ((short) s != s)
-                    s = clampToShort(s);
+                if ((short) sample != sample)
+                    sample = clampToShort(sample);
 
-                out[pos] = s; //left
-                out[pos + 1] = s; //right
-                pos += 2;
+                out[pos++] = sample;
             }
             while (++i < countMono);
             blipBuffer.accum.set(accum);
-
             blipBuffer.removeSamples(countMono);
         }
         return countMono;
@@ -139,19 +140,5 @@ public class BlipBufferHelper {
 
     public static int clampToByte(int value) {
         return (value >> 31) ^ Byte.MAX_VALUE;
-    }
-
-    public static void main(String[] args) {
-        for (int i = Integer.MIN_VALUE; i < Integer.MAX_VALUE; i++) {
-            if ((short) i != i) {
-                int s = clampToShort(i);
-//                System.out.println(th(i) + ", " + th(s));
-                assert i < 0 ? s == Short.MIN_VALUE : s == Short.MAX_VALUE;
-            }
-            if ((byte) i != i) {
-                int s = clampToByte(i);
-                assert i < 0 ? s == Byte.MIN_VALUE : s == Byte.MAX_VALUE;
-            }
-        }
     }
 }

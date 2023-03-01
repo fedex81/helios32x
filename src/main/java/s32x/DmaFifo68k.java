@@ -127,7 +127,7 @@ public class DmaFifo68k implements Device {
         assert size == Size.WORD;
         if (ctx.m68S) {
             if (!ctx.fifo.isFull()) {
-                ctx.fifo.push(value);
+                ctx.fifo.push(Util.getFromIntegerCache(value));
                 updateFifoState();
             } else {
                 LOG.error("DMA Fifo full, discarding data");

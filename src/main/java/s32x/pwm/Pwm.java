@@ -269,12 +269,20 @@ public class Pwm implements StepDevice {
     }
 
     private void writeFifo(Fifo<Integer> fifo, int value) {
+        if (!ctx.pwmEnable) {
+            return;
+        }
         if (fifo.isFull()) {
             fifo.pop();
             if (verbose) LOG.warn("PWM FIFO push when fifo full: {}", th(value));
             return;
         }
-        fifo.push((value - 1) & 0xFFF);
+        //Darxide does this
+        if (value < SAMPLE_LIMIT_DELTA || value > 0xFFF - SAMPLE_LIMIT_DELTA) {
+            return;
+        }
+        assert value >= 0;
+        fifo.push(Util.getFromIntegerCache((value - 1) & 0xFFF));
         updateFifoRegs();
     }
 
@@ -298,7 +306,7 @@ public class Pwm implements StepDevice {
     private int readFifo(Fifo<Integer> fifo, PwmChannel chan) {
         if (fifo.isEmpty()) {
             if (verbose) LOG.warn("PWM FIFO pop when ctx.fifo empty: {}", th(ctx.latestPwmValue[chan.ordinal()]));
-            return chan != null ? ctx.latestPwmValue[chan.ordinal()] : 0;
+            return chan != null ? ctx.latestPwmValue[chan.ordinal()] : ctx.cycle >> 1;
         }
         int res = fifo.pop();
         ctx.latestPwmValue[chan.ordinal()] = res;

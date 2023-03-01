@@ -14,7 +14,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-public final class BlipBuffer {
+public final class BlipBuffer implements BlipBufferIntf {
     static final boolean muchFaster = true; // speeds synthesis at a cost of quality
 
     public BlipBuffer() {
@@ -85,7 +85,7 @@ public final class BlipBuffer {
     }
 
     // Adds delta at given time
-    public void addDelta(int time, int delta) {
+    private void addDeltaInternal(int time, int delta) {
         final int[] buf = this.buf;
         time = time * factor + offset;
         final int phase = (time) >>
@@ -130,6 +130,12 @@ public final class BlipBuffer {
         int last_sample = (time * factor + offset) >> timeBits;
         int first_sample = offset >> timeBits;
         return last_sample - first_sample;
+    }
+
+    @Override
+    public void addDelta(int time, int deltaL, int deltaR) {
+        assert deltaL == deltaR;
+        addDeltaInternal(time, deltaL);
     }
 
     // Ends current time frame and makes samples available for reading
