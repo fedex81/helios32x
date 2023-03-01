@@ -45,10 +45,15 @@ public class Pwm implements StepDevice {
 
     enum PwmChannel {LEFT, RIGHT}
 
+    static class PwmChannelMap {
+        public Fifo<Integer> fifo;
+        public PwmChannel channel;
+    }
+
     public static boolean PWM_USE_BLIP = false;
 
     private static final int PWM_DMA_CHANNEL = 1;
-    private static final int chLeft = 0, chRight = 1;
+    private static final int chLeft = LEFT.ordinal(), chRight = RIGHT.ordinal();
     private static final int PWM_FIFO_SIZE = 3;
     private static final int PWM_FIFO_FULL_BIT_POS = 15;
     private static final int PWM_FIFO_EMPTY_BIT_POS = 14;
@@ -68,6 +73,8 @@ public class Pwm implements StepDevice {
     private int pwmSamplesPerFrame = 0, stepsPerFrame = 0, dreqPerFrame = 0;
     private static final boolean verbose = false;
     private PwmProvider playSupport = PwmProvider.NO_SOUND;
+
+    private PwmChannelMap fifoMapLeft = new PwmChannelMap(), fifoMapRight = new PwmChannelMap();
 
     static class PwmContext implements Serializable {
         private final Fifo<Integer> fifoLeft = Fifo.createIntegerFixedSizeFifo(PWM_FIFO_SIZE);
@@ -186,6 +193,7 @@ public class Pwm implements StepDevice {
         value = readBufferWord(sysRegsMd, PWM_CTRL.addr);
         ctx.channelMap[chLeft] = chanVals[value & 3];
         ctx.channelMap[chRight] = chanVals[(value >> 2) & 3];
+        updateChannelMap();
     }
 
     private void handlePwmControlSh2(CpuDeviceAccess cpu, int reg, int val, Size size) {
@@ -204,6 +212,7 @@ public class Pwm implements StepDevice {
         ctx.interruptInterval = ival == 0 ? 0x10 : ival;
         ctx.channelMap[chLeft] = chanVals[value & 3];
         ctx.channelMap[chRight] = chanVals[(value >> 2) & 3];
+        updateChannelMap();
     }
 
     private void handlePwmEnable(boolean cycleChanged) {
@@ -217,7 +226,41 @@ public class Pwm implements StepDevice {
             resetFifo();
             updateFifoRegs();
             playSupport.updatePwmCycle(ctx.cycle);
+            updateChannelMap();
         }
+    }
+
+    private void updateChannelMap() {
+        switch (ctx.channelMap[chLeft]) {
+            case SAME -> {
+                fifoMapLeft.fifo = ctx.fifoLeft;
+                fifoMapLeft.channel = LEFT;
+            }
+            case FLIP -> {
+                fifoMapLeft.fifo = ctx.fifoRight;
+                fifoMapLeft.channel = RIGHT;
+            }
+            default -> {
+                fifoMapLeft.fifo = PwmUtil.EMPTY_FIFO;
+                fifoMapLeft.channel = null;
+            }
+        }
+        ;
+        switch (ctx.channelMap[chRight]) {
+            case SAME -> {
+                fifoMapRight.fifo = ctx.fifoRight;
+                fifoMapRight.channel = RIGHT;
+            }
+            case FLIP -> {
+                fifoMapRight.fifo = ctx.fifoLeft;
+                fifoMapRight.channel = LEFT;
+            }
+            default -> {
+                fifoMapRight.fifo = PwmUtil.EMPTY_FIFO;
+                fifoMapRight.channel = null;
+            }
+        }
+        ;
     }
 
     private void resetFifo() {
@@ -255,7 +298,7 @@ public class Pwm implements StepDevice {
     private int readFifo(Fifo<Integer> fifo, PwmChannel chan) {
         if (fifo.isEmpty()) {
             if (verbose) LOG.warn("PWM FIFO pop when ctx.fifo empty: {}", th(ctx.latestPwmValue[chan.ordinal()]));
-            return ctx.latestPwmValue[chan.ordinal()];
+            return chan != null ? ctx.latestPwmValue[chan.ordinal()] : 0;
         }
         int res = fifo.pop();
         ctx.latestPwmValue[chan.ordinal()] = res;
@@ -310,8 +353,8 @@ public class Pwm implements StepDevice {
             ctx.sh2TicksToNextPwmSample = ctx.cycle;
             pwmSamplesPerFrame++;
             //sample range should be [0,cycle], let's clamp to [sld, cycle - sld]
-            ctx.ls = Math.min(ctx.cycle - SAMPLE_LIMIT_DELTA, readFifo(ctx.fifoLeft, LEFT) + SAMPLE_LIMIT_DELTA);
-            ctx.rs = Math.min(ctx.cycle - SAMPLE_LIMIT_DELTA, readFifo(ctx.fifoRight, RIGHT) + SAMPLE_LIMIT_DELTA);
+            ctx.ls = Math.min(ctx.cycle - SAMPLE_LIMIT_DELTA, readFifo(fifoMapLeft.fifo, fifoMapLeft.channel) + SAMPLE_LIMIT_DELTA);
+            ctx.rs = Math.min(ctx.cycle - SAMPLE_LIMIT_DELTA, readFifo(fifoMapRight.fifo, fifoMapRight.channel) + SAMPLE_LIMIT_DELTA);
             assert ctx.ls >= SAMPLE_LIMIT_DELTA && ctx.rs >= SAMPLE_LIMIT_DELTA;
             if (PWM_USE_BLIP) {
                 playSupport.playSample(ctx.ls, ctx.rs);
@@ -365,6 +408,7 @@ public class Pwm implements StepDevice {
         Serializable s = Util.deserializeObject(buffer.array(), 0, buffer.capacity());
         assert s instanceof PwmContext;
         ctx = (PwmContext) s;
+        updateChannelMap();
     }
 
     @Override

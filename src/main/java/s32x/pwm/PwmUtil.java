@@ -1,6 +1,7 @@
 package s32x.pwm;
 
 import omegadrive.sound.SoundProvider;
+import omegadrive.util.Fifo;
 import omegadrive.util.LogHelper;
 import org.slf4j.Logger;
 import s32x.util.S32xUtil;
@@ -15,6 +16,8 @@ import javax.sound.sampled.AudioFormat;
 public class PwmUtil {
 
     private static final Logger LOG = LogHelper.getLogger(PwmUtil.class.getSimpleName());
+
+    public static final Fifo<Integer> EMPTY_FIFO = Fifo.createIntegerFixedSizeFifo(0);
 
     public static final Warmup NO_WARMUP = new Warmup();
     public static final Warmup WARMUP = new Warmup();
@@ -77,8 +80,8 @@ public class PwmUtil {
     }
 
     public static void setSigned16LE(short value, byte[] data, int startIndex) {
-        data[startIndex + 1] = (byte) (value >> 8);
         data[startIndex] = (byte) value;
+        data[startIndex + 1] = (byte) (value >> 8);
     }
 
     /**
