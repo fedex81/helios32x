@@ -62,12 +62,12 @@ public class Sh2Helper {
             }
         }
 
-        public Sh2Block addToKnownBlocks(Sh2Block b) {
+        public boolean addToKnownBlocks(Sh2Block b) {
             assert this != SH2_NOT_VISITED;
             if (knownBlocks == Collections.EMPTY_MAP) {
-                knownBlocks = new HashMap<>(2);
+                knownBlocks = new HashMap<>(1);
             }
-            return knownBlocks.put(b.hashCodeWords, b);
+            return knownBlocks.put(b.hashCodeWords, b) != null;
         }
     }
 
