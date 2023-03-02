@@ -292,6 +292,7 @@ public class Md32x extends Genesis implements PollSysEventManager.SysEventListen
         if (cpu == MASTER) {
             nextMSh2Cycle = value;
         } else {
+            assert cpu == SLAVE;
             nextSSh2Cycle = value;
         }
     }

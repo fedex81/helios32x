@@ -41,6 +41,9 @@ public class Sh2Helper {
         public Map<Integer, Sh2Block> knownBlocks = Collections.emptyMap();
         private static final boolean verbose = false;
 
+        //reduce boxing by using a 16-bit hash (key)
+        public static final int HASH_CODE_MASK = 0xFFFF;
+
         public Sh2PcInfoWrapper(int area, int pcMasked) {
             super(area, pcMasked);
         }
@@ -62,12 +65,15 @@ public class Sh2Helper {
             }
         }
 
-        public boolean addToKnownBlocks(Sh2Block b) {
+        public Sh2Block addToKnownBlocks(Sh2Block b) {
             assert this != SH2_NOT_VISITED;
             if (knownBlocks == Collections.EMPTY_MAP) {
                 knownBlocks = new HashMap<>(1);
             }
-            return knownBlocks.put(b.hashCodeWords, b) != null;
+            Sh2Block prev = knownBlocks.put(b.hashCodeWords & HASH_CODE_MASK, b);
+            //check for hash collisions
+            assert prev != null ? prev == b : true;
+            return prev;
         }
     }
 

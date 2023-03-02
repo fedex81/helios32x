@@ -11,6 +11,7 @@ import s32x.sh2.Sh2;
 import s32x.sh2.cache.Sh2Cache.CacheInvalidateContext;
 import s32x.sh2.prefetch.Sh2Prefetcher;
 import s32x.util.BiosHolder;
+import s32x.util.Md32xRuntimeData;
 import s32x.util.S32xUtil;
 
 import java.nio.ByteBuffer;
@@ -21,6 +22,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static omegadrive.util.Util.th;
+import static s32x.sh2.cache.Sh2Cache.CACHE_THROUGH;
 
 /**
  * Federico Berti
@@ -77,6 +79,13 @@ public interface Sh2Bus extends Sh2Prefetcher, ReadableByteMemory, Device {
 
     default int read32(int addr) {
         return read(addr, Size.LONG);
+    }
+
+    default int readMemoryUncachedNoDelay(int address, Size size) {
+        int delay = Md32xRuntimeData.getCpuDelayExt();
+        int res = read(address | CACHE_THROUGH, size);
+        Md32xRuntimeData.resetCpuDelayExt(delay);
+        return res;
     }
 
     default void invalidateCachePrefetch(CacheInvalidateContext ctx) {

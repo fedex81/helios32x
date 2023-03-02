@@ -96,21 +96,22 @@ public class Sh2CacheImpl implements Sh2Cache {
 
     @Override
     public int readDirect(int addr, Size size) {
+        assert size == Size.WORD;
         switch (addr & AREA_MASK) {
             case CACHE_USE:
                 if (ca.enable > 0) {
                     final int tagaddr = (addr & TAG_MASK);
                     final int entry = (addr & ENTRY_MASK) >> ENTRY_SHIFT;
 
-                    for (int i = 0; i < 4; i++) {
+                    for (int i = 0; i < CACHE_WAYS; i++) {
                         Sh2CacheLine line = ca.way[i][entry];
                         if ((line.v > 0) && (line.tag == tagaddr)) {
-                            return getCachedData(line.data, addr & LINE_MASK, size) & 0xFFFF;
+                            return getCachedData(line.data, addr & LINE_MASK, size) & size.getMask();
                         }
                     }
                 }
                 assert cpu == Md32xRuntimeData.getAccessTypeExt();
-                return readMemoryUncachedNoDelay(memory, addr, size);
+                return memory.readMemoryUncachedNoDelay(addr, size);
             case CACHE_DATA_ARRAY:
                 return readDataArray(addr, size);
             default:
@@ -401,7 +402,7 @@ public class Sh2CacheImpl implements Sh2Cache {
         Md32xRuntimeData.addCpuDelayExt(4);
         assert cpu == Md32xRuntimeData.getAccessTypeExt();
         for (int i = 0; i < CACHE_BYTES_PER_LINE; i += 4) {
-            int val = readMemoryUncachedNoDelay(memory, (addr & 0xFFFFFFF0) + i, Size.LONG);
+            int val = memory.readMemoryUncachedNoDelay((addr & 0xFFFFFFF0) + i, Size.LONG);
             setCachedData(data, i & LINE_MASK, val, Size.LONG);
         }
     }

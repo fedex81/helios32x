@@ -16,6 +16,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static omegadrive.util.Util.th;
 import static s32x.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
+import static s32x.util.S32xUtil.CpuDeviceAccess.MASTER;
+import static s32x.util.S32xUtil.CpuDeviceAccess.SLAVE;
 
 /**
  * Federico Berti
@@ -53,15 +55,15 @@ public interface PollSysEventManager extends Device {
     boolean removeSysEventListener(CpuDeviceAccess cpu, String name, SysEventListener l);
 
     default boolean addSysEventListener(String name, SysEventListener l) {
-        addSysEventListener(CpuDeviceAccess.MASTER, name, l);
-        addSysEventListener(CpuDeviceAccess.SLAVE, name, l);
+        addSysEventListener(MASTER, name, l);
+        addSysEventListener(SLAVE, name, l);
         return true;
     }
 
     default int removeSysEventListener(String name, SysEventListener l) {
         int num = 0;
-        boolean s1 = removeSysEventListener(CpuDeviceAccess.MASTER, name, l);
-        boolean s2 = removeSysEventListener(CpuDeviceAccess.SLAVE, name, l);
+        boolean s1 = removeSysEventListener(MASTER, name, l);
+        boolean s2 = removeSysEventListener(SLAVE, name, l);
         num += (s1 ? 1 : 0) + (s2 ? 1 : 0);
         return num;
     }
@@ -100,11 +102,11 @@ public interface PollSysEventManager extends Device {
             return 0;
         }
         Sh2Bus memory = blockPoller.piw.block.drcContext.memory;
-        //TODO this should not disturb the cache...
-        int delay = Md32xRuntimeData.getCpuDelayExt();
-        int val = memory.read(blockPoller.blockPollData.memLoadTarget, blockPoller.blockPollData.memLoadTargetSize);
-        Md32xRuntimeData.resetCpuDelayExt(delay);
-        return val;
+        //NOTE always checks the memory value, never checks the cached value (if any);
+        //could there be instances where only the cached value changes? No
+        //could there be instances where only the memory value changes? Yes, but we already detect them (?)
+        return memory.readMemoryUncachedNoDelay(blockPoller.blockPollData.memLoadTarget,
+                blockPoller.blockPollData.memLoadTargetSize);
     }
 
     static boolean pollValueCheck(S32xUtil.CpuDeviceAccess cpu, PollSysEventManager.SysEvent event, Ow2DrcOptimizer.PollerCtx pctx) {
@@ -128,27 +130,34 @@ public interface PollSysEventManager extends Device {
 
         private final Map<String, SysEventListener> listenerMapMaster = new HashMap<>();
         private final Map<String, SysEventListener> listenerMapSlave = new HashMap<>();
+        //reduce object creation
+        private SysEventListener[][] listenerArr = new SysEventListener[2][0];
 
         @Override
         public boolean addSysEventListener(CpuDeviceAccess cpu, String name, SysEventListener l) {
-            var map = cpu == CpuDeviceAccess.MASTER ? listenerMapMaster : listenerMapSlave;
+            var map = cpu == MASTER ? listenerMapMaster : listenerMapSlave;
             SysEventListener s = map.put(name, l);
             assert s == null;
+            listenerArr[cpu.ordinal()] = map.values().toArray(new SysEventListener[0]);
+            assert listenerArr[cpu.ordinal()].length == map.size();
             return true;
         }
 
         @Override
         public boolean removeSysEventListener(CpuDeviceAccess cpu, String name, SysEventListener l) {
-            var map = cpu == CpuDeviceAccess.MASTER ? listenerMapMaster : listenerMapSlave;
+            var map = cpu == MASTER ? listenerMapMaster : listenerMapSlave;
             SysEventListener s = map.remove(name);
+            listenerArr[cpu.ordinal()] = map.values().toArray(new SysEventListener[0]);
+            assert listenerArr[cpu.ordinal()].length == map.size();
             return s != null;
         }
 
         @Override
         public void fireSysEvent(CpuDeviceAccess cpu, SysEvent event) {
-            var map = cpu == CpuDeviceAccess.MASTER ? listenerMapMaster : listenerMapSlave;
-            for (var e : map.entrySet()) {
-                e.getValue().onSysEvent(cpu, event);
+            assert cpu.ordinal() < 2;
+            final SysEventListener[] a = listenerArr[cpu.ordinal()];
+            for (int i = 0; i < a.length; i++) {
+                a[i].onSysEvent(cpu, event);
             }
         }
 
@@ -156,6 +165,8 @@ public interface PollSysEventManager extends Device {
         public void reset() {
             listenerMapMaster.clear();
             listenerMapSlave.clear();
+            listenerArr[0] = new SysEventListener[0];
+            listenerArr[1] = new SysEventListener[0];
             currentPollers[0] = currentPollers[1] = NO_POLLER;
             pollerActiveMask.set(0);
         }

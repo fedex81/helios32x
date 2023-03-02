@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import s32x.dict.S32xDict;
 import s32x.dict.Sh2Dict.RegSpec;
 import s32x.event.PollSysEventManager;
+import s32x.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 import s32x.sh2.drc.Ow2DrcOptimizer;
 import s32x.util.S32xUtil;
 
@@ -18,6 +19,7 @@ import java.util.Map;
 import static omegadrive.util.Util.th;
 import static s32x.dict.Sh2Dict.RegSpec.*;
 import static s32x.dict.Sh2Dict.writeBufferWithMask;
+import static s32x.sh2.device.Sh2DeviceHelper.Sh2DeviceType.*;
 import static s32x.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
 import static s32x.util.S32xUtil.readBufferLong;
 
@@ -35,13 +37,15 @@ public class IntControlImplOld implements IntControl {
 
     private static final boolean verbose = false;
 
-    private final Map<Sh2DeviceHelper.Sh2DeviceType, Integer> onChipDevicePriority = new HashMap<>();
+    private final Map<Sh2DeviceType, Integer> onChipDevicePriority = new HashMap<>();
     private final Map<Integer, Sh2Interrupt> s32xInt = new HashMap<>(MAX_LEVEL);
 
     //valid = not masked
     private final boolean[] intValid = new boolean[MAX_LEVEL];
     private final boolean[] intPending = new boolean[MAX_LEVEL];
     private final boolean[] intTrigger = new boolean[MAX_LEVEL];
+
+    private final boolean[] onChipLevels = new boolean[MAX_LEVEL];
 
     // V, H, CMD and PWM each possesses exclusive address on the master side and the slave side.
     private final ByteBuffer sh2_int_mask;
@@ -61,7 +65,7 @@ public class IntControlImplOld implements IntControl {
     public void init() {
         Arrays.fill(intValid, true);
         setIntsMasked(0);
-        Arrays.stream(Sh2DeviceHelper.Sh2DeviceType.values()).forEach(d -> onChipDevicePriority.put(d, 0));
+        Arrays.stream(Sh2DeviceType.values()).forEach(d -> onChipDevicePriority.put(d, 0));
     }
 
     @Override
@@ -73,14 +77,16 @@ public class IntControlImplOld implements IntControl {
         }
         switch (regSpec) {
             case INTC_IPRA:
-                onChipDevicePriority.put(Sh2DeviceHelper.Sh2DeviceType.DIV, val >> 12);
-                onChipDevicePriority.put(Sh2DeviceHelper.Sh2DeviceType.DMA, (val >> 8) & 0xF);
-                onChipDevicePriority.put(Sh2DeviceHelper.Sh2DeviceType.WDT, (val >> 4) & 0xF);
+                onChipDevicePriority.put(DIV, (val >> 12) & 0xF);
+                onChipDevicePriority.put(DMA, (val >> 8) & 0xF);
+                onChipDevicePriority.put(WDT, (val >> 4) & 0xF);
+                onChipDevicePriority.values().forEach(lev -> onChipLevels[lev] = true);
                 logOnChipIntLevel(regSpec, val);
                 break;
             case INTC_IPRB:
-                onChipDevicePriority.put(Sh2DeviceHelper.Sh2DeviceType.SCI, val >> 12);
-                onChipDevicePriority.put(Sh2DeviceHelper.Sh2DeviceType.FRT, (val >> 8) & 0xF);
+                onChipDevicePriority.put(SCI, (val >> 12) & 0xF);
+                onChipDevicePriority.put(FRT, (val >> 8) & 0xF);
+                onChipDevicePriority.values().forEach(lev -> onChipLevels[lev] = true);
                 logOnChipIntLevel(regSpec, val);
                 break;
             case INTC_ICR:
@@ -131,7 +137,7 @@ public class IntControlImplOld implements IntControl {
     }
 
     @Override
-    public void setOnChipDeviceIntPending(Sh2DeviceHelper.Sh2DeviceType deviceType, OnChipSubType subType) {
+    public void setOnChipDeviceIntPending(Sh2DeviceType deviceType, OnChipSubType subType) {
         int data = subType == OnChipSubType.DMA_C1 ? 1 : 0;
         data = subType == OnChipSubType.RXI ? 1 : data;
         setExternalIntPending(deviceType, data, true);
@@ -141,7 +147,7 @@ public class IntControlImplOld implements IntControl {
         setIntPending(interrupt.ordinal(), isPending);
     }
 
-    public void setExternalIntPending(Sh2DeviceHelper.Sh2DeviceType deviceType, int intData, boolean isPending) {
+    public void setExternalIntPending(Sh2DeviceType deviceType, int intData, boolean isPending) {
         int level = onChipDevicePriority.get(deviceType);
         if (interruptLevel > 0 && interruptLevel < level) {
             LOG.info("{} {}{} ext interrupt pending: {}, level: {}", cpu, deviceType, intData, level, interruptLevel);
@@ -183,7 +189,11 @@ public class IntControlImplOld implements IntControl {
             }
         }
         interruptLevel = newLevel;
-        if (interruptLevel != prev && interruptLevel > 0) {
+        fireInterruptSysEventMaybe(prev);
+    }
+
+    private void fireInterruptSysEventMaybe(int prevLevel) {
+        if (interruptLevel != prevLevel && interruptLevel > 0) {
             Ow2DrcOptimizer.PollerCtx ctx = PollSysEventManager.instance.getPoller(cpu);
             if (ctx != NO_POLLER && (ctx.isPollingActive() || ctx.isPollingBusyLoop())) {
                 PollSysEventManager.instance.fireSysEvent(cpu, PollSysEventManager.SysEvent.INT);
@@ -217,12 +227,11 @@ public class IntControlImplOld implements IntControl {
 
     public int getVectorNumber() {
         Sh2Interrupt intType = intVals[interruptLevel];
-        //TODO perf
-        boolean onDev = onChipDevicePriority.values().stream().anyMatch(v -> v.intValue() == interruptLevel);
-        if (onDev && intType.internal != 0) { //sopwith32x
+        boolean onChipLevel = onChipLevels[interruptLevel];
+        if (onChipLevel && intType.internal != 0) { //sopwith32x
             LOG.warn("OnChipDevice interrupt using the same level as an internal interrupt: {]", interruptLevel);
         }
-        if (onDev || intType.internal == 0) {
+        if (onChipLevel || intType.internal == 0) {
             return getExternalDeviceVectorNumber();
         } else if (intType == Sh2Interrupt.NMI_16) {
             return 11;
@@ -236,7 +245,7 @@ public class IntControlImplOld implements IntControl {
     }
 
     private int getExternalDeviceVectorNumber() {
-        Sh2DeviceHelper.Sh2DeviceType deviceType = Sh2DeviceHelper.Sh2DeviceType.NONE;
+        Sh2DeviceType deviceType = NONE;
         for (var entry : onChipDevicePriority.entrySet()) {
             if (interruptLevel == entry.getValue()) {
                 deviceType = entry.getKey();
@@ -286,11 +295,11 @@ public class IntControlImplOld implements IntControl {
 
     private void logOnChipIntLevel(RegSpec regSpec, int val) {
         if (regSpec == INTC_IPRA) {
-            LOG.info("{} set IPRA levels, {}:{}, {}:{}, {}:{}", cpu, Sh2DeviceHelper.Sh2DeviceType.DIV, val >> 12,
-                    Sh2DeviceHelper.Sh2DeviceType.DMA, (val >> 8) & 0xF, Sh2DeviceHelper.Sh2DeviceType.WDT, (val >> 4) & 0xF);
+            LOG.info("{} set IPRA levels, {}:{}, {}:{}, {}:{}", cpu, DIV, val >> 12,
+                    DMA, (val >> 8) & 0xF, WDT, (val >> 4) & 0xF);
         } else if (regSpec == INTC_IPRB) {
-            LOG.info("{} set IPRB levels, {}:{}, {}:{}", cpu, Sh2DeviceHelper.Sh2DeviceType.SCI, val >> 12,
-                    Sh2DeviceHelper.Sh2DeviceType.FRT, (val >> 8) & 0xF);
+            LOG.info("{} set IPRB levels, {}:{}, {}:{}", cpu, SCI, val >> 12,
+                    FRT, (val >> 8) & 0xF);
         }
     }
 }

@@ -24,6 +24,7 @@ import java.util.Arrays;
 
 import static omegadrive.util.Util.readBufferWord;
 import static omegadrive.util.Util.th;
+import static s32x.sh2.Sh2Helper.Sh2PcInfoWrapper.HASH_CODE_MASK;
 
 /**
  * Federico Berti
@@ -100,8 +101,8 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         assert block.getCpu() == block.drcContext.cpu && block.getCpu() == cpu;
         boolean addBlockToList = !piw.knownBlocks.isEmpty();
         if (addBlockToList) {
-            boolean res = piw.addToKnownBlocks(block);
-            assert res;
+            Sh2Block prev = piw.addToKnownBlocks(block);
+            assert prev == null;
         }
         if (verbose) LOG.info("{} prefetch block at pc: {}, len: {}\n{}", cpu,
                 th(pc), block.prefetchLenWords, Sh2Helper.toListOfInst(block));
@@ -112,9 +113,13 @@ public class Sh2Prefetch implements Sh2Prefetcher {
         final boolean tryRecycleBlock = ENABLE_BLOCK_RECYCLING && !piw.knownBlocks.isEmpty();
         Sh2Block res = Sh2Block.INVALID_BLOCK; //new block, add it to the list
         if (tryRecycleBlock) {
-            final int hashCode = baseBlock.hashCodeWords;
-            Sh2Block entry = piw.knownBlocks.getOrDefault(hashCode, Sh2Block.INVALID_BLOCK);
+            Sh2Block entry = piw.knownBlocks.getOrDefault(baseBlock.hashCodeWords & HASH_CODE_MASK, Sh2Block.INVALID_BLOCK);
             if (entry != Sh2Block.INVALID_BLOCK) {
+                //check for collisions on the 16-bit hashcode
+                if (entry.hashCodeWords != baseBlock.hashCodeWords) {
+                    LOG.error("Hash collision:\n{}\n{}", baseBlock, entry);
+                    return Sh2Block.INVALID_BLOCK;
+                }
                 assert Arrays.equals(entry.prefetchWords, 0, baseBlock.prefetchLenWords,
                         opcodeWords, 0, baseBlock.prefetchLenWords);
                 entry.setValid();

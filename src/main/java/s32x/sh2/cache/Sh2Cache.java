@@ -5,7 +5,6 @@ import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
 import s32x.bus.Sh2Bus;
-import s32x.util.Md32xRuntimeData;
 import s32x.util.S32xUtil.CpuDeviceAccess;
 
 import java.io.Serializable;
@@ -96,13 +95,6 @@ public interface Sh2Cache extends Device {
         return memory.read(address | CACHE_THROUGH, size);
     }
 
-    default int readMemoryUncachedNoDelay(Sh2Bus memory, int address, Size size) {
-        int delay = Md32xRuntimeData.getCpuDelayExt();
-        int res = memory.read(address | CACHE_THROUGH, size);
-        Md32xRuntimeData.resetCpuDelayExt(delay);
-        return res;
-    }
-
     default void writeMemoryUncached(Sh2Bus memory, int address, int value, Size size) {
         memory.write(address | CACHE_THROUGH, value, size);
     }
@@ -121,7 +113,7 @@ public interface Sh2Cache extends Device {
 
             @Override
             public int readDirect(int addr, Size size) {
-                return readMemoryUncachedNoDelay(memory, addr, size);
+                return memory.readMemoryUncachedNoDelay(addr, size);
             }
         };
     }
