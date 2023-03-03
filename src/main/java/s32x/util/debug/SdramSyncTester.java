@@ -1,10 +1,11 @@
-package s32x.util;
+package s32x.util.debug;
 
 import omegadrive.system.SystemProvider;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
 import s32x.dict.S32xDict;
+import s32x.util.S32xUtil;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -38,7 +39,7 @@ public class SdramSyncTester {
     private final SdramSync[] sdramAccess;
     private Runnable valToWrite;
     private int clockDiffMin = 100;
-    private ByteBuffer sdram;
+    private final ByteBuffer sdram;
 
     public SdramSyncTester(ByteBuffer sdram) {
         sdramAccess = new SdramSync[sdram == null ? 0 : S32xDict.SH2_SDRAM_SIZE];

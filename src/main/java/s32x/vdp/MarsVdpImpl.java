@@ -23,6 +23,7 @@ import java.nio.ShortBuffer;
 import java.util.Arrays;
 import java.util.Optional;
 
+import static omegadrive.util.Util.readBufferByte;
 import static omegadrive.util.Util.th;
 import static s32x.dict.S32xDict.DRAM_SIZE;
 import static s32x.dict.S32xDict.SIZE_32X_COLPAL;
@@ -42,7 +43,9 @@ public class MarsVdpImpl implements MarsVdp {
     private static class MarsVdpSaveContext implements Serializable {
         public MarsVdpRenderContext renderContext;
 
-        private byte[] fb0 = new byte[DRAM_SIZE], fb1 = new byte[DRAM_SIZE], palette = new byte[SIZE_32X_COLPAL];
+        private final byte[] fb0 = new byte[DRAM_SIZE];
+        private final byte[] fb1 = new byte[DRAM_SIZE];
+        private final byte[] palette = new byte[SIZE_32X_COLPAL];
         //0 - pal, 1 - NTSC
         private int pal = 1;
         //0 = palette access disabled, 1 = enabled
@@ -51,7 +54,7 @@ public class MarsVdpImpl implements MarsVdp {
         private boolean wasBlankScreen = false;
     }
 
-    private final ByteBuffer colorPalette = ByteBuffer.allocateDirect(SIZE_32X_COLPAL);
+    private final ByteBuffer colorPalette = ByteBuffer.allocate(SIZE_32X_COLPAL);
     private final ByteBuffer[] dramBanks = new ByteBuffer[2];
 
     private final ShortBuffer[] frameBuffersWord = new ShortBuffer[NUM_FB];
@@ -89,8 +92,8 @@ public class MarsVdpImpl implements MarsVdp {
         v.s32XMMREG = s32XMMREG;
         v.regContext = s32XMMREG.regContext;
         v.vdpRegs = v.regContext.vdpRegs;
-        v.dramBanks[0] = ByteBuffer.allocateDirect(DRAM_SIZE);
-        v.dramBanks[1] = ByteBuffer.allocateDirect(DRAM_SIZE);
+        v.dramBanks[0] = ByteBuffer.allocate(DRAM_SIZE);
+        v.dramBanks[1] = ByteBuffer.allocate(DRAM_SIZE);
         v.frameBuffersWord[0] = v.dramBanks[0].asShortBuffer();
         v.frameBuffersWord[1] = v.dramBanks[1].asShortBuffer();
         v.view = MarsVdpDebugView.createInstance();
@@ -294,7 +297,7 @@ public class MarsVdpImpl implements MarsVdp {
 
     private void setPen(int pen) {
         ctx.pen = pen;
-        int val = (pen << 5) | (S32xUtil.readBufferByte(vdpRegs, S32xDict.RegSpecS32x.FBCR.addr) & 0xDF);
+        int val = (pen << 5) | (readBufferByte(vdpRegs, S32xDict.RegSpecS32x.FBCR.addr) & 0xDF);
         S32xUtil.writeBuffer(vdpRegs, S32xDict.RegSpecS32x.FBCR.addr, val, Size.BYTE);
     }
 

@@ -54,7 +54,7 @@ public class IntControlImplNew implements IntControl {
     }
 
     public IntControlImplNew(S32xUtil.CpuDeviceAccess cpu, ByteBuffer regs) {
-        sh2_int_mask = ByteBuffer.allocateDirect(2);
+        sh2_int_mask = ByteBuffer.allocate(2);
         this.regs = regs;
         this.cpu = cpu;
         this.s32xInt = new HashMap<>(Sh2InterruptSource.values().length);

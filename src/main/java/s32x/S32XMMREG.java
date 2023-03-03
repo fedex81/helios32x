@@ -7,6 +7,7 @@ import omegadrive.util.Util;
 import omegadrive.util.VideoMode;
 import org.slf4j.Logger;
 import s32x.dict.S32xDict;
+import s32x.dict.S32xDict.RegSpecS32x;
 import s32x.dict.S32xMemAccessDelay;
 import s32x.event.PollSysEventManager;
 import s32x.pwm.Pwm;
@@ -23,7 +24,9 @@ import s32x.vdp.MarsVdpImpl;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.readBufferWord;
 import static omegadrive.util.Util.th;
+import static s32x.dict.S32xDict.RegSpecS32x.*;
 import static s32x.dict.S32xDict.SIZE_32X_SYSREG;
 import static s32x.dict.S32xDict.SIZE_32X_VDPREG;
 import static s32x.event.PollSysEventManager.SysEvent.SH2_RESET_OFF;
@@ -31,6 +34,7 @@ import static s32x.event.PollSysEventManager.SysEvent.SH2_RESET_ON;
 import static s32x.sh2.device.IntControl.Sh2Interrupt.CMD_8;
 import static s32x.sh2.device.IntControl.Sh2Interrupt.VRES_14;
 import static s32x.util.S32xUtil.CpuDeviceAccess.*;
+import static s32x.util.S32xUtil.writeBuffer;
 
 /**
  * Federico Berti
@@ -51,9 +55,9 @@ public class S32XMMREG implements Device {
     public int aden = 0;
 
     public static class RegContext {
-        public final ByteBuffer sysRegsSh2 = ByteBuffer.allocateDirect(SIZE_32X_SYSREG);
-        public final ByteBuffer sysRegsMd = ByteBuffer.allocateDirect(SIZE_32X_SYSREG);
-        public final ByteBuffer vdpRegs = ByteBuffer.allocateDirect(SIZE_32X_VDPREG);
+        public final ByteBuffer sysRegsSh2 = ByteBuffer.allocate(SIZE_32X_SYSREG);
+        public final ByteBuffer sysRegsMd = ByteBuffer.allocate(SIZE_32X_SYSREG);
+        public final ByteBuffer vdpRegs = ByteBuffer.allocate(SIZE_32X_VDPREG);
     }
 
     private S32XMMREGContext ctx = new S32XMMREGContext();
@@ -78,7 +82,9 @@ public class S32XMMREG implements Device {
         public int aden = 0;
         //0 = Hint disabled during VBlank, 1 = enabled
         private int hen = 0;
-        private byte[] sysRegsSh2 = new byte[SIZE_32X_SYSREG], sysRegsMd = new byte[SIZE_32X_SYSREG], vdpRegs = new byte[SIZE_32X_VDPREG];
+        private final byte[] sysRegsSh2 = new byte[SIZE_32X_SYSREG];
+        private final byte[] sysRegsMd = new byte[SIZE_32X_SYSREG];
+        private final byte[] vdpRegs = new byte[SIZE_32X_VDPREG];
     }
 
     public S32XMMREG() {
@@ -88,7 +94,7 @@ public class S32XMMREG implements Device {
     @Override
     public void init() {
         vdpContext = new MarsVdpContext();
-        writeBufferWord(S32xDict.RegSpecS32x.MD_ADAPTER_CTRL, S32xDict.P32XS_REN | S32xDict.P32XS_nRES); //from Picodrive
+        writeBufferWord(MD_ADAPTER_CTRL, S32xDict.P32XS_REN | S32xDict.P32XS_nRES); //from Picodrive
         vdp = MarsVdpImpl.createInstance(vdpContext, this);
         logCtx = new S32xDict.S32xDictLogContext();
         S32xDict.z80RegAccess.clear();
@@ -130,8 +136,8 @@ public class S32XMMREG implements Device {
 
     private int handleRegRead(int address, Size size) {
         CpuDeviceAccess cpu = Md32xRuntimeData.getAccessTypeExt();
-        S32xDict.RegSpecS32x regSpec = S32xDict.getRegSpec(cpu, address);
-        if (regSpec == S32xDict.RegSpecS32x.INVALID) {
+        RegSpecS32x regSpec = S32xDict.getRegSpec(cpu, address);
+        if (regSpec == INVALID) {
             LOG.error("{} unable to handle read, addr: {} {}", cpu, th(address), size);
             return size.getMask();
         }
@@ -142,15 +148,15 @@ public class S32XMMREG implements Device {
         int res = 0;
         switch (regSpec.deviceType) {
             case DMA -> {
-                assert (regSpec != S32xDict.RegSpecS32x.MD_DMAC_CTRL ? cpu != Z80 : true) : regSpec;
+                assert (regSpec != MD_DMAC_CTRL ? cpu != Z80 : true) : regSpec;
                 res = dmaFifoControl.read(regSpec, cpu, address & S32xDict.S32X_REG_MASK, size);
             }
             case PWM -> res = pwm.read(cpu, regSpec, address & S32xDict.S32X_MMREG_MASK, size);
             case COMM -> res = S32xUtil.readBufferReg(regContext, regSpec, address, size);
             default -> {
-                assert (regSpec.addr >= S32xDict.RegSpecS32x.MD_DREQ_SRC_ADDR_H.addr ? cpu != Z80 : true) : regSpec;
+                assert (regSpec.addr >= MD_DREQ_SRC_ADDR_H.addr ? cpu != Z80 : true) : regSpec;
                 res = S32xUtil.readBufferReg(regContext, regSpec, address, size);
-                if (regSpec == S32xDict.RegSpecS32x.SH2_INT_MASK) {
+                if (regSpec == SH2_INT_MASK) {
                     res = interruptControls[cpu.ordinal()].readSh2IntMaskReg(address & S32xDict.S32X_REG_MASK, size);
                 }
             }
@@ -162,7 +168,7 @@ public class S32XMMREG implements Device {
     private boolean handleRegWrite(int address, int value, Size size) {
         final int reg = address & S32xDict.S32X_MMREG_MASK;
         final CpuDeviceAccess cpu = Md32xRuntimeData.getAccessTypeExt();
-        final S32xDict.RegSpecS32x regSpec = S32xDict.getRegSpec(cpu, address);
+        final RegSpecS32x regSpec = S32xDict.getRegSpec(cpu, address);
         //RegAccessLogger.regAccess(regSpec.toString(), reg, value, size, false);
         boolean regChanged = false;
 
@@ -177,11 +183,11 @@ public class S32XMMREG implements Device {
             case PWM -> pwm.write(cpu, regSpec, reg, value, size);
             case COMM -> regChanged = handleCommRegWrite(regSpec, reg, value, size);
             case SYS -> {
-                assert (regSpec.addr >= S32xDict.RegSpecS32x.MD_DREQ_SRC_ADDR_H.addr ? cpu != Z80 : true) : regSpec;
+                assert (regSpec.addr >= MD_DREQ_SRC_ADDR_H.addr ? cpu != Z80 : true) : regSpec;
                 regChanged = handleSysRegWrite(cpu, regSpec, reg, value, size);
             }
             case DMA -> {
-                assert (regSpec != S32xDict.RegSpecS32x.MD_DMAC_CTRL ? cpu != Z80 : true) : regSpec;
+                assert (regSpec != MD_DMAC_CTRL ? cpu != Z80 : true) : regSpec;
                 dmaFifoControl.write(regSpec, cpu, reg, value, size);
             }
             default -> {
@@ -199,7 +205,7 @@ public class S32XMMREG implements Device {
         return regChanged;
     }
 
-    private boolean handleSysRegWrite(CpuDeviceAccess cpu, S32xDict.RegSpecS32x regSpec, int reg, int value, Size size) {
+    private boolean handleSysRegWrite(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value, Size size) {
         assert size != Size.LONG;
         boolean regChanged = false;
         switch (regSpec) {
@@ -222,7 +228,7 @@ public class S32XMMREG implements Device {
         return regChanged;
     }
 
-    private boolean handleCommRegWrite(final S32xDict.RegSpecS32x regSpec, int reg, int value, Size size) {
+    private boolean handleCommRegWrite(final RegSpecS32x regSpec, int reg, int value, Size size) {
         int currentVal = S32xUtil.readBufferReg(regContext, regSpec, reg, size);
         boolean regChanged = currentVal != value;
         if (regChanged) {
@@ -232,7 +238,7 @@ public class S32XMMREG implements Device {
         return regChanged;
     }
 
-    private void doLog(CpuDeviceAccess cpu, S32xDict.RegSpecS32x regSpec, int address, int value, Size size, boolean read) {
+    private void doLog(CpuDeviceAccess cpu, RegSpecS32x regSpec, int address, int value, Size size, boolean read) {
         boolean isSys = address < S32xDict.END_32X_SYSREG_CACHE;
         ByteBuffer regArea = isSys ? (cpu == M68K ? sysRegsMd : sysRegsSh2) : regContext.vdpRegs;
         logCtx.cpu = Md32xRuntimeData.getAccessTypeExt();
@@ -247,15 +253,15 @@ public class S32XMMREG implements Device {
         S32xDict.logZ80Access(cpu, regSpec, address, size, read);
     }
 
-    private void handleIntClearWrite(CpuDeviceAccess cpu, S32xDict.RegSpecS32x regSpec, int reg, int value, Size size) {
+    private void handleIntClearWrite(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value, Size size) {
         assert cpu == MASTER || cpu == SLAVE;
         int intIdx = VRES_14.ordinal() - ((reg & ~1) - 0x14); //regEven
         IntControl.Sh2Interrupt intType = IntControl.intVals[intIdx];
         interruptControls[cpu.ordinal()].clearInterrupt(intType);
         //autoclear Int_control_reg too
         if (intType == CMD_8) {
-            int newVal = readWordFromBuffer(S32xDict.RegSpecS32x.MD_INT_CTRL) & ~(1 << cpu.ordinal());
-            boolean change = handleIntControlWriteMd(S32xDict.RegSpecS32x.MD_INT_CTRL.addr, newVal, Size.WORD);
+            int newVal = readWordFromBuffer(MD_INT_CTRL) & ~(1 << cpu.ordinal());
+            boolean change = handleIntControlWriteMd(MD_INT_CTRL.addr, newVal, Size.WORD);
             if (change && verbose) {
                 LOG.info("{} auto clear {}", cpu, intType);
             }
@@ -272,31 +278,30 @@ public class S32XMMREG implements Device {
                     LOG.warn("Ignore bank set write on byte {}, {} {}", th(reg), th(value), size);
                     yield false;
                 } else {
-                    yield S32xUtil.writeBufferHasChangedWithMask(S32xDict.RegSpecS32x.MD_BANK_SET, sysRegsMd, reg, value & 3, size);
+                    yield writeBuffer(sysRegsMd, reg, value & 3, size);
                 }
             }
-            case SH2 ->
-                    S32xUtil.writeBufferHasChangedWithMask(S32xDict.RegSpecS32x.SH2_HCOUNT_REG, sysRegsSh2, reg, value & 0xFF, size);
+            case SH2 -> writeBuffer(sysRegsSh2, reg, value & 0xFF, size);
         };
     }
 
     private boolean handleReg2Write(CpuDeviceAccess cpu, int reg, int value, Size size) {
         boolean res = switch (cpu.regSide) {
             case MD -> handleIntControlWriteMd(reg, value, size);
-            case SH2 -> S32xUtil.writeBuffer(sysRegsSh2, reg, value, size);
+            case SH2 -> writeBuffer(sysRegsSh2, reg, value, size);
         };
         return res;
     }
 
     private boolean handleIntControlWriteMd(int reg, int value, Size size) {
-        boolean changed = S32xUtil.writeBufferHasChangedWithMask(S32xDict.RegSpecS32x.MD_INT_CTRL, sysRegsMd, reg, value, size);
+        boolean changed = writeBuffer(sysRegsMd, reg, value, size);
         if (changed) {
-            int newVal = S32xUtil.readBufferWord(sysRegsMd, S32xDict.RegSpecS32x.MD_INT_CTRL.addr) & S32xDict.RegSpecS32x.MD_INT_CTRL.writeAndMask;
+            int newVal = readBufferWord(sysRegsMd, MD_INT_CTRL.addr) & MD_INT_CTRL.writeAndMask;
             boolean intm = (newVal & 1) > 0;
             boolean ints = (newVal & 2) > 0;
             interruptControls[0].setIntPending(CMD_8, intm);
             interruptControls[1].setIntPending(CMD_8, ints);
-            writeBufferWord(S32xDict.RegSpecS32x.MD_INT_CTRL, newVal);
+            writeBufferWord(MD_INT_CTRL, newVal);
         }
         return changed;
     }
@@ -312,17 +317,17 @@ public class S32XMMREG implements Device {
 
     private boolean handleAdapterControlRegWriteMd(int reg, int value, Size size) {
         assert size != Size.LONG;
-        int val = readWordFromBuffer(S32xDict.RegSpecS32x.MD_ADAPTER_CTRL);
-        S32xUtil.writeBufferReg(regContext, S32xDict.RegSpecS32x.MD_ADAPTER_CTRL, reg, value, size);
+        int val = readWordFromBuffer(MD_ADAPTER_CTRL);
+        S32xUtil.writeBufferReg(regContext, MD_ADAPTER_CTRL, reg, value, size);
 
-        int newVal = (readWordFromBuffer(S32xDict.RegSpecS32x.MD_ADAPTER_CTRL) & S32xDict.RegSpecS32x.MD_ADAPTER_CTRL.writeAndMask) |
-                S32xDict.RegSpecS32x.MD_ADAPTER_CTRL.writeOrMask; //force REN
+        int newVal = (readWordFromBuffer(MD_ADAPTER_CTRL) & MD_ADAPTER_CTRL.writeAndMask) |
+                MD_ADAPTER_CTRL.writeOrMask; //force REN
         if (aden > 0 && (newVal & 1) == 0) {
             System.out.println("#### Disabling ADEN not allowed");
             newVal |= 1;
         }
         handleReset(val, newVal);
-        writeBufferWord(S32xDict.RegSpecS32x.MD_ADAPTER_CTRL, newVal);
+        writeBufferWord(MD_ADAPTER_CTRL, newVal);
         setAdenSh2Reg(newVal & 1); //sh2 side read-only
         updateFmShared(newVal); //sh2 side r/w too
         return val != newVal;
@@ -363,11 +368,11 @@ public class S32XMMREG implements Device {
         int baseReg = reg & ~1;
         final IntControl ic = interruptControls[cpu.ordinal()];
         int prevW = ic.readSh2IntMaskReg(baseReg, Size.WORD);
-        S32xUtil.writeBuffer(ic.getSh2_int_mask_regs(), reg, value, size);
+        writeBuffer(ic.getSh2_int_mask_regs(), reg, value, size);
         //reset ctx.cart and aden bits
         int newVal = (ic.readSh2IntMaskReg(baseReg, Size.WORD) & 0x808F) | (ctx.cart << 8 | aden << 9);
         assert (newVal & 0x7c70) == 0; //unused bits
-        S32xUtil.writeBuffer(ic.getSh2_int_mask_regs(), baseReg, newVal, Size.WORD);
+        writeBuffer(ic.getSh2_int_mask_regs(), baseReg, newVal, Size.WORD);
 //        assert (newVal & P32XS2_ADEN) > 0 && (newVal & P32XS_nCART) == CART_INSERTED;
         ic.reloadSh2IntMask();
         updateFmShared(newVal); //68k side r/w too
@@ -392,7 +397,7 @@ public class S32XMMREG implements Device {
         this.fm = fm;
         S32xUtil.setBit(interruptControls[0].getSh2_int_mask_regs(),
                 interruptControls[1].getSh2_int_mask_regs(), 0, 7, fm, Size.BYTE);
-        S32xUtil.setBit(sysRegsMd, S32xDict.RegSpecS32x.MD_ADAPTER_CTRL.addr, 7, fm, Size.BYTE);
+        S32xUtil.setBit(sysRegsMd, MD_ADAPTER_CTRL.addr, 7, fm, Size.BYTE);
         if (verbose) LOG.info("{} FM: {}", Md32xRuntimeData.getAccessTypeExt(), fm);
     }
 
@@ -408,19 +413,19 @@ public class S32XMMREG implements Device {
         this.pwm = pwm;
     }
 
-    private int readWordFromBuffer(S32xDict.RegSpecS32x reg) {
+    private int readWordFromBuffer(RegSpecS32x reg) {
         return S32xUtil.readWordFromBuffer(regContext, reg);
     }
 
-    private void writeBufferWord(S32xDict.RegSpecS32x reg, int value) {
+    private void writeBufferWord(RegSpecS32x reg, int value) {
         S32xUtil.writeBufferReg(regContext, reg, reg.addr, value, Size.WORD);
     }
 
-    private void setBitFromWord(S32xDict.RegSpecS32x reg, int pos, int value) {
+    private void setBitFromWord(RegSpecS32x reg, int pos, int value) {
         S32xUtil.setBitReg(regContext, reg, reg.addr, pos, value, Size.WORD);
     }
 
-    private boolean checkWriteLongAccess(S32xDict.RegSpecS32x regSpec, int reg, Size size) {
+    private boolean checkWriteLongAccess(RegSpecS32x regSpec, int reg, Size size) {
         if (regSpec.deviceType != S32xDict.S32xRegType.COMM && regSpec.deviceType != S32xDict.S32xRegType.VDP && regSpec.deviceType != S32xDict.S32xRegType.PWM && size == Size.LONG) {
             LOG.error("unsupported 32 bit access, reg: {} {}", regSpec.name, th(reg));
             return reg == 0x2c; //FIFA

@@ -17,6 +17,7 @@ import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.stream.IntStream;
 
+import static omegadrive.util.Util.readBufferByte;
 import static omegadrive.util.Util.th;
 import static s32x.dict.Sh2Dict.*;
 
@@ -53,7 +54,7 @@ public class Sh2MMREG implements Device {
         this.cpu = cpu;
         this.cache = sh2Cache;
         this.ctx = new Sh2MMREGContext();
-        regs = ByteBuffer.allocateDirect(SH2_REG_SIZE).put(ctx.regsByte);
+        regs = ByteBuffer.allocate(SH2_REG_SIZE).put(ctx.regsByte);
         Gs32xStateHandler.addDevice(this);
     }
 
@@ -209,7 +210,7 @@ public class Sh2MMREG implements Device {
             v >>>= 8;
         }
         assert pos == r.addr : th(pos) + ", " + th(r.addr);
-        int prev = S32xUtil.readBufferByte(regs, r.addr);
+        int prev = readBufferByte(regs, r.addr);
         if (prev != v) {
             Sh2Cache.CacheRegContext ctx = cache.updateState(v);
             //purge always reverts to 0

@@ -41,8 +41,9 @@ public class S32xMemView extends MemView {
         M68K_VECTOR_ROM(M68K, 0, S32xDict.M68K_END_VECTOR_ROM),
         ;
 
-        public int start, end;
-        public MemView.MemViewOwner owner;
+        public final int start;
+        public final int end;
+        public final MemView.MemViewOwner owner;
 
         S32xMemViewType(MemViewOwner c, int s, int e) {
             start = s;

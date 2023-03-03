@@ -1,9 +1,10 @@
-package s32x.util;
+package s32x.util.debug;
 
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
 import s32x.dict.S32xDict;
+import s32x.util.Md32xRuntimeData;
 
 import java.util.HashMap;
 import java.util.HashSet;

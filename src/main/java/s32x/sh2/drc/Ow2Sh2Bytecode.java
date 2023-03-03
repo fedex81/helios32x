@@ -1859,8 +1859,6 @@ public class Ow2Sh2Bytecode {
             if (instSet.add(ctx.sh2Inst.name())) {
                 LOG.warn("DRC unimplemented: {},{}", ctx.sh2Inst, ctx.opcode);
                 System.out.println("DRC unimplemented: " + ctx.sh2Inst + "," + ctx.opcode);
-                //TODO CMPSTR wolf3d
-                //TODO DoomRes div1 in delaySlot
             }
         }
         //if the delaySlot inst is a fallback the PC gets corrupted

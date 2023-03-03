@@ -451,7 +451,6 @@ public class Ow2DrcOptimizer {
     }
 
     //TODO poll on cached address??? tas poll is allowed even on cached addresses
-    //TODO DoomRes polls the framebuffer
     public static PollType getAccessType(int address) {
         switch (address >>> S32xDict.SH2_PC_AREA_SHIFT) {
             case 0x6:

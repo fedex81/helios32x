@@ -16,6 +16,7 @@ import s32x.sh2.device.IntControl;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.readBufferWord;
 import static omegadrive.util.Util.th;
 import static s32x.dict.S32xDict.RegSpecS32x.*;
 import static s32x.pwm.Pwm.PwmChannel.LEFT;
@@ -74,7 +75,8 @@ public class Pwm implements StepDevice {
     private static final boolean verbose = false;
     private PwmProvider playSupport = PwmProvider.NO_SOUND;
 
-    private PwmChannelMap fifoMapLeft = new PwmChannelMap(), fifoMapRight = new PwmChannelMap();
+    private final PwmChannelMap fifoMapLeft = new PwmChannelMap();
+    private final PwmChannelMap fifoMapRight = new PwmChannelMap();
 
     static class PwmContext implements Serializable {
         private final Fifo<Integer> fifoLeft = Fifo.createIntegerFixedSizeFifo(PWM_FIFO_SIZE);
@@ -121,7 +123,7 @@ public class Pwm implements StepDevice {
                 assert cpu.regSide == S32xRegSide.MD : regSpec;
                 handlePartialByteWrite(reg, value);
                 if (regSpec == PWM_CYCLE) {
-                    int val = Util.readBufferWord(sysRegsMd, regSpec.addr);
+                    int val = readBufferWord(sysRegsMd, regSpec.addr);
                     handlePwmCycleWord(cpu, val);
                 }
             }
@@ -130,7 +132,7 @@ public class Pwm implements StepDevice {
                 //NOTE: z80 writes MSB then LSB, we trigger a wordWrite when setting the LSB
                 handlePartialByteWrite(reg, value);
                 if ((reg & 1) == 1) {
-                    int val = Util.readBufferWord(sysRegsMd, regSpec.addr);
+                    int val = readBufferWord(sysRegsMd, regSpec.addr);
                     writeWord(cpu, regSpec, regSpec.addr, val);
                     //we store the partial write in the register, we then need to overwrite it with the EMPTY/FULL bits
                     updateFifoRegs();
@@ -162,8 +164,7 @@ public class Pwm implements StepDevice {
 
     private void handlePwmCycleWord(CpuDeviceAccess cpu, int value) {
         value &= 0xFFF;
-        writeBufferHasChangedWithMask(PWM_CYCLE, sysRegsMd, PWM_CYCLE.addr, value, Size.WORD);
-        writeBufferHasChangedWithMask(PWM_CYCLE, sysRegsSh2, PWM_CYCLE.addr, value, Size.WORD);
+        writeBuffers(sysRegsMd, sysRegsSh2, PWM_CYCLE.addr, value, Size.WORD);
         int prevCycle = ctx.cycle;
         ctx.cycle = (value - 1) & 0xFFF;
         if (ctx.cycle < CYCLE_LIMIT) {
@@ -188,7 +189,7 @@ public class Pwm implements StepDevice {
             LOG.info("{} ignored write to {} {}, read only byte: val {} {}", cpu, PWM_CTRL, th(reg), th(value), size);
             return;
         }
-        int val = Util.readBufferWord(sysRegsMd, PWM_CTRL.addr) & 0xFFF0;
+        int val = readBufferWord(sysRegsMd, PWM_CTRL.addr) & 0xFFF0;
         val |= value & 0xF;
         writeBuffers(sysRegsMd, sysRegsSh2, reg, val, size);
 

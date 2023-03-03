@@ -8,11 +8,12 @@ import s32x.util.S32xUtil;
 
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.readBufferWord;
 import static omegadrive.util.Util.th;
 import static s32x.dict.Sh2Dict.RegSpec;
 import static s32x.dict.Sh2Dict.RegSpec.*;
 import static s32x.dict.Sh2Dict.writeBufferWithMask;
-import static s32x.util.S32xUtil.readBufferLong;
+import static s32x.util.S32xUtil.readBufferRegLong;
 
 /**
  * Federico Berti
@@ -65,10 +66,10 @@ public class DivUnit implements S32xUtil.Sh2Device {
 
     //64/32 -> 32 only
     private void div64Dsp() {
-        long dh = readBufferLong(regs, DIV_DVDNTH);
-        long dl = readBufferLong(regs, DIV_DVDNTL);
+        long dh = readBufferRegLong(regs, DIV_DVDNTH);
+        long dl = readBufferRegLong(regs, DIV_DVDNTL);
         long dvd = ((dh << 32) & 0xffffffff_ffffffffL) | (dl & 0xffffffffL);
-        int dvsr = readBufferLong(regs, DIV_DVSR);
+        int dvsr = readBufferRegLong(regs, DIV_DVSR);
         if (dvsr == 0) {
             handleOverflow(0, true, String.format(formatDivBy0, cpu, 64, dvd, dvsr));
             return;
@@ -92,8 +93,8 @@ public class DivUnit implements S32xUtil.Sh2Device {
     private void div32Dsp(int value) {
         S32xUtil.writeBufferLong(regs, DIV_DVDNTH, (int) (value >> 31)); //sign extend MSB into DVDNTH
         S32xUtil.writeBufferLong(regs, DIV_DVDNTL, value);
-        int dvd = readBufferLong(regs, DIV_DVDNT);
-        int dvsr = readBufferLong(regs, DIV_DVSR);
+        int dvd = readBufferRegLong(regs, DIV_DVDNT);
+        int dvsr = readBufferRegLong(regs, DIV_DVSR);
         if (dvsr == 0) {
             handleOverflow(0, true, String.format(formatDivBy0, cpu, 32, dvd, dvsr));
             if (verbose) checkTimings(32, DIV_OVF_CYCLES);
@@ -123,7 +124,7 @@ public class DivUnit implements S32xUtil.Sh2Device {
     private void handleOverflow(long quot, boolean divBy0, String msg) {
         if (verbose) LOG.info(msg);
         S32xUtil.setBit(regs, DIV_DVCR.addr, DIV_OVERFLOW_BIT, 1, Size.LONG);
-        int dvcr = S32xUtil.readBufferWord(regs, DIV_DVCR.addr);
+        int dvcr = readBufferWord(regs, DIV_DVCR.addr);
         int val = quot >= 0 ? Integer.MAX_VALUE : Integer.MIN_VALUE;
         S32xUtil.writeBuffersLong(regs, DIV_DVDNT, DIV_DVDNTL, DIV_DVDNTUL, val);
         addCpuDelay(DIV_OVF_CYCLES);

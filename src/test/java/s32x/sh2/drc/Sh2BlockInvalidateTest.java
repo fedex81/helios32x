@@ -155,7 +155,7 @@ public class Sh2BlockInvalidateTest extends Sh2MultiTestBase {
                     if (skip) {
                         continue;
                     }
-                    Range writeRange = Range.closed(writeAddr, writeAddr + (size.getByteSize() - 1));
+                    Range<Integer> writeRange = Range.closed(writeAddr, writeAddr + (size.getByteSize() - 1));
                     setTrace(pc, trace, masterCtx);
                     sh2.run(masterCtx);
                     sh2.run(masterCtx);

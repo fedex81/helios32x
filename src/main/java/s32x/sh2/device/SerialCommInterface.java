@@ -8,6 +8,7 @@ import s32x.util.S32xUtil;
 
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.readBufferByte;
 import static omegadrive.util.Util.th;
 import static s32x.dict.Sh2Dict.RegSpec;
 import static s32x.dict.Sh2Dict.RegSpec.*;
@@ -71,7 +72,7 @@ public class SerialCommInterface implements S32xUtil.Sh2Device {
             LOG.error("{} SCI read {}: {}", cpu, regSpec.name, size);
         }
         assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
-        int res = S32xUtil.readBufferByte(regs, regSpec.addr);
+        int res = readBufferByte(regs, regSpec.addr);
         if (verbose) LOG.info("{} SCI read {}: {} {}", cpu, regSpec.name, th(res), size);
         return res;
     }
@@ -146,8 +147,8 @@ public class SerialCommInterface implements S32xUtil.Sh2Device {
     @Override
     public void step(int cycles) {
         if (txEn && tdre == 0) {
-            int data = S32xUtil.readBufferByte(regs, SCI_TDR.addr);
-            int scr = S32xUtil.readBufferByte(regs, SCI_SCR.addr);
+            int data = readBufferByte(regs, SCI_TDR.addr);
+            int scr = readBufferByte(regs, SCI_SCR.addr);
             setTdre(1);
             S32xUtil.setBit(regs, SCI_SSR.addr, SCI_SSR_TEND_BIT_POS, 1, Size.BYTE);
             sendData(data);
@@ -161,7 +162,7 @@ public class SerialCommInterface implements S32xUtil.Sh2Device {
             if (verbose) LOG.info("{} receiving data: {}", cpu, th(sciData.dataInTransit));
             S32xUtil.writeBuffer(regs, SCI_RDR.addr, sciData.dataInTransit, Size.BYTE);
             setRdrf(1);
-            int scr = S32xUtil.readBufferByte(regs, SCI_SCR.addr);
+            int scr = readBufferByte(regs, SCI_SCR.addr);
             sciData.isDataInTransit = false;
             if ((scr & 0x40) > 0) { //RIE
                 intControl.setOnChipDeviceIntPending(SCI, RXI);

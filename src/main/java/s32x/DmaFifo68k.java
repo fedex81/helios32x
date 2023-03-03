@@ -6,16 +6,20 @@ import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.slf4j.Logger;
-import s32x.dict.S32xDict;
+import s32x.S32XMMREG.RegContext;
+import s32x.dict.S32xDict.RegSpecS32x;
 import s32x.savestate.Gs32xStateHandler;
 import s32x.sh2.device.DmaC;
 import s32x.util.Md32xRuntimeData;
 import s32x.util.S32xUtil;
+import s32x.util.S32xUtil.CpuDeviceAccess;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.readBufferWord;
 import static omegadrive.util.Util.th;
+import static s32x.dict.S32xDict.RegSpecS32x.*;
 
 /**
  * Federico Berti
@@ -46,7 +50,7 @@ public class DmaFifo68k implements Device {
         private boolean rv = false;
     }
 
-    public DmaFifo68k(S32XMMREG.RegContext regContext) {
+    public DmaFifo68k(RegContext regContext) {
         this.sysRegsMd = regContext.sysRegsMd;
         this.sysRegsSh2 = regContext.sysRegsSh2;
         this.ctx = new DmaFifo68kContext();
@@ -54,7 +58,7 @@ public class DmaFifo68k implements Device {
         ctx.rv = rv;
     }
 
-    public int read(S32xDict.RegSpecS32x regSpec, S32xUtil.CpuDeviceAccess cpu, int address, Size size) {
+    public int read(RegSpecS32x regSpec, CpuDeviceAccess cpu, int address, Size size) {
         int res = switch (cpu.regSide) {
             case MD -> readMd(address, size);
             case SH2 -> readSh2(regSpec, address, size);
@@ -64,7 +68,7 @@ public class DmaFifo68k implements Device {
     }
 
 
-    public void write(S32xDict.RegSpecS32x regSpec, S32xUtil.CpuDeviceAccess cpu, int address, int value, Size size) {
+    public void write(RegSpecS32x regSpec, CpuDeviceAccess cpu, int address, int value, Size size) {
         if (verbose) LOG.info("{} DMA write {}: {} {}", cpu, regSpec.name, th(value), size);
         switch (cpu.regSide) {
             case MD -> writeMd(regSpec, address, value, size);
@@ -72,14 +76,14 @@ public class DmaFifo68k implements Device {
         }
     }
 
-    private void writeMd(S32xDict.RegSpecS32x regSpec, int address, int value, Size size) {
+    private void writeMd(RegSpecS32x regSpec, int address, int value, Size size) {
         assert size != Size.LONG;
         switch (regSpec) {
             case MD_DMAC_CTRL:
                 handleDreqCtlWriteMd(address, value, size);
                 break;
             case MD_FIFO_REG:
-                assert Md32xRuntimeData.getAccessTypeExt() != S32xUtil.CpuDeviceAccess.Z80;
+                assert Md32xRuntimeData.getAccessTypeExt() != CpuDeviceAccess.Z80;
                 handleFifoRegWriteMd(value, size);
                 S32xUtil.writeBuffer(sysRegsMd, address, value, size);
                 break;
@@ -90,27 +94,32 @@ public class DmaFifo68k implements Device {
             case MD_DREQ_DEST_ADDR_L:
             case MD_DREQ_SRC_ADDR_H:
             case MD_DREQ_SRC_ADDR_L:
-                assert Md32xRuntimeData.getAccessTypeExt() != S32xUtil.CpuDeviceAccess.Z80;
+                assert Md32xRuntimeData.getAccessTypeExt() != CpuDeviceAccess.Z80;
                 //NOTE after burner 68k byte writes: (MD_DREQ_DEST_ADDR_H +1) 0xd,2,BYTE
-                S32xUtil.writeBufferHasChangedWithMask(regSpec, sysRegsMd, address, value, size);
-                S32xUtil.writeBufferHasChangedWithMask(regSpec, sysRegsSh2, address, value, size);
+                S32xUtil.writeBuffer(sysRegsMd, address, value, size);
+                S32xUtil.writeBuffer(sysRegsSh2, address, value, size);
                 break;
             default:
-                LOG.error("{} check DMA write {}: {} {}", S32xUtil.CpuDeviceAccess.M68K, regSpec.name, th(value), size);
+                LOG.error("{} check DMA write {}: {} {}", CpuDeviceAccess.M68K, regSpec.name, th(value), size);
                 break;
         }
     }
 
     private void handleDreqCtlWriteMd(int reg, int value, Size size) {
         assert size != Size.LONG;
-        boolean changed = S32xUtil.writeBufferHasChangedWithMask(S32xDict.RegSpecS32x.MD_DMAC_CTRL, sysRegsMd, reg, value, size);
+        if (size == Size.BYTE && (reg & 1) == 0) {
+            LOG.warn("{} Ignore DreqCtrl write on byte {}, {} {}", Md32xRuntimeData.getAccessTypeExt(),
+                    th(reg), th(value), size);
+            return;
+        }
+        boolean changed = S32xUtil.writeBuffer(sysRegsMd, reg, value & MD_DMAC_CTRL.writeAndMask, size);
         if (changed) {
-            int res = S32xUtil.readBufferWord(sysRegsMd, S32xDict.RegSpecS32x.MD_DMAC_CTRL.addr);
+            int res = readBufferWord(sysRegsMd, MD_DMAC_CTRL.addr);
             boolean wasDmaOn = ctx.m68S;
             ctx.m68S = (res & 4) > 0;
             rv = (res & 1) > 0;
             //sync sh2 reg
-            S32xUtil.writeBuffer(sysRegsSh2, S32xDict.RegSpecS32x.SH2_DREQ_CTRL.addr + 1, res & 7, Size.BYTE);
+            S32xUtil.writeBuffer(sysRegsSh2, SH2_DREQ_CTRL.addr + 1, res & MD_DMAC_CTRL.writeAndMask, Size.BYTE);
             //NOTE bit 1 is called DMA, only relevant when using SEGA CD (see picodrive)
 //            assert (res & 2) == 0;
             if (verbose)
@@ -142,26 +151,26 @@ public class DmaFifo68k implements Device {
         updateFifoState();
         evaluateDreqTrigger(true); //force clears the dreqLevel in DMAC
         //set 68S to 0
-        S32xUtil.setBit(sysRegsMd, sysRegsSh2, S32xDict.RegSpecS32x.SH2_DREQ_CTRL.addr + 1, M68K_68S_BIT_POS, 0, Size.BYTE);
+        S32xUtil.setBit(sysRegsMd, sysRegsSh2, SH2_DREQ_CTRL.addr + 1, M68K_68S_BIT_POS, 0, Size.BYTE);
         ctx.m68S = false;
     }
 
     public void updateFifoState() {
-        boolean changed = S32xUtil.setBit(sysRegsMd, S32xDict.RegSpecS32x.MD_DMAC_CTRL.addr, M68K_FIFO_FULL_BIT,
+        boolean changed = S32xUtil.setBit(sysRegsMd, MD_DMAC_CTRL.addr, M68K_FIFO_FULL_BIT,
                 ctx.fifo.isFullBit(), Size.WORD);
         if (changed) {
-            S32xUtil.setBit(sysRegsSh2, S32xDict.RegSpecS32x.SH2_DREQ_CTRL.addr, SH2_FIFO_FULL_BIT,
+            S32xUtil.setBit(sysRegsSh2, SH2_DREQ_CTRL.addr, SH2_FIFO_FULL_BIT,
                     ctx.fifo.isFull() ? 1 : 0, Size.WORD);
             if (verbose) {
-                LOG.info("68k DMA Fifo FULL state changed: {}", S32xUtil.toHexString(sysRegsMd, S32xDict.RegSpecS32x.MD_DMAC_CTRL.addr, Size.WORD));
-                LOG.info("Sh2 DMA Fifo FULL state changed: {}", S32xUtil.toHexString(sysRegsSh2, S32xDict.RegSpecS32x.SH2_DREQ_CTRL.addr, Size.WORD));
+                LOG.info("68k DMA Fifo FULL state changed: {}", S32xUtil.toHexString(sysRegsMd, MD_DMAC_CTRL.addr, Size.WORD));
+                LOG.info("Sh2 DMA Fifo FULL state changed: {}", S32xUtil.toHexString(sysRegsSh2, SH2_DREQ_CTRL.addr, Size.WORD));
             }
         }
-        changed = S32xUtil.setBit(sysRegsSh2, S32xDict.RegSpecS32x.SH2_DREQ_CTRL.addr, SH2_FIFO_EMPTY_BIT,
+        changed = S32xUtil.setBit(sysRegsSh2, SH2_DREQ_CTRL.addr, SH2_FIFO_EMPTY_BIT,
                 ctx.fifo.isEmptyBit(), Size.WORD);
         if (changed) {
             if (verbose)
-                LOG.info("Sh2 DMA Fifo empty state changed: {}", S32xUtil.toHexString(sysRegsSh2, S32xDict.RegSpecS32x.SH2_DREQ_CTRL.addr, Size.WORD));
+                LOG.info("Sh2 DMA Fifo empty state changed: {}", S32xUtil.toHexString(sysRegsSh2, SH2_DREQ_CTRL.addr, Size.WORD));
         }
         evaluateDreqTrigger(ctx.m68S);
     }
@@ -171,8 +180,8 @@ public class DmaFifo68k implements Device {
         final int lev = ctx.fifo.getLevel();
         if (pm68S && (lev & 3) == 0) { //lev can be 0,4,8
             boolean enable = lev > 0; //lev can be 4,8
-            dmac[S32xUtil.CpuDeviceAccess.MASTER.ordinal()].dmaReqTrigger(DREQ0_CHANNEL, enable);
-            dmac[S32xUtil.CpuDeviceAccess.SLAVE.ordinal()].dmaReqTrigger(DREQ0_CHANNEL, enable);
+            dmac[CpuDeviceAccess.MASTER.ordinal()].dmaReqTrigger(DREQ0_CHANNEL, enable);
+            dmac[CpuDeviceAccess.SLAVE.ordinal()].dmaReqTrigger(DREQ0_CHANNEL, enable);
             if (verbose) LOG.info("DMA ctx.fifo dreq: {}", enable);
         }
     }
@@ -182,10 +191,10 @@ public class DmaFifo68k implements Device {
     }
 
 
-    private int readSh2(S32xDict.RegSpecS32x regSpec, int address, Size size) {
-        if (regSpec == S32xDict.RegSpecS32x.SH2_DREQ_CTRL) {
+    private int readSh2(RegSpecS32x regSpec, int address, Size size) {
+        if (regSpec == SH2_DREQ_CTRL) {
             return S32xUtil.readBuffer(sysRegsSh2, address, size);
-        } else if (regSpec == S32xDict.RegSpecS32x.SH2_FIFO_REG) {
+        } else if (regSpec == SH2_FIFO_REG) {
             assert size == Size.WORD;
             int res = 0;
             if (ctx.m68S && !ctx.fifo.isEmpty()) {

@@ -16,12 +16,11 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-import static omegadrive.util.Util.th;
+import static omegadrive.util.Util.*;
 import static s32x.dict.Sh2Dict.RegSpec.*;
 import static s32x.dict.Sh2Dict.writeBufferWithMask;
 import static s32x.sh2.device.Sh2DeviceHelper.Sh2DeviceType.*;
 import static s32x.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
-import static s32x.util.S32xUtil.readBufferLong;
 
 /**
  * Federico Berti
@@ -55,7 +54,7 @@ public class IntControlImplOld implements IntControl {
     private int additionalIntData = 0;
 
     public IntControlImplOld(S32xUtil.CpuDeviceAccess cpu, ByteBuffer regs) {
-        sh2_int_mask = ByteBuffer.allocateDirect(2);
+        sh2_int_mask = ByteBuffer.allocate(2);
         this.regs = regs;
         this.cpu = cpu;
         init();
@@ -132,7 +131,7 @@ public class IntControlImplOld implements IntControl {
 
     @Override
     public void reloadSh2IntMask() {
-        int newVal = S32xUtil.readBufferWord(sh2_int_mask, S32xDict.RegSpecS32x.SH2_INT_MASK.addr);
+        int newVal = readBufferWord(sh2_int_mask, S32xDict.RegSpecS32x.SH2_INT_MASK.addr);
         setIntsMasked(newVal & 0xF);
     }
 
@@ -229,7 +228,7 @@ public class IntControlImplOld implements IntControl {
         Sh2Interrupt intType = intVals[interruptLevel];
         boolean onChipLevel = onChipLevels[interruptLevel];
         if (onChipLevel && intType.internal != 0) { //sopwith32x
-            LOG.warn("OnChipDevice interrupt using the same level as an internal interrupt: {]", interruptLevel);
+            LOG.warn("{} OnChipDevice interrupt using the same level as an internal interrupt: {}", cpu, interruptLevel);
         }
         if (onChipLevel || intType.internal == 0) {
             return getExternalDeviceVectorNumber();
@@ -257,21 +256,21 @@ public class IntControlImplOld implements IntControl {
         //TODO the vector number should be coming from the device itself
         switch (deviceType) {
             case DMA:
-                vn = readBufferLong(regs, INTC_VCRDMA0.addr + (additionalIntData << 3)) & 0x7F;
+                vn = Util.readBufferLong(regs, INTC_VCRDMA0.addr + (additionalIntData << 3)) & 0x7F;
                 break;
             case WDT:
-                vn = S32xUtil.readBufferByte(regs, INTC_VCRWDT.addr) & 0x7F;
+                vn = readBufferByte(regs, INTC_VCRWDT.addr) & 0x7F;
                 break;
             case DIV:
-                vn = S32xUtil.readBufferByte(regs, INTC_VCRDIV.addr) & 0x7F;
+                vn = readBufferByte(regs, INTC_VCRDIV.addr) & 0x7F;
                 break;
             case SCI:
                 //RIE vs TIE
                 int pos = additionalIntData == 1 ? INTC_VCRA.addr + 1 : INTC_VCRB.addr;
-                vn = S32xUtil.readBufferByte(regs, pos) & 0x7F;
+                vn = readBufferByte(regs, pos) & 0x7F;
                 break;
             case FRT:
-                vn = S32xUtil.readBufferByte(regs, INTC_VCRD.addr) & 0x7F; //TODO
+                vn = readBufferByte(regs, INTC_VCRD.addr) & 0x7F; //TODO
                 break;
             case NONE:
                 break;

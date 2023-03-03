@@ -97,13 +97,11 @@ public class Gs32xStateHandler extends GshStateHandler {
     }
 
     public static void addDevice(Device d) {
-        if (d instanceof Sh2Context) {
-            Sh2Context s = (Sh2Context) d;
+        if (d instanceof Sh2Context s) {
             wrap.sh2Ctx[s.cpuAccess.ordinal()] = s;
             return;
         }
-        if (d instanceof Sh2Cache) {
-            Sh2Cache s = (Sh2Cache) d;
+        if (d instanceof Sh2Cache s) {
             wrap.sh2Cache[s.getCacheContext().cpu.ordinal()] = s;
             return;
         }

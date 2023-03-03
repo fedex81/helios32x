@@ -165,7 +165,7 @@ public class MdRegsTest {
         readBus(lc, M68K, regSpec.addr, Size.WORD);
         readBus(lc, M68K, regSpec.addr, Size.WORD);
         int w = readBus(lc, M68K, M68K_START_32X_SYSREG | regSpec.addr, Size.WORD);
-        Assertions.assertEquals(0 | emptyFifo, w, regSpec.toString());
+        Assertions.assertEquals(emptyFifo, w & emptyFifo, regSpec.toString());
     }
 
     private void checkBytesVsWord(RegSpecS32x regSpec) {

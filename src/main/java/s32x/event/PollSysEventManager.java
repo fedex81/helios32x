@@ -131,7 +131,7 @@ public interface PollSysEventManager extends Device {
         private final Map<String, SysEventListener> listenerMapMaster = new HashMap<>();
         private final Map<String, SysEventListener> listenerMapSlave = new HashMap<>();
         //reduce object creation
-        private SysEventListener[][] listenerArr = new SysEventListener[2][0];
+        private final SysEventListener[][] listenerArr = new SysEventListener[2][0];
 
         @Override
         public boolean addSysEventListener(CpuDeviceAccess cpu, String name, SysEventListener l) {

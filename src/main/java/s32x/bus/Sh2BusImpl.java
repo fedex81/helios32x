@@ -20,7 +20,8 @@ import s32x.sh2.prefetch.Sh2Prefetcher;
 import s32x.util.BiosHolder;
 import s32x.util.Md32xRuntimeData;
 import s32x.util.S32xUtil;
-import s32x.util.SdramSyncTester;
+import s32x.util.debug.MemAccessStats;
+import s32x.util.debug.SdramSyncTester;
 
 import java.nio.ByteBuffer;
 
@@ -59,7 +60,7 @@ public final class Sh2BusImpl implements Sh2Bus {
 		bios[S32xUtil.CpuDeviceAccess.MASTER.ordinal()] = biosHolder.getBiosData(S32xUtil.CpuDeviceAccess.MASTER);
 		bios[S32xUtil.CpuDeviceAccess.SLAVE.ordinal()] = biosHolder.getBiosData(S32xUtil.CpuDeviceAccess.SLAVE);
 		memoryDataCtx.bios = bios;
-		memoryDataCtx.sdram = sdram = ByteBuffer.allocateDirect(S32xDict.SH2_SDRAM_SIZE);
+		memoryDataCtx.sdram = sdram = ByteBuffer.allocate(S32xDict.SH2_SDRAM_SIZE);
 		Sh2.Sh2Config sh2Config = Sh2.Sh2Config.get();
 		cache[S32xUtil.CpuDeviceAccess.MASTER.ordinal()] = new Sh2CacheImpl(S32xUtil.CpuDeviceAccess.MASTER, this);
 		cache[S32xUtil.CpuDeviceAccess.SLAVE.ordinal()] = new Sh2CacheImpl(S32xUtil.CpuDeviceAccess.SLAVE, this);

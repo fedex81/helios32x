@@ -13,10 +13,10 @@ import s32x.util.S32xUtil;
 
 import java.nio.ByteBuffer;
 
+import static omegadrive.util.Util.readBufferLong;
 import static omegadrive.util.Util.th;
 import static s32x.dict.Sh2Dict.RegSpec;
 import static s32x.dict.Sh2Dict.RegSpec.*;
-import static s32x.util.S32xUtil.readBufferLong;
 
 /**
  * Federico Berti

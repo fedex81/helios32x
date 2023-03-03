@@ -4,19 +4,16 @@ import com.google.common.math.IntMath;
 import omegadrive.Device;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
+import omegadrive.util.Util;
 import omegadrive.util.VideoMode;
 import org.slf4j.Logger;
 import s32x.S32XMMREG;
 import s32x.dict.S32xDict;
+import s32x.dict.S32xDict.RegSpecS32x;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.HashSet;
-import java.util.Set;
 
-import static omegadrive.util.Util.th;
+import static omegadrive.util.Util.*;
 import static omegadrive.vdp.model.BaseVdpProvider.H40;
 import static s32x.dict.Sh2Dict.RegSpec;
 
@@ -65,53 +62,32 @@ public class S32xUtil {
         writeBuffer(b2, pos, value, size);
     }
 
-    public static int readBufferLong(ByteBuffer b, RegSpec r) {
-        return readBuffer(b, r.addr & RegSpec.REG_MASK, Size.LONG);
+    public static int readBufferRegLong(ByteBuffer b, RegSpec r) {
+        return Util.readBufferLong(b, r.addr & RegSpec.REG_MASK);
     }
 
     public static void writeBufferLong(ByteBuffer b, RegSpec r, int value) {
-        writeBuffer(b, r.addr & RegSpec.REG_MASK, value, Size.LONG);
+        writeBufferLong(b, r.addr & RegSpec.REG_MASK, value);
+    }
+
+    public static void writeBufferLong(ByteBuffer b, int pos, int value) {
+        INT_BYTEBUF_HANDLE.set(b, pos, value);
     }
 
     public static void writeBuffersLong(ByteBuffer b, RegSpec r, RegSpec r1, RegSpec r2, int value) {
-        writeBuffer(b, r.addr & RegSpec.REG_MASK, value, Size.LONG);
-        writeBuffer(b, r1.addr & RegSpec.REG_MASK, value, Size.LONG);
-        writeBuffer(b, r2.addr & RegSpec.REG_MASK, value, Size.LONG);
+        writeBufferLong(b, r.addr & RegSpec.REG_MASK, value);
+        writeBufferLong(b, r1.addr & RegSpec.REG_MASK, value);
+        writeBufferLong(b, r2.addr & RegSpec.REG_MASK, value);
     }
 
     public static void writeBuffersLong(ByteBuffer b, RegSpec r, RegSpec r1, int value) {
-        writeBuffer(b, r.addr & RegSpec.REG_MASK, value, Size.LONG);
-        writeBuffer(b, r1.addr & RegSpec.REG_MASK, value, Size.LONG);
-    }
-
-    private static final Set<String> s = new HashSet<>();
-    public static boolean writeBufferHasChangedWithMask(S32xDict.RegSpecS32x regSpec, ByteBuffer b, int reg, int value, Size size) {
-        //TODO slower, esp. Metal Head
-        if (assertionsEnabled) {
-            assert regSpec.size == Size.WORD;
-            assert size != Size.LONG;
-            int andMask = size == Size.WORD ? regSpec.writeAndMask : ((reg & 1) == 0) ? regSpec.writeAndMask >> 8 : regSpec.writeAndMask & 0xFF;
-            int orMask = size == Size.WORD ? regSpec.writeOrMask : ((reg & 1) == 0) ? regSpec.writeOrMask >> 8 : regSpec.writeOrMask & 0xFF;
-//            if (((value & andMask) | orMask) != value) {
-//                String str = s + " pos: " + reg + " val: " + value + " masked: " + ((value & andMask) | orMask) +
-//                        " " + size;
-//                if (s.add(str)) {
-//                    System.out.println(s);
-//                }
-//            }
-            return writeBuffer(b, reg, (value & andMask) | orMask, size);
-        } else {
-            return writeBuffer(b, reg, value, size);
-        }
+        writeBufferLong(b, r.addr & RegSpec.REG_MASK, value);
+        writeBufferLong(b, r1.addr & RegSpec.REG_MASK, value);
     }
 
     public static void writeRegBuffer(RegSpec r, ByteBuffer b, int value, Size size) {
         writeBuffer(b, r.addr, value & r.writeMask, size);
     }
-
-    public static final VarHandle INT_BYTEBUF_HANDLE = MethodHandles.byteBufferViewVarHandle(int[].class, ByteOrder.BIG_ENDIAN);
-    public static final VarHandle SHORT_BYTEBUF_HANDLE = MethodHandles.byteBufferViewVarHandle(short[].class, ByteOrder.BIG_ENDIAN);
-
     public static boolean writeBuffer(ByteBuffer b, int pos, int value, Size size) {
         boolean changed = false;
         if (size == Size.WORD) {
@@ -134,33 +110,15 @@ public class S32xUtil {
     }
 
     public static int readBuffer(ByteBuffer b, int pos, Size size) {
-        switch (size) {
-            case WORD:
-                assert (pos & 1) == 0;
-                return (int) SHORT_BYTEBUF_HANDLE.get(b, pos);
-            case LONG:
-                assert (pos & 1) == 0;
-                return (int) INT_BYTEBUF_HANDLE.get(b, pos);
-            case BYTE:
-                return b.get(pos);
-            default:
-                System.err.println("Unsupported size: " + size);
-                return 0xFF;
-        }
-    }
-
-    public static int readBufferByte(ByteBuffer b, int pos) {
-        return b.get(pos);
-    }
-
-    public static int readBufferWord(ByteBuffer b, int pos) {
-        assert (pos & 1) == 0;
-        return (int) SHORT_BYTEBUF_HANDLE.get(b, pos);
-    }
-
-    public static int readBufferLong(ByteBuffer b, int pos) {
-        assert (pos & 1) == 0;
-        return (int) INT_BYTEBUF_HANDLE.get(b, pos);
+        return switch (size) {
+            case WORD -> readBufferWord(b, pos);
+            case LONG -> readBufferLong(b, pos);
+            case BYTE -> readBufferByte(b, pos);
+            default -> {
+                LOG.error("Unexpected size: " + size);
+                yield size.getMask();
+            }
+        };
     }
 
     public static void setBit(ByteBuffer b1, ByteBuffer b2, int pos, int bitPos, int bitValue, Size size) {
@@ -200,11 +158,11 @@ public class S32xUtil {
         return val;
     }
 
-    public static int readWordFromBuffer(S32XMMREG.RegContext ctx, S32xDict.RegSpecS32x reg) {
+    public static int readWordFromBuffer(S32XMMREG.RegContext ctx, RegSpecS32x reg) {
         return readBufferReg(ctx, reg, reg.addr, Size.WORD);
     }
 
-    public static int readBufferReg(S32XMMREG.RegContext ctx, S32xDict.RegSpecS32x reg, int address, Size size) {
+    public static int readBufferReg(S32XMMREG.RegContext ctx, RegSpecS32x reg, int address, Size size) {
         address &= reg.addrMask;
         if (reg.deviceType == S32xDict.S32xRegType.VDP) {
             return readBuffer(ctx.vdpRegs, address, size);
@@ -212,6 +170,7 @@ public class S32xUtil {
         switch (reg.regCpuType) {
             case REG_BOTH:
                 assert readBuffer(ctx.sysRegsMd, address, size) == readBuffer(ctx.sysRegsSh2, address, size);
+                //fall-through
             case REG_MD:
                 return readBuffer(ctx.sysRegsMd, address, size);
             case REG_SH2:
@@ -221,51 +180,34 @@ public class S32xUtil {
         return size.getMask();
     }
 
-    public static void setBitReg(S32XMMREG.RegContext rc, S32xDict.RegSpecS32x reg, int address, int pos, int value, Size size) {
+    public static void setBitReg(S32XMMREG.RegContext rc, RegSpecS32x reg, int address, int pos, int value, Size size) {
         address &= reg.addrMask;
         if (reg.deviceType == S32xDict.S32xRegType.VDP) {
             S32xUtil.setBit(rc.vdpRegs, address, pos, value, size);
             return;
         }
         switch (reg.regCpuType) {
-            case REG_BOTH -> {
-                S32xUtil.setBit(rc.sysRegsMd, rc.sysRegsSh2, address, pos, value, size);
-                return;
-            }
-            case REG_MD -> {
-                S32xUtil.setBit(rc.sysRegsMd, address, pos, value, size);
-                return;
-            }
-            case REG_SH2 -> {
-                S32xUtil.setBit(rc.sysRegsSh2, address, pos, value, size);
-                return;
-            }
+            case REG_BOTH -> S32xUtil.setBit(rc.sysRegsMd, rc.sysRegsSh2, address, pos, value, size);
+            case REG_MD -> S32xUtil.setBit(rc.sysRegsMd, address, pos, value, size);
+            case REG_SH2 -> S32xUtil.setBit(rc.sysRegsSh2, address, pos, value, size);
+            default ->
+                    LOG.error("Unable to setBit: {}, addr: {}, value: {} {}", reg.name, th(address), th(value), size);
         }
-        LOG.error("Unable to setBit: {}, addr: {}, value: {} {}", reg.name, th(address), th(value), size);
     }
 
-    public static void writeBufferReg(S32XMMREG.RegContext rc, S32xDict.RegSpecS32x reg, int address, int value, Size size) {
+    public static void writeBufferReg(S32XMMREG.RegContext rc, RegSpecS32x reg, int address, int value, Size size) {
         address &= reg.addrMask;
         if (reg.deviceType == S32xDict.S32xRegType.VDP) {
             writeBuffer(rc.vdpRegs, address, value, size);
             return;
         }
         switch (reg.regCpuType) {
-            case REG_BOTH -> {
-                writeBuffer(rc.sysRegsMd, address, value, size);
-                writeBuffer(rc.sysRegsSh2, address, value, size);
-                return;
-            }
-            case REG_MD -> {
-                writeBuffer(rc.sysRegsMd, address, value, size);
-                return;
-            }
-            case REG_SH2 -> {
-                writeBuffer(rc.sysRegsSh2, address, value, size);
-                return;
-            }
+            case REG_BOTH -> writeBuffers(rc.sysRegsMd, rc.sysRegsSh2, address, value, size);
+            case REG_MD -> writeBuffer(rc.sysRegsMd, address, value, size);
+            case REG_SH2 -> writeBuffer(rc.sysRegsSh2, address, value, size);
+            default ->
+                    LOG.error("Unable to write buffer: {}, addr: {}, value: {} {}", reg.name, th(address), th(value), size);
         }
-        LOG.error("Unable to write buffer: {}, addr: {}, value: {} {}", reg.name, th(address), th(value), size);
     }
 
     public static String toHexString(ByteBuffer b, int pos, Size size) {

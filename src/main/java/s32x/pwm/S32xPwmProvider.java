@@ -7,8 +7,6 @@ import omegadrive.util.RegionDetector;
 import org.slf4j.Logger;
 import s32x.util.blipbuffer.BlipBufferHelper;
 
-import java.util.Arrays;
-
 import static omegadrive.util.Util.th;
 import static s32x.pwm.Pwm.CYCLE_LIMIT;
 import static s32x.pwm.PwmUtil.*;
@@ -115,7 +113,10 @@ public class S32xPwmProvider extends GenericAudioProvider implements PwmProvider
         if (collectStats) stats.monoSamplesPull += actualStereo >> 1;
         if (actualStereo == 0) {
             if (collectStats) stats.monoSamplesFiller += stereoSamples >> 1;
-            Arrays.fill(buf_lr, 0, stereoSamples, 0); //TODO this is bad
+            for (int i = 0; i < stereoSamples; i += 2) { //TODO not great
+                buf_lr[i] = prev[0];
+                buf_lr[i + 1] = prev[1];
+            }
             return stereoSamples;
         }
         if (actualStereo < stereoSamples) {

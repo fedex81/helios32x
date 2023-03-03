@@ -180,7 +180,7 @@ public class S32xBus extends GenesisBus implements Sh2Bus.MdRomAccess {
                         DmaFifo68k.rv, th(address), Util.th(address & S32xDict.M68K_ROM_WINDOW_MASK), th(data), size);
             }
         } else if (address >= S32xDict.M68K_START_ROM_MIRROR && address < S32xDict.M68K_END_ROM_MIRROR) {
-            //TODO should not happen, SoulStar
+            //NOTE should not happen, SoulStar buggy?
             if (!DmaFifo68k.rv) {
                 super.write(address & S32xDict.M68K_ROM_WINDOW_MASK, data, size);
             } else {

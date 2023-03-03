@@ -55,7 +55,7 @@ public class Sh2CacheImpl implements Sh2Cache {
 
     //NOTE looks like this is NOT needed, ie. it doesn't improve compat
     public static final boolean PARANOID_ON_CACHE_ENABLED_TOGGLE = false;
-    protected final ByteBuffer data_array = ByteBuffer.allocateDirect(DATA_ARRAY_SIZE); // cache (can be used as RAM)
+    protected final ByteBuffer data_array = ByteBuffer.allocate(DATA_ARRAY_SIZE); // cache (can be used as RAM)
 
     protected Sh2CacheContext ctx;
     private CacheRegContext cacheRegCtx;

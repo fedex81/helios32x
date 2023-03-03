@@ -33,7 +33,7 @@ public class BlipPwmProvider implements PwmProvider {
 
     private static final int BUF_SIZE_MS = 50;
 
-    private AtomicReference<BlipBufferContext> ref = new AtomicReference<>();
+    private final AtomicReference<BlipBufferContext> ref = new AtomicReference<>();
 
     static class BlipBufferContext {
         BlipBufferIntf blipBuffer;
@@ -51,8 +51,8 @@ public class BlipPwmProvider implements PwmProvider {
         }
     }
 
-    private float sh2ClockMhz;
-    private double frameIntervalMs;
+    private final float sh2ClockMhz;
+    private final double frameIntervalMs;
     private double deltaTime;
 
     private int prevLSample, prevRSample;
@@ -61,10 +61,10 @@ public class BlipPwmProvider implements PwmProvider {
     int[] pfPrev = new int[2];
     static final double pfAlpha = 0.995;
 
-    private SourceDataLine dataLine;
+    private final SourceDataLine dataLine;
     private Warmup warmup = NO_WARMUP;
 
-    private ExecutorService exec =
+    private final ExecutorService exec =
             Executors.newSingleThreadExecutor(new PriorityThreadFactory(Thread.MAX_PRIORITY, "pwm"));
 
     public BlipPwmProvider(RegionDetector.Region region) {
@@ -135,7 +135,7 @@ public class BlipPwmProvider implements PwmProvider {
 
 
     private int prevSampleAvail = 0;
-    private AtomicInteger sync = new AtomicInteger();
+    private final AtomicInteger sync = new AtomicInteger();
 
     //TODO if framerate slows down we get periods where the wave goes back to zero -> poor sound quality
     //TODO S32xPwmProvider fills the gaps and it sounds better
