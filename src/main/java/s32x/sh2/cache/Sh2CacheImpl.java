@@ -96,7 +96,6 @@ public class Sh2CacheImpl implements Sh2Cache {
 
     @Override
     public int readDirect(int addr, Size size) {
-        assert size == Size.WORD;
         switch (addr & AREA_MASK) {
             case CACHE_USE:
                 if (ca.enable > 0) {

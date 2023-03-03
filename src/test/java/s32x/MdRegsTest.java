@@ -159,10 +159,11 @@ public class MdRegsTest {
     }
 
     private void emptyPwmFifoAndCheck(RegSpecS32x regSpec) {
-        lc.pwm.readFifoMono(regSpec);
-        lc.pwm.readFifoMono(regSpec);
-        lc.pwm.readFifoMono(regSpec);
-        int emptyFifo = 1 << 14;
+        final int emptyFifo = 1 << 14;
+        //empty the fifo
+        readBus(lc, M68K, regSpec.addr, Size.WORD);
+        readBus(lc, M68K, regSpec.addr, Size.WORD);
+        readBus(lc, M68K, regSpec.addr, Size.WORD);
         int w = readBus(lc, M68K, M68K_START_32X_SYSREG | regSpec.addr, Size.WORD);
         Assertions.assertEquals(0 | emptyFifo, w, regSpec.toString());
     }

@@ -132,6 +132,8 @@ public class Pwm implements StepDevice {
                 if ((reg & 1) == 1) {
                     int val = Util.readBufferWord(sysRegsMd, regSpec.addr);
                     writeWord(cpu, regSpec, regSpec.addr, val);
+                    //we store the partial write in the register, we then need to overwrite it with the EMPTY/FULL bits
+                    updateFifoRegs();
                 }
             }
             default -> LOG.error("{} PWM write {} {}: {} {}", cpu, regSpec.name, th(reg), th(value), Size.BYTE);
@@ -284,19 +286,6 @@ public class Pwm implements StepDevice {
         assert value >= 0;
         fifo.push(Util.getFromIntegerCache((value - 1) & 0xFFF));
         updateFifoRegs();
-    }
-
-    //TEST only
-    public int readFifoMono(RegSpecS32x regSpec) {
-        return switch (regSpec) {
-            case PWM_LCH_PW -> readFifo(ctx.fifoLeft, LEFT);
-            case PWM_RCH_PW -> readFifo(ctx.fifoRight, RIGHT);
-            case PWM_MONO -> readMono();
-            default -> {
-                assert false : regSpec;
-                yield 0;
-            }
-        };
     }
 
     private int readMono() {
