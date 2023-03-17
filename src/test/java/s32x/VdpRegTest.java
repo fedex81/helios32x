@@ -145,6 +145,7 @@ public class VdpRegTest {
 
     private void testByteWriteRegIgnoresEvenByte(int regOffset, int oddByteMask, int readWordMask) {
         for (int i = 0; i < 0x100; i++) {
+            System.out.println(i);
             s32XMMREG.write(regOffset + 1, i, Size.BYTE);
             int res1 = s32XMMREG.read(regOffset, Size.WORD);
             Assertions.assertEquals(i & oddByteMask, res1 & readWordMask);

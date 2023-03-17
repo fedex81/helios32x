@@ -3,7 +3,6 @@ package s32x.util.debug;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
-import s32x.dict.S32xDict;
 import s32x.util.Md32xRuntimeData;
 
 import java.util.HashMap;
@@ -12,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static omegadrive.util.Util.th;
+import static s32x.dict.S32xDict.RegSpecS32x.*;
 
 /**
  * Federico Berti
@@ -49,8 +49,8 @@ public class RegAccessLogger {
         if (!ENABLE_UNIQ) {
             return;
         }
-        if (regSpec.startsWith("COMM") || regSpec.startsWith("AF") || regSpec.startsWith(S32xDict.RegSpecS32x.MD_FIFO_REG.name) ||
-                S32xDict.RegSpecS32x.PWM_LCH_PW.name.equals(regSpec) || S32xDict.RegSpecS32x.PWM_RCH_PW.name.equals(regSpec) || S32xDict.RegSpecS32x.PWM_MONO.name.equals(regSpec) ||
+        if (regSpec.startsWith("COMM") || regSpec.startsWith("AF") || regSpec.startsWith(MD_FIFO_REG.name()) ||
+                PWM_LCH_PW.name().equals(regSpec) || PWM_RCH_PW.name().equals(regSpec) || PWM_MONO.name().equals(regSpec) ||
                 regSpec.startsWith("DIV_")) {
             if (ignoredUniq.add(regSpec)) {
                 LOG.info("Ignoring: {}", regSpec);

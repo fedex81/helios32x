@@ -3,6 +3,7 @@ package s32x.dict;
 import omegadrive.util.LogHelper;
 import omegadrive.util.Size;
 import org.slf4j.Logger;
+import s32x.util.RegSpec;
 import s32x.util.S32xUtil;
 import s32x.util.S32xUtil.CpuDeviceAccess;
 import s32x.vdp.MarsVdp;
@@ -92,34 +93,28 @@ public class S32xDict {
 
         VDP_BITMAP_MODE(VDP, 0x100),
         SSCR(VDP, 0x102, 1), //Screen Shift Control Register
-        AFLR(VDP, 0x104), //Auto Fill Length Register
+        AFLR(VDP, 0x104, 0xFF), //Auto Fill Length Register
         AFSAR(VDP, 0x106), //Auto Fill Start Address Register
         AFDR(VDP, 0x108), //Auto Fill Data Register
-        FBCR(VDP, 0x10A), //Frame Buffer Control Register
+        FBCR(VDP, 0x10A, 0xFFFC), //Frame Buffer Control Register
 
         INVALID(NONE, -1);
 
+        public final RegSpec regSpec;
         public final S32xRegCpuType regCpuType;
         public final S32xRegType deviceType;
-        public final int fullAddress, addr, addrMask;
-        public final String name;
-        public final Size size;
-        public final int writeAndMask, writeOrMask;
+        public final int addr;
         public final int deviceAccessTypeDelay;
 
         //defaults to 16 bit wide register
         RegSpecS32x(S32xRegType deviceType, int addr, int writeAndMask, int writeOrMask) {
-            this.fullAddress = addr;
-            this.writeAndMask = writeAndMask;
-            this.writeOrMask = writeOrMask;
-            this.addrMask = (deviceType != VDP ? S32X_REG_MASK : S32X_VDP_REG_MASK);
-            this.addr = addr & addrMask;
-            this.name = name();
-            this.size = Size.WORD;
+            this.regSpec = new RegSpec(name(), addr, (deviceType != VDP ? S32X_REG_MASK : S32X_VDP_REG_MASK),
+                    writeAndMask, writeOrMask, Size.WORD);
+            this.addr = regSpec.bufferAddr;
             this.deviceType = deviceType;
             this.deviceAccessTypeDelay = deviceType == VDP ? S32xMemAccessDelay.VDP_REG : S32xMemAccessDelay.SYS_REG;
             this.regCpuType = deviceType == NONE || deviceType == COMM || deviceType == PWM || deviceType == VDP ? S32xRegCpuType.REG_BOTH :
-                    S32xRegCpuType.valueOf("REG_" + name.split("_")[0]);
+                    S32xRegCpuType.valueOf("REG_" + name().split("_")[0]);
             init();
         }
 
@@ -135,8 +130,8 @@ public class S32xDict {
             if (deviceType == NONE) {
                 return;
             }
-            int addrLen = size.getByteSize();
-            for (int i = fullAddress; i < fullAddress + addrLen; i++) {
+            int addrLen = regSpec.regSize.getByteSize();
+            for (int i = regSpec.fullAddr; i < regSpec.fullAddr + addrLen; i++) {
                 s32xRegMapping[regCpuType.ordinal()][i] = this;
                 s32xRegTypeMapping[i] = deviceType;
                 if (regCpuType == S32xRegCpuType.REG_BOTH) {
@@ -145,13 +140,26 @@ public class S32xDict {
                 }
             }
         }
+
+        public int getAddrMask() {
+            return regSpec.addrMask;
+        }
+
+        public String getName() {
+            return regSpec.name;
+        }
     }
 
     public static final int P32XS_FM = (1 << 15);
     public static final int SH2_nCART_WORD = (1 << 8);
     public static final int SH2_nCART_BYTE = (1 << 0);
-    public static final int P32XS_REN = (1 << 7);
+
+    public static final int P32XS_REN_POS = 7;
+    public static final int P32XS_REN = (1 << P32XS_REN_POS);
     public static final int P32XS_nRES = (1 << 1);
+
+    public static final int MD_ADEN_BIT = 1 << 0;
+    public static final int MD_ADEN_BIT_POS = 0;
     public static final int SH2_ADEN_BYTE = (1 << 1);
     public static final int SH2_ADEN_WORD = (1 << 9);
     public static final int P32XS_FULL = (1 << 7); // DREQ FIFO full
@@ -295,7 +303,7 @@ public class S32xDict {
 
     public static void logAccess(S32xDictLogContext logCtx, int address, int value, Size size) {
         LOG.info("{} 32x reg {} {} ({}) {} {}", logCtx.cpu, logCtx.read ? "read" : "write",
-                size, logCtx.regSpec.name, th(address), !logCtx.read ? ": " + th(value) : "");
+                size, logCtx.regSpec.getName(), th(address), !logCtx.read ? ": " + th(value) : "");
     }
 
     public static void detectRegAccess(S32xDictLogContext logCtx, int address, int value, Size size) {
@@ -308,27 +316,27 @@ public class S32xDict {
         value = logCtx.read ? currentWord : value;
         switch (regSpec) {
             case VDP_BITMAP_MODE:
-                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.name,
+                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.getName(),
                         MarsVdp.BitmapMode.vals[value & 3].name(), value & 3, value, size.name(), evenOdd);
                 break;
             case FBCR:
                 String s1 = "D" + logCtx.fbD + "W" + logCtx.fbW +
                         "|H" + ((value >> 14) & 1) + "V" + ((value >> 15) & 1);
-                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.name,
+                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.getName(),
                         s1, value & 3, value, size.name(), evenOdd);
                 break;
             case SH2_INT_MASK:
                 if (logCtx.cpu == S32xUtil.CpuDeviceAccess.M68K) {
-                    s = String.format(sformat, logCtx.cpu, type, regSpec.name,
+                    s = String.format(sformat, logCtx.cpu, type, regSpec.getName(),
                             "[RESET: " + ((value & 3) >> 1) + ", ADEN: " + (value & 1) + "]", value & 3,
                             value, size.name(), evenOdd);
                 } else {
-                    s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.name, "", value,
+                    s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.getName(), "", value,
                             value, size.name(), evenOdd);
                 }
                 break;
             case MD_BANK_SET:
-                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.name,
+                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.getName(),
                         "", value & 3, value, size.name(), evenOdd);
                 break;
             case COMM0:
@@ -344,11 +352,11 @@ public class S32xDict {
                 }
                 int valueMem = S32xUtil.readBuffer(logCtx.regArea, (address & S32X_REG_MASK) & ~1, Size.LONG);
                 String s2 = decodeComm(valueMem);
-                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.name,
+                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.getName(),
                         s2, value, valueMem, size.name(), evenOdd);
                 break;
             default:
-                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.name,
+                s = String.format(sformat, logCtx.cpu.toString(), type, regSpec.getName(),
                         "", value, value, size.name(), evenOdd);
                 break;
         }

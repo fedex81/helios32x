@@ -9,6 +9,7 @@ import omegadrive.vdp.util.VdpDebugView;
 import org.slf4j.Logger;
 import s32x.S32XMMREG;
 import s32x.dict.S32xDict;
+import s32x.dict.S32xDict.RegSpecS32x;
 import s32x.dict.S32xMemAccessDelay;
 import s32x.savestate.Gs32xStateHandler;
 import s32x.sh2.device.IntControl;
@@ -26,6 +27,7 @@ import java.util.Optional;
 import static omegadrive.util.Util.readBufferByte;
 import static omegadrive.util.Util.th;
 import static s32x.dict.S32xDict.DRAM_SIZE;
+import static s32x.dict.S32xDict.RegSpecS32x.FBCR;
 import static s32x.dict.S32xDict.SIZE_32X_COLPAL;
 import static s32x.vdp.MarsVdp.VdpPriority.MD;
 import static s32x.vdp.MarsVdp.VdpPriority.S32X;
@@ -110,8 +112,8 @@ public class MarsVdpImpl implements MarsVdp {
 
     @Override
     public void init() {
-        writeBufferWord(S32xDict.RegSpecS32x.VDP_BITMAP_MODE, ctx.pal * S32xDict.P32XV_PAL);
-        writeBufferWord(S32xDict.RegSpecS32x.FBCR, (vdpContext.vBlankOn ? 1 : 0) * S32xDict.P32XV_VBLK | (ctx.pen * S32xDict.P32XV_PEN));
+        writeBufferWordOld(RegSpecS32x.VDP_BITMAP_MODE, ctx.pal * S32xDict.P32XV_PAL);
+        writeBufferWordOld(FBCR, (vdpContext.vBlankOn ? 1 : 0) * S32xDict.P32XV_VBLK | (ctx.pen * S32xDict.P32XV_PEN));
     }
 
     @Override
@@ -119,7 +121,8 @@ public class MarsVdpImpl implements MarsVdp {
         if (address >= S32xDict.START_32X_COLPAL_CACHE && address < S32xDict.END_32X_COLPAL_CACHE) {
             assert Md32xRuntimeData.getAccessTypeExt() != S32xUtil.CpuDeviceAccess.Z80;
             switch (size) {
-                case WORD, LONG -> S32xUtil.writeBuffer(colorPalette, address & S32xDict.S32X_COLPAL_MASK, value, size);
+                case WORD, LONG ->
+                        S32xUtil.writeBufferRaw(colorPalette, address & S32xDict.S32X_COLPAL_MASK, value, size);
                 default ->
                         LOG.error(Md32xRuntimeData.getAccessTypeExt() + " write, unable to access colorPalette as " + size);
             }
@@ -128,7 +131,7 @@ public class MarsVdpImpl implements MarsVdp {
             if (size == Size.BYTE && value == 0) { //value =0 on byte is ignored
                 return;
             }
-            S32xUtil.writeBuffer(dramBanks[vdpContext.frameBufferWritable], address & S32xDict.DRAM_MASK, value, size);
+            S32xUtil.writeBufferRaw(dramBanks[vdpContext.frameBufferWritable], address & S32xDict.DRAM_MASK, value, size);
             S32xMemAccessDelay.addWriteCpuDelay(S32xMemAccessDelay.FRAME_BUFFER);
         } else if (address >= S32xDict.START_OVER_IMAGE_CACHE && address < S32xDict.END_OVER_IMAGE_CACHE) {
             //see Space Harrier, brutal, doom resurrection
@@ -164,21 +167,21 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     @Override
-    public boolean vdpRegWrite(S32xDict.RegSpecS32x regSpec, int reg, int value, Size size) {
+    public boolean vdpRegWrite(RegSpecS32x reg32x, int reg, int value, Size size) {
         switch (size) {
             case WORD:
             case BYTE:
-                return handleVdpRegWriteInternal(regSpec, reg, value, size);
+                return handleVdpRegWriteInternal(reg32x, reg, value, size);
             case LONG:
-                S32xDict.RegSpecS32x regSpec2 = S32xDict.getRegSpec(regSpec.regCpuType, regSpec.fullAddress + 2);
-                boolean res = handleVdpRegWriteInternal(regSpec, reg, (value >> 16) & 0xFFFF, Size.WORD);
+                RegSpecS32x regSpec2 = S32xDict.getRegSpec(reg32x.regCpuType, reg32x.regSpec.fullAddr + 2);
+                boolean res = handleVdpRegWriteInternal(reg32x, reg, (value >> 16) & 0xFFFF, Size.WORD);
                 res |= handleVdpRegWriteInternal(regSpec2, reg + 2, value & 0xFFFF, Size.WORD);
                 return res;
         }
         return false;
     }
 
-    private boolean handleVdpRegWriteInternal(S32xDict.RegSpecS32x regSpec, int reg, int value, Size size) {
+    private boolean handleVdpRegWriteInternal(RegSpecS32x regSpec, int reg, int value, Size size) {
         assert size != Size.LONG : regSpec;
         if (size == Size.BYTE && (reg & 1) == 0) {
             LOG.warn("{} even byte write: {} {}", regSpec, th(value), size);
@@ -216,13 +219,13 @@ public class MarsVdpImpl implements MarsVdp {
 
     private boolean handleBitmapModeWrite(int reg, int value, Size size) {
         //NOTE: golf, writes on even byte
-        int val = readWordFromBuffer(S32xDict.RegSpecS32x.VDP_BITMAP_MODE);
+        int val = readWordFromBuffer(RegSpecS32x.VDP_BITMAP_MODE);
         int prevPrio = (val >> 7) & 1;
-        S32xUtil.writeBufferReg(regContext, S32xDict.RegSpecS32x.VDP_BITMAP_MODE, reg, value, size);
-        int newVal = readWordFromBuffer(S32xDict.RegSpecS32x.VDP_BITMAP_MODE) & ~(S32xDict.P32XV_PAL | S32xDict.P32XV_240);
+        S32xUtil.writeBufferReg(regContext, RegSpecS32x.VDP_BITMAP_MODE, reg, value, size);
+        int newVal = readWordFromBuffer(RegSpecS32x.VDP_BITMAP_MODE) & ~(S32xDict.P32XV_PAL | S32xDict.P32XV_240);
         int v240 = ctx.pal == 0 && vdpContext.videoMode.isV30() ? 1 : 0;
         newVal = (newVal & 0xC3) | (ctx.pal * S32xDict.P32XV_PAL) | (v240 * S32xDict.P32XV_240);
-        writeBufferWord(S32xDict.RegSpecS32x.VDP_BITMAP_MODE, newVal);
+        writeBufferWordOld(RegSpecS32x.VDP_BITMAP_MODE, newVal);
         vdpContext.bitmapMode = BitmapMode.vals[newVal & 3];
         if (BitmapMode.vals[val & 3] != vdpContext.bitmapMode) {
             if (verbose) LOG.info("Mode {}->{}", BitmapMode.vals[val & 3], vdpContext.bitmapMode);
@@ -240,10 +243,10 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     private boolean handleFBCRWrite(int reg, int value, Size size) {
-        int val = readWordFromBuffer(S32xDict.RegSpecS32x.FBCR);
-        S32xUtil.writeBufferReg(regContext, S32xDict.RegSpecS32x.FBCR, reg, value, size);
+        int val = readWordFromBuffer(FBCR);
+        S32xUtil.writeBufferRegOld(regContext, FBCR, reg, value, size);
         //vblank, hblank, pen -> readonly
-        int val1 = (val & 0xE000) | (readWordFromBuffer(S32xDict.RegSpecS32x.FBCR) & 3);
+        int val1 = (val & 0xE000) | (readWordFromBuffer(FBCR) & 3);
         int regVal = 0;
         if (vdpContext.vBlankOn || vdpContext.bitmapMode == BitmapMode.BLANK) {
             regVal = (val & 0xFFFC) | (val1 & 3);
@@ -252,7 +255,7 @@ public class MarsVdpImpl implements MarsVdp {
             //during display the register always shows the current frameBuffer being displayed
             regVal = (val & 0xFFFD) | (val1 & 2);
         }
-        writeBufferWord(S32xDict.RegSpecS32x.FBCR, regVal);
+        writeBufferWordOld(FBCR, regVal);
         vdpContext.fsLatch = val1 & 1;
         assert (regVal & 0x1FFC) == 0;
 //            System.out.println("###### FBCR write: D" + frameBufferDisplay + "W" + frameBufferWritable + ", fsLatch: " + fsLatch + ", VB: " + vBlankOn);
@@ -265,9 +268,9 @@ public class MarsVdpImpl implements MarsVdp {
     }
 
     private void runAutoFill(int data) {
-        writeBufferWord(S32xDict.RegSpecS32x.AFDR, data);
-        int startAddr = readWordFromBuffer(S32xDict.RegSpecS32x.AFSAR);
-        int len = readWordFromBuffer(S32xDict.RegSpecS32x.AFLR) & 0xFF;
+        writeBufferWord(RegSpecS32x.AFDR, data);
+        int startAddr = readWordFromBuffer(RegSpecS32x.AFSAR);
+        int len = readWordFromBuffer(RegSpecS32x.AFLR) & 0xFF;
         runAutoFillInternal(dramBanks[vdpContext.frameBufferWritable], startAddr, data, len);
     }
 
@@ -282,40 +285,40 @@ public class MarsVdpImpl implements MarsVdp {
         do {
             //TODO this should trigger an invalidate on framebuf mem?
             //TODO anyone executing code from the framebuffer?
-            S32xUtil.writeBuffer(buffer, (wordAddrFixed + wordAddrVariable) << 1, dataWord, Size.WORD);
+            S32xUtil.writeBufferRaw(buffer, (wordAddrFixed + wordAddrVariable) << 1, dataWord, Size.WORD);
             if (verbose) LOG.info("AutoFill addr(word): {}, addr(byte): {}, len(word) {}, data(word) {}",
                     th(wordAddrFixed + wordAddrVariable), th((wordAddrFixed + wordAddrVariable) << 1), th(len), th(dataWord));
             wordAddrVariable = (wordAddrVariable + 1) & 0xFF;
             len--;
         } while (len >= 0);
         assert len == -1;
-        writeBufferWord(S32xDict.RegSpecS32x.AFSAR, wordAddrFixed + wordAddrVariable); //star wars arcade
+        writeBufferWord(RegSpecS32x.AFSAR, wordAddrFixed + wordAddrVariable); //star wars arcade
         if (verbose)
             LOG.info("AutoFill done, startWord {}, AFSAR {}, data: {}", th(startAddrWord), th(afsarEnd), th(dataWord));
-        vdpRegChange(S32xDict.RegSpecS32x.AFSAR);
+        vdpRegChange(RegSpecS32x.AFSAR);
     }
 
     private void setPen(int pen) {
         ctx.pen = pen;
-        int val = (pen << 5) | (readBufferByte(vdpRegs, S32xDict.RegSpecS32x.FBCR.addr) & 0xDF);
-        S32xUtil.writeBuffer(vdpRegs, S32xDict.RegSpecS32x.FBCR.addr, val, Size.BYTE);
+        int val = (pen << 5) | (readBufferByte(vdpRegs, FBCR.addr) & 0xDF);
+        S32xUtil.writeBufferRaw(vdpRegs, FBCR.addr, val, Size.BYTE);
     }
 
     public void setVBlank(boolean vBlankOn) {
         vdpContext.vBlankOn = vBlankOn;
-        setBitFromWord(S32xDict.RegSpecS32x.FBCR, S32xDict.FBCR_VBLK_BIT_POS, vBlankOn ? 1 : 0);
+        setBitFromWord(FBCR, S32xDict.FBCR_VBLK_BIT_POS, vBlankOn ? 1 : 0);
         if (vBlankOn) {
-            vdpContext.screenShift = readWordFromBuffer(S32xDict.RegSpecS32x.SSCR) & 1;
+            vdpContext.screenShift = readWordFromBuffer(RegSpecS32x.SSCR) & 1;
             draw(vdpContext);
-            int currentFb = readWordFromBuffer(S32xDict.RegSpecS32x.FBCR) & 1;
+            int currentFb = readWordFromBuffer(FBCR) & 1;
             if (currentFb != vdpContext.fsLatch) {
-                setBitFromWord(S32xDict.RegSpecS32x.FBCR, S32xDict.FBCR_FRAMESEL_BIT_POS, vdpContext.fsLatch);
+                setBitFromWord(FBCR, S32xDict.FBCR_FRAMESEL_BIT_POS, vdpContext.fsLatch);
                 updateFrameBuffer(vdpContext.fsLatch);
 //                System.out.println("##### VBLANK, D" + frameBufferDisplay + "W" + frameBufferWritable + ", fsLatch: " + fsLatch + ", VB: " + vBlankOn);
             }
         }
         setPen(vdpContext.hBlankOn || vBlankOn ? 1 : 0);
-        vdpRegChange(S32xDict.RegSpecS32x.FBCR);
+        vdpRegChange(FBCR);
         s32XMMREG.interruptControls[0].setIntPending(IntControl.Sh2Interrupt.VINT_12, vBlankOn);
         s32XMMREG.interruptControls[1].setIntPending(IntControl.Sh2Interrupt.VINT_12, vBlankOn);
 //        System.out.println("VBlank: " + vBlankOn);
@@ -323,45 +326,50 @@ public class MarsVdpImpl implements MarsVdp {
 
     public void setHBlank(boolean hBlankOn, int hen) {
         vdpContext.hBlankOn = hBlankOn;
-        setBitFromWord(S32xDict.RegSpecS32x.FBCR, S32xDict.FBCR_HBLK_BIT_POS, hBlankOn ? 1 : 0);
+        setBitFromWord(FBCR, S32xDict.FBCR_HBLK_BIT_POS, hBlankOn ? 1 : 0);
         //TODO hack, FEN =0 after 40 cycles @ 23Mhz
-        setBitFromWord(S32xDict.RegSpecS32x.FBCR, S32xDict.FBCR_nFEN_BIT_POS, hBlankOn ? 1 : 0);
+        setBitFromWord(FBCR, S32xDict.FBCR_nFEN_BIT_POS, hBlankOn ? 1 : 0);
         boolean hintOn = false;
         if (hBlankOn) {
             if (hen > 0 || !vdpContext.vBlankOn) {
                 if (--vdpContext.hCount < 0) {
-                    vdpContext.hCount = readWordFromBuffer(S32xDict.RegSpecS32x.SH2_HCOUNT_REG) & 0xFF;
+                    vdpContext.hCount = readWordFromBuffer(RegSpecS32x.SH2_HCOUNT_REG) & 0xFF;
                     hintOn = true;
                 }
             } else {
-                vdpContext.hCount = readWordFromBuffer(S32xDict.RegSpecS32x.SH2_HCOUNT_REG) & 0xFF;
+                vdpContext.hCount = readWordFromBuffer(RegSpecS32x.SH2_HCOUNT_REG) & 0xFF;
             }
         }
         s32XMMREG.interruptControls[0].setIntPending(IntControl.Sh2Interrupt.HINT_10, hintOn);
         s32XMMREG.interruptControls[1].setIntPending(IntControl.Sh2Interrupt.HINT_10, hintOn);
         setPen(hBlankOn || vdpContext.vBlankOn ? 1 : 0);
         //TODO check if any poller is testing the HBlank byte
-        vdpRegChange(S32xDict.RegSpecS32x.FBCR);
+        vdpRegChange(FBCR);
 //        System.out.println("HBlank: " + hBlankOn);
     }
 
-    private void vdpRegChange(S32xDict.RegSpecS32x regSpec) {
-        assert regSpec.size == Size.WORD;
-        int val = readWordFromBuffer(regSpec); //TODO avoid the read?
-        int addr = S32xDict.SH2_CACHE_THROUGH_OFFSET | S32xDict.START_32X_SYSREG_CACHE | regSpec.fullAddress;
+    private void vdpRegChange(RegSpecS32x reg32x) {
+        assert reg32x.regSpec.regSize == Size.WORD;
+        int val = readWordFromBuffer(reg32x); //TODO avoid the read?
+        int addr = S32xDict.SH2_CACHE_THROUGH_OFFSET | S32xDict.START_32X_SYSREG_CACHE | reg32x.regSpec.fullAddr;
         assert S32xDict.getRegSpec(S32xDict.S32xRegCpuType.REG_MD, addr) == S32xDict.getRegSpec(S32xDict.S32xRegCpuType.REG_SH2, addr);
-        Sh2Prefetch.checkPollersVdp(regSpec.deviceType, addr, val, Size.WORD);
+        Sh2Prefetch.checkPollersVdp(reg32x.deviceType, addr, val, Size.WORD);
     }
 
-    private void writeBufferWord(S32xDict.RegSpecS32x reg, int value) {
+    private void writeBufferWord(RegSpecS32x reg, int value) {
         S32xUtil.writeBufferReg(regContext, reg, reg.addr, value, Size.WORD);
     }
 
-    private int readWordFromBuffer(S32xDict.RegSpecS32x reg) {
+    @Deprecated
+    private void writeBufferWordOld(RegSpecS32x reg, int value) {
+        S32xUtil.writeBufferRegOld(regContext, reg, reg.addr, value, Size.WORD);
+    }
+
+    private int readWordFromBuffer(RegSpecS32x reg) {
         return S32xUtil.readWordFromBuffer(regContext, reg);
     }
 
-    private void setBitFromWord(S32xDict.RegSpecS32x reg, int pos, int value) {
+    private void setBitFromWord(RegSpecS32x reg, int pos, int value) {
         S32xUtil.setBit(vdpRegs, reg.addr & S32xDict.S32X_VDP_REG_MASK, pos, value, Size.WORD);
     }
 
@@ -558,8 +566,8 @@ public class MarsVdpImpl implements MarsVdp {
     public void updateVdpBitmapMode(VideoMode video) {
         ctx.pal = video.isPal() ? 0 : 1;
         int v240 = video.isPal() && video.isV30() ? 1 : 0;
-        int val = readWordFromBuffer(S32xDict.RegSpecS32x.VDP_BITMAP_MODE) & ~(S32xDict.P32XV_PAL | S32xDict.P32XV_240);
-        writeBufferWord(S32xDict.RegSpecS32x.VDP_BITMAP_MODE, val | (ctx.pal * S32xDict.P32XV_PAL) | (v240 * S32xDict.P32XV_240));
+        int val = readWordFromBuffer(RegSpecS32x.VDP_BITMAP_MODE) & ~(S32xDict.P32XV_PAL | S32xDict.P32XV_240);
+        writeBufferWordOld(RegSpecS32x.VDP_BITMAP_MODE, val | (ctx.pal * S32xDict.P32XV_PAL) | (v240 * S32xDict.P32XV_240));
     }
 
     @Override

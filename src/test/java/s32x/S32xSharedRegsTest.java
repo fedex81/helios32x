@@ -139,10 +139,14 @@ public class S32xSharedRegsTest {
         //m68k clears Aden, not supported
         aden = 0;
         expAden = 1;
-        writeBus(lc, cpu, MD_ADAPTER_CTRL_REG + 1, aden, Size.BYTE);
-        if (cpu != Z80) {
-            writeBus(lc, cpu, MD_ADAPTER_CTRL_REG, aden, Size.WORD);
+        try {
+            writeBus(lc, cpu, MD_ADAPTER_CTRL_REG + 1, aden, Size.BYTE);
+            if (cpu != Z80) {
+                writeBus(lc, cpu, MD_ADAPTER_CTRL_REG, aden, Size.WORD);
+            }
+        } catch (AssertionError expected) {
         }
+        ;
         checkAden(lc, expAden);
     }
 
@@ -226,5 +230,21 @@ public class S32xSharedRegsTest {
         checkHen(lc, 0);
     }
 
+    @Test
+    public void testREN() {
+        //defaults to 1, read-only value
+        checkRenBit(lc, true);
 
+        //keep the sh2 reset
+        int val = 0 << P32XS_REN | P32XS_nRES;
+        writeBus(lc, M68K, MD_ADAPTER_CTRL_REG, val, Size.WORD);
+        checkRenBit(lc, true);
+        writeBus(lc, Z80, MD_ADAPTER_CTRL_REG, val, Size.WORD);
+        checkRenBit(lc, true);
+
+        writeBus(lc, M68K, MD_ADAPTER_CTRL_REG + 1, val, Size.BYTE);
+        checkRenBit(lc, true);
+        writeBus(lc, Z80, SH2_INT_MASK + 1, val, Size.BYTE);
+        checkRenBit(lc, true);
+    }
 }

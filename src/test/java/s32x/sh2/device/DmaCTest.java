@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static s32x.DmaFifo68k.SH2_FIFO_FULL_BIT;
 import static s32x.dict.S32xDict.RegSpecS32x.*;
-import static s32x.dict.Sh2Dict.RegSpec.*;
+import static s32x.dict.Sh2Dict.RegSpecSh2.*;
 import static s32x.util.S32xUtil.CpuDeviceAccess.*;
 
 /**

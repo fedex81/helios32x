@@ -257,7 +257,7 @@ public class Sh2CacheImpl implements Sh2Cache {
             LOG.info("{} Cache data array write: {}({}) {}, val: {}", cpu, th(addr),
                     th(address), size, th(val));
         if (address == (addr & DATA_ARRAY_MASK)) {
-            change = S32xUtil.writeBuffer(data_array, address, val, size);
+            change = S32xUtil.writeBufferRaw(data_array, address, val, size);
         } else {
             LOG.error("{} Error Cache data array write: {}({}) {}, val: {}", cpu, th(addr),
                     th(address), size, th(val));

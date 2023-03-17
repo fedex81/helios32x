@@ -85,8 +85,8 @@ public class MdRegsTest {
         int[] ignoreBitmask = {0xFFFE, 0xFFFF, 0xFFFF, 0xFFFF};
 
         for (int k = 0; k < regSpecs.length; k++) {
-            int andMask = regSpecs[k].writeAndMask;
-            int orMask = regSpecs[k].writeOrMask;
+            int andMask = regSpecs[k].regSpec.writableBitMask;
+            int orMask = regSpecs[k].regSpec.preserveBitMask;
             int ignoreMask = ignoreBitmask[k];
             int regAddr = M68K_START_32X_SYSREG | regSpecs[k].addr;
             System.out.println(regSpecs[k]);
@@ -99,6 +99,9 @@ public class MdRegsTest {
                     exp = ((i & andMask) | orMask) & ignoreMask;
                     writeBus(lc, cpu, regAddr, i, Size.WORD);
                     res = readBus(lc, cpu, regAddr, Size.WORD) & ignoreMask;
+                    if ((exp & ignoreMask) != (res & ignoreMask)) {
+                        System.out.println("here");
+                    }
                     Assertions.assertEquals(exp & ignoreMask, res & ignoreMask);
                 }
                 writeBus(lc, cpu, regAddr, 0, Size.WORD);

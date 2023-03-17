@@ -58,8 +58,8 @@ public class Sh2RegsTest {
     }
 
     private void testByte(S32xUtil.CpuDeviceAccess cpu, RegSpecS32x reg, int k, int val, int bytePos) {
-        int andMask = reg.writeAndMask;
-        int orMask = reg.writeOrMask;
+        int andMask = reg.regSpec.writableBitMask;
+        int orMask = reg.regSpec.preserveBitMask;
         int ignoreMask = AND_WORD_NO_MASK;
         int regAddr = START_32X_SYSREG_CACHE | reg.addr;
         S32xUtil.CpuDeviceAccess other = cpu == MASTER ? SLAVE : MASTER;
@@ -77,8 +77,8 @@ public class Sh2RegsTest {
     }
 
     private void testWord(S32xUtil.CpuDeviceAccess cpu, RegSpecS32x reg, int k, int val) {
-        int andMask = reg.writeAndMask;
-        int orMask = reg.writeOrMask;
+        int andMask = reg.regSpec.writableBitMask;
+        int orMask = reg.regSpec.preserveBitMask;
         int ignoreMask = 0xFFFF;
         int regAddr = START_32X_SYSREG_CACHE | reg.addr;
         S32xUtil.CpuDeviceAccess other = cpu == MASTER ? SLAVE : MASTER;

@@ -63,16 +63,16 @@ public class DmaFifo68k implements Device {
             case MD -> readMd(address, size);
             case SH2 -> readSh2(regSpec, address, size);
         };
-        if (verbose) LOG.info("{} DMA read {}: {} {}", cpu, regSpec.name, th(res), size);
+        if (verbose) LOG.info("{} DMA read {}: {} {}", cpu, regSpec.getName(), th(res), size);
         return res;
     }
 
 
     public void write(RegSpecS32x regSpec, CpuDeviceAccess cpu, int address, int value, Size size) {
-        if (verbose) LOG.info("{} DMA write {}: {} {}", cpu, regSpec.name, th(value), size);
+        if (verbose) LOG.info("{} DMA write {}: {} {}", cpu, regSpec.getName(), th(value), size);
         switch (cpu.regSide) {
             case MD -> writeMd(regSpec, address, value, size);
-            default -> LOG.error("Invalid {} DMA write {}: {} {}", cpu, regSpec.name, th(value), size);
+            default -> LOG.error("Invalid {} DMA write {}: {} {}", cpu, regSpec.getName(), th(value), size);
         }
     }
 
@@ -85,7 +85,7 @@ public class DmaFifo68k implements Device {
             case MD_FIFO_REG:
                 assert Md32xRuntimeData.getAccessTypeExt() != CpuDeviceAccess.Z80;
                 handleFifoRegWriteMd(value, size);
-                S32xUtil.writeBuffer(sysRegsMd, address, value, size);
+                S32xUtil.writeBufferRaw(sysRegsMd, address, value, size);
                 break;
             case MD_DREQ_LEN:
                 value &= M68K_DMA_FIFO_LEN_MASK;
@@ -96,30 +96,25 @@ public class DmaFifo68k implements Device {
             case MD_DREQ_SRC_ADDR_L:
                 assert Md32xRuntimeData.getAccessTypeExt() != CpuDeviceAccess.Z80;
                 //NOTE after burner 68k byte writes: (MD_DREQ_DEST_ADDR_H +1) 0xd,2,BYTE
-                S32xUtil.writeBuffer(sysRegsMd, address, value, size);
-                S32xUtil.writeBuffer(sysRegsSh2, address, value, size);
+                S32xUtil.writeBufferRaw(sysRegsMd, address, value, size);
+                S32xUtil.writeBufferRaw(sysRegsSh2, address, value, size);
                 break;
             default:
-                LOG.error("{} check DMA write {}: {} {}", CpuDeviceAccess.M68K, regSpec.name, th(value), size);
+                LOG.error("{} check DMA write {}: {} {}", CpuDeviceAccess.M68K, regSpec.getName(), th(value), size);
                 break;
         }
     }
 
     private void handleDreqCtlWriteMd(int reg, int value, Size size) {
         assert size != Size.LONG;
-        if (size == Size.BYTE && (reg & 1) == 0) {
-            LOG.warn("{} Ignore DreqCtrl write on byte {}, {} {}", Md32xRuntimeData.getAccessTypeExt(),
-                    th(reg), th(value), size);
-            return;
-        }
-        boolean changed = S32xUtil.writeBuffer(sysRegsMd, reg, value & MD_DMAC_CTRL.writeAndMask, size);
+        boolean changed = MD_DMAC_CTRL.regSpec.write(sysRegsMd, reg, value, size);
         if (changed) {
             int res = readBufferWord(sysRegsMd, MD_DMAC_CTRL.addr);
             boolean wasDmaOn = ctx.m68S;
             ctx.m68S = (res & 4) > 0;
             rv = (res & 1) > 0;
-            //sync sh2 reg
-            S32xUtil.writeBuffer(sysRegsSh2, SH2_DREQ_CTRL.addr + 1, res & MD_DMAC_CTRL.writeAndMask, Size.BYTE);
+            //sync sh2 reg, only lsb 3 bits
+            S32xUtil.writeBufferRaw(sysRegsSh2, SH2_DREQ_CTRL.addr + 1, res & MD_DMAC_CTRL.regSpec.writableBitMask, Size.BYTE);
             //NOTE bit 1 is called DMA, only relevant when using SEGA CD (see picodrive)
 //            assert (res & 2) == 0;
             if (verbose)
@@ -156,8 +151,7 @@ public class DmaFifo68k implements Device {
     }
 
     public void updateFifoState() {
-        boolean changed = S32xUtil.setBit(sysRegsMd, MD_DMAC_CTRL.addr, M68K_FIFO_FULL_BIT,
-                ctx.fifo.isFullBit(), Size.WORD);
+        boolean changed = S32xUtil.setBitRegFromWord(sysRegsMd, MD_DMAC_CTRL, M68K_FIFO_FULL_BIT, ctx.fifo.isFullBit());
         if (changed) {
             S32xUtil.setBit(sysRegsSh2, SH2_DREQ_CTRL.addr, SH2_FIFO_FULL_BIT,
                     ctx.fifo.isFull() ? 1 : 0, Size.WORD);
@@ -166,8 +160,7 @@ public class DmaFifo68k implements Device {
                 LOG.info("Sh2 DMA Fifo FULL state changed: {}", S32xUtil.toHexString(sysRegsSh2, SH2_DREQ_CTRL.addr, Size.WORD));
             }
         }
-        changed = S32xUtil.setBit(sysRegsSh2, SH2_DREQ_CTRL.addr, SH2_FIFO_EMPTY_BIT,
-                ctx.fifo.isEmptyBit(), Size.WORD);
+        changed = S32xUtil.setBitRegFromWord(sysRegsSh2, SH2_DREQ_CTRL, SH2_FIFO_EMPTY_BIT, ctx.fifo.isEmptyBit());
         if (changed) {
             if (verbose)
                 LOG.info("Sh2 DMA Fifo empty state changed: {}", S32xUtil.toHexString(sysRegsSh2, SH2_DREQ_CTRL.addr, Size.WORD));

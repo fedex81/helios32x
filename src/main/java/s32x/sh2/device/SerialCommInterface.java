@@ -10,8 +10,8 @@ import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.readBufferByte;
 import static omegadrive.util.Util.th;
-import static s32x.dict.Sh2Dict.RegSpec;
-import static s32x.dict.Sh2Dict.RegSpec.*;
+import static s32x.dict.Sh2Dict.RegSpecSh2;
+import static s32x.dict.Sh2Dict.RegSpecSh2.*;
 import static s32x.sh2.device.IntControl.OnChipSubType.RXI;
 import static s32x.sh2.device.IntControl.OnChipSubType.TXI;
 import static s32x.sh2.device.Sh2DeviceHelper.Sh2DeviceType.SCI;
@@ -67,22 +67,22 @@ public class SerialCommInterface implements S32xUtil.Sh2Device {
     }
 
     @Override
-    public int read(RegSpec regSpec, int pos, Size size) {
+    public int read(RegSpecSh2 regSpec, int pos, Size size) {
         if (size != Size.BYTE) {
-            LOG.error("{} SCI read {}: {}", cpu, regSpec.name, size);
+            LOG.error("{} SCI read {}: {}", cpu, regSpec.getName(), size);
         }
         assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
         int res = readBufferByte(regs, regSpec.addr);
-        if (verbose) LOG.info("{} SCI read {}: {} {}", cpu, regSpec.name, th(res), size);
+        if (verbose) LOG.info("{} SCI read {}: {} {}", cpu, regSpec.getName(), th(res), size);
         return res;
     }
 
     @Override
-    public void write(RegSpec regSpec, int pos, int value, Size size) {
+    public void write(RegSpecSh2 regSpec, int pos, int value, Size size) {
         if (size != Size.BYTE) {
-            LOG.error("{} SCI write {}: {} {}", cpu, regSpec.name, th(value), size);
+            LOG.error("{} SCI write {}: {} {}", cpu, regSpec.getName(), th(value), size);
         }
-        if (verbose) LOG.info("{} SCI write {}: {} {}", cpu, regSpec.name, th(value), size);
+        if (verbose) LOG.info("{} SCI write {}: {} {}", cpu, regSpec.getName(), th(value), size);
         boolean write = true;
         assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
 
@@ -106,19 +106,19 @@ public class SerialCommInterface implements S32xUtil.Sh2Device {
                 break;
             case SCI_SMR:
                 if (verbose)
-                    LOG.info("{} {} communication mode: {}", cpu, regSpec.name, ((value & 0x80) == 0 ? "a" : "clock ") + "sync");
+                    LOG.info("{} {} communication mode: {}", cpu, regSpec.getName(), ((value & 0x80) == 0 ? "a" : "clock ") + "sync");
                 break;
             case SCI_TDR:
-                if (verbose) LOG.info("{} {} Data written TDR: {}", cpu, regSpec.name, th(value));
+                if (verbose) LOG.info("{} {} Data written TDR: {}", cpu, regSpec.getName(), th(value));
                 setTdre(1);
                 break;
             case SCI_RDR:
-                LOG.warn("{} {} Data written RDR: {}", cpu, regSpec.name, th(value));
+                LOG.warn("{} {} Data written RDR: {}", cpu, regSpec.getName(), th(value));
                 write = true;
                 break;
         }
         if (write) {
-            S32xUtil.writeBuffer(regs, pos, value, size);
+            S32xUtil.writeBufferRaw(regs, pos, value, size);
         }
     }
 
@@ -160,7 +160,7 @@ public class SerialCommInterface implements S32xUtil.Sh2Device {
         }
         if (rxEn && sciData.isDataInTransit && sciData.sender != cpu) {
             if (verbose) LOG.info("{} receiving data: {}", cpu, th(sciData.dataInTransit));
-            S32xUtil.writeBuffer(regs, SCI_RDR.addr, sciData.dataInTransit, Size.BYTE);
+            S32xUtil.writeBufferRaw(regs, SCI_RDR.addr, sciData.dataInTransit, Size.BYTE);
             setRdrf(1);
             int scr = readBufferByte(regs, SCI_SCR.addr);
             sciData.isDataInTransit = false;
@@ -190,12 +190,12 @@ public class SerialCommInterface implements S32xUtil.Sh2Device {
     @Override
     public void reset() {
         if (verbose) LOG.info("{} SCI reset start", cpu);
-        S32xUtil.writeBuffer(regs, SCI_SMR.addr, 0, Size.BYTE);
-        S32xUtil.writeBuffer(regs, SCI_BRR.addr, 0xFF, Size.BYTE);
-        S32xUtil.writeBuffer(regs, SCI_SCR.addr, 0, Size.BYTE);
-        S32xUtil.writeBuffer(regs, SCI_TDR.addr, 0xFF, Size.BYTE);
-        S32xUtil.writeBuffer(regs, SCI_SSR.addr, 0x84, Size.BYTE);
-        S32xUtil.writeBuffer(regs, SCI_RDR.addr, 0, Size.BYTE);
+        S32xUtil.writeBufferRaw(regs, SCI_SMR.addr, 0, Size.BYTE);
+        S32xUtil.writeBufferRaw(regs, SCI_BRR.addr, 0xFF, Size.BYTE);
+        S32xUtil.writeBufferRaw(regs, SCI_SCR.addr, 0, Size.BYTE);
+        S32xUtil.writeBufferRaw(regs, SCI_TDR.addr, 0xFF, Size.BYTE);
+        S32xUtil.writeBufferRaw(regs, SCI_SSR.addr, 0x84, Size.BYTE);
+        S32xUtil.writeBufferRaw(regs, SCI_RDR.addr, 0, Size.BYTE);
 
         tdre = 1;
         rdrf = 0;

@@ -70,10 +70,10 @@ public class SdramSyncTester {
         if (check) {
             final int v = val;
             valToWrite = () -> {
-                S32xUtil.writeBuffer(sdram, address & S32xDict.SH2_SDRAM_MASK, v, size);
+                S32xUtil.writeBufferRaw(sdram, address & S32xDict.SH2_SDRAM_MASK, v, size);
             };
         } else {
-            S32xUtil.writeBuffer(sdram, address & S32xDict.SH2_SDRAM_MASK, val, size);
+            S32xUtil.writeBufferRaw(sdram, address & S32xDict.SH2_SDRAM_MASK, val, size);
         }
         int writeType = cpuAccess == S32xUtil.CpuDeviceAccess.MASTER ? MAST_WRITE : SLAVE_WRITE;
         sdramAccess[address & S32xDict.SH2_SDRAM_MASK].accessMask |= writeType;

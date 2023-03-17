@@ -36,8 +36,8 @@ public class PwmRegTest {
         lc.s32XMMREG.aden = 1;
     }
 
-    static int MD_PWM_CTRL_REG = M68K_START_32X_SYSREG + PWM_CTRL.fullAddress;
-    static int SH2_PWM_CTRL_REG = START_32X_SYSREG + PWM_CTRL.fullAddress;
+    static int MD_PWM_CTRL_REG = M68K_START_32X_SYSREG + PWM_CTRL.regSpec.fullAddr;
+    static int SH2_PWM_CTRL_REG = START_32X_SYSREG + PWM_CTRL.regSpec.fullAddr;
 
     @Test
     public void testPwmCtrlMasking() {

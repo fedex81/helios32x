@@ -100,12 +100,12 @@ public class Pwm implements StepDevice {
     public int read(CpuDeviceAccess cpu, RegSpecS32x regSpec, int address, Size size) {
         int res = readBuffer(sysRegsMd, address, size);
         assert res == readBuffer(sysRegsSh2, address, size);
-        if (verbose) LOG.info("{} PWM read {}: {} {}", cpu, regSpec.name, th(res), size);
+        if (verbose) LOG.info("{} PWM read {}: {} {}", cpu, regSpec.getName(), th(res), size);
         return res;
     }
 
     public void write(CpuDeviceAccess cpu, RegSpecS32x regSpec, int reg, int value, Size size) {
-        if (verbose) LOG.info("{} PWM write {}: {} {}", cpu, regSpec.name, th(value), size);
+        if (verbose) LOG.info("{} PWM write {}: {} {}", cpu, regSpec.getName(), th(value), size);
         switch (size) {
             case BYTE -> writeByte(cpu, regSpec, reg, value);
             case WORD -> writeWord(cpu, regSpec, reg, value);
@@ -138,7 +138,7 @@ public class Pwm implements StepDevice {
                     updateFifoRegs();
                 }
             }
-            default -> LOG.error("{} PWM write {} {}: {} {}", cpu, regSpec.name, th(reg), th(value), Size.BYTE);
+            default -> LOG.error("{} PWM write {} {}: {} {}", cpu, regSpec.getName(), th(reg), th(value), Size.BYTE);
         }
     }
 

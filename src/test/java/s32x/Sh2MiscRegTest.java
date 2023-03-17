@@ -10,7 +10,7 @@ import s32x.util.S32xUtil.CpuDeviceAccess;
 
 import static s32x.MarsRegTestUtil.createTestInstance;
 import static s32x.dict.Sh2Dict.BSC_LONG_WRITE_MASK;
-import static s32x.dict.Sh2Dict.RegSpec.*;
+import static s32x.dict.Sh2Dict.RegSpecSh2.*;
 import static s32x.util.S32xUtil.CpuDeviceAccess.MASTER;
 import static s32x.util.S32xUtil.CpuDeviceAccess.SLAVE;
 
@@ -99,16 +99,16 @@ public class Sh2MiscRegTest {
         Assertions.assertEquals(0, res);
     }
 
-    private int readLong(Sh2MMREG s, Sh2Dict.RegSpec r) {
+    private int readLong(Sh2MMREG s, Sh2Dict.RegSpecSh2 r) {
         return s.read(r.addr, Size.LONG);
     }
 
-    private int readByte(Sh2MMREG s, Sh2Dict.RegSpec r) {
+    private int readByte(Sh2MMREG s, Sh2Dict.RegSpecSh2 r) {
         return s.read(r.addr, Size.BYTE);
     }
 
-    private int readLowWord(Sh2MMREG s, Sh2Dict.RegSpec r) {
-        assert r.size == Size.LONG;
+    private int readLowWord(Sh2MMREG s, Sh2Dict.RegSpecSh2 r) {
+        assert r.regSpec.regSize == Size.LONG;
         return s.read(r.addr + 2, Size.WORD) & 0xFFFF;
     }
 }

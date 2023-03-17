@@ -10,8 +10,8 @@ import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.readBufferWord;
 import static omegadrive.util.Util.th;
-import static s32x.dict.Sh2Dict.RegSpec;
-import static s32x.dict.Sh2Dict.RegSpec.*;
+import static s32x.dict.Sh2Dict.RegSpecSh2;
+import static s32x.dict.Sh2Dict.RegSpecSh2.*;
 import static s32x.dict.Sh2Dict.writeBufferWithMask;
 import static s32x.util.S32xUtil.readBufferRegLong;
 
@@ -46,11 +46,11 @@ public class DivUnit implements S32xUtil.Sh2Device {
     }
 
     @Override
-    public void write(RegSpec reg, int pos, int value, Size size) {
+    public void write(RegSpecSh2 reg, int pos, int value, Size size) {
         assert size == Size.LONG;
-        S32xUtil.writeBuffer(regs, pos, value, size);
+        S32xUtil.writeBufferRaw(regs, pos, value, size);
         writeBufferWithMask(regs, reg);
-        if (verbose) LOG.info("{} Write {} value: {} {}", cpu, reg.name, th(value), size);
+        if (verbose) LOG.info("{} Write {} value: {} {}", cpu, reg.getName(), th(value), size);
         switch (reg) {
             case DIV_DVDNTL -> div64Dsp();
             case DIV_DVDNT -> div32Dsp(value);
@@ -58,9 +58,9 @@ public class DivUnit implements S32xUtil.Sh2Device {
     }
 
     @Override
-    public int read(RegSpec regSpec, int reg, Size size) {
+    public int read(RegSpecSh2 regSpec, int reg, Size size) {
         if (verbose)
-            LOG.info("{} Read {} value: {} {}", cpu, regSpec.name, Util.th(S32xUtil.readBuffer(regs, reg, size)), size);
+            LOG.info("{} Read {} value: {} {}", cpu, regSpec.getName(), Util.th(S32xUtil.readBuffer(regs, reg, size)), size);
         return S32xUtil.readBuffer(regs, reg, size);
     }
 

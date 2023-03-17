@@ -15,7 +15,7 @@ import s32x.util.S32xUtil;
 import static s32x.dict.S32xDict.RegSpecS32x.MD_INT_CTRL;
 import static s32x.dict.S32xDict.RegSpecS32x.SH2_CMD_INT_CLEAR;
 import static s32x.dict.S32xDict.START_32X_SYSREG_CACHE;
-import static s32x.dict.Sh2Dict.RegSpec.INTC_IPRA;
+import static s32x.dict.Sh2Dict.RegSpecSh2.INTC_IPRA;
 import static s32x.sh2.device.IntControl.Sh2Interrupt.*;
 import static s32x.sh2.device.IntControl.Sh2InterruptSource;
 import static s32x.sh2.device.Sh2DeviceHelper.Sh2DeviceType.DIV;
@@ -291,17 +291,17 @@ public class IntCTest {
 
     private void setSh2SysReg(S32xUtil.CpuDeviceAccess cpu, S32xDict.RegSpecS32x r, int value) {
         Md32xRuntimeData.setAccessTypeExt(cpu);
-        lc.s32XMMREG.write(START_32X_SYSREG_CACHE + r.fullAddress, value, r.size);
+        lc.s32XMMREG.write(START_32X_SYSREG_CACHE + r.regSpec.fullAddr, value, r.regSpec.regSize);
     }
 
     private void setM68kSysReg(S32xDict.RegSpecS32x r, int value) {
         Md32xRuntimeData.setAccessTypeExt(M68K);
-        lc.bus.write(BASE_M68K_SYS_REG + r.fullAddress, value, r.size);
+        lc.bus.write(BASE_M68K_SYS_REG + r.regSpec.fullAddr, value, r.regSpec.regSize);
     }
 
     private void checkM68kSysReg(S32xDict.RegSpecS32x r, int expected) {
         Md32xRuntimeData.setAccessTypeExt(M68K);
-        int res = (int) lc.bus.read(BASE_M68K_SYS_REG + r.fullAddress, r.size);
-        Assertions.assertEquals(expected, res, r.name);
+        int res = (int) lc.bus.read(BASE_M68K_SYS_REG + r.regSpec.fullAddr, r.regSpec.regSize);
+        Assertions.assertEquals(expected, res, r.getName());
     }
 }

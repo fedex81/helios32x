@@ -10,8 +10,8 @@ import s32x.util.S32xUtil;
 import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.th;
-import static s32x.dict.Sh2Dict.RegSpec.WDT_WTCNT;
-import static s32x.dict.Sh2Dict.RegSpec.WDT_WTCSR;
+import static s32x.dict.Sh2Dict.RegSpecSh2.WDT_WTCNT;
+import static s32x.dict.Sh2Dict.RegSpecSh2.WDT_WTCSR;
 
 /**
  * Federico Berti
@@ -67,21 +67,21 @@ public class WatchdogTimer implements S32xUtil.Sh2Device {
         reset();
     }
 
-    public int read(Sh2Dict.RegSpec regSpec, int address, Size size) {
+    public int read(Sh2Dict.RegSpecSh2 regSpec, int address, Size size) {
         if (size != Size.BYTE) {
-            LOG.error("{} WDT read {}: {}", cpu, regSpec.name, size);
+            LOG.error("{} WDT read {}: {}", cpu, regSpec.getName(), size);
             throw new RuntimeException();
         }
         assert address == regSpec.addr : th(address) + ", " + th(regSpec.addr);
         if (address == WTCNT_ADDR_READ) {
-            S32xUtil.writeBuffer(regs, WTCNT_ADDR_READ, count, Size.BYTE);
+            S32xUtil.writeBufferRaw(regs, WTCNT_ADDR_READ, count, Size.BYTE);
         }
         return S32xUtil.readBuffer(regs, address, size);
     }
 
-    public void write(Sh2Dict.RegSpec regSpec, int pos, int value, Size size) {
+    public void write(Sh2Dict.RegSpecSh2 regSpec, int pos, int value, Size size) {
         if (size != Size.WORD) {
-            LOG.error("{} WDT write {}: {}", cpu, regSpec.name, size);
+            LOG.error("{} WDT write {}: {}", cpu, regSpec.getName(), size);
             throw new RuntimeException();
         }
         assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
@@ -119,15 +119,15 @@ public class WatchdogTimer implements S32xUtil.Sh2Device {
         int msb = value >> 8;
         switch (msb) {
             case WRITE_MSB_A5 -> {
-                if (verbose) LOG.info("{} WDT write {}: {} {}", cpu, WDT_WTCSR.name,
+                if (verbose) LOG.info("{} WDT write {}: {} {}", cpu, WDT_WTCSR.getName(),
                         th(value), Size.WORD);
-                S32xUtil.writeBuffer(regs, WTCSR_ADDR_READ, value & 0xFF, Size.BYTE);
+                S32xUtil.writeBufferRaw(regs, WTCSR_ADDR_READ, value & 0xFF, Size.BYTE);
                 handleTimerEnable(value);
             }
             case WRITE_MSB_5A -> {
-                if (verbose) LOG.info("{} WDT write {}: {} {}", cpu, WDT_WTCNT.name,
+                if (verbose) LOG.info("{} WDT write {}: {} {}", cpu, WDT_WTCNT.getName(),
                         th(value), Size.WORD);
-                S32xUtil.writeBuffer(regs, WTCNT_ADDR_READ, value & 0xFF, Size.BYTE);
+                S32xUtil.writeBufferRaw(regs, WTCNT_ADDR_READ, value & 0xFF, Size.BYTE);
                 count = value & 0xFF;
             }
             default -> LOG.error("{} WDT write, addr {}, unexpected MSB: {}", cpu, ADDR_WRITE_80, msb);
@@ -142,7 +142,7 @@ public class WatchdogTimer implements S32xUtil.Sh2Device {
         if (verbose) LOG.info("WDT timer mode: {}, timer enable: {}, clock div: {}, overflow: {}",
                 timerMode, wdtTimerEnable, clockDivider, (value >> 7) & 1);
         if (!wdtTimerEnable) {
-            S32xUtil.writeBuffer(regs, WTCNT_ADDR_READ, 0, Size.BYTE);
+            S32xUtil.writeBufferRaw(regs, WTCNT_ADDR_READ, 0, Size.BYTE);
         }
         assert !(wdtTimerEnable && !timerMode);
     }
@@ -175,9 +175,9 @@ public class WatchdogTimer implements S32xUtil.Sh2Device {
 
     @Override
     public void reset() {
-        S32xUtil.writeBuffer(regs, WTCSR_ADDR_READ, 0x18, Size.BYTE);
-        S32xUtil.writeBuffer(regs, WTCNT_ADDR_READ, 0, Size.BYTE);
-        S32xUtil.writeBuffer(regs, RSTCSR_ADDR_READ, 0x1F, Size.BYTE);
+        S32xUtil.writeBufferRaw(regs, WTCSR_ADDR_READ, 0x18, Size.BYTE);
+        S32xUtil.writeBufferRaw(regs, WTCNT_ADDR_READ, 0, Size.BYTE);
+        S32xUtil.writeBufferRaw(regs, RSTCSR_ADDR_READ, 0x1F, Size.BYTE);
         handleTimerEnable(0x18);
         count = 0;
     }

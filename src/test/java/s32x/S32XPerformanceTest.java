@@ -7,6 +7,7 @@ import omegadrive.system.SystemProvider;
 import omegadrive.util.Util;
 import omegadrive.vdp.md.GenesisVdp;
 import omegadrive.vdp.model.BaseVdpProvider;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,7 @@ import java.time.Duration;
 @Disabled
 public class S32XPerformanceTest {
 
-    static Path testFilePath = Paths.get("./res/roms", "testc1.32x");
+    static Path testFilePath = Paths.get("./res/misc/roms", "t1.zip");
     static int fps = 60;
     protected int frameCnt = 0;
     int sampleCnt = 0;
@@ -34,16 +35,18 @@ public class S32XPerformanceTest {
 
     @BeforeAll
     public static void beforeTest() {
-        System.setProperty("helios.headless", "true");
-        System.setProperty("helios.fullSpeed", "true");
-        System.setProperty("helios.enable.sound", "false");
+        System.setProperty("helios.headless", "false");
+        System.setProperty("helios.fullSpeed", "false");
+        System.setProperty("helios.enable.sound", "true");
         System.setProperty("68k.debug", "false");
         System.setProperty("z80.debug", "false");
+//        System.setProperty("ui.scale.on.thread", "true");
 //        System.setProperty("md.show.vdp.debug.viewer", "true");
     }
 
     protected static SystemProvider createTestProvider() {
         InputProvider.bootstrap();
+        Assertions.assertTrue(testFilePath.toFile().exists(), "File not found: " + testFilePath.toAbsolutePath());
         return SystemLoader.getInstance().handleNewRomFile(testFilePath);
     }
 

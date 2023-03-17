@@ -9,7 +9,7 @@ import s32x.util.S32xUtil;
 import java.nio.ByteBuffer;
 
 import static omegadrive.util.Util.th;
-import static s32x.dict.Sh2Dict.RegSpec.*;
+import static s32x.dict.Sh2Dict.RegSpecSh2.*;
 
 /**
  * Federico Berti
@@ -69,9 +69,9 @@ public class FreeRunningTimer implements S32xUtil.Sh2Device {
         reset();
     }
 
-    public int read(Sh2Dict.RegSpec regSpec, int address, Size size) {
+    public int read(Sh2Dict.RegSpecSh2 regSpec, int address, Size size) {
         assert address == regSpec.addr : th(address) + ", " + th(regSpec.addr);
-        if (verbose) LOG.info("{} FRT read {}: {}", cpu, regSpec.name, size);
+        if (verbose) LOG.info("{} FRT read {}: {}", cpu, regSpec.getName(), size);
         switch (regSpec) {
             case FRT_OCRAB_H -> {
                 int ref = isOcra ? ocra : ocrb;
@@ -86,15 +86,15 @@ public class FreeRunningTimer implements S32xUtil.Sh2Device {
         return S32xUtil.readBuffer(regs, address, size);
     }
 
-    public void write(Sh2Dict.RegSpec regSpec, int pos, int value, Size size) {
+    public void write(Sh2Dict.RegSpecSh2 regSpec, int pos, int value, Size size) {
         assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
-        if (verbose) LOG.info("{} FRT write {}: {} {}", cpu, regSpec.name, th(value), size);
-        S32xUtil.writeBuffer(regs, pos, value, size);
+        if (verbose) LOG.info("{} FRT write {}: {} {}", cpu, regSpec.getName(), th(value), size);
+        S32xUtil.writeBufferRaw(regs, pos, value, size);
         switch (regSpec) {
             case FRT_TOCR -> {
                 assert size == Size.BYTE;
                 isOcra = (value & TOCR_OCRS_MASK) == 0;
-                S32xUtil.writeBuffer(regs, pos, value | TOCR_DEFAULT, size);
+                S32xUtil.writeBufferRaw(regs, pos, value | TOCR_DEFAULT, size);
             }
             case FRT_OCRAB_H, FRT_OCRAB_L -> {
                 int val = S32xUtil.readBuffer(regs, FRT_OCRAB_H.addr, Size.WORD);
@@ -113,7 +113,7 @@ public class FreeRunningTimer implements S32xUtil.Sh2Device {
             case FRT_TIER -> {
                 assert size == Size.BYTE;
                 //x000xxx1
-                S32xUtil.writeBuffer(regs, pos, (value & 0x8e) | 1, size);
+                S32xUtil.writeBufferRaw(regs, pos, (value & 0x8e) | 1, size);
             }
             case FRT_FTCSR -> {
                 assert size == Size.BYTE && value <= 1;

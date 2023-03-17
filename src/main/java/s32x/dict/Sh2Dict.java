@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import s32x.Sh2MMREG;
 import s32x.sh2.device.Sh2DeviceHelper;
 import s32x.util.Md32xRuntimeData;
+import s32x.util.RegSpec;
 import s32x.util.S32xUtil;
 
 import java.nio.ByteBuffer;
@@ -24,11 +25,11 @@ public class Sh2Dict {
     private static final Logger LOG = LogHelper.getLogger(Sh2Dict.class.getSimpleName());
 
     public static Sh2DeviceHelper.Sh2DeviceType[] sh2RegDeviceMapping = new Sh2DeviceHelper.Sh2DeviceType[Sh2MMREG.SH2_REG_SIZE];
-    public static RegSpec[] sh2RegMapping = new RegSpec[Sh2MMREG.SH2_REG_SIZE];
+    public static RegSpecSh2[] sh2RegMapping = new RegSpecSh2[Sh2MMREG.SH2_REG_SIZE];
 
     public static final int BSC_LONG_WRITE_MASK = 0xa55a << 16;
 
-    public enum RegSpec {
+    public enum RegSpecSh2 {
 
         //serial comm interface
         SCI_SMR(0xFE00, "SCI_SMR", Size.BYTE), //Serial mode register
@@ -117,32 +118,32 @@ public class Sh2Dict {
         NONE_FE93(0xFE93, "NONE_FE93", Size.BYTE), //Unknown, vf uses it
         ;
 
-        public final int fullAddress, addr, writeMask;
-        public final String name;
-        public final Size size;
-
         public static final int REG_MASK = Sh2MMREG.SH2_REG_MASK;
 
-        RegSpec(int addr, String name, Size size) {
+        public final RegSpec regSpec;
+        public final int addr;
+
+        RegSpecSh2(int addr, String name, Size size) {
             this(addr, name, size, size.getMask());
         }
 
-        RegSpec(int addr, String name, Size size, int writeMask) {
-            this.fullAddress = addr;
-            this.addr = addr & Sh2MMREG.SH2_REG_MASK;
-            this.name = name;
-            this.size = size;
-            this.writeMask = writeMask;
+        RegSpecSh2(int addr, String name, Size size, int writeMask) {
+            this.regSpec = new RegSpec(name, addr, REG_MASK, writeMask, 0, size);
+            this.addr = regSpec.bufferAddr;
             init();
         }
 
         private void init() {
-            int addrLen = size.getByteSize();
-            String device = name.split("_")[0];
-            for (int i = addr; i < addr + addrLen; i++) {
+            int addrLen = regSpec.regSize.getByteSize();
+            String device = regSpec.name.split("_")[0];
+            for (int i = regSpec.bufferAddr; i < regSpec.bufferAddr + addrLen; i++) {
                 sh2RegMapping[i] = this;
                 sh2RegDeviceMapping[i] = Sh2DeviceHelper.Sh2DeviceType.valueOf(device);
             }
+        }
+
+        public String getName() {
+            return regSpec.name;
         }
     }
 
@@ -176,9 +177,11 @@ public class Sh2Dict {
         LOG.info(s);
     }
 
-    public static int writeBufferWithMask(ByteBuffer regs, RegSpec regSpec) {
-        int val = S32xUtil.readBuffer(regs, regSpec.addr, regSpec.size) & regSpec.writeMask;
-        S32xUtil.writeBuffer(regs, regSpec.addr, val, regSpec.size);
+
+    @Deprecated
+    public static int writeBufferWithMask(ByteBuffer regs, RegSpecSh2 regSh2) {
+        int val = S32xUtil.readBuffer(regs, regSh2.regSpec.bufferAddr, regSh2.regSpec.regSize) & regSh2.regSpec.writableBitMask;
+        S32xUtil.writeBufferRaw(regs, regSh2.regSpec.bufferAddr, val, regSh2.regSpec.regSize);
         return val;
     }
 }

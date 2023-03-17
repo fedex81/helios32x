@@ -17,7 +17,7 @@ import java.nio.ByteBuffer;
 import static omegadrive.util.Util.th;
 import static s32x.sh2.Sh2.flagIMASK;
 import static s32x.util.S32xUtil.readBuffer;
-import static s32x.util.S32xUtil.writeBuffer;
+import static s32x.util.S32xUtil.writeBufferRaw;
 
 /**
  * Federico Berti
@@ -114,9 +114,9 @@ public class J2CoreInterruptsTest extends J2CoreTest {
             public void write(int address, int value, Size size) {
                 long lreg = address & 0xFFFF_FFFFL;
                 if (lreg < romSize) {
-                    writeBuffer(rom, (int) lreg, value, size);
+                    writeBufferRaw(rom, (int) lreg, value, size);
                 } else if (lreg < ramSize) {
-                    writeBuffer(ram, (int) lreg, value, size);
+                    writeBufferRaw(ram, (int) lreg, value, size);
                     checkDone(ram, address);
                 } else if (lreg == 0xABCD0000L) {
                     System.out.println("Test success: " + th(value));

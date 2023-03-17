@@ -362,7 +362,7 @@ public class Sh2PollerTest implements PollSysEventManager.SysEventListener {
     private void setupMemSh2(LocalTestCtx c) {
         int startRom = SH2_START_ROM | c.start;
         ByteBuffer sdram = lc.memory.getMemoryDataCtx().sdram;
-        S32xUtil.writeBuffer(sdram, c.memLoadAddress, (short) (c.matchOrNot ? c.matchVal : c.noMatchVal), c.memLoadSize);
+        S32xUtil.writeBufferRaw(sdram, c.memLoadAddress, (short) (c.matchOrNot ? c.matchVal : c.noMatchVal), c.memLoadSize);
 
         ByteBuffer rom = lc.memory.getMemoryDataCtx().rom;
         for (int i = 0; i < c.opcodes.length; i++) {

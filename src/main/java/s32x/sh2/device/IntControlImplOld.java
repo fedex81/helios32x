@@ -5,7 +5,7 @@ import omegadrive.util.Size;
 import omegadrive.util.Util;
 import org.slf4j.Logger;
 import s32x.dict.S32xDict;
-import s32x.dict.Sh2Dict.RegSpec;
+import s32x.dict.Sh2Dict.RegSpecSh2;
 import s32x.event.PollSysEventManager;
 import s32x.sh2.device.Sh2DeviceHelper.Sh2DeviceType;
 import s32x.sh2.drc.Ow2DrcOptimizer;
@@ -17,7 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static omegadrive.util.Util.*;
-import static s32x.dict.Sh2Dict.RegSpec.*;
+import static s32x.dict.Sh2Dict.RegSpecSh2.*;
 import static s32x.dict.Sh2Dict.writeBufferWithMask;
 import static s32x.sh2.device.Sh2DeviceHelper.Sh2DeviceType.*;
 import static s32x.sh2.drc.Ow2DrcOptimizer.NO_POLLER;
@@ -68,8 +68,8 @@ public class IntControlImplOld implements IntControl {
     }
 
     @Override
-    public void write(RegSpec regSpec, int pos, int value, Size size) {
-        boolean changed = S32xUtil.writeBuffer(regs, pos, value, size);
+    public void write(RegSpecSh2 regSpec, int pos, int value, Size size) {
+        boolean changed = S32xUtil.writeBufferRaw(regs, pos, value, size);
         int val = writeBufferWithMask(regs, regSpec);
         if (!changed) {
             return;
@@ -98,9 +98,9 @@ public class IntControlImplOld implements IntControl {
     }
 
     @Override
-    public int read(RegSpec regSpec, int reg, Size size) {
+    public int read(RegSpecSh2 regSpec, int reg, Size size) {
         if (verbose)
-            LOG.info("{} Read {} value: {} {}", cpu, regSpec.name, Util.th(S32xUtil.readBuffer(regs, reg, size)), size);
+            LOG.info("{} Read {} value: {} {}", cpu, regSpec.getName(), Util.th(S32xUtil.readBuffer(regs, reg, size)), size);
         return S32xUtil.readBuffer(regs, reg, size);
     }
 
@@ -292,7 +292,7 @@ public class IntControlImplOld implements IntControl {
         }
     }
 
-    private void logOnChipIntLevel(RegSpec regSpec, int val) {
+    private void logOnChipIntLevel(RegSpecSh2 regSpec, int val) {
         if (regSpec == INTC_IPRA) {
             LOG.info("{} set IPRA levels, {}:{}, {}:{}, {}:{}", cpu, DIV, val >> 12,
                     DMA, (val >> 8) & 0xF, WDT, (val >> 4) & 0xF);

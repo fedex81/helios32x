@@ -9,7 +9,7 @@ import s32x.util.MarsLauncherHelper;
 import s32x.util.Md32xRuntimeData;
 
 import static omegadrive.util.Util.th;
-import static s32x.dict.Sh2Dict.RegSpec.*;
+import static s32x.dict.Sh2Dict.RegSpecSh2.*;
 
 /**
  * Federico Berti

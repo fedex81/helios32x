@@ -77,7 +77,7 @@ public class Sh2MMREG implements Device {
 
     private void regWrite(int reg, int value, Size size) {
         final int pos = reg & SH2_REG_MASK;
-        final RegSpec regSpec = sh2RegMapping[pos];
+        final RegSpecSh2 regSpec = sh2RegMapping[pos];
         //RegAccessLogger.regAccess(regSpec.toString(), reg, value, size, false);
         if (regSpec == null) {
             LOG.error("{} unknown reg write {}: {} {}", cpu, th(reg), th(value), size);
@@ -110,10 +110,10 @@ public class Sh2MMREG implements Device {
             case NONE:
             default:
                 //logAccess("write", reg, value, size);
-                if (regSpec == RegSpec.NONE_CCR) {
+                if (regSpec == RegSpecSh2.NONE_CCR) {
                     value = handleWriteCCR(regSpec, pos, value, size);
                 }
-                S32xUtil.writeBuffer(regs, pos, value, size);
+                S32xUtil.writeBufferRaw(regs, pos, value, size);
                 break;
         }
     }
@@ -144,7 +144,7 @@ public class Sh2MMREG implements Device {
     public int read(int reg, Size size) {
         assert checkName(reg);
         final int pos = reg & SH2_REG_MASK;
-        RegSpec regSpec = sh2RegMapping[pos];
+        RegSpecSh2 regSpec = sh2RegMapping[pos];
         int res = 0;
         if (regSpec != null) {
             switch (sh2RegDeviceMapping[reg & SH2_REG_MASK]) {
@@ -153,7 +153,7 @@ public class Sh2MMREG implements Device {
                 case DIV -> res = divUnit.read(regSpec, pos, size);
                 case FRT -> {
                     res = S32xUtil.readBuffer(regs, pos, size);
-                    if (regSpec != RegSpec.FRT_TIER && regSpec != RegSpec.FRT_TOCR) {
+                    if (regSpec != RegSpecSh2.FRT_TIER && regSpec != RegSpecSh2.FRT_TOCR) {
                         LOG.error("{} Unexpected FRT reg {} read: {} {}", cpu, regSpec, th(res), size);
                     }
                 }
@@ -172,11 +172,11 @@ public class Sh2MMREG implements Device {
         return res;
     }
 
-    private void handleWriteBSC(RegSpec regSpec, int value, Size size) {
+    private void handleWriteBSC(RegSpecSh2 regSpec, int value, Size size) {
         handleWriteBSC(regSpec, regSpec.addr, value, size);
     }
 
-    private void handleWriteBSC(RegSpec regSpec, int pos, int value, Size size) {
+    private void handleWriteBSC(RegSpecSh2 regSpec, int pos, int value, Size size) {
         assert pos == regSpec.addr : th(pos) + ", " + th(regSpec.addr);
         if (verbose) LOG.info("{} BSC reg {} write: {} {}", cpu, regSpec, th(value), size);
         if (size != Size.LONG || (value & 0xFFFF_0000) != BSC_LONG_WRITE_MASK) {
@@ -184,26 +184,26 @@ public class Sh2MMREG implements Device {
             return;
         }
         value &= 0xFFFF;
-        if (regSpec == RegSpec.BSC_BCR1) {
+        if (regSpec == RegSpecSh2.BSC_BCR1) {
             value |= (cpu.ordinal() & 1) << 15;
         }
         S32xUtil.writeRegBuffer(regSpec, regs, value, size);
     }
 
-    private void handleWriteFRT(RegSpec r, int pos, int v, Size size) {
+    private void handleWriteFRT(RegSpecSh2 r, int pos, int v, Size size) {
 //        assert size == Size.BYTE; //TODO sonic32x plus
         assert pos == r.addr : th(pos) + ", " + th(r.addr);
-        if (r == RegSpec.FRT_TIER) {
+        if (r == RegSpecSh2.FRT_TIER) {
             v = (v & 0x8e) | 1;
-        } else if (r == RegSpec.FRT_TOCR) {
+        } else if (r == RegSpecSh2.FRT_TOCR) {
             v |= 0xe0;
         } else {
 //            LOG.error("{} Unexpected FRT reg {} write: {} {}", cpu, r, th(v) ,size);
         }
-        S32xUtil.writeBuffer(regs, r.addr & SH2_REG_MASK, v, size);
+        S32xUtil.writeBufferRaw(regs, r.addr & SH2_REG_MASK, v, size);
     }
 
-    private int handleWriteCCR(RegSpec r, int pos, int v, Size size) {
+    private int handleWriteCCR(RegSpecSh2 r, int pos, int v, Size size) {
         assert size != Size.LONG;
         if (size == Size.WORD) { //xmen
             LOG.warn("{} {} word write @ {}, val: {}, setting CCR to {}", cpu, r, th(pos), th(v), th(v >>> 8));
@@ -225,7 +225,7 @@ public class Sh2MMREG implements Device {
 
     private void tryWriteBuffer(int reg, int value, Size size) {
         try {
-            S32xUtil.writeBuffer(regs, reg & SH2_REG_MASK, value, size);
+            S32xUtil.writeBufferRaw(regs, reg & SH2_REG_MASK, value, size);
         } catch (Exception e) {
             if (verbose) LOG.error("Exception", e);
         }
@@ -262,14 +262,14 @@ public class Sh2MMREG implements Device {
         wdt.reset();
         dmaC.reset();
         intC.reset();
-        S32xUtil.writeBuffer(regs, RegSpec.FRT_TIER.addr, 0x1, Size.BYTE);
-        S32xUtil.writeBuffer(regs, RegSpec.FRT_TOCR.addr, 0xE0, Size.BYTE);
-        S32xUtil.writeBuffer(regs, RegSpec.FRT_OCRAB_H.addr, 0xFF, Size.BYTE);
-        S32xUtil.writeBuffer(regs, RegSpec.FRT_OCRAB_L.addr, 0xFF, Size.BYTE);
-        handleWriteBSC(RegSpec.BSC_BCR1, BSC_LONG_WRITE_MASK | 0x3f0, Size.LONG);
-        handleWriteBSC(RegSpec.BSC_BCR2, BSC_LONG_WRITE_MASK | 0xFC, Size.LONG);
-        handleWriteBSC(RegSpec.BSC_WCR, BSC_LONG_WRITE_MASK | 0xAAFF, Size.LONG);
-        write(RegSpec.NONE_CCR.addr, 0x10, Size.BYTE); //purge and disable
+        S32xUtil.writeBufferRaw(regs, RegSpecSh2.FRT_TIER.addr, 0x1, Size.BYTE);
+        S32xUtil.writeBufferRaw(regs, RegSpecSh2.FRT_TOCR.addr, 0xE0, Size.BYTE);
+        S32xUtil.writeBufferRaw(regs, RegSpecSh2.FRT_OCRAB_H.addr, 0xFF, Size.BYTE);
+        S32xUtil.writeBufferRaw(regs, RegSpecSh2.FRT_OCRAB_L.addr, 0xFF, Size.BYTE);
+        handleWriteBSC(RegSpecSh2.BSC_BCR1, BSC_LONG_WRITE_MASK | 0x3f0, Size.LONG);
+        handleWriteBSC(RegSpecSh2.BSC_BCR2, BSC_LONG_WRITE_MASK | 0xFC, Size.LONG);
+        handleWriteBSC(RegSpecSh2.BSC_WCR, BSC_LONG_WRITE_MASK | 0xAAFF, Size.LONG);
+        write(RegSpecSh2.NONE_CCR.addr, 0x10, Size.BYTE); //purge and disable
     }
 
     //23 Mhz

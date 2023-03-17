@@ -178,8 +178,8 @@ public final class Sh2BusImpl implements Sh2Bus {
 					if (SDRAM_SYNC_TESTER) {
 						sdramSyncTester.writeSyncCheck(cpuAccess, address, val, size);
 					}
-					hasMemoryChanged = S32xUtil.writeBuffer(sdram, address & S32xDict.SH2_SDRAM_MASK, val, size);
-					S32xMemAccessDelay.addWriteCpuDelay(S32xMemAccessDelay.SDRAM);
+					hasMemoryChanged = S32xUtil.writeBufferRaw(sdram, address & S32xDict.SH2_SDRAM_MASK, val, size);
+                    S32xMemAccessDelay.addWriteCpuDelay(S32xMemAccessDelay.SDRAM);
 				} else if (address >= S32xDict.START_32X_SYSREG && address < S32xDict.END_32X_SYSREG) {
 					s32XMMREG.write(address, val, size);
 				} else if (address >= S32xDict.START_32X_VDPREG && address < S32xDict.END_32X_COLPAL) {

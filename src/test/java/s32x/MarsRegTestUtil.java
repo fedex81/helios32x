@@ -7,7 +7,7 @@ import omegadrive.util.RomHolder;
 import omegadrive.util.Size;
 import org.junit.jupiter.api.Assertions;
 import s32x.bus.S32xBus;
-import s32x.dict.S32xDict;
+import s32x.dict.S32xDict.RegSpecS32x;
 import s32x.util.BiosHolder;
 import s32x.util.BiosHolder.BiosData;
 import s32x.util.MarsLauncherHelper;
@@ -35,12 +35,12 @@ public class MarsRegTestUtil {
     public static final int SH2_FBCR_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + FBCR.addr;
     public static final int SH2_BITMAP_MODE_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + VDP_BITMAP_MODE.addr;
     public static final int SH2_SSCR_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + SSCR.addr;
-    public static final int SH2_INT_MASK = START_32X_SYSREG_CACHE + S32xDict.RegSpecS32x.SH2_INT_MASK.addr;
-    public static final int MD_ADAPTER_CTRL_REG = M68K_START_32X_SYSREG + S32xDict.RegSpecS32x.MD_ADAPTER_CTRL.fullAddress;
+    public static final int SH2_INT_MASK = START_32X_SYSREG_CACHE + RegSpecS32x.SH2_INT_MASK.addr;
+    public static final int MD_ADAPTER_CTRL_REG = M68K_START_32X_SYSREG + MD_ADAPTER_CTRL.regSpec.fullAddr;
     public static int SH2_AFLEN_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + AFLR.addr;
     public static int SH2_AFSAR_OFFSET = START_32X_SYSREG_CACHE + VDP_REG_OFFSET + AFSAR.addr;
-    private static final int MD_DMAC_CTRL = M68K_START_32X_SYSREG + S32xDict.RegSpecS32x.MD_DMAC_CTRL.fullAddress;
-    private static final int SH2_DREQ_CTRL = START_32X_SYSREG_CACHE + S32xDict.RegSpecS32x.SH2_DREQ_CTRL.fullAddress;
+    private static final int MD_DMAC_CTRL = M68K_START_32X_SYSREG + RegSpecS32x.MD_DMAC_CTRL.regSpec.fullAddr;
+    private static final int SH2_DREQ_CTRL = START_32X_SYSREG_CACHE + RegSpecS32x.SH2_DREQ_CTRL.regSpec.fullAddr;
 
     static {
         System.setProperty("32x.show.vdp.debug.viewer", "false");
@@ -204,5 +204,13 @@ public class MarsRegTestUtil {
         Assertions.assertEquals(exp, readBus(lc, SLAVE, SH2_INT_MASK, Size.WORD));
         Assertions.assertEquals(exp, readBus(lc, MASTER, SH2_INT_MASK + 1, Size.BYTE));
         Assertions.assertEquals(exp, readBus(lc, SLAVE, SH2_INT_MASK + 1, Size.BYTE));
+    }
+
+    public static void checkRenBit(Sh2LaunchContext lc, boolean val) {
+        int exp = val ? 1 : 0;
+        Assertions.assertEquals(exp, (readBus(lc, M68K, MD_ADAPTER_CTRL_REG, Size.WORD) >> 7) & 1);
+        Assertions.assertEquals(exp, (readBus(lc, Z80, MD_ADAPTER_CTRL_REG, Size.WORD) >> 7) & 1);
+        Assertions.assertEquals(exp, readBus(lc, M68K, MD_ADAPTER_CTRL_REG + 1, Size.BYTE) >> 7);
+        Assertions.assertEquals(exp, readBus(lc, Z80, MD_ADAPTER_CTRL_REG + 1, Size.BYTE) >> 7);
     }
 }
