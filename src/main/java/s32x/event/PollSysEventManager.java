@@ -118,6 +118,7 @@ public interface PollSysEventManager extends Device {
         if (value == pctx.pollValue) {
             System.out.println("?? Poll stop but value unchanged: " + th(pctx.pollValue) + "," + th(value));
         }
+        //TODO spot proto
         assert value != pctx.pollValue;
         return true;
     }

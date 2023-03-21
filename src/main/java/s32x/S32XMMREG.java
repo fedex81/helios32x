@@ -189,7 +189,6 @@ public class S32XMMREG implements Device {
             }
             default -> {
                 LOG.error("{} unexpected reg write, addr: {}, {} {}", cpu, th(address), th(value), size);
-                writeBufferReg(regContext, regSpec, reg, value, size);
                 regChanged = true;
             }
         }

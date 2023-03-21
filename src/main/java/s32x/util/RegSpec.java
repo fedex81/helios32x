@@ -12,6 +12,9 @@ import static s32x.util.RegSpec.BytePosReg.BYTE_0;
  * Copyright 2023
  */
 public class RegSpec {
+
+    public final static RegSpec INVALID_REG = new RegSpec("INVALID", -1, 0, Size.LONG);
+
     public final String name;
     public final int fullAddr, bufferAddr, addrMask;
     public final Size regSize;
@@ -51,6 +54,7 @@ public class RegSpec {
     public boolean write(ByteBuffer b, BytePosReg bytePosReg, int value, Size size) {
         int bytePos = bytePosReg.ordinal();
         assert bytePos <= sizeIndex;
+        assert this != INVALID_REG;
         return switch (size) {
             case WORD -> {
                 assert regSize != Size.BYTE;

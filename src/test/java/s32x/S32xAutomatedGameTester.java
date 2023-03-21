@@ -52,6 +52,7 @@ public class S32xAutomatedGameTester {
     private static int BOOT_DELAY_MS = 500;
     private static int LOG_CHECK_DELAY_MS = 30;
     private static int AUDIO_DELAY_MS = 25000;
+    private static final int TEN_MEGABYTES = 10 * 1024 * 1024;
 
     private static String romList = "";
     private static List<String> blackList = FileUtil.readFileContent(Paths.get(resFolder.toAbsolutePath().toString()
@@ -160,7 +161,7 @@ public class S32xAutomatedGameTester {
             logFileLen = logFileLength(logFile);
             Util.sleep(750);
             long lenByte = logFileLength(logFile);
-            if (lenByte > 10 * 1024 * 1024) { //10Mbytes
+            if (lenByte > TEN_MEGABYTES) {
                 fileTooBig(logFile);
                 break;
             }
@@ -171,7 +172,7 @@ public class S32xAutomatedGameTester {
         long lenByte = logFileLength(logFile);
         System.out.println("Log file too big: " + lenByte);
         try {
-            FileChannel.open(logFile.toPath(), StandardOpenOption.WRITE).truncate(0).close();
+            FileChannel.open(logFile.toPath(), StandardOpenOption.WRITE).truncate(TEN_MEGABYTES).close();
             lenByte = logFileLength(logFile);
             System.out.println("Truncating log file, size: " + lenByte);
         } catch (IOException e) {

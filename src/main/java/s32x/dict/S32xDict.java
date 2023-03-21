@@ -108,13 +108,11 @@ public class S32xDict {
 
         //defaults to 16 bit wide register
         RegSpecS32x(S32xRegType deviceType, int addr, int writeAndMask, int writeOrMask) {
-            this.regSpec = new RegSpec(name(), addr, (deviceType != VDP ? S32X_REG_MASK : S32X_VDP_REG_MASK),
-                    writeAndMask, writeOrMask, Size.WORD);
-            this.addr = regSpec.bufferAddr;
             this.deviceType = deviceType;
             this.deviceAccessTypeDelay = deviceType == VDP ? S32xMemAccessDelay.VDP_REG : S32xMemAccessDelay.SYS_REG;
-            this.regCpuType = deviceType == NONE || deviceType == COMM || deviceType == PWM || deviceType == VDP ? S32xRegCpuType.REG_BOTH :
-                    S32xRegCpuType.valueOf("REG_" + name().split("_")[0]);
+            this.regCpuType = getCpuTypeFromDevice(deviceType, name());
+            this.regSpec = createRegSpec(addr, writeAndMask, writeOrMask);
+            this.addr = regSpec.bufferAddr;
             init();
         }
 
@@ -124,6 +122,12 @@ public class S32xDict {
 
         RegSpecS32x(S32xRegType deviceType, int addr, int writeAndMask) {
             this(deviceType, addr, writeAndMask, 0);
+        }
+
+        private RegSpec createRegSpec(int addr, int writeAndMask, int writeOrMask) {
+            return deviceType == NONE ? RegSpec.INVALID_REG :
+                    new RegSpec(name(), addr, (deviceType != VDP ? S32X_REG_MASK : S32X_VDP_REG_MASK),
+                            writeAndMask, writeOrMask, Size.WORD);
         }
 
         private void init() {
@@ -148,6 +152,11 @@ public class S32xDict {
         public String getName() {
             return regSpec.name;
         }
+    }
+
+    private static S32xRegCpuType getCpuTypeFromDevice(S32xRegType deviceType, String name) {
+        return deviceType == NONE || deviceType == COMM || deviceType == PWM || deviceType == VDP ? S32xRegCpuType.REG_BOTH :
+                S32xRegCpuType.valueOf("REG_" + name.split("_")[0]);
     }
 
     public static final int P32XS_FM = (1 << 15);

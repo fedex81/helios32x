@@ -1,5 +1,6 @@
 package s32x.pwm;
 
+import com.google.common.primitives.Ints;
 import omegadrive.sound.PwmProvider;
 import omegadrive.util.Fifo;
 import omegadrive.util.LogHelper;
@@ -280,10 +281,8 @@ public class Pwm implements StepDevice {
             if (verbose) LOG.warn("PWM FIFO push when fifo full: {}", th(value));
             return;
         }
-        //Darxide does this
-        if (value < SAMPLE_LIMIT_DELTA || value > 0xFFF - SAMPLE_LIMIT_DELTA) {
-            return;
-        }
+        //Darxide, Mars Check v01 do this
+        value = Ints.constrainToRange(value, SAMPLE_LIMIT_DELTA, 0xFFF - SAMPLE_LIMIT_DELTA);
         assert value >= 0;
         fifo.push(Util.getFromIntegerCache((value - 1) & 0xFFF));
         updateFifoRegs();
