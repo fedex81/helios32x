@@ -1,3 +1,28 @@
+## 23.0322
+32x: rewrite reg handling
+32x: pwm, support l/r channel mapping
+32x: pwm, fix init value for the interrupt counter
+32x: savestate handling, update lib
+32x: sh2 should read rom via md mapper (if any)
+32x: add framebuffer mirror to sh2 memory map
+32x: add z80 delays when accessing sh2 side
+32x: add debug mem view
+32x: when mdVdp is set as H32, stretch to H40 to match s32x
+32x: fix RLE, draw all pixels
+32x: fix direct color mode in NTSC V28
+32x: fbcr, int_mask write fixes, improve handling of illegal insts
+32x: only check FM bit on reads when assertions are enabled
+helios: migrate Size enum to use ints
+sh2: fix sci protocol + fix for mars check sci
+sh2: drc fix trapa, trapa is a branch instruction
+sh2: fix sci for mars check, add test
+sh2: run DmaC when polling is active
+sh2: let illegal inst exception propagate
+sh2: handle word-writes to CCR
+sh2: warn on overlapping interrupts
+sh2: dma autoReq shouldn't stop a dma dreq in progress
+sh2: fix bugs on polling, activation
+
 ## 22.1206
 * default to DRC, cacheOn
 * does not require official bioses, uses homebrew

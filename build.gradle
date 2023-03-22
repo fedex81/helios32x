@@ -94,11 +94,6 @@ task copyRes {
     }
     copy {
         from("res")
-        include "*.properties"
-        into "$buildDir/packageDir"
-    }
-    copy {
-        from("res")
         exclude "misc/**", "roms/**"
         into "$buildDir/packageDir/res"
     }
@@ -137,10 +132,11 @@ task writeToFile {
             ["-XX:AutoBoxCacheMax=65536", "-XX:-DontCompileHugeMethods", "-XX:+AlwaysCompileLoopMethods"]
     //win: default to busy wait
     List<String> winOpts = ["-Dhelios.busy.wait=true"]
-    List<String> sampleBase = [ "java",
-                                "-Dtinylog.configuration=./tinylog.properties",
-                                "-Djinput.enable=true -Djinput.native.location=lib",
-                                "-jar", "$jarName"] as String[]
+    List<String> sampleBase = ["java",
+                               "-Dkey.config.file=key.config.1p",
+                               "-Dtinylog.configuration=./res/tinylog.properties",
+                               "-Djinput.enable=true -Djinput.native.location=lib",
+                               "-jar", "$jarName"] as String[]
     sampleBase.addAll(1, javaAdvOpts)
     List<String> sampleUx = new ArrayList<>(sampleBase)
     sampleUx.add("\"\$@\"" + "\n")
